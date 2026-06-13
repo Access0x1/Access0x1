@@ -10,12 +10,13 @@ export PATH := $(HOME)/.foundry/bin:$(PATH)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install build test test-gas test-scenario coverage snapshot fmt fmt-check clean \
-        gate aderyn slither audit anvil \
+.PHONY: help install build test test-gas test-scenario coverage coverage-lcov snapshot \
+        fmt fmt-check clean sizes storage-layout \
+        gate aderyn slither analyze mutation halmos audit anvil \
         deploy-dry deploy-local drive-local deploy-arc deploy-base deploy-zksync deploy-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
         vyper-build vyper-test \
-        cre-build cre-sim all
+        cre-build cre-sim zksync-build all
 
 help: ## Show every command
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -43,8 +44,24 @@ test-scenario: ## Run ONLY the human-style end-to-end scenario suite (test/scena
 coverage: ## Test coverage over src/
 	forge coverage
 
+# Coverage GATE: emit a machine-readable lcov.info (gitignored) + a summary table. DOCUMENTED
+# MINIMUM: 90% line coverage on the money contracts (Router / SessionGrant / the commerce quartet).
+# The suite sits well above that today; this target makes the number checkable so a regression shows.
+coverage-lcov: ## Coverage as lcov.info (gitignored) + summary — documented floor: 90% lines on money paths
+	forge coverage --report lcov --report summary
+
 snapshot: ## Regenerate the gas snapshot (.gas-snapshot)
 	forge snapshot
+
+# EIP-170 runtime-size check: every contract must be < 24576 bytes of deployed bytecode. `--sizes`
+# prints the runtime + init size per contract and FAILS the build if any runtime exceeds the limit.
+sizes: ## forge build --sizes — EIP-170 24KB runtime-size check (fails if any contract is over)
+	forge build --sizes
+
+# Auditors verify the storage layout of money contracts (slot packing, no accidental collisions, no
+# unexpected re-ordering across versions). Regenerate docs/STORAGE-LAYOUT.md from forge inspect.
+storage-layout: ## Regenerate docs/STORAGE-LAYOUT.md from `forge inspect <C> storage-layout`
+	@bash script/storage-layout.sh
 
 fmt: ## Format the Solidity (forge fmt)
 	forge fmt
@@ -66,8 +83,57 @@ aderyn: ## Static analysis (aderyn)
 slither: ## Static analysis (slither)
 	slither .
 
-audit: aderyn slither coverage ## Full audit pass — then see audit/REPORT.md + audit/FINDINGS.md
-	@echo "==> audit done — read audit/REPORT.md + audit/FINDINGS.md"
+# Static-analysis UMBRELLA beyond slither+aderyn. Runs 4naly3er (the Cyfrin/Solodit go-to gas+QA
+# pass) via npx when reachable; no-ops gracefully if the network/tool is unavailable, then always
+# runs the two installed analysers so `make analyze` is never a dead end.
+analyze: ## Umbrella static pass: 4naly3er (npx, best-effort) + aderyn + slither
+	@echo "==> 4naly3er (npx @picodes/4naly3er; best-effort, needs network)"
+	@npx --yes @picodes/4naly3er@latest analyze src 2>/dev/null \
+		&& echo "==> 4naly3er OK (report.md written)" \
+		|| echo "4naly3er unavailable (offline or unpublished tag) — skipping; run the two below"
+	@$(MAKE) --no-print-directory aderyn
+	@$(MAKE) --no-print-directory slither
+
+# MUTATION TESTING — "test the tests." Seeds faults into src/ and re-runs the suite; a SURVIVING
+# mutant is a gap in the tests. Tries gambit (Certora) first, then vertigo-rs; no-ops with a clear
+# message + install hint if neither is present (mirrors the cre-build style).
+mutation: ## Mutation testing (gambit or vertigo-rs); no-op with install hint if neither installed
+	@if command -v gambit >/dev/null 2>&1; then \
+		echo "==> gambit mutate (Certora) over src/"; \
+		gambit mutate --json gambit.conf.json 2>/dev/null || gambit mutate --solc-binary solc src/*.sol; \
+	elif command -v vertigo-rs >/dev/null 2>&1; then \
+		echo "==> vertigo-rs run (mutation score over the forge suite)"; \
+		vertigo-rs run; \
+	else \
+		echo "mutation: no engine installed. Install ONE of:"; \
+		echo "  cargo install --git https://github.com/Certora/gambit  (Certora Gambit)"; \
+		echo "  pipx install vertigo-rs                                 (Vertigo-rs)"; \
+		echo "then re-run 'make mutation'. See audit/CHECKLIST.md for the documented target."; \
+	fi
+
+# HALMOS symbolic execution: prove the money invariants (fee-split conservation, never-negative
+# budget) for ALL inputs, not just fuzz samples. Tries to install via uv/pip if absent, then runs the
+# check_-prefixed proofs in test/symbolic/. No-ops with a clear message if it cannot be installed.
+halmos: ## Symbolic execution (Halmos) over test/symbolic/; installs via uv/pip if absent
+	@if ! command -v halmos >/dev/null 2>&1; then \
+		echo "==> halmos not found — attempting 'uv tool install halmos'"; \
+		(command -v uv >/dev/null 2>&1 && uv tool install halmos) \
+			|| (command -v pip3 >/dev/null 2>&1 && pip3 install --user halmos) \
+			|| true; \
+	fi
+	@if command -v halmos >/dev/null 2>&1; then \
+		echo "==> halmos over test/symbolic/ (functions prefixed check_)"; \
+		forge build --ast >/dev/null 2>&1; \
+		halmos --match-contract 'FeeSplitSymbolic|SessionBudgetSymbolic'; \
+	else \
+		echo "halmos not installed and auto-install failed (offline?). Install:"; \
+		echo "  uv tool install halmos    (or)    pip3 install --user halmos"; \
+		echo "then re-run 'make halmos'. The check_ proofs live in test/symbolic/."; \
+	fi
+
+audit: aderyn slither coverage sizes ## Full audit pass — then see audit/REPORT.md + FINDINGS.md + CHECKLIST.md
+	@echo "==> core audit pass done. Optional deeper passes: make halmos | make mutation | make analyze"
+	@echo "==> read audit/REPORT.md + audit/FINDINGS.md + audit/CHECKLIST.md"
 
 # ── Local chain ───────────────────────────────────────────────────────────────────
 anvil: ## Run a local anvil node
@@ -93,6 +159,21 @@ deploy-base: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 
 deploy-zksync: ## Deploy to zkSync Sepolia (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --zksync -vvvv
+
+# Compile against the zkEVM (zksolc) — the ONLY way to catch zkSync-specific build/size/opcode issues.
+# `forge test` runs the EVM, not the zkEVM (see docs/ZKSYNC-TESTING.md): EVM-green != zkSync-green.
+# Requires the foundry-zksync fork (foundryup-zksync); no-ops with a clear message if --zksync is
+# unsupported by the installed forge.
+zksync-build: ## forge build --zksync (zksolc) — zkEVM build check; see docs/ZKSYNC-TESTING.md
+	@if forge build --zksync --help >/dev/null 2>&1; then \
+		echo "==> forge build --zksync (zksolc); EVM-green != zkSync-green — this is the zkEVM build"; \
+		forge build --zksync; \
+	else \
+		echo "this forge has no --zksync (not the foundry-zksync fork). Install:"; \
+		echo "  curl -L https://raw.githubusercontent.com/matter-labs/foundry-zksync/main/install-foundry-zksync | bash"; \
+		echo "  foundryup-zksync"; \
+		echo "then re-run 'make zksync-build'. See docs/ZKSYNC-TESTING.md."; \
+	fi
 
 # ── Web app (Next.js) ─────────────────────────────────────────────────────────────
 web-install: ## Install the web app deps
