@@ -138,7 +138,7 @@ contract SessionGrant is ISessionGrant, EIP712 {
         external
         returns (bytes32 sessionId)
     {
-        return _open(msg.sender, delegate, budgetCap, expiry);
+        return _open(msg.sender, delegate, budgetCap, expiry, _nonces[msg.sender]);
     }
 
     /// @inheritdoc ISessionGrant
@@ -156,28 +156,52 @@ contract SessionGrant is ISessionGrant, EIP712 {
         if (owner == address(0)) revert SessionGrant__ZeroAddress();
         uint256 nonce = _nonces[owner];
         bytes32 digest = grantDigest(owner, delegate, budgetCap, expiry, nonce);
+        // {_isValidSignatureNow} can make ONE external call (the ERC-6492 factory prepare). A malicious
+        // factory could re-enter {openSessionFor}/{openSession} here and advance the owner nonce before
+        // we reach {_open}. We therefore pin the session to the EXACT nonce the signature authorized
+        // (`nonce`, read above) and {_open} reverts if the live nonce no longer matches — so a captured
+        // grant can never be applied at a nonce it did not sign for. See {_open} for the re-entrancy
+        // guard and test/attack/SessionGrant.attack.t.sol::test_attack_reentrancy_6492_cannotDoubleOpen.
         if (!_isValidSignatureNow(owner, digest, signature)) revert SessionGrant__BadSignature();
-        return _open(owner, delegate, budgetCap, expiry);
+        return _open(owner, delegate, budgetCap, expiry, nonce);
     }
 
-    /// @dev The shared open path. Validates parameters, consumes the owner nonce (replay guard),
-    ///      derives the deterministic session id, rejects a collision, writes the session (effects),
-    ///      and emits. No external call after the (already-performed) signature check, so no reentrancy
-    ///      surface — this is a pure-bookkeeping write.
-    /// @param owner     The granting account (caller in the direct path, signer in the relayed path).
-    /// @param delegate  The authorized spender (non-zero, distinct from owner).
-    /// @param budgetCap The total spendable budget (non-zero).
-    /// @param expiry    The future expiry.
+    /// @dev The shared open path. Validates parameters, asserts the owner nonce still equals the one the
+    ///      caller validated against (the re-entrancy guard — see below), consumes that nonce (replay
+    ///      guard), derives the deterministic session id, rejects a collision, writes the session
+    ///      (effects), and emits.
+    /// @dev RE-ENTRANCY. The ONLY external call in this contract is the ERC-6492 factory prepare inside
+    ///      {_isValidSignatureNow}, fired by {openSessionFor} BEFORE this write. A malicious factory can
+    ///      re-enter and advance `_nonces[owner]`; if we re-read the nonce here we would open a session
+    ///      at a nonce the signature never authorized (a double-open off one grant). Instead the caller
+    ///      passes the nonce it VALIDATED, and we revert {SessionExpired}-style via the nonce-mismatch
+    ///      check if the live nonce has moved. Combined with the {SessionExists} collision guard, one
+    ///      authorization opens exactly one session. CEI holds: no external call after this point.
+    /// @param owner         The granting account (caller in the direct path, signer in the relayed path).
+    /// @param delegate      The authorized spender (non-zero, distinct from owner).
+    /// @param budgetCap     The total spendable budget (non-zero).
+    /// @param expiry        The future expiry.
+    /// @param expectedNonce The nonce the signature was validated against (== `_nonces[owner]` at the
+    ///                      call site); the session is pinned to this nonce and a mismatch reverts.
     /// @return sessionId The opened session id.
-    function _open(address owner, address delegate, uint256 budgetCap, uint64 expiry)
-        private
-        returns (bytes32 sessionId)
-    {
+    function _open(
+        address owner,
+        address delegate,
+        uint256 budgetCap,
+        uint64 expiry,
+        uint256 expectedNonce
+    ) private returns (bytes32 sessionId) {
         if (delegate == address(0)) revert SessionGrant__ZeroAddress();
         if (budgetCap == 0) revert SessionGrant__ZeroBudget();
         if (expiry <= block.timestamp) revert SessionGrant__ExpiryInPast(expiry, block.timestamp);
 
         uint256 nonce = _nonces[owner];
+        // Re-entrancy guard: if a re-entrant open advanced the nonce after the signature was validated
+        // against `expectedNonce`, refuse — the authorization is only valid at the nonce it pinned.
+        if (nonce != expectedNonce) {
+            revert SessionGrant__NonceMismatch(owner, expectedNonce, nonce);
+        }
+
         sessionId = _sessionId(owner, delegate, nonce);
         // A live or historic session already occupies this id (only possible if the same owner reuses
         // a delegate before the nonce advanced — it cannot, since we bump the nonce here — but guard
