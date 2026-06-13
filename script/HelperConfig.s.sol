@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Script } from "forge-std/Script.sol";
 import { MockV3Aggregator } from "../test/mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../test/mocks/MockUSDC.sol";
+import { ChainRegistry } from "../src/ChainRegistry.sol";
 
 /// @title  HelperConfig
 /// @author Access0x1
@@ -22,6 +23,7 @@ contract HelperConfig is Script {
         address nativeUsdFeed; // Chainlink native/USD feed (setPriceFeed[address(0)])
         address usdc; // settlement ERC-20 to allowlist
         address usdcUsdFeed; // Chainlink USDC/USD feed
+        address chainRegistry; // the ChainRegistry sidecar for SDK/cross-chain reads (additive)
     }
 
     /// @notice The chain id of a local Anvil/Foundry node.
@@ -44,26 +46,29 @@ contract HelperConfig is Script {
     }
 
     /// @dev Live chains (Arc / Base / zkSync …): read every address from the environment so nothing
-    ///      is guessed. `treasury` is required; feed/token addresses are optional here and wired by
-    ///      the configure step once the booth/docs values are known.
+    ///      is guessed. `treasury` is required; feed/token/registry addresses are optional here and
+    ///      wired by the configure step once the booth/docs values are known. `CHAIN_REGISTRY` is
+    ///      the already-deployed `ChainRegistry` (from `DeployChainRegistry`) on this chain.
     function _liveConfigFromEnv() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("PLATFORM_TREASURY"),
             platformFeeBps: uint16(vm.envOr("PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))),
             nativeUsdFeed: vm.envOr("NATIVE_USD_FEED", address(0)),
             usdc: vm.envOr("USDC_ADDRESS", address(0)),
-            usdcUsdFeed: vm.envOr("USDC_USD_FEED", address(0))
+            usdcUsdFeed: vm.envOr("USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("CHAIN_REGISTRY", address(0))
         });
     }
 
-    /// @dev Local Anvil: deploy mock feeds ($2000 native, $1 USDC) + a mock USDC, and use the
-    ///      default sender as treasury. Fully self-contained — `forge script` runs end-to-end with
-    ///      no RPC, no env, no real addresses.
+    /// @dev Local Anvil: deploy mock feeds ($2000 native, $1 USDC) + a mock USDC + a fresh
+    ///      `ChainRegistry` (owned by the sender) in the same broadcast block, so the whole flow is
+    ///      self-contained — `forge script` runs end-to-end with no RPC, no env, no real addresses.
     function _localConfigWithMocks() internal returns (NetworkConfig memory) {
         vm.startBroadcast();
         MockV3Aggregator nativeFeed = new MockV3Aggregator(8, 2000e8);
         MockV3Aggregator usdcFeed = new MockV3Aggregator(8, 1e8);
         MockUSDC usdc = new MockUSDC();
+        ChainRegistry chainRegistry = new ChainRegistry(msg.sender);
         vm.stopBroadcast();
 
         return NetworkConfig({
@@ -71,7 +76,8 @@ contract HelperConfig is Script {
             platformFeeBps: DEFAULT_PLATFORM_FEE_BPS,
             nativeUsdFeed: address(nativeFeed),
             usdc: address(usdc),
-            usdcUsdFeed: address(usdcFeed)
+            usdcUsdFeed: address(usdcFeed),
+            chainRegistry: address(chainRegistry)
         });
     }
 }
