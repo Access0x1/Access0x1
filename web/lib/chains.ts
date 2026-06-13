@@ -90,3 +90,31 @@ export function getRpcUrl(chainId: number): string {
   const chain = getChain(chainId)
   return chain.rpcUrls.default.http[0]
 }
+
+/**
+ * Per-chain block-explorer BASE url (no trailing slash). The SINGLE source of
+ * truth for where a tx hash links. Only real, verifiable testnet explorers go
+ * here (law #4 — truth in copy):
+ *   - Base Sepolia (84532): https://sepolia.basescan.org (matches viem's def)
+ *   - ZKsync Sepolia (300): https://sepolia.explorer.zksync.io (matches viem's def)
+ *
+ * Arc Testnet is INTENTIONALLY ABSENT: its explorer is not booth-confirmed, so
+ * we leave it undefined and render the hash as plain text rather than invent a
+ * link — mirroring the "confirm at booth" doctrine for the Arc RPC above.
+ */
+const EXPLORER_BASE_URLS: Readonly<Record<number, string>> = {
+  [baseSepolia.id]: 'https://sepolia.basescan.org',
+  [zksyncSepoliaTestnet.id]: 'https://sepolia.explorer.zksync.io',
+}
+
+/**
+ * Build the block-explorer URL for a transaction hash on a given chain, or
+ * `undefined` when no verifiable explorer is known for that chain (e.g. Arc).
+ * Callers MUST render the hash as plain text when this returns undefined —
+ * never an invented or broken link.
+ */
+export function explorerTxUrl(chainId: number, hash: string): string | undefined {
+  const base = EXPLORER_BASE_URLS[chainId]
+  if (!base) return undefined
+  return `${base}/tx/${hash}`
+}

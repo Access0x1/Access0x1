@@ -6,6 +6,7 @@ import { getDefaultChainId, getRouterAddress } from '@/lib/chains'
 import { getPublicClient } from '@/lib/wallet'
 import { amount8ToUsd, formatTokenAmount } from '@/lib/quote'
 import { ConnectButton } from '@/components/ConnectButton'
+import { TxHashLink } from '@/components/TxHashLink'
 
 const USDC_DECIMALS = 6
 
@@ -26,6 +27,13 @@ function short(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`
 }
 
+/** Human "updated Ns ago" / "updated Nm ago" from a millisecond timestamp. */
+function updatedAgo(updatedAt: number, now: number): string {
+  const secs = Math.max(0, Math.floor((now - updatedAt) / 1000))
+  if (secs < 60) return `updated ${secs}s ago`
+  return `updated ${Math.floor(secs / 60)}m ago`
+}
+
 /**
  * Merchant receipt feed: the last 50 PaymentReceived events for the merchantId
  * stored at onboard time (localStorage), filtered by merchantId. Minimal:
@@ -37,6 +45,7 @@ export function DashboardView(): ReactNode {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null)
 
   useEffect(() => {
     try {
@@ -72,6 +81,7 @@ export function DashboardView(): ReactNode {
           block: log.blockNumber,
         }))
       setRows(mapped)
+      setLastUpdated(Date.now())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load receipts.')
     } finally {
@@ -83,12 +93,36 @@ export function DashboardView(): ReactNode {
     void load()
   }, [load])
 
+  // Tick once a second so the "updated Ns ago" label stays current.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (lastUpdated === null) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [lastUpdated])
+
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-16">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-ink">Receipts</h1>
         <ConnectButton />
       </header>
+
+      {merchantId !== null ? (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+          {lastUpdated !== null ? (
+            <span className="text-xs text-neutral-400">{updatedAgo(lastUpdated, now)}</span>
+          ) : null}
+        </div>
+      ) : null}
 
       {merchantId === null ? (
         <p className="text-sm text-neutral-500">
@@ -110,6 +144,7 @@ export function DashboardView(): ReactNode {
                   <th className="py-2 font-medium">Amount</th>
                   <th className="py-2 font-medium">USD</th>
                   <th className="py-2 font-medium">Buyer</th>
+                  <th className="py-2 font-medium">Tx</th>
                 </tr>
               </thead>
               <tbody>
@@ -119,6 +154,13 @@ export function DashboardView(): ReactNode {
                     <td className="py-2">{formatTokenAmount(r.gross, USDC_DECIMALS)} USDC</td>
                     <td className="py-2">${amount8ToUsd(r.usd8)}</td>
                     <td className="py-2 font-mono text-xs">{short(r.buyer)}</td>
+                    <td className="py-2 font-mono text-xs">
+                      <TxHashLink
+                        chainId={chainId}
+                        hash={r.txHash}
+                        className="font-mono text-xs text-rail underline-offset-2 hover:underline"
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>

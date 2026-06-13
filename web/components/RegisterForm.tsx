@@ -27,7 +27,7 @@ export function RegisterForm({
 }: {
   onRegistered: (result: RegisterResult) => void
 }): ReactNode {
-  const { primaryWallet } = useDynamicContext()
+  const { primaryWallet, setShowAuthFlow } = useDynamicContext()
   const [name, setName] = useState('')
   const [priceUsd, setPriceUsd] = useState('29.00')
   const [feeRecipient, setFeeRecipient] = useState('')
@@ -138,13 +138,23 @@ export function RegisterForm({
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <button
-        type="submit"
-        disabled={submitting || !primaryWallet}
-        className="rounded-lg bg-rail px-4 py-2.5 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {submitting ? 'Registering…' : 'Create payment link'}
-      </button>
+      {primaryWallet ? (
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-lg bg-rail px-4 py-2.5 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {submitting ? 'Registering…' : 'Create payment link'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowAuthFlow(true)}
+          className="rounded-lg bg-rail px-4 py-2.5 font-medium text-white transition-opacity hover:opacity-90"
+        >
+          Connect wallet to continue
+        </button>
+      )}
     </form>
   )
 }
