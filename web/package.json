@@ -1,0 +1,29 @@
+{
+  "name": "@access0x1/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Access0x1 seller/facilitator surface — x402-protected priced endpoints, Circle Nanopayments gas-free settlement on Arc Testnet, and the buyer demo loop. The micro-payment hot path; the WITHDRAW leg (Access0x1Router.payToken + Unlink) is a separate unit.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo": "tsx scripts/demo-loop.mts",
+    "fund": "tsx scripts/fund-gateway.mts"
+  },
+  "dependencies": {
+    "@circle-fin/x402-batching": "3.0.4",
+    "next": "15.3.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "viem": "2.31.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "@types/react": "19.1.2",
+    "tsx": "4.19.4",
+    "typescript": "5.8.3",
+    "vitest": "3.1.3"
+  }
+}
