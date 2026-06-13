@@ -41,9 +41,12 @@ does. **Logic, presentation, delivery, efficiency — wow on ALL FOUR or keep go
 - Hit a blocker → surface it the instant you hit it, with the ONE thing that clears it.
 
 ## 2 — THE LAWS (unbreakable, even at hour 35)
-- **One idea per commit** (~5 lines). The message narrates the WHY. **tmpfile `-F`
-  only — never `-m`, never backticks** (the shell mangles it; the guard blocks it).
-  Message needs "and" → it is two commits. No `wip`, no `fix stuff`.
+- **One idea per commit** — a whole function + its NatSpec, a whole test, a focused
+  fix. That's **typically 20–80 lines, not 5**: the IDEA is the unit, not a line
+  count — never split a coherent function or pad to hit a number. The message
+  narrates the WHY. **tmpfile `-F` only — never `-m`, never backticks** (the shell
+  mangles it; the guard blocks it). If the message needs "and", it is two commits.
+  No `wip`, no `fix stuff`.
 - **Green every step.** `forge build && forge test && forge fmt --check` (web:
   typecheck + lint + build) before EVERY commit. **Never `--no-verify`. Never weaken
   a test to pass.** Red is a stop-the-line event.

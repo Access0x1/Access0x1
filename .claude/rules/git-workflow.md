@@ -5,8 +5,10 @@ history Sunday should watch the system grow one deliberate move at a time.
 
 1. **One idea per commit** — one function, one test, one fix, one doc section.
    If the message needs "and", split it.
-2. **Small diffs** — target ~5 lines; a coherent function may run longer, but the
-   moment a diff stops fitting on a screen it's two commits.
+2. **One coherent idea, right-sized** — a whole function + NatSpec, a whole test,
+   a focused fix; **typically 20–80 lines, not 5**. The IDEA is the unit, not a
+   line count — never split a coherent function or pad to hit a number. A diff
+   carrying two ideas is two commits.
 3. **Active cadence, no batches** — commit minutes apart as work happens, and
    PUSH every commit to its public branch within minutes. Cadence is measured
    on pushed branch commits; a quiet repo (all branches) is a bug. (1inch
