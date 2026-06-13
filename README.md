@@ -33,13 +33,15 @@
 [Owned ERCs](#the-owned-ercs) •
 [Security](#security-posture) •
 [Gas](docs/GAS.md) •
+[Sponsors](#built-with-our-sponsors) •
 [License](#license)
 
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. Targets the **Arc, Base Sepolia, and zkSync Sepolia**
-> testnets — there are **no mainnet deployments and no mainnet claims** here.
+> and on a public branch from commit #1. **Arc (Circle) is the lead settlement chain**, with
+> Base Sepolia and zkSync Sepolia as bridge targets — there are **no mainnet deployments and no
+> mainnet claims** here.
 
 ---
 
@@ -59,6 +61,12 @@ settlement — all off the money path by construction.
 
 ### Why it's different
 
+- **Gas-free USDC checkout on Arc — by default.** The demo checkout connects to **Arc Testnet**
+  out of the box (the app's default chain), where **Circle USDC is the native gas token**. A buyer
+  pays in USDC and settles in USDC: there is **no separate gas coin to top up and no Paymaster to
+  run** — the Arc + Circle stack does that work, so checkout is gas-free with zero extra contract
+  code on our side. The same `payToken(USDC)` path also runs on Base Sepolia and zkSync Sepolia as
+  bridge targets.
 - **Zero custody.** Settlement is atomic: pull → split → push, all in one tx. The router's
   steady-state balance is zero; the only native it can hold is value owed back through `claimRescue`
   when a payee contract rejects a push (the receipt still stands — funds are never stuck).
@@ -258,8 +266,51 @@ Gas hot-paths are documented in [`docs/GAS.md`](docs/GAS.md).
 ## Stack
 
 Foundry · Solidity 0.8.28 (EVM cancun, `via_ir`, optimizer 200 runs) · OpenZeppelin 5.x ·
-Chainlink contracts 1.5.0 (Data Feeds + CRE). Targets the Arc, Base Sepolia, and zkSync Sepolia
-**testnets**.
+Chainlink contracts 1.5.0 (Data Feeds + CRE). **Arc (Circle) is the lead settlement chain**;
+Base Sepolia and zkSync Sepolia are bridge targets — all **testnets**.
+
+---
+
+## Built with our sponsors
+
+Access0x1 is a thin layer of our own code on top of sponsor infrastructure that did the hard parts.
+Each integration below is real and lives in this repo — this is an honest account of what each
+sponsor let us *not* build, not a sponsor wall.
+
+- **Circle + Arc — gas-free USDC settlement, and the easiest win of the build.** On
+  [Arc](web/lib/chains.ts), **USDC is the native gas token** (the `0x3600…0000` system contract in
+  [`web/lib/arc-constants.ts`](web/lib/arc-constants.ts)). Because the buyer pays in USDC *and* pays
+  gas in USDC, our gas-free checkout needed **zero Paymaster code** — Arc's Circle Nanopayments layer
+  already makes the payer gas-free, so we just defaulted the app to Arc and called `payToken(USDC)`.
+  The Circle Gateway / x402 seam ([`web/app/api/gateway/*`](web/app/api/gateway)) lets a seller read
+  and withdraw their settled USDC balance. The sponsor stack did the hard part; we wrote a chain
+  config and a pay button.
+- **Chainlink — USD pricing in one in-tx call.** `quote()` reads a Chainlink `<token>/USD` Data Feed
+  *inside the settlement transaction* (through [`OracleLib`](src/libraries/OracleLib.sol)'s staleness
+  guard), so the price that settles is the price on-chain, not a frontend guess. One call gave us
+  trustworthy USD→USDC pricing for free. (Chainlink CRE also backs the off-money-path audit consumer,
+  [`Access0x1Receiver`](src/Access0x1Receiver.sol).)
+- **Dynamic — an email login became an invisible wallet.** [`web/lib/dynamic.ts`](web/lib/dynamic.ts)
+  and the [providers](web/app/providers.tsx) turn a normal email sign-in into an embedded wallet, so a
+  buyer who has never held crypto can still complete a USDC checkout — no seed phrase, no extension.
+- **Unlink — confidential payouts.** [`web/lib/unlink`](web/lib/unlink) adds a private withdrawal leg
+  so a merchant can shield and move their settled USDC without exposing the amount on a public ledger,
+  off the money path by construction.
+- **World ID — verified-human checkout.** [`web/components/WorldIdGate.tsx`](web/components/WorldIdGate.tsx)
+  lets a merchant require a one-tap proof-of-personhood before pay. The gate sits *in front of*
+  settlement and never touches the money path — a misconfigured gate degrades to standard checkout
+  rather than blocking a payment.
+- **ENS — human-readable names on both ends.** [`web/lib/ens.ts`](web/lib/ens.ts) resolves an ENS name
+  to the merchant's payout address *on the settlement chain* (always passing the chain's `coinType`),
+  so both the brand and the payout destination can be a name instead of a hex string.
+- **Walrus — an un-takedownable checkout.** [`web/lib/walrus.ts`](web/lib/walrus.ts) publishes the
+  checkout page and receipt blobs to Walrus (Sui decentralized storage). Because a blob is
+  content-addressed and served by any aggregator on the network, the checkout isn't pinned to one
+  origin — there is no single host to take down.
+
+> Honest scope: this is a testnet build. Sponsor addresses and endpoints carry a "confirm at booth"
+> note and are read from env, never hardcoded ([law #4](#security-posture)) — see
+> [`.env.example`](.env.example).
 
 ## License
 
