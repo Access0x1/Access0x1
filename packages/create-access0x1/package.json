@@ -1,7 +1,8 @@
 {
   "name": "create-access0x1",
   "version": "0.1.0",
-  "description": "Scaffold a complete Access0x1 project in one command — a non-custodial, USD-priced (Chainlink) crypto checkout (Next.js + @access0x1/react) plus the BYO Solidity contracts (Foundry) you deploy to own your own router. Like create-next-app, for payments.",
+  "private": true,
+  "description": "Internal convenience CLI that scaffolds an Access0x1 starter from templates/starter. NOT published — only @access0x1/react is published to npm. End users fetch the template directly with `npx degit Access0x1/Access0x1/templates/starter`; this wrapper copies the same tree from a local checkout.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -9,14 +10,10 @@
   },
   "files": [
     "bin",
-    "template",
     "README.md"
   ],
   "engines": {
     "node": ">=18"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "repository": {
     "type": "git",
@@ -33,7 +30,6 @@
     "chainlink",
     "non-custodial",
     "viem",
-    "wagmi",
     "next"
   ]
 }
