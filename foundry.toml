@@ -51,3 +51,11 @@ int_types = "long"
 arc_testnet = "${ARC_TESTNET_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"
 base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+zksync_sepolia = "${ZKSYNC_SEPOLIA_RPC_URL}"
+
+# Fallback ONLY — not the default. zkSync Era's ZK-Stack EVM should accept the cancun build, but if
+# `forge script` bytecode is rejected because a Cancun opcode (e.g. PUSH0) is unsupported on the
+# target, broadcast with `--profile zksync` to drop to shanghai. CONFIRM at the zkSync booth before
+# the live run; never make this the default (the rest of the fleet targets cancun).
+[profile.zksync]
+evm_version = "shanghai"
