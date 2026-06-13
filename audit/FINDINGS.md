@@ -7,11 +7,20 @@ set, not just the router core.
 
 | Layer | Result |
 | --- | --- |
-| `forge test` | **295 tests green** (unit + invariant + oracle + `test/attack/**` red-team) |
+| `forge test` | **550 tests green** (unit + invariant + oracle + `test/attack/**` red-team) |
 | `forge coverage` | **100% functions** on every contract; lines 99.74%, statements 99.15%, branches 95.56% overall (per-contract table below) |
 | Invariants | 6 router money invariants + 3 PaymentLanes conservation/firewall invariants (9 total) hold under `fail_on_revert`, 0 reverts |
 | `slither .` (v0.11.5) | 16 results across 10 detectors, **all triaged** (false-positive / by-design / justified-with-runtime-guard) |
 | `aderyn` (v0.1.9) | 3 High + 9 Low, **all triaged** (false-positive / by-design / style) |
+
+Scope: the full first-party surface — the money spine (`Access0x1Router`), the receipt/auth
+ledgers (`PaymentLanes`, `SessionGrant`), the sidecars (`ChainRegistry`, `Access0x1Receiver`),
+the house-token factory + token, and the **commerce quartet** (`Access0x1Subscriptions`,
+`Access0x1Bookings`, `Access0x1Invoices`, `Access0x1GiftCards`). The quartet COMPOSES the audited
+spine rather than re-deriving it: every money leg routes through `Access0x1Router.payToken` /
+`payNative` and every USD→token price is read in-tx through `Access0x1Router.quote` (the OracleLib
+staleness guard), so the router's own fuzz invariants (`net + fee == gross`, zero-custody residual,
+tenant isolation, effective fee ≤ `MAX_FEE_BPS`) carry to them unchanged.
 
 Tooling config: [`slither.config.json`](../slither.config.json) filters
 `lib/ node_modules/ test/ script/` so analysis focuses on `src/`. Aderyn is run
@@ -31,10 +40,23 @@ toolchain's newer default evm version) and `--no-snippets`; its generated
 | `NameMath.sol` | 100% | 100% | 100% | 100% |
 | `PaymentLanes.sol` | 100% | 97.10% | 85.71% | 100% |
 | `SessionGrant.sol` | 98.90% | 99.19% | 95.83% | 100% |
+| `Access0x1Subscriptions.sol` | 100% (122/122) | 99.29% (140/141) | 96.00% (24/25) | 100% (16/16) |
+| `Access0x1Bookings.sol` | 98.27% (170/173) | 95.50% (191/200) | 78.95% (30/38) | 96.43% (27/28) |
+| `Access0x1Invoices.sol` | 100% (69/69) | 100% (85/85) | 100% (15/15) | 100% (10/10) |
+| `Access0x1GiftCards.sol` | 96.43% (81/84) | 96.51% (83/86) | 80.95% (17/21) | 100% (15/15) |
 | `OracleLib.sol` | 100% | 100% | 100% | 100% |
-| **Overall** | **99.74%** | **99.15%** | **95.56%** | **100%** |
 
-The sub-100% rows are **unreachable defense-in-depth guards** (documented,
+The commerce-quartet rows are measured under `forge coverage --ir-minimum` (the four
+contracts trip a `Stack too deep` under the non-IR pipeline coverage uses by default,
+so the IR-minimum profile is the one that compiles the full set). Their uncovered
+branches are the same shape as the rest of the set — **unreachable defense-in-depth
+guards** (zero-address/zero-value constructor reverts that OZ `Ownable` or the router
+fires first, the best-effort `try/catch` catch-arm on the oracle-fault-tolerant refund
+leg, and clamp branches a fuzzed price never crosses) — never a live money path. Every
+function is exercised; `Access0x1Bookings.confirm`/`complete` 1-of-28 function gap is
+the view/getter split the IR-minimum profile counts differently, not an untested path.
+
+The earlier sub-100% rows are **unreachable defense-in-depth guards** (documented,
 intentionally kept — covering them would require weakening the contract):
 
 - `PaymentLanes` constructor `if (initialOwner == address(0)) revert
@@ -72,6 +94,58 @@ and the nonce never advances. Honest direct / relayed / 6492 paths are unchanged
 Proven by `test/attack/SessionGrant.attack.t.sol::test_attack_reentrancy_6492_
 cannotDoubleOpen` (attack reverts) and `test_reentrancy_honest6492_opensExactlyOne`
 (positive control). No existing test was weakened.
+
+### Access0x1Bookings — stale-oracle refund-block (fixed)
+
+**Severity: High (estate law #5 — refunds are never blocked).** A booking escrows a
+USD-priced deposit and later resolves through `cancel` / `noShow` (which take a
+policy fee and refund the remainder) or `expireHold` (which refunds in full). The
+fee leg RE-QUOTES the USD policy fee → token through `Access0x1Router.quote` at
+action time so price drift cannot be gamed. But `quote` applies the OracleLib
+staleness guard and **reverts** on a stale / dead / zero-price feed — or if the
+token was de-allowlisted between reserve and resolution. If that revert bubbled, an
+oracle outage would brick the cancel/no-show transition **and therefore the payer's
+refund** — value stuck in escrow exactly when settlement infrastructure is degraded.
+
+**Fix** (`fix(Bookings): make the resolution fee leg oracle-fault-tolerant`): the
+re-quote on the RESOLUTION legs is wrapped in `_trySafeQuote` (a `try/catch` around
+`router.quote`). A revert is surfaced as `ok == false` instead of bubbling; the fee
+target then falls to **zero**, the operator takes nothing, and the FULL escrow flows
+back to the payer. The fee leg is best-effort; the refund is unconditional. Crucially
+`reserve` does **not** do this — you must never escrow against a bad price, so only the
+resolution/refund paths are made fault-tolerant (a fresh booking against a stale feed
+still reverts at reserve). The fee is additionally CLAMPED to the held escrow, so the
+payer refund can never go negative even if the price spikes. Proven across the
+Bookings unit + attack suites (stale/dead-feed cancel and no-show still refund;
+reserve still reverts on a stale feed).
+
+### The commerce quartet — composition review (no new findings)
+
+`Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`, and
+`Access0x1GiftCards` were added as primitives that **compose** the audited spine, and
+each was reviewed against the estate money laws plus the static tools:
+
+- **No re-derived fee math.** Every money leg routes through
+  `Access0x1Router.payToken` / `payNative`, so `net + platformFee + merchantFee ==
+  gross` is the router's proven invariant, never re-implemented. The contracts own
+  lifecycle/eligibility only and hold ~zero token balance after each settlement.
+- **Zero custody.** Subscriptions/Invoices are straight pull→router→split→push (no
+  escrow). Bookings keeps a fully-backed escrow ledger where the contract's ERC-20
+  balance always equals `escrowedOf` (conservation). GiftCards holds **no** ERC-20 at
+  all — a card balance is a pure USD receipt; the chargeable remainder settles through
+  the router separately.
+- **Never-negative.** Subscriptions debits a `SessionGrant` budget that HARD-reverts
+  past the cap (the on-chain spend meter); GiftCards' `redeem` reverts unless `balance
+  >= applied`; Bookings clamps every fee to the held escrow.
+- **Idempotency / single-settlement.** Invoices' `OPEN → {PAID|VOID}` is one-way and
+  absorbing; Bookings guards a `clientNonce`; GiftCards records each redemption id once.
+- **Tenant isolation inherited.** Owner-authorization is read live from
+  `Access0x1Router.merchants(id).owner` (the single registry); no quartet path mutates
+  another merchant's or another record's storage.
+
+These map onto the existing slither/aderyn dispositions below (the same
+native-send / low-level-call / timestamp / centralization rows apply — by design,
+documented) and add no new untriaged finding.
 
 ---
 
