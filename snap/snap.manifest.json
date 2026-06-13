@@ -7,7 +7,7 @@
     "url": "https://github.com/Access0x1/Access0x1.git"
   },
   "source": {
-    "shasum": "DErIPnYsVeMhNlT2ZMV4WBmRHrjyzNDK0xAOSd+3esk=",
+    "shasum": "Ef89Q+rNtChZn27aXSYHMPSUWMN1uvcCL4edaFKhXr8=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -23,6 +23,7 @@
       "dapps": true,
       "snaps": false
     },
+    "snap_dialog": {},
     "snap_manageState": {},
     "snap_getBip44Entropy": [
       {
