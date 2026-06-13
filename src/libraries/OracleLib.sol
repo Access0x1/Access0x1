@@ -43,6 +43,9 @@ library OracleLib {
     {
         (roundId, answer, startedAt, updatedAt, answeredInRound) = feed.latestRoundData();
         if (updatedAt == 0 || answeredInRound < roundId) revert OracleLib__StalePrice();
+        // Comparing against block.timestamp IS the staleness guard — the canonical Chainlink
+        // pattern; minute-scale miner drift cannot defeat a 1-hour window (Slither timestamp ack).
+        // slither-disable-next-line timestamp
         if (block.timestamp - updatedAt > TIMEOUT) revert OracleLib__StalePrice();
     }
 }
