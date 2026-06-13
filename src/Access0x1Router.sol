@@ -281,6 +281,18 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         platformTreasury = newTreasury;
     }
 
+    /// @notice Halt new pay-ins: `payNative` and `payToken` revert `EnforcedPause` while paused.
+    ///         A circuit breaker for a feed/token incident. Deliberately does NOT gate `claimRescue`
+    ///         — funds already owed must remain withdrawable even during a pause (no hostage funds).
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Resume pay-ins after a `pause`.
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 PRICING
     //////////////////////////////////////////////////////////////*/

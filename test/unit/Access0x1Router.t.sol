@@ -584,4 +584,59 @@ contract Access0x1RouterTest is Test {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, buyer));
         router.setTreasury(makeAddr("newTreasury"));
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            ADMIN — pause / unpause
+    //////////////////////////////////////////////////////////////*/
+
+    function test_pauseAndUnpauseToggleState() public {
+        assertFalse(router.paused());
+        vm.prank(owner);
+        router.pause();
+        assertTrue(router.paused());
+        vm.prank(owner);
+        router.unpause();
+        assertFalse(router.paused());
+    }
+
+    function test_pauseRevertsWhenNotOwner() public {
+        vm.prank(buyer);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, buyer));
+        router.pause();
+    }
+
+    function test_unpauseRevertsWhenNotOwner() public {
+        vm.prank(owner);
+        router.pause();
+        vm.prank(buyer);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, buyer));
+        router.unpause();
+    }
+
+    function test_payNativeRevertsWhenPaused() public {
+        _configureFeeds();
+        uint256 id = _register();
+        uint256 gross = router.quote(id, address(0), 20e8);
+        vm.prank(owner);
+        router.pause();
+
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        router.payNative{ value: gross }(id, 20e8, ORDER);
+    }
+
+    function test_payTokenRevertsWhenPaused() public {
+        _configureFeeds();
+        uint256 id = _register();
+        vm.prank(owner);
+        router.pause();
+
+        usdc.mint(buyer, 100e6);
+        vm.prank(buyer);
+        usdc.approve(address(router), type(uint256).max);
+        vm.prank(buyer);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        router.payToken(id, address(usdc), 20e8, ORDER);
+    }
 }
