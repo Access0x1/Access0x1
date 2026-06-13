@@ -23,6 +23,15 @@ cre/package-lock.json
 # ── Foundry / Solidity ──
 cache/
 out/
+# foundry-zksync (zksolc) build output — the zkEVM build artifacts (see docs/ZKSYNC-TESTING.md).
+zkout/
+# Coverage gate output (`make coverage-lcov`) — machine-readable, regenerated, never committed.
+lcov.info
+# Audit-tool scratch (regenerated on demand): Halmos cache, Gambit mutants, 4naly3er output.
+.halmos_cache/
+halmos_cache/
+gambit_out/
+gambit.conf.json
 # aderyn's generated report — curated findings live in audit/FINDINGS.md.
 # Scope to the repo-root file aderyn writes; do NOT swallow the committed
 # audit report (case-insensitive filesystems would otherwise match REPORT.md).

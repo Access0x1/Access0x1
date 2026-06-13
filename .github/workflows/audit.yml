@@ -1,0 +1,67 @@
+name: Audit
+
+# Cyfrin-style audit CI, mirroring the fund-me reference workflow: format gate -> size-checked build
+# -> full test suite -> aderyn static analysis. Separate from test.yml (CI) so the audit pass can be
+# read at a glance and extended (slither/coverage) without bloating the fast test lane.
+#
+# NOTE (honesty, money-safety invariant #4): GitHub Actions may be billing-blocked on this org, in which case this
+# workflow does not RUN in CI. Its CORRECTNESS still counts — it is the exact pass a maintainer runs
+# locally via `make fmt-check && make sizes && make test && make aderyn`, encoded for when Actions is
+# enabled. Nothing here depends on a secret.
+
+permissions: {}
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: Format + sizes + tests + aderyn
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # @chainlink/contracts lives in gitignored node_modules (the brownie repo is deprecated);
+      # the remapping resolves into it, so deps must be installed before any build.
+      - name: Install npm deps (Chainlink contracts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Format gate (forge fmt --check)
+        run: forge fmt --check
+
+      - name: Size-checked build (forge build --sizes, EIP-170 24KB)
+        run: forge build --sizes
+
+      - name: Full test suite (unit + invariant + attack + scenario + symbolic)
+        run: forge test -vvv
+
+      - name: Aderyn static analysis (src/)
+        # Aderyn is the Cyfrin static analyser. It is advisory in CI (we resolve-or-justify findings in
+        # audit/FINDINGS.md), so a non-zero exit annotates but does not fail the audit lane.
+        continue-on-error: true
+        run: |
+          curl -L https://raw.githubusercontent.com/Cyfrin/aderyn/dev/cyfrinup/install | bash || true
+          export PATH="$HOME/.cyfrin/bin:$PATH"
+          if command -v aderyn >/dev/null 2>&1; then
+            FOUNDRY_EVM_VERSION=cancun aderyn . --no-snippets
+          else
+            echo "aderyn not installed in this runner — see Makefile 'aderyn' target for the local pass"
+          fi

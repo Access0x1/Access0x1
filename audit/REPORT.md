@@ -59,6 +59,25 @@ governing rule for every static-tool result is the real-audit convention:
 5. **`forge coverage`** — per-contract line/statement/branch/function coverage.
 6. **Manual review** — CEI ordering, custody, oracle handling, access control,
    and the two real issues in §7.
+7. **Scenario / end-to-end tests** — readable, narrative flows over the real
+   contracts (`test/scenario/**`): coffee-shop pay, SaaS subscription budget
+   wall, salon deposit + stale-feed refund, invoice pay-once, gift-card
+   never-negative. Run in the standard gate (`make test-scenario`).
+8. **Symbolic execution (Halmos)** — `check_`-prefixed proofs in
+   `test/symbolic/**` that prove the money invariants for ALL inputs (not just
+   fuzz samples): fee-split conservation (`net + platformFee + merchantFee ==
+   gross`) and the never-negative `SessionGrant` budget (`make halmos`).
+9. **Coverage gate, sizes, storage layout** — `make coverage-lcov` (lcov,
+   documented floor 90% on money paths), `make sizes` (EIP-170 24KB runtime
+   check — every contract is well under; largest runtime is `Access0x1Bookings`
+   at 7,979 B), and `docs/STORAGE-LAYOUT.md` (`make storage-layout`).
+10. **Mutation testing + extra static pass** — `make mutation` (gambit /
+    vertigo-rs) and `make analyze` (4naly3er umbrella) are wired as Makefile
+    targets that install/run on demand and no-op gracefully if the engine is
+    absent. These are **documented targets**, not part of the always-green gate.
+
+The full Solodit/Cyfrin checklist is walked item-by-item, with the compliance
+line and the proving test for each class, in **`audit/CHECKLIST.md`**.
 
 ### 2.1 Gate result (this commit)
 
