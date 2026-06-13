@@ -234,8 +234,11 @@ contract SessionGrant is ISessionGrant, EIP712 {
         if (amount == 0) revert SessionGrant__ZeroAmount();
 
         Session storage s = _sessions[sessionId];
-        if (s.delegate == address(0)) revert SessionGrant__SessionUnknown(sessionId);
-        if (msg.sender != s.delegate) revert SessionGrant__NotDelegate(sessionId, msg.sender);
+        // Cache the packed delegate/expiry slot once: `delegate` is otherwise read twice (existence +
+        // caller check). One warm re-SLOAD becomes a local read; same values, same revert order.
+        address delegate = s.delegate;
+        if (delegate == address(0)) revert SessionGrant__SessionUnknown(sessionId);
+        if (msg.sender != delegate) revert SessionGrant__NotDelegate(sessionId, msg.sender);
         if (s.revoked) revert SessionGrant__SessionRevoked(sessionId);
         if (block.timestamp > s.expiry) {
             revert SessionGrant__SessionExpired(sessionId, s.expiry, block.timestamp);
