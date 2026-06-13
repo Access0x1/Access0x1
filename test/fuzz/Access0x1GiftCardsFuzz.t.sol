@@ -12,7 +12,7 @@ import { Access0x1Router } from "../../src/Access0x1Router.sol";
 ///         money-mutating function with `bound()`-constrained inputs, then assert the local invariants
 ///         hold for THIS call" tier. Where the unit suite pins specific values, this layer fires ONE
 ///         operation per run over a wide, bounded input space and proves the per-call accounting laws
-///         that must hold for EVERY input — the on-chain expression of YourApp's prepaid-balance
+///         that must hold for EVERY input — the on-chain expression of a mature commerce app's prepaid-balance
 ///         money invariant:
 ///
 ///           - NEVER NEGATIVE (HARD REVERT): a debit (redeem / transfer) can never drive a holder's
