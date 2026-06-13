@@ -12,7 +12,7 @@
  * lockstep by hand. Argument names, types, and ordering MUST match the on-chain ABI exactly so the
  * UI and the SDK decode every revert and event identically.
  *
- * Extracted from the deployed `Access0x1Router` / `Access0x1Lanes` sources — see
+ * Extracted from the deployed `Access0x1Router` / `PaymentLanes` sources — see
  * {@link https://github.com/Access0x1/Access0x1}.
  */
 
@@ -147,13 +147,15 @@ export const ERC20_ABI = [
 ] as const;
 
 /**
- * The read slice of `Access0x1Lanes` (ERC-6909) used by the optional {@link usePaymentLanes} hook.
+ * The read slice of `PaymentLanes` (ERC-6909) used by the optional {@link usePaymentLanes} hook.
  *
- * `laneId(chainSelector, asset, recipient)` is `pure` — the SDK can derive the id locally or read it
- * back; `balanceOf(owner, id)` is the standard ERC-6909 balance getter.
+ * `laneId(chainId, asset, recipient)` is `pure` — the SDK reads it back from the contract;
+ * `balanceOf(owner, id)` is the standard ERC-6909 balance getter.
  *
- * Note: `chainSelector` is a `uint64` (CCIP-style selector), matching the deployed contract — NOT a
- * `uint256` chain id.
+ * Note: `chainId` is a `uint256` (the EVM chain id, e.g. `block.chainid` at credit time), matching
+ * the deployed `PaymentLanes.laneId` signature exactly — NOT a `uint64` CCIP-style selector. The id
+ * is `uint256(keccak256(abi.encode(chainId, asset, recipient)))`; mismatching the type or order here
+ * yields a different id than the router credited, so `balanceOf` would read 0.
  */
 export const LANES_ABI = [
   {
@@ -161,7 +163,7 @@ export const LANES_ABI = [
     name: 'laneId',
     stateMutability: 'pure',
     inputs: [
-      { name: 'chainSelector', type: 'uint64' },
+      { name: 'chainId', type: 'uint256' },
       { name: 'asset', type: 'address' },
       { name: 'recipient', type: 'address' },
     ],
