@@ -78,6 +78,6 @@ export const SPONSOR_SEAMS = {
   circleUsdc: 'NEXT_PUBLIC_USDC_ADDRESS_{{CHAIN_ID}}',
   /** Dynamic wallet auth — NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID. */
   dynamic: 'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID',
-  /** ENS / GitHat subname resolution — optional, NEXT_PUBLIC_ENS_*. */
+  /** ENS subname resolution — optional, NEXT_PUBLIC_ENS_*. */
   ens: 'NEXT_PUBLIC_ENS_* (optional)',
 } as const;

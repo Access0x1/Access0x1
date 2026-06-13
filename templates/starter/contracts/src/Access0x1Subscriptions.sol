@@ -14,8 +14,8 @@ import {
 
 /// @title  Access0x1Subscriptions
 /// @author Access0x1
-/// @notice Recurring, USD-priced, tiered billing — the on-chain expression of the ClickReserv
-///         SUBSCRIPTIONS / TIERS primitive (the never-negative AI spend meter), built ENTIRELY as a
+/// @notice Recurring, USD-priced, tiered billing — the on-chain expression of a mature commerce app's
+///         SUBSCRIPTIONS / TIERS primitive (the never-negative spend meter), built ENTIRELY as a
 ///         COMPOSITION of the audited Access0x1 quartet:
 ///
 ///           - {SessionGrant} is the recurring authorization. A subscription IS a SessionGrant: the
@@ -63,7 +63,7 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
     uint256 public nextSubId;
 
     /// @notice Dunning grace: a PAST_DUE subscription demotes to UNPAID once `failCount` reaches this.
-    ///         Mirrors ClickReserv's grace window (tier survives PAST_DUE, demotes only at UNPAID).
+    ///         Mirrors a typical grace window (tier survives PAST_DUE, demotes only at UNPAID).
     uint16 public graceFailThreshold;
 
     /// @notice Restrict a function to the current owner of `merchantId` on the router.
@@ -396,7 +396,7 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IAccess0x1Subscriptions
-    /// @dev Immediate, no proration (the ClickReserv downgrade rule). Setting CANCELED is the on-chain
+    /// @dev Immediate, no proration (the canonical downgrade rule). Setting CANCELED is the on-chain
     ///      stop: {renew} reverts {NotRenewable} on a CANCELED subscription, so no further pull can ever
     ///      run through this contract. The underlying SessionGrant is owner-gated, so the subscriber
     ///      (who IS the session owner) revokes it directly on SessionGrant for a belt-and-suspenders

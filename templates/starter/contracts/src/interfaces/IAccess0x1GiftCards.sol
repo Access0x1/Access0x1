@@ -6,7 +6,7 @@ pragma solidity 0.8.28;
 /// @notice The external surface of Access0x1GiftCards — a USD-priced prepaid-balance primitive
 ///         (gift cards / credit packs) plus a minimal merchant-scoped coupon registry. A card is a
 ///         non-custodial ERC-6909-style RECEIPT: its balance is denominated in USD (8 decimals, the
-///         estate's `usdAmount8` unit), the holder controls it, and the issuing merchant holds NO
+///         canonical `usdAmount8` unit), the holder controls it, and the issuing merchant holds NO
 ///         admin key over a holder's balance once issued. A `cardId` is deterministically derived
 ///         from `(merchantId, code)` so any party can recompute it off-chain.
 /// @dev    Card id = `keccak256(abi.encode(merchantId, code))`; coupon records are namespaced under
@@ -19,7 +19,7 @@ interface IAccess0x1GiftCards {
     /// @dev    `PERCENT` ⇒ `value` is basis points of 100 (value/100 percent) — i.e. `value` is a
     ///         whole-percent figure in `[0, 100]`; `AMOUNT` ⇒ `value` is a flat USD (8-dec) discount.
     ///         Any other (impossible) variant is treated as a zero discount by `applyCoupon`, never a
-    ///         revert (the ClickReserv "unknown type ⇒ no discount" rule).
+    ///         revert (the canonical "unknown type ⇒ no discount" rule).
     enum DiscountType {
         PERCENT,
         AMOUNT
