@@ -96,6 +96,22 @@ contract Access0x1Lanes is Ownable2Step, ERC6909TokenSupply, IERC6909Metadata {
     }
 
     /*//////////////////////////////////////////////////////////////
+                                 ADMIN
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Allowlist (or revoke) an address that may call {credit}. The owner registers the
+    ///         zero-custody router(s) here — and only the router(s); a buyer or agent can never mint a
+    ///         lane credit. Kept an allowlist (not a single minter) so several chains' routers and a
+    ///         future cross-chain receiver can all credit the same balance sheet.
+    /// @param minter  The address to (dis)allow as a minter (must be non-zero).
+    /// @param allowed Whether `minter` may call {credit}.
+    function setMinter(address minter, bool allowed) external onlyOwner {
+        if (minter == address(0)) revert Access0x1Lanes__ZeroAddress();
+        isMinter[minter] = allowed;
+        emit MinterSet(minter, allowed);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                           ERC-6909 METADATA
     //////////////////////////////////////////////////////////////*/
 
