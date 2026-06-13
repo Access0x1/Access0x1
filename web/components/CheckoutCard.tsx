@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { keccak256, toHex, type Address, type Hash } from 'viem'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
-import { getRouterAddress, getUsdcAddress } from '@/lib/chains'
+import { getRouterAddress, getUsdcAddress, isGasFree, tokenDecimalsFor } from '@/lib/chains'
 import { payToken, type Merchant, type PaymentReceivedEvent } from '@/lib/contracts'
 import { fetchQuote, usdToAmount8 } from '@/lib/quote'
 import { getWalletClient, getPublicClient } from '@/lib/wallet'
@@ -13,7 +13,10 @@ import { WorldIdGate } from './WorldIdGate'
 import type { CheckoutMode, HumanVerifier } from '@/lib/branding/store'
 
 const USDC_SYMBOL = 'USDC'
-const USDC_DECIMALS = 6 // ERC-20 USDC display decimals (the contract reads on-chain decimals in-tx)
+// USDC display decimals are resolved PER CHAIN via `tokenDecimalsFor(chainId)`
+// (18 on Arc's native USDC, 6 on the bridged-USDC L2s) — never hardcoded to 6,
+// which would mis-render Arc amounts by 10^12. The contract reads on-chain
+// decimals in-tx; this constant is for the display/receipt formatting only.
 
 /**
  * The hosted checkout card. Loads the merchant's name (passed from the page),
@@ -51,6 +54,8 @@ export function CheckoutCard({
 }): ReactNode {
   const { primaryWallet } = useDynamicContext()
   const usdAmount8 = usdToAmount8(Number(usdAmount))
+  // Resolve USDC display decimals for THIS chain (Arc native = 18, L2 USDC = 6).
+  const tokenDecimals = tokenDecimalsFor(chainId)
 
   // World ID gate state: when the merchant requires verified humans, the pay
   // button stays disabled until the buyer completes the one-tap proof.
@@ -80,7 +85,7 @@ export function CheckoutCard({
       merchantId,
       token: usdc,
       usdAmount8,
-      decimals: USDC_DECIMALS,
+      decimals: tokenDecimals,
     })
     if (result.error) {
       setQuoteError(result.error)
@@ -89,7 +94,7 @@ export function CheckoutCard({
       setQuoteDisplay(result.display ?? null)
     }
     setLoadingQuote(false)
-  }, [chainId, merchantId, usdAmount8])
+  }, [chainId, merchantId, usdAmount8, tokenDecimals])
 
   useEffect(() => {
     void refreshQuote()
@@ -147,7 +152,7 @@ export function CheckoutCard({
         txHash={receipt.txHash}
         chainId={chainId}
         tokenSymbol={USDC_SYMBOL}
-        tokenDecimals={USDC_DECIMALS}
+        tokenDecimals={tokenDecimals}
         returnUrl={returnUrl}
       />
     )
@@ -181,6 +186,12 @@ export function CheckoutCard({
                 ? `≈ ${quoteDisplay} ${USDC_SYMBOL}`
                 : null}
         </p>
+        {/* Truth-in-copy (law #4): only claim "no separate gas" on a chain where
+            USDC IS the native gas token (Arc). Never shown on Base/ZKsync, where
+            a USDC payment still needs ETH for gas. */}
+        {isGasFree(chainId) ? (
+          <p className="mt-1 text-xs text-neutral-400">Pay in USDC — no separate gas token needed.</p>
+        ) : null}
       </div>
 
       {!merchant.active ? (
