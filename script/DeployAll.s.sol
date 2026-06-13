@@ -3,13 +3,13 @@ pragma solidity 0.8.28;
 
 import { Script, console2 } from "forge-std/Script.sol";
 import { Access0x1Router } from "../src/Access0x1Router.sol";
-import { Access0x1Lanes } from "../src/Access0x1Lanes.sol";
+import { PaymentLanes } from "../src/PaymentLanes.sol";
 import { HelperConfig } from "./HelperConfig.s.sol";
 
 /// @title  DeployAll
 /// @author Access0x1
 /// @notice Multi-chain deploy entrypoint. Deploys `Access0x1Router` (and optionally the
-///         `Access0x1Lanes` ERC-6909 receipt ledger) on the CURRENT chain, then wires the price
+///         `PaymentLanes` ERC-6909 receipt ledger) on the CURRENT chain, then wires the price
 ///         feeds + USDC allowlist in the SAME broadcast so judges get one replayable path per chain.
 ///         Chain-aware via `HelperConfig` — run it once per chain with the matching `--rpc-url`; the
 ///         `block.chainid` ladder in `HelperConfig` picks the right env block automatically.
@@ -32,8 +32,9 @@ import { HelperConfig } from "./HelperConfig.s.sol";
 ///           forge script script/DeployAll.s.sol --profile zksync \
 ///             --rpc-url $ZKSYNC_SEPOLIA_RPC_URL --account deployer --sender $DEPLOYER --broadcast -vvvv
 ///
-///         Set `DEPLOY_PAYMENT_LANES=true` to also deploy `Access0x1Lanes` and authorize the router as
-///         a lane minter (`lanes.setMinter(router, true)`) in the same broadcast.
+///         Set `DEPLOY_PAYMENT_LANES=true` to also deploy `PaymentLanes`, authorize the router on it
+///         (`lanes.setRouter(router, true)`), and wire it into the router (`router.setPaymentLanes(lanes)`)
+///         in the same broadcast.
 ///
 ///         Every feed/USDC address used by the configure step must be in env BEFORE broadcast. A value
 ///         that resolves to `address(0)` (feed/USDC not yet booth-confirmed) is SKIPPED, never wired —
@@ -47,12 +48,12 @@ contract DeployAll is Script {
 
     /// @notice Deploy + configure the router (and optionally the lanes ledger) on the current chain.
     /// @return router       The freshly deployed `Access0x1Router`.
-    /// @return lanes        The deployed `Access0x1Lanes`, or `address(0)` when `DEPLOY_PAYMENT_LANES`
+    /// @return lanes        The deployed `PaymentLanes`, or `address(0)` when `DEPLOY_PAYMENT_LANES`
     ///                      is unset/false.
     /// @return helperConfig The `HelperConfig` that resolved the current chain (carries the cfg used).
     function run()
         external
-        returns (Access0x1Router router, Access0x1Lanes lanes, HelperConfig helperConfig)
+        returns (Access0x1Router router, PaymentLanes lanes, HelperConfig helperConfig)
     {
         helperConfig = new HelperConfig();
         HelperConfig.NetworkConfig memory cfg = helperConfig.getConfig();
@@ -73,14 +74,19 @@ contract DeployAll is Script {
         console2.log("  treasury               :", cfg.treasury);
         console2.log("  platformFeeBps         :", cfg.platformFeeBps);
 
-        // 2. Optional lanes ledger (ERC-6909). Authorize the zero-custody router as a minter so the
-        //    router may open/credit lanes at settlement. The lanes contract escrows nothing — a lane
-        //    token is a transferable receipt of value the router already pushed to the recipient.
+        // 2. Optional lanes ledger (ERC-6909). Authorize the zero-custody router on the ledger, then
+        //    wire it into the router so `payToken` mints a lane receipt at settlement. The lanes
+        //    contract escrows nothing — a lane token is a transferable receipt of value. Order matters:
+        //    authorize FIRST (`setRouter`), then wire (`setPaymentLanes`), so the credit leg is live.
+        //    Both are `onlyOwner` calls; they execute when `owner` defaulted to the broadcaster (a local
+        //    or burner run). With a separate `ROUTER_OWNER` they revert by design and the admin wires
+        //    the lanes from its own key — fail-loud, never a silent half-wire.
         if (deployLanes) {
-            lanes = new Access0x1Lanes(owner);
-            lanes.setMinter(address(router), true);
-            console2.log("Access0x1Lanes deployed  :", address(lanes));
-            console2.log("  router authorized minter:", address(router));
+            lanes = new PaymentLanes(owner);
+            lanes.setRouter(address(router), true);
+            router.setPaymentLanes(address(lanes));
+            console2.log("PaymentLanes deployed    :", address(lanes));
+            console2.log("  router authorized+wired:", address(router));
         }
 
         // 3. Configure feeds + allowlist — skip any address(0) (not booth-confirmed yet). These are
