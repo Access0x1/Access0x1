@@ -17,10 +17,15 @@ import {
   Row,
   Text,
 } from '@metamask/snaps-sdk/jsx';
-import type { JSXElement } from '@metamask/snaps-sdk/jsx';
+import type { GenericSnapElement, JSXElement } from '@metamask/snaps-sdk/jsx';
 
+import { brandingHeaderChildren } from './brandingPanel';
 import { formatUsd } from '../router/decode';
-import type { MerchantInfo, PaymentSummary } from '../types';
+import type {
+  MerchantBranding,
+  MerchantInfo,
+  PaymentSummary,
+} from '../types';
 
 /** Basis-point denominator (10_000 = 100%). */
 const FEE_DENOMINATOR = 10000n;
@@ -66,22 +71,55 @@ export function computeFeeSplit(
 }
 
 /**
+ * The merchant label shown in the "Merchant" row. Prefers the white-label
+ * branding name when present (so the row matches the branded header); otherwise
+ * falls back to the on-chain-resolved `MerchantInfo.name` ("Merchant #<id>").
+ *
+ * @param merchant - The on-chain-resolved merchant info.
+ * @param branding - Optional resolved white-label branding.
+ * @returns The display label for the Merchant row.
+ */
+function merchantRowLabel(
+  merchant: MerchantInfo,
+  branding?: MerchantBranding,
+): string {
+  return branding?.name ?? merchant.name;
+}
+
+/**
  * Render the payment insight panel for a decoded router call.
+ *
+ * When white-label `branding` is supplied (resolved by the D4 ladder), the
+ * branded header — logo + "Pay {name}" + description + (when verified) an
+ * on-chain badge — is rendered ABOVE the payment insight. Branding is
+ * display-only and is purely additive: with no branding this renders exactly the
+ * pre-existing panel, so it can never regress the insight surface.
  *
  * @param summary - The decoded `PaymentSummary` from `parseRouterCall`.
  * @param merchant - The resolved merchant info from `fetchMerchantName`.
+ * @param branding - Optional resolved white-label branding (ADR unit 7).
  * @returns A Snap JSX element to return as `{ content }` from `onTransaction`.
  */
 export function renderInsightPanel(
   summary: PaymentSummary,
   merchant: MerchantInfo,
+  branding?: MerchantBranding,
 ): JSXElement {
   const { fee, net } = computeFeeSplit(summary.usdAmount8, merchant.feeBps);
 
+  // White-label header (logo + "Pay {name}" + description + verified badge),
+  // followed by a divider, ABOVE the payment insight. Omitted with no branding.
+  const header: GenericSnapElement[] = branding
+    ? [...brandingHeaderChildren(branding), Divider({})]
+    : [Heading({ children: 'Access0x1 Payment' })];
+
   return Box({
     children: [
-      Heading({ children: 'Access0x1 Payment' }),
-      Row({ label: 'Merchant', children: Text({ children: merchant.name }) }),
+      ...header,
+      Row({
+        label: 'Merchant',
+        children: Text({ children: merchantRowLabel(merchant, branding) }),
+      }),
       Row({
         label: 'Amount',
         children: Text({ children: formatUsd(summary.usdAmount8) }),

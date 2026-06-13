@@ -65,6 +65,40 @@ export interface PayoutResult {
 }
 
 /**
+ * Per-merchant white-label branding — DISPLAY-ONLY (doctrine #1).
+ *
+ * This is the readable identity a paying customer sees inside MetaMask at the
+ * signing moment: the merchant's logo, "Pay {name}", and a one-line description.
+ * It is pushed in by the hosted page/embed via the `setMerchantBranding` RPC,
+ * fetched from the public `/api/branding` endpoint, or reconstructed from the
+ * on-chain `nameHash`. It NEVER gates, signs, or blocks a money path or refund.
+ *
+ * All fields are sanitized before they are stored or rendered (see
+ * `branding/sanitize.ts`). `logoSvg` is an INLINE SVG string only — `Image`
+ * never accepts a URL (ADR D5).
+ */
+export interface MerchantBranding {
+  /** The on-chain merchant id this branding describes (stringified bigint). */
+  merchantId: string;
+  /** The readable business name customers see ("Joe's Barbershop"). */
+  name: string;
+  /** A short, plain-English one-liner shown under the name. */
+  description: string;
+  /** The logo as an inline-SVG string, or `null` when none is set. */
+  logoSvg: string | null;
+  /** A safe `#`-prefixed hex brand color. */
+  brandColor: string;
+  /**
+   * Whether the readable name has been verified to match the on-chain
+   * `nameHash` (`keccak256(name) === merchants(id).nameHash`). Only set true
+   * by the on-chain resolution path; the badge is shown ONLY when true (law #4).
+   */
+  verified: boolean;
+  /** Epoch-ms the branding was cached, for staleness/debugging. */
+  updatedAt: number;
+}
+
+/**
  * The Snap's persisted configuration, set by the dapp's `configure` call and
  * stored via `snap_manageState`. The router address is NEVER hardcoded — it
  * lives here so a redeploy is a config change, not a code change.
@@ -76,6 +110,19 @@ export interface SnapConfigState {
   chainIds: number[];
   /** Persisted receipt log (most-recent-first), capped by the RPC handler. */
   receipts?: SerializedPaymentSummary[];
+  /**
+   * Base URL of the public branding API, used by `onTransaction` to backfill
+   * branding on a fresh device (ADR D4 path 2). Set by `configure`; defaults to
+   * the platform API when unset. Display-only — never on a money path.
+   */
+  brandingApiBaseUrl?: string;
+  /**
+   * Per-merchant branding cache, keyed by stringified `merchantId`. Pushed in by
+   * `setMerchantBranding`; read first by `onTransaction` (ADR D4 path 1). This is
+   * an OPTIMIZATION, never the source of truth — the fetch + on-chain paths always
+   * backfill a fresh device (ADR D5: `snap_manageState` is per-device).
+   */
+  branding?: Record<string, MerchantBranding>;
 }
 
 /**
