@@ -11,6 +11,7 @@ import {
   ShieldFailedError,
   WithdrawFailedError,
 } from "../lib/unlink/privateWithdraw.js";
+import { UnlinkSdkUnavailableError } from "../lib/unlink/loadSdk.js";
 
 const VALID_DEST = "0x2222222222222222222222222222222222222222";
 const USER_ID = "dyn|sub-abc";
@@ -147,6 +148,34 @@ describe("POST /api/payout (handlePayout)", () => {
     );
     expect(res.status).toBe(502);
     await expect(res.json()).resolves.toEqual({ code: "withdraw_failed", recoverable: true });
+  });
+
+  it("SDK absent during register -> 503 { code: 'unlink_sdk_unavailable', recoverable: true }", async () => {
+    const { deps } = makeDeps({
+      ensureRegistered: vi.fn(async () => {
+        throw new UnlinkSdkUnavailableError();
+      }),
+    });
+    const res = await handlePayout(
+      req({ amountUsd: 4.2, depositAmountUsd: 50, destination: VALID_DEST, userId: USER_ID }),
+      deps,
+    );
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({ code: "unlink_sdk_unavailable", recoverable: true });
+  });
+
+  it("SDK absent during shield+withdraw -> 503 { code: 'unlink_sdk_unavailable', recoverable: true }", async () => {
+    const { deps } = makeDeps({
+      shieldAndWithdraw: vi.fn(async () => {
+        throw new UnlinkSdkUnavailableError();
+      }),
+    });
+    const res = await handlePayout(
+      req({ amountUsd: 4.2, depositAmountUsd: 50, destination: VALID_DEST, userId: USER_ID }),
+      deps,
+    );
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({ code: "unlink_sdk_unavailable", recoverable: true });
   });
 
   it("unexpected error -> 500", async () => {

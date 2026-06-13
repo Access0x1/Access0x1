@@ -11,12 +11,8 @@
  *
  * ⚠️ BOOTH-CONFIRM the admin/client factory names + arg shapes against the live SDK.
  */
-import {
-  createUnlinkAdmin,
-  createUnlinkClient,
-  type UnlinkAccount,
-  type UnlinkClient,
-} from "@unlink-xyz/sdk";
+import type { UnlinkAccount, UnlinkClient } from "@unlink-xyz/sdk";
+import { loadUnlinkSdk } from "./loadSdk.js";
 
 /**
  * Unlink environment string — kebab-case `arc-testnet` (NOT camel `arcTestnet`,
@@ -36,14 +32,17 @@ function unlinkEnvironment(): "arc-testnet" {
  * @param userId             The Dynamic JWT `sub`, reused as the Unlink userId.
  * @param authorizationToken Optional Dynamic auth token forwarded to the engine.
  */
-export function getMerchantClient(
+export async function getMerchantClient(
   account: UnlinkAccount,
   userId: string,
   authorizationToken?: string,
-): UnlinkClient {
+): Promise<UnlinkClient> {
   if (!userId) {
     throw new Error("getMerchantClient: userId is required");
   }
+  // Load the SDK at call time (optional/dynamic) — a missing package fails soft
+  // here (UnlinkSdkUnavailableError), never at build or module load.
+  const { createUnlinkClient } = await loadUnlinkSdk();
   return createUnlinkClient({
     environment: unlinkEnvironment(),
     account,
@@ -72,6 +71,7 @@ export async function ensureRegistered(userId: string): Promise<void> {
     throw new Error("ensureRegistered: UNLINK_API_KEY is not configured");
   }
 
+  const { createUnlinkAdmin } = await loadUnlinkSdk();
   const admin = createUnlinkAdmin({ environment: unlinkEnvironment(), apiKey });
   try {
     await admin.users.register({ userId });

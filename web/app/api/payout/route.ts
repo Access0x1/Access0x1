@@ -25,6 +25,7 @@ import {
   type WithdrawResult,
 } from "../../../lib/unlink/privateWithdraw.js";
 import { usdToUsdcBaseUnits } from "../../../lib/unlink/amount.js";
+import { loadUnlinkSdk, UnlinkSdkUnavailableError } from "../../../lib/unlink/loadSdk.js";
 
 /** Force Node runtime — the payout service uses server-only secrets. */
 export const runtime = "nodejs";
@@ -101,7 +102,12 @@ export async function handlePayout(req: Request, deps: PayoutDeps): Promise<Resp
   // ── Register BEFORE shielding (call-order asserted by tests) ──────────────────
   try {
     await deps.ensureRegistered(userId);
-  } catch {
+  } catch (err) {
+    // Fail-soft: the proprietary SDK isn't installed in this build (pre-booth).
+    // No funds moved — surface a clean, recoverable config error, never a 500.
+    if (err instanceof UnlinkSdkUnavailableError) {
+      return json({ code: "unlink_sdk_unavailable", recoverable: true }, 503);
+    }
     // Registration failure is unexpected (already-registered is swallowed upstream).
     return json({ error: "registration_failed" }, 500);
   }
@@ -122,6 +128,10 @@ export async function handlePayout(req: Request, deps: PayoutDeps): Promise<Resp
     if (err instanceof WithdrawFailedError) {
       // Shield landed; funds are in the private balance, recoverable (law #5).
       return json({ code: "withdraw_failed", recoverable: true }, 502);
+    }
+    if (err instanceof UnlinkSdkUnavailableError) {
+      // SDK absent (pre-booth): nothing shielded, recoverable — never a 500.
+      return json({ code: "unlink_sdk_unavailable", recoverable: true }, 503);
     }
     return json({ error: "unexpected_error" }, 500);
   }
@@ -163,9 +173,10 @@ async function buildServerPayout(args: {
     );
   }
   // The server account is key-backed (transfer/withdraw only, no execute) — built
-  // by the booth wiring from `account.fromKeys({ privateKey: serverKey })`.
-  const { account: unlinkAccountFactory } = await import("@unlink-xyz/sdk");
+  // by the booth wiring from `account.fromKeys({ privateKey: serverKey })`. The
+  // SDK is loaded optionally (loadUnlinkSdk) so a missing package fails soft.
+  const { account: unlinkAccountFactory } = await loadUnlinkSdk();
   const serverAccount = await unlinkAccountFactory.fromKeys({ privateKey: serverKey });
-  const client = getMerchantClient(serverAccount, payoutUserId);
+  const client = await getMerchantClient(serverAccount, payoutUserId);
   return shieldAndWithdraw({ client, ...args });
 }

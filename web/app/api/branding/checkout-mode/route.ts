@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { resolveTenantId, TenantAuthError } from '@/lib/branding/tenant'
+import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
 import {
   asCheckoutMode,
   asHumanVerifier,
@@ -7,6 +7,7 @@ import {
   getByTenant,
   upsertBranding,
 } from '@/lib/branding/store'
+import { asTrustTier } from '@/lib/verification/tiers'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +38,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let tenantId: string
   try {
-    tenantId = resolveTenantId(body)
+    // Server-verified Dynamic JWT preferred; falls back to the shape-checked body
+    // tenantId when no issuer is configured (booth-gated).
+    ;({ tenantId } = await resolveVerifiedTenant(request, body))
   } catch (err) {
     if (err instanceof TenantAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 })
@@ -48,6 +51,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   const b = body as Record<string, unknown>
   const checkoutMode = asCheckoutMode(b.checkoutMode)
   const humanVerifier = asHumanVerifier(b.humanVerifier)
+  // requiredTier is OPTIONAL: only override when the body carries it, so a
+  // mode-only save never resets the merchant's buyer-tier requirement.
+  const requiredTier = b.requiredTier !== undefined ? asTrustTier(b.requiredTier) : undefined
 
   const existing = getByTenant(tenantId)
   if (!existing) {
@@ -61,6 +67,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       displayName: existing.displayName,
       checkoutMode,
       humanVerifier,
+      requiredTier,
     })
     return NextResponse.json({ branding: row }, { status: 200 })
   } catch (err) {
