@@ -32,6 +32,16 @@ broadcast/*/31337/        # local anvil runs only
 broadcast/**/dry-run/     # keep REAL broadcasts — they're the on-chain deploy proof
 # NOTE: do NOT ignore lib/ — forge deps are git submodules (.gitmodules is tracked)
 
+# ── Vyper / Moccasin (the ISOLATED vyper/ conformance demonstrator) — Python build artifacts ──
+# `out/` and `cache/` above already cover mox/forge artifacts wherever they land. These add the
+# Python-side scratch the snake toolchain (boa/pytest/moccasin) writes under vyper/.
+__pycache__/
+*.pyc
+.pytest_cache/
+vyper/.cache/
+vyper/.venv/
+.mypy_cache/
+
 # ── Node / Next.js / SDK ──
 node_modules/
 .next/
