@@ -8,7 +8,7 @@ audit re-run. This is the source of truth for the per-contract numbers quoted in
 | --- | --- |
 | Command | `forge coverage --ir-minimum --no-match-coverage '(test\|script)/'` |
 | Toolchain | Foundry (forge 1.3.5 / solc 0.8.28, EVM `cancun`, `via_ir`) |
-| Suite at capture | **777 tests passed, 0 failed, 0 skipped** (69 suites) |
+| Suite at capture | **831 tests passed, 0 failed, 0 skipped** (77 suites) |
 
 The `--ir-minimum` profile is required: the commerce quartet
 (`Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`,

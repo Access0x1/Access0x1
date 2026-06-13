@@ -83,7 +83,7 @@ governing rule for every static-tool result is the real-audit convention:
 | Step | Result |
 | --- | --- |
 | `forge build` | **green** (solc 0.8.28, `via_ir`, `cancun`) |
-| `forge test` | **777 tests passed, 0 failed, 0 skipped** (69 suites) |
+| `forge test` | **831 tests passed, 0 failed, 0 skipped** (77 suites) |
 | `forge fmt --check` | **clean** |
 | `forge coverage` | lines **98.35%**, statements **97.57%**, branches **89.23%**, functions **99.30%** overall (`--ir-minimum`; per-contract in §4 / [`COVERAGE.md`](COVERAGE.md)) |
 | Invariants | **31 / 31 hold** under `fail_on_revert`, 0 reverts (6 router + 3 PaymentLanes + 6 Bookings + 6 Invoices + 6 Subscriptions + 4 GiftCards) |
@@ -145,8 +145,8 @@ path. This is the disposition for Aderyn L-1 / Slither centralization results
 Coverage measured under `forge coverage --ir-minimum` (the commerce quartet trips
 `Stack too deep` under the non-IR coverage pipeline); full raw table in
 [`COVERAGE.md`](COVERAGE.md). Test counts span unit + attack + invariant +
-integration + fuzz tiers (`forge test`: **777 passed / 0 failed / 0 skipped**,
-69 suites).
+integration + fuzz tiers (`forge test`: **831 passed / 0 failed / 0 skipped**,
+77 suites).
 
 | Contract | Tests (all tiers) | Invariants | % Lines | % Statements | % Branches | % Funcs |
 | --- | ---: | ---: | --- | --- | --- | --- |
@@ -164,11 +164,11 @@ integration + fuzz tiers (`forge test`: **777 passed / 0 failed / 0 skipped**,
 | `OracleLib.sol` | ~23 | — | 100% | 100% | 100% | 100% |
 | Fork (`ChainlinkFeedFork`) | 3 | — | — | — | — | — |
 | Cross-cutting (`DeployAll`, `HelperConfig`, `EndToEnd`) | 14 | — | — | — | — | — |
-| **Total** | **777** | **31** | **98.35%** | **97.57%** | **89.23%** | **99.30%** |
+| **Total** | **831** | **31** | **98.35%** | **97.57%** | **89.23%** | **99.30%** |
 
 Per-contract test counts are approximate (they aggregate each contract's unit,
 attack, invariant, integration and fuzz suites); the authoritative whole-suite
-total is the `forge test` line: **777 / 0 / 0**. The 31 invariants are
+total is the `forge test` line: **831 / 0 / 0**. The 31 invariants are
 6 router + 3 PaymentLanes + 6 Bookings + 6 Invoices + 6 Subscriptions + 4 GiftCards,
 all holding under `fail_on_revert` with 0 reverts (§5).
 
@@ -433,7 +433,7 @@ This section is intentionally conservative.
   **testnets** with the testnet USDC/EURC and testnet Chainlink feeds. No
   mainnet deployment ships at the event.
 - **This is not a third-party audit.** It is an internal engineering audit
-  backed by 777 tests, 31 invariants, and two static analysers. Strong coverage
+  backed by 831 tests, 31 invariants, and two static analysers. Strong coverage
   reduces — but does not eliminate — risk. Logic the tests didn't imagine is the
   residual exposure that only an independent audit reliably finds.
 - **Known residual risks:**

@@ -7,7 +7,7 @@ set, not just the router core.
 
 | Layer | Result |
 | --- | --- |
-| `forge test` | **777 tests green, 0 failed, 0 skipped** (69 suites: unit + attack + invariant + integration + fuzz + fork) |
+| `forge test` | **831 tests green, 0 failed, 0 skipped** (77 suites: unit + attack + invariant + integration + fuzz + fork) |
 | `forge coverage` | lines **98.35%**, statements **97.57%**, branches **89.23%**, functions **99.30%** overall (`--ir-minimum`; per-contract table below, raw in [`COVERAGE.md`](COVERAGE.md)) |
 | Invariants | **31 total** hold under `fail_on_revert`, 0 reverts: 6 router + 3 PaymentLanes + 6 Bookings + 6 Invoices + 6 Subscriptions + 4 GiftCards |
 | `slither .` (v0.11.5) | **31 results across 12 detectors**, all triaged (false-positive / by-design / justified-with-runtime-guard); router native-send rows suppressed by inline `slither-disable` |
