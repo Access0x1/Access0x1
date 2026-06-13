@@ -257,6 +257,21 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     /*//////////////////////////////////////////////////////////////
+                            PLATFORM ADMIN
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Change the platform fee. Bounded by `MAX_FEE_BPS`, so the platform can never set a
+    ///         confiscatory rate. A merchant whose `feeBps + newBps` would now exceed the cap is
+    ///         protected at pay time: `_splitFee` trims that merchant's surcharge, never the buyer's
+    ///         total and never the platform cut. Takes effect on the next payment.
+    /// @param newBps The new platform fee in basis points (≤ `MAX_FEE_BPS`).
+    function setPlatformFee(uint16 newBps) external onlyOwner {
+        if (newBps > MAX_FEE_BPS) revert Access0x1__FeeTooHigh(newBps, MAX_FEE_BPS);
+        emit PlatformFeeUpdated(platformFeeBps, newBps);
+        platformFeeBps = newBps;
+    }
+
+    /*//////////////////////////////////////////////////////////////
                                 PRICING
     //////////////////////////////////////////////////////////////*/
 
