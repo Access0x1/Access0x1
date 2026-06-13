@@ -38,7 +38,18 @@ import { createInterface } from 'node:readline';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = resolve(__dirname, '..');
-const TEMPLATE_DIR = join(PKG_ROOT, 'template');
+
+// The starter template now lives at the REPO ROOT (`templates/starter/`) so it can be fetched
+// directly with `npx degit Access0x1/Access0x1/templates/starter`. This CLI is a thin, private
+// convenience wrapper that copies the SAME tree (resolved relative to the package, then the repo).
+// We try a couple of candidate locations so the CLI works both from a git checkout and from a
+// tarball that bundles the template alongside the package.
+const TEMPLATE_CANDIDATES = [
+  resolve(PKG_ROOT, '..', '..', 'templates', 'starter'), // repo root: packages/create-access0x1 → ../../templates/starter
+  join(PKG_ROOT, 'template'), // legacy/bundled fallback
+  join(PKG_ROOT, 'templates', 'starter'), // bundled-at-package-root fallback
+];
+const TEMPLATE_DIR = TEMPLATE_CANDIDATES.find((p) => existsSync(p)) ?? TEMPLATE_CANDIDATES[0];
 
 // ── tiny ANSI helpers (no chalk dep) ──────────────────────────────────────────
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
@@ -349,19 +360,18 @@ function printNextSteps(targetDir, chain, features) {
   console.log(green('\nDone. Your Access0x1 project is ready.\n'));
   console.log(bold('Next steps:\n'));
   console.log(`  ${cyan('1.')} ${bold(`cd ${rel}`)}`);
-  console.log(`     ${dim(`then: cd app && npm install`)}\n`);
+  console.log(`     ${dim('then: npm run setup')}  ${dim('(detects/installs Foundry, installs deps, builds the contracts)')}\n`);
   console.log(`  ${cyan('2.')} ${bold('Point at a router (pick one path)')}`);
-  console.log(`     ${dim('a) Deploy your OWN non-custodial contracts (recommended — zero dependency on us):')}`);
-  console.log(`        ${dim('cd ../contracts && npm install && forge install && forge build')}`);
-  console.log(`        ${dim('forge script script/DeployAll.s.sol --rpc-url <your-rpc> --account deployer --broadcast')}`);
-  console.log(`        ${dim('see contracts/DEPLOY.md for the full, keystore-only runbook.')}`);
-  console.log(`     ${dim('b) OR paste an already-deployed router address you trust.')}\n`);
+  console.log(`     ${dim('a) NO-DEPLOY (default): paste a router address you trust into .env.local — works out of the box.')}`);
+  console.log(`     ${dim('b) OR deploy your OWN non-custodial contracts (zero dependency on us):')}`);
+  console.log(`        ${dim('cd contracts && forge script script/DeployAll.s.sol --rpc-url <your-rpc> --account deployer --broadcast')}`);
+  console.log(`        ${dim('see contracts/DEPLOY.md for the full, keystore-only runbook.')}\n`);
   console.log(`  ${cyan('3.')} ${bold('Fill the env')}`);
-  console.log(`     ${dim(`edit .env.local — set ${chain.routerEnv}=<your deployed router>`)}`);
+  console.log(`     ${dim(`edit app/.env.local — set ${chain.routerEnv}=<a router you trust, or your deployed one>`)}`);
   console.log(`     ${dim('plus the RPC / USDC / feed / Dynamic slots for')} ${chain.name}.`);
   console.log(`     ${yellow('Every address slot is blank on purpose')} ${dim('(LAW #4: confirm at booth / fill from your own deploy — never a guess).')}\n`);
   console.log(`  ${cyan('4.')} ${bold('Run it')}`);
-  console.log(`     ${dim('cd app && npm run dev')}  ${dim('→ open http://localhost:3000')}\n`);
+  console.log(`     ${dim('npm run dev')}  ${dim('→ open http://localhost:3000')}\n`);
   console.log(dim(`Features enabled: ${features.join(', ')}. The embed lives at app/public/embed.js.\n`));
 }
 

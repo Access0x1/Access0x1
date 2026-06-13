@@ -17,6 +17,11 @@ import { ChainRegistry } from "../src/ChainRegistry.sol";
 ///         wire `setPriceFeed`/`setTokenAllowed` from one source of truth.
 contract HelperConfig is Script {
     /// @notice Everything a deploy + first-configure needs for one chain.
+    /// @dev    The first six fields drive the router + its configure step (unchanged). The trailing
+    ///         three are the CONSOLIDATION block: they let `DeployAll` deploy + wire the full
+    ///         first-party surface (the commerce quartet over the SessionGrant + Router spine, and the
+    ///         off-money-path CRE consumer) in one broadcast. All three carry safe defaults so the
+    ///         local + existing-chain flows are unchanged when their env vars are unset.
     struct NetworkConfig {
         address treasury; // platform fee sink (constructor)
         uint16 platformFeeBps; // initial platform fee (constructor)
@@ -24,6 +29,8 @@ contract HelperConfig is Script {
         address usdc; // settlement ERC-20 to allowlist
         address usdcUsdFeed; // Chainlink USDC/USD feed
         address chainRegistry; // the ChainRegistry sidecar for SDK/cross-chain reads (additive)
+        uint16 graceFailThreshold; // Access0x1Subscriptions dunning grace (non-zero; constructor)
+        address creForwarder; // Chainlink CRE KeystoneForwarder for Access0x1Receiver; 0 ⇒ skip the consumer
     }
 
     /// @notice The chain id of a local Anvil/Foundry node.
@@ -40,6 +47,11 @@ contract HelperConfig is Script {
 
     /// @notice Default platform fee when `*_PLATFORM_FEE_BPS` is unset: 100 bps = 1.00%.
     uint16 internal constant DEFAULT_PLATFORM_FEE_BPS = 100;
+
+    /// @notice Default dunning grace for `Access0x1Subscriptions` when `*_SUBS_GRACE_FAILS` is unset:
+    ///         a PAST_DUE subscription demotes to UNPAID after 3 failed renewals (mirrors the
+    ///         ClickReserv grace window). Must be non-zero — the Subscriptions constructor reverts on 0.
+    uint16 internal constant DEFAULT_SUBS_GRACE_FAILS = 3;
 
     /// @notice The resolved config for the chain this script runs against.
     NetworkConfig public activeConfig;
@@ -71,6 +83,11 @@ contract HelperConfig is Script {
     ///      is guessed. `treasury` is required; feed/token/registry addresses are optional here and
     ///      wired by the configure step once the booth/docs values are known. `CHAIN_REGISTRY` is
     ///      the already-deployed `ChainRegistry` (from `DeployChainRegistry`) on this chain.
+    ///      CONSOLIDATION env (all optional, safe defaults): `SUBS_GRACE_FAILS` (the Subscriptions
+    ///      dunning threshold, defaults to 3 — never 0) and `CRE_FORWARDER` (the Chainlink CRE
+    ///      KeystoneForwarder; unset ⇒ DeployAll skips the off-money-path `Access0x1Receiver`, the
+    ///      commerce quartet + money spine still deploy). Named chains read the `<PREFIX>_`-prefixed
+    ///      form of each (e.g. `ARC_SUBS_GRACE_FAILS`, `BASE_SEPOLIA_CRE_FORWARDER`).
     function _liveConfigFromEnv() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("PLATFORM_TREASURY"),
@@ -78,7 +95,11 @@ contract HelperConfig is Script {
             nativeUsdFeed: vm.envOr("NATIVE_USD_FEED", address(0)),
             usdc: vm.envOr("USDC_ADDRESS", address(0)),
             usdcUsdFeed: vm.envOr("USDC_USD_FEED", address(0)),
-            chainRegistry: vm.envOr("CHAIN_REGISTRY", address(0))
+            chainRegistry: vm.envOr("CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("CRE_FORWARDER", address(0))
         });
     }
 
@@ -98,7 +119,11 @@ contract HelperConfig is Script {
             nativeUsdFeed: vm.envOr("ARC_NATIVE_USD_FEED", address(0)),
             usdc: vm.envOr("ARC_USDC_ADDRESS", address(0)),
             usdcUsdFeed: vm.envOr("ARC_USDC_USD_FEED", address(0)),
-            chainRegistry: vm.envOr("ARC_CHAIN_REGISTRY", address(0))
+            chainRegistry: vm.envOr("ARC_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ARC_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ARC_CRE_FORWARDER", address(0))
         });
     }
 
@@ -114,7 +139,11 @@ contract HelperConfig is Script {
             nativeUsdFeed: vm.envOr("BASE_SEPOLIA_NATIVE_USD_FEED", address(0)),
             usdc: vm.envOr("BASE_SEPOLIA_USDC_ADDRESS", address(0)),
             usdcUsdFeed: vm.envOr("BASE_SEPOLIA_USDC_USD_FEED", address(0)),
-            chainRegistry: vm.envOr("BASE_SEPOLIA_CHAIN_REGISTRY", address(0))
+            chainRegistry: vm.envOr("BASE_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("BASE_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("BASE_SEPOLIA_CRE_FORWARDER", address(0))
         });
     }
 
@@ -132,7 +161,11 @@ contract HelperConfig is Script {
             nativeUsdFeed: vm.envOr("ZKSYNC_SEPOLIA_NATIVE_USD_FEED", address(0)),
             usdc: vm.envOr("ZKSYNC_SEPOLIA_USDC_ADDRESS", address(0)),
             usdcUsdFeed: vm.envOr("ZKSYNC_SEPOLIA_USDC_USD_FEED", address(0)),
-            chainRegistry: vm.envOr("ZKSYNC_SEPOLIA_CHAIN_REGISTRY", address(0))
+            chainRegistry: vm.envOr("ZKSYNC_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ZKSYNC_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ZKSYNC_SEPOLIA_CRE_FORWARDER", address(0))
         });
     }
 
@@ -153,7 +186,11 @@ contract HelperConfig is Script {
             nativeUsdFeed: address(nativeFeed),
             usdc: address(usdc),
             usdcUsdFeed: address(usdcFeed),
-            chainRegistry: address(chainRegistry)
+            chainRegistry: address(chainRegistry),
+            graceFailThreshold: DEFAULT_SUBS_GRACE_FAILS,
+            // No real KeystoneForwarder on a local node: address(0) makes DeployAll SKIP the CRE
+            // consumer (it is off the money path; the full commerce + spine surface still deploys).
+            creForwarder: address(0)
         });
     }
 }
