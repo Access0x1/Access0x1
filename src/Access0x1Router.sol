@@ -380,11 +380,16 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     ///      `merchantFeeDest` (the merchant's `feeRecipient`, or its `payout` if unset). Each leg
     ///      floors, so `net = gross - platformFee - merchantFee` and `net + platformFee +
     ///      merchantFee == gross` holds exactly (the event records `platformFee + merchantFee`).
+    /// @dev `m` is a STORAGE pointer (not a memory copy): the pay paths only ever touch `payout`,
+    ///      `owner`, `feeRecipient`, `feeBps`, `active` — slots 0..3 of the record — and never
+    ///      `nameHash` (slot 4), so reading the live fields straight from storage skips the one cold
+    ///      SLOAD a `Merchant memory` copy would spend loading the unused `nameHash` word. Identical
+    ///      values, identical splits — only the unused brand slot is no longer loaded.
     /// @return platformFee     The platform's cut → `platformTreasury`.
     /// @return merchantFee     The merchant's surcharge → `merchantFeeDest`.
     /// @return net             What the merchant nets → `payout`.
     /// @return merchantFeeDest Where the merchant surcharge lands.
-    function _splitFee(Merchant memory m, uint256 gross)
+    function _splitFee(Merchant storage m, uint256 gross)
         private
         view
         returns (uint256 platformFee, uint256 merchantFee, uint256 net, address merchantFeeDest)
@@ -399,7 +404,10 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         platformFee = Math.mulDiv(gross, pBps, FEE_DENOMINATOR);
         merchantFee = Math.mulDiv(gross, mBps, FEE_DENOMINATOR);
         net = gross - platformFee - merchantFee;
-        merchantFeeDest = m.feeRecipient == address(0) ? m.payout : m.feeRecipient;
+        // Cache the slot once: `feeRecipient` is otherwise read twice in the fallback ternary. Same
+        // value either way — 0 ⇒ fall back to `payout`.
+        address feeRecipient = m.feeRecipient;
+        merchantFeeDest = feeRecipient == address(0) ? m.payout : feeRecipient;
     }
 
     /// @dev Push native value, or credit the pull-map on failure. A settled receipt must never be
@@ -446,7 +454,10 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         nonReentrant
         whenNotPaused
     {
-        Merchant memory m = merchants[merchantId];
+        // Storage pointer, not a memory copy: the pay path reads `owner`, `active`, then (in
+        // `_splitFee`) `feeBps`/`feeRecipient`/`payout` — never `nameHash`. A `Merchant memory` copy
+        // would spend a cold SLOAD loading that unused brand slot; reading live fields skips it.
+        Merchant storage m = merchants[merchantId];
         if (m.owner == address(0)) revert Access0x1__MerchantNotFound(merchantId);
         if (!m.active) revert Access0x1__MerchantInactive(merchantId);
 
@@ -495,7 +506,9 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         nonReentrant
         whenNotPaused
     {
-        Merchant memory m = merchants[merchantId];
+        // Storage pointer, not a memory copy (see `payNative`): the pay path never reads `nameHash`,
+        // so this skips the cold SLOAD a `Merchant memory` copy would spend on that unused slot.
+        Merchant storage m = merchants[merchantId];
         if (m.owner == address(0)) revert Access0x1__MerchantNotFound(merchantId);
         if (!m.active) revert Access0x1__MerchantInactive(merchantId);
         if (token == NATIVE) revert Access0x1__TokenNotAllowed(token); // native goes through payNative
