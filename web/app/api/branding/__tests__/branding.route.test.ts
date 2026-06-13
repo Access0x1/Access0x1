@@ -71,6 +71,8 @@ describe('GET /api/branding/{slug}', () => {
       // mount the World ID gate or run the Unlink leg. Defaults for a fresh row.
       checkoutMode: 'standard',
       humanVerifier: 'offchain',
+      // Super Verification: the minimum buyer trust tier ('standard' = anyone).
+      requiredTier: 'standard',
       verifiedOperator: false,
     })
   })

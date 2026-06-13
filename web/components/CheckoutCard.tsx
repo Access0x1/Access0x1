@@ -10,7 +10,10 @@ import { getWalletClient, getPublicClient } from '@/lib/wallet'
 import { ConnectButton } from './ConnectButton'
 import { ReceiptScreen } from './ReceiptScreen'
 import { WorldIdGate } from './WorldIdGate'
+import { SuperVerifiedBadge } from './verification/SuperVerifiedBadge'
 import type { CheckoutMode, HumanVerifier } from '@/lib/branding/store'
+import { TIER_INFO, tierMeets, type TrustTier } from '@/lib/verification/tiers'
+import { loadProfile } from '@/lib/verification/client'
 
 const USDC_SYMBOL = 'USDC'
 // USDC display decimals are resolved PER CHAIN via `tokenDecimalsFor(chainId)`
@@ -34,6 +37,7 @@ export function CheckoutCard({
   returnUrl,
   checkoutMode = 'standard',
   humanVerifier = 'offchain',
+  requiredTier = 'standard',
 }: {
   chainId: number
   merchantId: bigint
@@ -51,6 +55,13 @@ export function CheckoutCard({
   checkoutMode?: CheckoutMode
   /** Where a verified-human proof is checked. 'onchain' is a documented seam (below). */
   humanVerifier?: HumanVerifier
+  /**
+   * The minimum Super Verification trust tier the BUYER must hold to pay
+   * ('standard' = anyone, the default). Composes with the World ID gate: the pay
+   * button stays disabled until the connected buyer meets this tier. Off the
+   * money path — purely a precondition in front of pay, like the World ID gate.
+   */
+  requiredTier?: TrustTier
 }): ReactNode {
   const { primaryWallet } = useDynamicContext()
   const usdAmount8 = usdToAmount8(Number(usdAmount))
@@ -60,6 +71,27 @@ export function CheckoutCard({
   // World ID gate state: when the merchant requires verified humans, the pay
   // button stays disabled until the buyer completes the one-tap proof.
   const [humanVerified, setHumanVerified] = useState(checkoutMode !== 'verified-human')
+
+  // Buyer trust tier (Super Verification): when the merchant requires a tier,
+  // fetch the connected buyer's profile and gate pay until they meet it.
+  const needsTier = requiredTier !== 'standard'
+  const [buyerTier, setBuyerTier] = useState<TrustTier>('standard')
+  const [buyerScore, setBuyerScore] = useState(0)
+  const tierMet = !needsTier || tierMeets(buyerTier, requiredTier)
+
+  const refreshTier = useCallback(async () => {
+    const addr = primaryWallet?.address
+    if (!needsTier || !addr) return
+    const profile = await loadProfile(addr.toLowerCase())
+    if (profile) {
+      setBuyerTier(profile.tier)
+      setBuyerScore(profile.score)
+    }
+  }, [needsTier, primaryWallet?.address])
+
+  useEffect(() => {
+    void refreshTier()
+  }, [refreshTier])
 
   const [quoteDisplay, setQuoteDisplay] = useState<string | null>(null)
   const [quoteError, setQuoteError] = useState<string | null>(null)
@@ -116,6 +148,15 @@ export function CheckoutCard({
       setPayError('Please verify you’re a real person first.')
       return
     }
+    if (needsTier && !tierMet) {
+      // Same precondition shape: the buyer-tier gate sits in front of pay, off
+      // the money path. Re-check live in case they just verified in another tab.
+      await refreshTier()
+      if (!tierMeets(buyerTier, requiredTier)) {
+        setPayError(`This merchant accepts ${TIER_INFO[requiredTier].label} buyers only.`)
+        return
+      }
+    }
     // Re-fetch the quote immediately before confirming so the price is current.
     await refreshQuote()
     if (quoteError) return
@@ -164,7 +205,8 @@ export function CheckoutCard({
     loadingQuote ||
     quoteError !== null ||
     !merchant.active ||
-    (needsHuman && !humanVerified)
+    (needsHuman && !humanVerified) ||
+    (needsTier && !tierMet)
 
   return (
     <div className="flex flex-col gap-5">
@@ -214,6 +256,42 @@ export function CheckoutCard({
             signal={primaryWallet.address}
             onVerified={() => setHumanVerified(true)}
           />
+        </div>
+      ) : null}
+
+      {primaryWallet && needsTier ? (
+        // Buyer-tier gate (Super Verification): a precondition in front of pay,
+        // off the money path. Shows the buyer's current rung; when it's below the
+        // merchant's requirement, pay stays disabled and we point them to /verify.
+        <div
+          data-required-tier={requiredTier}
+          data-tier-met={tierMet}
+          className={`flex flex-col gap-2 rounded-xl border p-4 ${
+            tierMet ? 'border-green-300 bg-green-50' : 'border-neutral-200 bg-neutral-50'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm text-neutral-600">
+              {tierMet
+                ? 'You meet this merchant’s verification requirement.'
+                : `This merchant accepts ${TIER_INFO[requiredTier].label} buyers.`}
+            </span>
+            <SuperVerifiedBadge tier={buyerTier} score={buyerScore} />
+          </div>
+          {!tierMet ? (
+            <a
+              href="/verify"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                // Re-check when they come back from verifying in the new tab.
+                setTimeout(() => void refreshTier(), 0)
+              }}
+              className="self-start rounded-lg border border-rail px-3 py-2 text-sm font-medium text-rail hover:opacity-90"
+            >
+              Get {TIER_INFO[requiredTier].label} →
+            </a>
+          ) : null}
         </div>
       ) : null}
 
