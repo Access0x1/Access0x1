@@ -559,4 +559,29 @@ contract Access0x1RouterTest is Test {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, buyer));
         router.setPlatformFee(250);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            ADMIN — setTreasury
+    //////////////////////////////////////////////////////////////*/
+
+    function test_setTreasuryUpdatesAndEmits() public {
+        address newTreasury = makeAddr("newTreasury");
+        vm.expectEmit(false, false, false, true, address(router));
+        emit Access0x1Router.TreasuryUpdated(treasury, newTreasury);
+        vm.prank(owner);
+        router.setTreasury(newTreasury);
+        assertEq(router.platformTreasury(), newTreasury);
+    }
+
+    function test_setTreasuryRevertsOnZero() public {
+        vm.prank(owner);
+        vm.expectRevert(Access0x1Router.Access0x1__ZeroAddress.selector);
+        router.setTreasury(address(0));
+    }
+
+    function test_setTreasuryRevertsWhenNotOwner() public {
+        vm.prank(buyer);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, buyer));
+        router.setTreasury(makeAddr("newTreasury"));
+    }
 }
