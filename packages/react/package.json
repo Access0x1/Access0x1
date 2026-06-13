@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "description": "viem/wagmi-native React SDK for Access0x1 — a zero-custody, USD-priced crypto payment button you can drop into any React app in under five minutes.",
   "license": "MIT",
+  "author": "Rensley <noreply@users.noreply.github.com>",
+  "homepage": "https://github.com/Access0x1/Access0x1/tree/main/packages/react#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Access0x1/Access0x1.git",
+    "directory": "packages/react"
+  },
+  "bugs": {
+    "url": "https://github.com/Access0x1/Access0x1/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -15,15 +25,19 @@
   },
   "files": [
     "dist",
-    "src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
     "react": "^18 || ^19",
@@ -46,13 +60,20 @@
     "viem": "^2.35.1",
     "vitest": "^2.1.8"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "access0x1",
     "payments",
     "usdc",
+    "stablecoin",
+    "crypto-checkout",
+    "pay-button",
     "viem",
     "wagmi",
+    "react",
     "web3",
-    "crypto-checkout"
+    "ethereum"
   ]
 }
