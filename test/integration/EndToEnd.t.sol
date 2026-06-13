@@ -26,7 +26,7 @@ import { MockForwarder } from "../mocks/MockForwarder.sol";
 ///         + the real contracts) and runs the full money flow end to end — the proof that the
 ///         pieces COMPOSE, not just pass in isolation:
 ///
-///           1. Deploy the estate: ChainRegistry, Access0x1Router, PaymentLanes,
+///           1. Deploy the stack: ChainRegistry, Access0x1Router, PaymentLanes,
 ///              Access0x1Receiver (behind a MockForwarder), HouseTokenFactory, SessionGrant.
 ///           2. Register a merchant with an ENS-style nameHash; show its on-chain brand color
 ///              via NameMath.colorOf, and record the chain's facts in ChainRegistry.
@@ -47,7 +47,7 @@ contract EndToEndTest is Test {
     using NameMath for bytes32;
 
     /*//////////////////////////////////////////////////////////////
-                                ESTATE
+                                STACK
     //////////////////////////////////////////////////////////////*/
 
     ChainRegistry internal registry;
@@ -113,12 +113,12 @@ contract EndToEndTest is Test {
         uint64 notifiedAt
     );
 
-    /// @notice Stand up and wire the entire estate exactly as the deploy scripts do.
+    /// @notice Stand up and wire the entire deployment exactly as the deploy scripts do.
     function setUp() public {
         // A non-zero, stable timestamp keeps the Chainlink feed inside the staleness window.
         vm.warp(1_700_000_000);
 
-        // ── 1. Deploy the estate ────────────────────────────────────────────────────────────────
+        // ── 1. Deploy the stack ─────────────────────────────────────────────────────────────────
         registry = new ChainRegistry(platformAdmin);
         router = new Access0x1Router(platformAdmin, treasury, PLATFORM_FEE_BPS);
         lanes = new PaymentLanes(platformAdmin);
