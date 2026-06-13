@@ -17,6 +17,7 @@
 import { agentPay, agentNanoLoop, PaymentRequiredUnresolved } from "../../../../lib/agent/payPerCall.js";
 import { agentAddress } from "../../../../lib/agent/dynamicAgentWallet.js";
 import { BudgetExceeded } from "../../../../lib/agent/agentMeter.js";
+import { assertAgentTrialAllowed, HumanGateRequired } from "../../../../lib/worldid/agentGate.js";
 
 /** Hard ceiling on a single nano-loop request — law #4: the demo fires real, bounded calls. */
 const MAX_DEMO_CALLS = 50;
@@ -125,6 +126,19 @@ export async function POST(req: Request): Promise<Response> {
   }
   if (!isAllowed(validated.url)) {
     return json({ error: "BadRequest", reason: "url not in allowlist" }, 400);
+  }
+
+  // Track A (World ID ADR D6 / unit 7): when AGENT_REQUIRE_HUMAN is on, only an
+  // agent backed by a verified human gets the trial allowance. Checked BEFORE
+  // any network effect (CEI), like the meter. Off by default → no-op, existing
+  // behavior preserved. It never touches money — the meter still owns the budget.
+  try {
+    assertAgentTrialAllowed();
+  } catch (err) {
+    if (err instanceof HumanGateRequired) {
+      return json({ error: "HumanGateRequired" }, 402);
+    }
+    return json({ error: "Internal" }, 500);
   }
 
   try {

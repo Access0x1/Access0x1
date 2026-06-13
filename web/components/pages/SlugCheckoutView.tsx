@@ -6,6 +6,7 @@ import { getDefaultChainId, getRouterAddress } from '@/lib/chains'
 import { getMerchant, type Merchant } from '@/lib/contracts'
 import { getPublicClient } from '@/lib/wallet'
 import type { PublicBranding } from '@/lib/branding/response'
+import { resolveGate } from '@/lib/worldid/gateConfig'
 import { CheckoutCard } from '@/components/CheckoutCard'
 import { BrandPreview } from '@/components/branding/BrandPreview'
 import { AskAssistant } from '@/components/AskAssistant'
@@ -108,6 +109,14 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
               usdAmount={amount}
               orderParam={orderParam}
               returnUrl={returnUrl}
+              {...(() => {
+                // Resolve the D0 choice (verified-human / private / standard),
+                // enforcing mutual exclusion + fail-soft (resolveGate). A
+                // verified-human merchant with World ID unconfigured degrades to
+                // standard so a missing env never blocks pay (ADR D7).
+                const gate = resolveGate(branding)
+                return { checkoutMode: gate.mode, humanVerifier: gate.verifier }
+              })()}
             />
           ) : (
             <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
