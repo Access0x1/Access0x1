@@ -40,7 +40,10 @@ export default function CheckoutPage(): ReactNode {
   const client = useMemo(() => buildAccess0x1Client(account), [account]);
 
   // Arc-only truthful "no gas fee" copy (USDC is native gas there). Never on other chains.
-  const payLabel = CHAIN.key === 'arc' ? 'Pay with USDC — no gas fee' : 'Pay with Crypto';
+  // CHAIN.key is a single literal (chosen at scaffold time); compare as string so this stays
+  // type-valid whatever chain was scaffolded (avoids TS2367 on base/zksync).
+  const payLabel =
+    (CHAIN.key as string) === 'arc' ? 'Pay with USDC — no gas fee' : 'Pay with Crypto';
 
   async function handleConnect(): Promise<void> {
     const acct = await connectWallet();

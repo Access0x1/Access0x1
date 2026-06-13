@@ -34,7 +34,9 @@ const arcTestnet = defineChain({
 
 /** Resolve the viem chain object for this project's configured chain id. */
 function resolveChain(): Chain {
-  switch (CHAIN.id) {
+  // CHAIN.id is a single literal (the chain chosen at scaffold time); widen to `number` so the
+  // other supported-chain cases stay comparable (avoids TS2678) and the switch is portable.
+  switch (CHAIN.id as number) {
     case 5042002:
       return arcTestnet;
     case 84532:
