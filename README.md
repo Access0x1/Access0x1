@@ -197,7 +197,7 @@ cd Access0x1
 forge install          # OpenZeppelin + forge-std (git submodules)
 npm install            # @chainlink/contracts (npm, pinned 1.5.0) — run BEFORE forge build
 forge build
-forge test             # 550 green
+forge test             # 777 green
 forge coverage         # 100% on the router
 forge snapshot         # regenerate .gas-snapshot (see docs/GAS.md)
 ```
@@ -244,9 +244,21 @@ forge script script/DeployAll.s.sol \
   --account deployer --sender $DEPLOYER \
   --broadcast --verify --etherscan-api-key $BASESCAN_API_KEY -vvvv
 
-# zkSync Sepolia
-forge script script/DeployAll.s.sol --profile zksync \
+# zkSync Sepolia — needs foundry-zksync + the --zksync flag
+# (a plain EVM build is NOT the zkEVM — see docs/ZKSYNC-TESTING.md)
+forge script script/DeployAll.s.sol --zksync \
   --rpc-url $ZKSYNC_SEPOLIA_RPC_URL --account deployer --sender $DEPLOYER --broadcast -vvvv
+```
+
+**Or just `make`** (keystore + per-chain RPC read from `.env`):
+
+```sh
+make deploy-arc              # Arc Testnet — gas-free USDC, the lead chain
+make deploy-base             # Base Sepolia
+make deploy-zksync           # zkSync Sepolia (adds --zksync)
+make deploy-sepolia          # Ethereum Sepolia
+make deploy-arbitrum-sepolia # Arbitrum Sepolia
+make deploy-optimism-sepolia # Optimism Sepolia
 ```
 
 > Live deploys read **every** address from the environment (`PLATFORM_TREASURY`, `NATIVE_USD_FEED`,
