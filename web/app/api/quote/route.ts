@@ -32,11 +32,27 @@ export async function GET(request: Request): Promise<NextResponse> {
   let merchantId: bigint
   let usdAmount8: bigint
   try {
+    // `Number("abc")` is NaN (it does NOT throw), so chainId needs an explicit
+    // finite/integer/positive check — otherwise a junk chainId leaks past this
+    // guard and surfaces as a confusing 500 from getRouterAddress(NaN). BigInt()
+    // rejects non-integers but ACCEPTS negatives, so the amount/merchant fields
+    // need their own sign checks. A negative or zero price must never be quoted
+    // (law #4: never a silent wrong price).
     chainId = Number(chainIdRaw)
+    if (!Number.isInteger(chainId) || chainId <= 0) {
+      return NextResponse.json({ error: 'Invalid numeric query param' }, { status: 400 })
+    }
     merchantId = BigInt(merchantIdRaw)
     usdAmount8 = BigInt(usdAmount8Raw)
   } catch {
     return NextResponse.json({ error: 'Invalid numeric query param' }, { status: 400 })
+  }
+
+  if (merchantId < 0n) {
+    return NextResponse.json({ error: 'merchantId must be non-negative' }, { status: 400 })
+  }
+  if (usdAmount8 <= 0n) {
+    return NextResponse.json({ error: 'usdAmount8 must be a positive amount' }, { status: 400 })
   }
 
   let routerAddress: Address
