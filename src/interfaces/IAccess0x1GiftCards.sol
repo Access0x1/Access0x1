@@ -19,7 +19,7 @@ interface IAccess0x1GiftCards {
     /// @dev    `PERCENT` ⇒ `value` is basis points of 100 (value/100 percent) — i.e. `value` is a
     ///         whole-percent figure in `[0, 100]`; `AMOUNT` ⇒ `value` is a flat USD (8-dec) discount.
     ///         Any other (impossible) variant is treated as a zero discount by `applyCoupon`, never a
-    ///         revert (the YourApp "unknown type ⇒ no discount" rule).
+    ///         revert (the "unknown type ⇒ no discount" rule).
     enum DiscountType {
         PERCENT,
         AMOUNT

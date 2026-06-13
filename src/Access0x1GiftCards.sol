@@ -11,7 +11,7 @@ import { IAccess0x1GiftCards } from "./interfaces/IAccess0x1GiftCards.sol";
 /// @title  Access0x1GiftCards
 /// @author Access0x1
 /// @notice A USD-priced PREPAID-BALANCE primitive (gift cards / credit packs) plus a minimal,
-///         merchant-scoped COUPON registry — the on-chain expression of YourApp's strongest
+///         merchant-scoped COUPON registry — the on-chain expression of a mature commerce app's strongest
 ///         money invariant: a prepaid balance debit that can NEVER drive the balance negative
 ///         (`balance >= applied`), here a HARD revert. A card balance is a non-custodial,
 ///         ERC-6909-style RECEIPT denominated in USD (8 decimals, the estate's `usdAmount8`): the
@@ -139,7 +139,7 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
 
     /// @inheritdoc IAccess0x1GiftCards
     /// @dev CEI + `nonReentrant`. `applied = min(balance, amountUsd8)`; the HARD never-negative guard
-    ///      `require(balance >= applied)` is the canonical YourApp invariant as a revert (it can
+    ///      `require(balance >= applied)` is the canonical never-negative invariant as a revert (it can
     ///      only ever trip on a corrupted `min`, so it is a defense-in-depth assertion, not a UX
     ///      path). `redemptionId` is recorded BEFORE the debit and replays revert — a redeem applies
     ///      at most once. The debit is the only state change; any chargeable remainder
@@ -158,7 +158,7 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
         uint256 balance = _balanceOf[msg.sender][cardId_];
         applied = balance < amountUsd8 ? balance : amountUsd8;
         // HARD never-negative guard: a debit can NEVER exceed the balance. `applied <= balance` holds
-        // by the `min` above; this require is the strictly-stronger invariant YourApp expresses
+        // by the `min` above; this require is the strictly-stronger invariant a mature commerce app expresses
         // as a soft check, here a revert no path can bypass.
         if (balance < applied) {
             revert GiftCards__InsufficientBalance(cardId_, msg.sender, balance, applied);
@@ -182,7 +182,7 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     /// @dev CEI + `nonReentrant`. Idempotent: the `reversed` flag gates a second call to a clean
     ///      no-return revert is avoided by flipping it BEFORE crediting; an unknown id reverts. The
     ///      applied amount is credited back to the ORIGINAL holder (recorded at redeem time), flipping
-    ///      a fully-spent card live again — YourApp's expire/cancel reversal.
+    ///      a fully-spent card live again — a mature commerce app's expire/cancel reversal.
     function reverseRedemption(bytes32 redemptionId) external nonReentrant {
         Redemption storage r = _redemptions[redemptionId];
         if (!r.exists) revert GiftCards__RedemptionUnknown(redemptionId);
@@ -253,7 +253,7 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     ///      transition, so `redemptionsCount` can never exceed `maxRedemptions` even under concurrent
     ///      sales (each is its own tx; the EVM serializes them). A disqualifying state (inactive,
     ///      expired, cap reached) reverts; the discount math itself NEVER throws — an unknown discount
-    ///      type yields a zero discount (the YourApp "unknown ⇒ no discount" rule), and the result
+    ///      type yields a zero discount (the "unknown ⇒ no discount" rule), and the result
     ///      is clamped to `[0, amountUsd8]` so a coupon can never exceed the sale it discounts.
     function applyCoupon(uint256 merchantId, bytes32 couponId, uint256 amountUsd8)
         external
@@ -303,7 +303,7 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
 
     /// @dev The clamped discount for a sale. PERCENT ⇒ `amount * value / 100`; AMOUNT ⇒ flat `value`.
     ///      Both are clamped to `[0, amount]` so a discount can never exceed the sale. An unrecognized
-    ///      type returns zero (never reverts) — the YourApp "unknown discount ⇒ no discount" rule;
+    ///      type returns zero (never reverts) — the "unknown discount ⇒ no discount" rule;
     ///      because `DiscountType` has exactly two variants this is unreachable today, but it keeps the
     ///      math total for any future variant.
     /// @param dType  The discount kind.
