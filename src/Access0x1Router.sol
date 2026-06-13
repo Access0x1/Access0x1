@@ -299,4 +299,65 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
             usdAmount8, 10 ** (feedDecimals + tokenDecimals), 10 ** 8 * price, Math.Rounding.Ceil
         );
     }
+
+    /*//////////////////////////////////////////////////////////////
+                              SETTLEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev The one fee-split core both pay paths share. `fee` floors (so net rounds in the
+    ///      merchant's favour) and `net = gross - fee`, so `fee + net == gross` holds exactly.
+    ///      `feeDest` falls back to the payout when the merchant set no fee recipient.
+    function _splitFee(Merchant memory m, uint256 gross)
+        private
+        view
+        returns (uint256 fee, uint256 net, address feeDest)
+    {
+        fee = Math.mulDiv(gross, uint256(platformFeeBps) + m.feeBps, FEE_DENOMINATOR);
+        net = gross - fee;
+        feeDest = m.feeRecipient == address(0) ? m.payout : m.feeRecipient;
+    }
+
+    /// @dev Push native value, or credit the pull-map on failure. A settled receipt must never be
+    ///      reverted by a payee that rejects ETH (no custody, no stuck funds) — they pull instead.
+    function _pushNativeOrQueue(address to, uint256 amount) private {
+        if (amount == 0) return;
+        (bool ok,) = to.call{ value: amount }("");
+        if (!ok) rescue[to] += amount;
+    }
+
+    /// @notice Pay a merchant in the chain's native token, priced in USD. Refunds any excess.
+    /// @dev    CEI: checks (active merchant, fresh quote, sufficient value) → effects (split + emit)
+    ///         → interactions (push net, push fee, refund). net/fee pushes that fail are queued to
+    ///         `rescue` (the receipt still stands); a failed refund DOES revert, because the buyer
+    ///         is present and must not silently lose the excess. `nonReentrant` + `whenNotPaused`.
+    /// @param merchantId The merchant to pay.
+    /// @param usdAmount8 The price in USD (8 decimals).
+    /// @param orderId    An opaque order reference echoed in the receipt event.
+    function payNative(uint256 merchantId, uint256 usdAmount8, bytes32 orderId)
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
+        Merchant memory m = merchants[merchantId];
+        if (m.owner == address(0)) revert Access0x1__MerchantNotFound(merchantId);
+        if (!m.active) revert Access0x1__MerchantInactive(merchantId);
+
+        uint256 gross = quote(merchantId, NATIVE, usdAmount8); // reads the feed IN-TX
+        if (msg.value < gross) revert Access0x1__Underpaid(gross, msg.value);
+
+        (uint256 fee, uint256 net, address feeDest) = _splitFee(m, gross);
+        emit PaymentReceived(
+            merchantId, msg.sender, NATIVE, gross, fee, net, usdAmount8, orderId, 0
+        );
+
+        _pushNativeOrQueue(m.payout, net);
+        _pushNativeOrQueue(feeDest, fee);
+
+        uint256 refundAmount = msg.value - gross;
+        if (refundAmount > 0) {
+            (bool ok,) = msg.sender.call{ value: refundAmount }("");
+            if (!ok) revert Access0x1__NativePushFailed(msg.sender, refundAmount);
+        }
+    }
 }
