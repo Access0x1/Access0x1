@@ -23,43 +23,90 @@ submission — is **build + simulate**:
 
 ```bash
 cd cre
-npm install                      # pulls @chainlink/cre-sdk (build-session step; not run in CI)
-cre login                        # free
-cre workflow build               # compiles workflow.ts → WASM
-cre workflow simulate            # runs the workflow against real public-EVM + real HTTP calls
-cre workflow simulate --broadcast   # also sends the on-chain audit write to the sim MockForwarder
+npm install                          # pulls @chainlink/cre-sdk (+ viem); build-session step, not CI
+cre login                            # free
+cre workflow build                   # compiles workflow.ts → WASM (Javy/QuickJS)
+cre workflow simulate                # runs the workflow against real public-EVM + real HTTP calls
+cre workflow simulate --broadcast    # also sends the on-chain audit write to the sim MockForwarder
 ```
 
 The prize rule is *"build, simulate, OR deploy"* — **simulate qualifies**. The honest artifact is
 **"built + simulated."** Do **not** claim a self-served live deploy. (Booth question #3a: confirm
 whether the Chainlink team deploys the workflow to live CRE for you at the event.)
 
+## The trigger — exact ABI + topic0
+
+The workflow's EVM-log trigger keys on the router's `PaymentReceived` event. The signature mirrors
+[`Access0x1Router.sol`](../src/Access0x1Router.sol) byte-for-byte (do not reorder — the topic hash
+and the decode both depend on it):
+
+```solidity
+event PaymentReceived(
+    uint256 indexed merchantId,
+    address indexed buyer,
+    address indexed token,
+    uint256 grossAmount,
+    uint256 feeAmount,
+    uint256 netAmount,
+    uint256 usdAmount8,
+    bytes32 orderId,
+    uint64  srcChainSelector
+);
+```
+
+- **Canonical signature:** `PaymentReceived(uint256,address,address,uint256,uint256,uint256,uint256,bytes32,uint64)`
+- **topic0 (keccak256 of the signature):**
+  `0x0e7e4f9badfadd9437d5fe53bdba0ca985b1b3414cb35b09a4459416e1735eea`
+
+`workflow.ts` recomputes topic0 with viem's `toEventHash` and uses it as the `logTriggerConfig`
+`topics[0]` filter, scoped to `config.routerAddress`, at `FINALIZED` confidence.
+
+## The on-chain write — AuditEntry
+
+The handler ABI-encodes one `Access0x1Receiver.AuditEntry` tuple as the report body (field order
+matches the Solidity struct exactly) and `writeReport`s it via the KeystoneForwarder:
+
+```
+tuple(uint256 merchantId, address token, uint256 grossAmount, uint256 usdAmount8,
+      bytes32 orderId, uint64 srcChainSelector, uint64 notifiedAt)
+```
+
+`notifiedAt` is `runtime.now()` (DON-consensus time) in unix seconds — **never** `Date.now()`.
+
 ## Files
 
 | File | What |
 |---|---|
 | `workflow.ts` | The workflow: EVM-log trigger on `PaymentReceived` → HTTP notify + `writeReport` audit. |
-| `config.ts` | Per-run config (chain, router/receiver addresses, webhook). SIMULATE placeholders by default; no secrets. |
-| `tsconfig.json` | Strict TS config for `tsc --noEmit` once the SDK is installed. |
-| `package.json` | `@chainlink/cre-sdk` dep + `build` / `simulate` / `typecheck` scripts. |
+| `config.ts` | Zod `configSchema` + the `NotifyConfig` type the runner validates `config.json` against. |
+| `config.json` | Per-run values (chain + router/receiver addresses + webhook URL + secret ID). SIMULATE placeholders; **no secret values**. |
+| `workflow.yaml` | CRE CLI manifest: workflow name, the TS entrypoint, the config + secrets paths. |
+| `tsconfig.json` | Strict TS config for `npm run typecheck` (`tsc --noEmit`). |
+| `package.json` | `@chainlink/cre-sdk` + `viem` deps + `build` / `simulate` / `typecheck` scripts. |
 
-> Type-check (`npm run typecheck`) requires `npm install` first — the CRE SDK install is a
-> build-session/owner action and is intentionally NOT part of the contract gate. Until then this is a
-> documented, simulate-ready artifact.
+> `npm run typecheck` (and `cre workflow build`/`simulate`) require `npm install` here first — the
+> CRE SDK install is a build-session/owner action and is intentionally **not** part of the contract
+> gate. The TypeScript type-checks clean against the installed SDK (v1.11).
 
 ## Determinism (mandatory — or DON consensus fails)
 
-- Timestamps use `runtime.now()`, **never** `Date.now()`.
-- All amounts are `bigint` (the event args decode as `bigint`); the webhook body serializes them as
-  decimal strings — **no JS floats**.
-- The webhook body has stable key order so every DON node produces byte-identical output.
+The WASM runtime is **Javy (QuickJS)**, not Node: `node:crypto`, `fetch`, `setTimeout`, and
+`Date.now()` are unavailable. Accordingly:
+
+- Time comes from `runtime.now()` (DON-consensus `Date`), never `Date.now()`.
+- All amounts are `bigint` (the event args decode as `bigint` via viem); the webhook body serializes
+  them as decimal strings — **no JS floats**.
+- The webhook body has stable key order so every DON node produces a byte-identical body, and the
+  HTTP call is reduced to a single value with `consensusIdenticalAggregation`.
 
 ## Supported networks (CRE)
 
-Base + Base Sepolia ✓ · zkSync Era + Sepolia ✓ · **Arc Testnet 5042002** ✓ (needs CLI ≥ 1.0.7 /
-TS SDK ≥ 1.3.1 — `cre update`). No Arc **mainnet** on CRE — fine, the event is testnet. Arc-Testnet
-KeystoneForwarder (prod): `0x76c9cf548b4179F8901cda1f8623568b58215E62` (the address the
-`Access0x1Receiver` constructor trusts on Arc).
+Base + Base Sepolia ✓ · zkSync Era + Sepolia ✓ · **Arc Testnet 5042002** ✓ (chain selector name
+`arc-testnet`; needs CLI ≥ 1.0.7 / TS SDK ≥ 1.3.1 — `cre update`). No Arc **mainnet** on CRE — fine,
+the event is testnet. Arc-Testnet KeystoneForwarder (prod):
+`0x76c9cf548b4179F8901cda1f8623568b58215E62` (the address the `Access0x1Receiver` constructor trusts
+on Arc). The workflow resolves the selector at runtime via
+`getNetwork({ chainFamily: 'evm', chainSelectorName, isTestnet: true })`.
 
 ## Off the money path — by construction
 
@@ -69,6 +116,7 @@ router emits the event fire-and-forget; settlement is byte-for-byte identical wh
 
 ## Secrets
 
-The merchant webhook signing key is referenced **by name** (`config.webhookSecretName`) and pulled
-from the CRE secrets vault at runtime — never committed, never inlined. `config.ts` carries only
-public placeholders.
+The merchant webhook auth key is referenced **by ID** (`config.webhookSecretId`) and pulled from the
+CRE secrets vault at runtime (`runtime.getSecret({ id }).result().value`, sent as a `Bearer` header)
+— never committed, never inlined. `config.json` carries only public placeholders; a local
+`secrets.yaml` for `cre workflow simulate` is **gitignored** so a key value can never be committed.
