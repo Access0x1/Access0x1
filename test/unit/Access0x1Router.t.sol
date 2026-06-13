@@ -7,6 +7,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { RevertingReceiver } from "../mocks/RevertingReceiver.sol";
 import { ReentrantPayout } from "../mocks/ReentrantPayout.sol";
+import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
 
 /// @notice The router's unit suite — the full surface in one fixture: constructor, merchant
 ///         registry, pricing, both pay paths (with adversarial mocks), admin, and rescue.
@@ -407,5 +408,105 @@ contract Access0x1RouterTest is Test {
         // re-entry reverted → net push failed → queued; the merchant is NOT settled twice
         assertEq(router.rescue(address(attacker)), net);
         assertEq(feeRecipient.balance, fee);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              PAY TOKEN
+    //////////////////////////////////////////////////////////////*/
+
+    function test_payTokenSettlesAndEmits() public {
+        _configureFeeds();
+        uint256 id = _register();
+        uint256 gross = router.quote(id, address(usdc), 20e8); // 20 USDC
+        uint256 fee = gross * TOTAL_FEE_BPS / 10_000;
+        uint256 net = gross - fee;
+
+        usdc.mint(buyer, 100e6);
+        vm.prank(buyer);
+        usdc.approve(address(router), gross);
+
+        vm.expectEmit(true, true, true, true, address(router));
+        emit Access0x1Router.PaymentReceived(
+            id, buyer, address(usdc), gross, fee, net, 20e8, ORDER, 0
+        );
+        vm.prank(buyer);
+        router.payToken(id, address(usdc), 20e8, ORDER);
+
+        assertEq(usdc.balanceOf(payout), net);
+        assertEq(usdc.balanceOf(feeRecipient), fee);
+        assertEq(usdc.balanceOf(address(router)), 0); // no custody — zero residual
+        assertEq(fee + net, gross);
+    }
+
+    function test_payTokenRevertsOnNativeToken() public {
+        _configureFeeds();
+        uint256 id = _register();
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__TokenNotAllowed.selector, address(0))
+        );
+        router.payToken(id, address(0), 20e8, ORDER);
+    }
+
+    function test_payTokenRevertsWhenNotAllowed() public {
+        _configureFeeds();
+        uint256 id = _register();
+        MockUSDC other = new MockUSDC(); // never allowlisted, no feed
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__TokenNotAllowed.selector, address(other)
+            )
+        );
+        router.payToken(id, address(other), 20e8, ORDER);
+    }
+
+    function test_payTokenRevertsOnFeeOnTransfer() public {
+        _configureFeeds();
+        uint256 id = _register();
+        FeeOnTransferToken fot = new FeeOnTransferToken();
+        vm.startPrank(owner);
+        router.setTokenAllowed(address(fot), true);
+        router.setPriceFeed(address(fot), address(usdcFeed)); // $1, so gross = 20e6
+        vm.stopPrank();
+
+        uint256 gross = router.quote(id, address(fot), 20e8);
+        uint256 received = gross - gross / 100; // the token skims 1%
+        fot.mint(buyer, 100e6);
+        vm.prank(buyer);
+        fot.approve(address(router), gross);
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__FeeOnTransferToken.selector, gross, received
+            )
+        );
+        router.payToken(id, address(fot), 20e8, ORDER);
+    }
+
+    function test_payTokenRevertsOnInsufficientAllowance() public {
+        _configureFeeds();
+        uint256 id = _register();
+        usdc.mint(buyer, 100e6); // minted, but never approved
+        vm.prank(buyer);
+        vm.expectRevert(); // OZ ERC20InsufficientAllowance bubbled through SafeERC20
+        router.payToken(id, address(usdc), 20e8, ORDER);
+    }
+
+    function test_payTokenRevertsWhenInactive() public {
+        _configureFeeds();
+        uint256 id = _register();
+        vm.prank(merchantOwner);
+        router.updateMerchant(id, payout, feeRecipient, MERCHANT_FEE_BPS, false);
+
+        usdc.mint(buyer, 100e6);
+        vm.prank(buyer);
+        usdc.approve(address(router), type(uint256).max);
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__MerchantInactive.selector, id)
+        );
+        router.payToken(id, address(usdc), 20e8, ORDER);
     }
 }
