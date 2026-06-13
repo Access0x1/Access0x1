@@ -1,0 +1,100 @@
+{
+  "protocolVersion": "1.0",
+  "name": "Access0x1 Payment Agent",
+  "description": "An autonomous, non-custodial payment agent. It acts for a verified human (World ID) within a budget-capped, time-bounded, owner-revocable on-chain mandate (SessionGrant, ERC-7702/6492), and settles on the x402 / EIP-3009 rail (Circle Nanopayments on Arc). This A2A Agent Card is the interop surface; the verification truth is on-chain.",
+  "url": "https://access0x1.xyz/api/agent",
+  "preferredTransport": "JSONRPC",
+  "version": "0.1.0",
+  "documentationUrl": "https://access0x1.xyz/docs/agent",
+  "provider": {
+    "organization": "Access0x1",
+    "url": "https://access0x1.xyz"
+  },
+  "iconUrl": "https://access0x1.xyz/icon.png",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": false,
+    "extensions": [
+      {
+        "uri": "https://ap2.dev/extensions/payments/v0.2",
+        "description": "AP2 (Agent Payments Protocol) — proves bounded user consent via a W3C Verifiable Credential mandate chain (Intent -> Cart -> Payment). Access0x1 expresses its on-chain SessionGrant authorization AS an AP2 Intent Mandate; derive the mandate chain at the endpoint below.",
+        "required": false,
+        "params": {
+          "mandateEndpoint": "https://access0x1.xyz/api/ap2/mandate",
+          "intentMandateSource": "Access0x1.SessionGrant",
+          "mandateChain": ["IntentMandate", "CartMandate", "PaymentMandate"]
+        }
+      },
+      {
+        "uri": "https://x402.org/extensions/ap2-x402/v1",
+        "description": "x402 / EIP-3009 stablecoin settlement rail (the same rail AP2's x402 extension uses). Gas-free at the Circle Nanopayments batch layer on Arc Testnet; real USDC, zero custody.",
+        "required": false,
+        "params": {
+          "scheme": "exact",
+          "network": "eip155:5042002",
+          "asset": "0x3600000000000000000000000000000000000000",
+          "facilitator": "https://gateway-api-testnet.circle.com"
+        }
+      }
+    ]
+  },
+  "defaultInputModes": ["application/json"],
+  "defaultOutputModes": ["application/json"],
+  "securitySchemes": {
+    "sessionGrantMandate": {
+      "type": "mutualTLS",
+      "description": "Out-of-band: the agent's authority is an on-chain SessionGrant (ERC-7702/6492) — a budget-capped, time-bounded, owner-revocable mandate. A counterparty verifies the agent acted in-bounds by reading SessionGrant.remaining(sessionId) on Arc, or by validating the AP2 mandate chain from /api/ap2/mandate."
+    },
+    "bearerJWT": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT",
+      "description": "Standard A2A bearer-token auth for agent-to-agent calls. BOOTH-CONFIRM the issuer/JWKS at deploy."
+    }
+  },
+  "security": [{ "sessionGrantMandate": [] }],
+  "skills": [
+    {
+      "id": "pay-x402-endpoint",
+      "name": "Pay an x402 endpoint",
+      "description": "Settles a single x402 / EIP-3009 micro-payment for a priced endpoint, within the agent's budget mandate. Enforced by the on-chain SessionGrant ceiling and the in-process daily meter (CEI: check budget, then pay; refund on unresolved 402).",
+      "tags": ["payments", "x402", "stablecoin", "usdc", "arc"],
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "examples": [
+        "{ \"url\": \"https://merchant.example/api/premium/quote\", \"pricePerCallUsd\": 0.001 }"
+      ]
+    },
+    {
+      "id": "nano-loop",
+      "name": "Bounded pay-per-call loop",
+      "description": "Fires a bounded series of x402 micro-payments (capped per request) for autonomous consumption of a metered API, never exceeding the SessionGrant budget.",
+      "tags": ["payments", "x402", "agentic", "metered"],
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "examples": [
+        "{ \"url\": \"https://merchant.example/api/premium/quote\", \"count\": 10, \"pricePerCallUsd\": 0.001 }"
+      ]
+    },
+    {
+      "id": "derive-ap2-mandate",
+      "name": "Derive AP2 mandate chain",
+      "description": "Expresses the agent's on-chain SessionGrant authorization as an AP2 Intent Mandate (W3C Verifiable Credential), and builds the hash-chained Cart and Payment mandates, so an AP2-aware counterparty can verify the agent acted within a user-authorized, bounded, revocable mandate. Pure derivation — moves no money.",
+      "tags": ["ap2", "verifiable-credential", "mandate", "verification", "interop"],
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "examples": [
+        "{ \"grant\": { \"sessionId\": \"0x...\", \"owner\": \"0x...\", \"delegate\": \"0x...\", \"budgetCap\": \"100000000\", \"token\": \"0x3600000000000000000000000000000000000000\", \"expiry\": 4000000000, \"nonce\": 0, \"chainId\": 5042002 } }"
+      ]
+    }
+  ],
+  "supportsAuthenticatedExtendedCard": false,
+  "signatures": [],
+  "x-access0x1": {
+    "note": "UNSIGNED card. This static card omits its RFC-7515 (JWS) signature because the domain signing key is env-keyed and confirmed at deploy/booth — NEVER committed. At deploy, a build step reads AGENT_CARD_SIGNING_JWK (a private JWS key for access0x1.xyz) and populates `signatures` with a detached JWS over the canonicalized card (per A2A v1.0 Signed Agent Card / RFC 7515), so a counterparty can verify the card was issued by the domain owner. Until then, the card is an unsigned, verifiable-by-reading-the-chain interop descriptor — the agent's real authority is the on-chain SessionGrant, not this JSON.",
+    "verificationTruth": "on-chain",
+    "onChainMandate": "Access0x1.SessionGrant (ERC-7702 / ERC-6492 / ERC-1271)",
+    "humanProof": "World ID (verified-human gate)"
+  }
+}
