@@ -1,0 +1,152 @@
+/**
+ * @file route.ts — POST /api/agent/pay (Next.js 15 App Router).
+ *
+ * The HTTP entry point for the autonomous agent. It validates the request, enforces an
+ * env-configured URL allowlist (SSRF guard) and a demo call cap, then delegates to the
+ * meter-gated x402 pay path. All errors map to structured JSON with NO secret or stack trace
+ * in the body (doctrine guardrail #7 / law #4):
+ *
+ *   200  { ok: true, result }            single call
+ *   200  { ok: true, results: [...] }    nano-loop
+ *   400  { error: "BadRequest", ... }    bad body / url not allowlisted / count too high
+ *   402  { error: "BudgetExceeded", spent, cap }
+ *   502  { error: "PaymentRequiredUnresolved" }
+ *   500  { error: "Internal" }           any other throw — no leak
+ */
+
+import { agentPay, agentNanoLoop, PaymentRequiredUnresolved } from "../../../../lib/agent/payPerCall.js";
+import { agentAddress } from "../../../../lib/agent/dynamicAgentWallet.js";
+import { BudgetExceeded } from "../../../../lib/agent/agentMeter.js";
+
+/** Hard ceiling on a single nano-loop request — law #4: the demo fires real, bounded calls. */
+const MAX_DEMO_CALLS = 50;
+
+/** Default per-call price when the body omits one (matches the demo's $0.001 micro-call). */
+const DEFAULT_PRICE_USD = 0.001;
+
+/** Minimal JSON response shim so this file type-checks without importing `next/server`. */
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+/**
+ * Parse the allowlist of permitted origins from the server env (SSRF guard — guardrail #7).
+ * The allowlist is env-configured, never hardcoded, so each deployment controls exactly which
+ * x402 endpoints the agent may pay.
+ *
+ * @returns The set of allowed origins (`scheme://host[:port]`); empty when unset (deny-all).
+ */
+function allowedOrigins(): Set<string> {
+  const raw = process.env.AGENT_URL_ALLOWLIST ?? "";
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
+  );
+}
+
+/**
+ * Whether `url` is well-formed and its origin is in the allowlist.
+ *
+ * @param url The candidate endpoint url from the request body.
+ * @returns `true` if the url parses and its origin is allowlisted.
+ */
+function isAllowed(url: string): boolean {
+  let origin: string;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    return false;
+  }
+  return allowedOrigins().has(origin);
+}
+
+/** The accepted request body shape for POST /api/agent/pay. */
+interface PayRequest {
+  url: string;
+  count?: number;
+  pricePerCallUsd?: number;
+}
+
+/**
+ * Validate and narrow an untrusted JSON value into a {@link PayRequest}.
+ *
+ * @param body The parsed (untrusted) request body.
+ * @returns The validated request, or a string describing the first validation failure.
+ */
+function validate(body: unknown): PayRequest | string {
+  if (typeof body !== "object" || body === null) {
+    return "body must be a JSON object";
+  }
+  const b = body as Record<string, unknown>;
+  if (typeof b.url !== "string" || b.url.length === 0) {
+    return "url is required";
+  }
+  if (b.count !== undefined && (!Number.isInteger(b.count) || (b.count as number) < 1)) {
+    return "count must be a positive integer";
+  }
+  if (typeof b.count === "number" && b.count > MAX_DEMO_CALLS) {
+    return `count must not exceed ${MAX_DEMO_CALLS}`;
+  }
+  if (
+    b.pricePerCallUsd !== undefined &&
+    (typeof b.pricePerCallUsd !== "number" || !Number.isFinite(b.pricePerCallUsd) || (b.pricePerCallUsd as number) <= 0)
+  ) {
+    return "pricePerCallUsd must be a positive number";
+  }
+  return {
+    url: b.url,
+    count: b.count as number | undefined,
+    pricePerCallUsd: b.pricePerCallUsd as number | undefined,
+  };
+}
+
+/**
+ * Handle POST /api/agent/pay. See the file header for the full status map.
+ *
+ * @param req The incoming request; body is `{ url, count?, pricePerCallUsd? }`.
+ * @returns A JSON {@link Response} with the structured success or error body.
+ */
+export async function POST(req: Request): Promise<Response> {
+  let parsed: unknown;
+  try {
+    parsed = await req.json();
+  } catch {
+    return json({ error: "BadRequest", reason: "invalid JSON body" }, 400);
+  }
+
+  const validated = validate(parsed);
+  if (typeof validated === "string") {
+    return json({ error: "BadRequest", reason: validated }, 400);
+  }
+  if (!isAllowed(validated.url)) {
+    return json({ error: "BadRequest", reason: "url not in allowlist" }, 400);
+  }
+
+  try {
+    const price = validated.pricePerCallUsd ?? DEFAULT_PRICE_USD;
+    if (validated.count !== undefined && validated.count > 1) {
+      const results = await agentNanoLoop({
+        url: validated.url,
+        count: validated.count,
+        pricePerCallUsd: price,
+      });
+      return json({ ok: true, results, agent: await agentAddress() }, 200);
+    }
+    const result = await agentPay({ url: validated.url, maxValueUsd: price });
+    return json({ ok: true, result, agent: await agentAddress() }, 200);
+  } catch (err) {
+    if (err instanceof BudgetExceeded) {
+      return json({ error: "BudgetExceeded", spent: err.spent, cap: err.cap }, 402);
+    }
+    if (err instanceof PaymentRequiredUnresolved) {
+      return json({ error: "PaymentRequiredUnresolved" }, 502);
+    }
+    // Any other throw: no secret, no stack trace in the body (guardrail #7).
+    return json({ error: "Internal" }, 500);
+  }
+}

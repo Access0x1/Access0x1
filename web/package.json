@@ -2,25 +2,52 @@
   "name": "@access0x1/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Access0x1 hosted web app: hosted checkout (/m/[merchantId]) and the public One-Tag Checkout embed (public/embed.js).",
+  "description": "Access0x1 hosted web app (Next.js 15): hosted checkout + PayButton + dashboard (checkout-web), the One-Tag Checkout embed (public/embed.js), the x402 nanopayment seller routes (arc-gasfree), the server-side Dynamic AI payment agent (dynamic-agent), ENS resolve + name-math (ens-resolve), and the Unlink private payout leg (unlink-private). Zero custody.",
   "license": "MIT",
   "scripts": {
+    "dev": "next dev",
     "prebuild": "node scripts/replace-embed-addrs.js",
     "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run **/*.integration.test.ts",
+    "test:watch": "vitest",
     "check:embed": "node --check public/embed.js",
     "verify:embed": "node scripts/verify-embed.js",
-    "gate": "node --check public/embed.js && node scripts/verify-embed.js && tsc --noEmit"
+    "demo": "tsx scripts/demo-loop.mts",
+    "fund": "tsx scripts/fund-gateway.mts",
+    "gate": "node --check public/embed.js && node scripts/verify-embed.js && tsc --noEmit && vitest run --exclude '**/*.integration.test.ts'"
   },
   "dependencies": {
-    "next": "14.2.35",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "@anthropic-ai/sdk": "^0.104.1",
+    "@circle-fin/x402-batching": "3.0.4",
+    "@dynamic-labs/ethereum": "^4.88.0",
+    "@dynamic-labs/sdk-react-core": "^4.88.0",
+    "@dynamic-labs/wagmi-connector": "^4.88.0",
+    "@tanstack/react-query": "^5.59.0",
+    "@x402/core": "^2.15.0",
+    "@x402/evm": "^2.15.0",
+    "next": "^15.1.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "^2.47.6",
+    "wagmi": "^2.14.11"
   },
   "devDependencies": {
-    "@types/node": "20.14.10",
-    "@types/react": "18.3.3",
-    "@types/react-dom": "18.3.0",
-    "typescript": "5.5.3"
+    "@types/node": "^22.10.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^15.1.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.4",
+    "typescript": "^5.7.2",
+    "vitest": "^3.1.3"
   }
 }
