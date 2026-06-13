@@ -90,13 +90,12 @@ contract Access0x1RouterTest is Test {
     }
 
     function test_registerRevertsWhenFeeCapExceeded() public {
-        uint16 over = router.MAX_FEE_BPS() - PLATFORM_FEE_BPS + 1; // combined = 1001 > 1000
+        uint256 maxFee = router.MAX_FEE_BPS(); // cache before prank — a call here would consume it
+        uint16 over = uint16(maxFee) - PLATFORM_FEE_BPS + 1; // combined = 1001 > 1000
         uint256 combined = uint256(over) + PLATFORM_FEE_BPS;
         vm.prank(merchantOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                Access0x1Router.Access0x1__FeeTooHigh.selector, combined, router.MAX_FEE_BPS()
-            )
+            abi.encodeWithSelector(Access0x1Router.Access0x1__FeeTooHigh.selector, combined, maxFee)
         );
         router.registerMerchant(payout, feeRecipient, over, NAME_HASH);
     }
@@ -170,13 +169,12 @@ contract Access0x1RouterTest is Test {
 
     function test_updateRevertsWhenFeeCapExceeded() public {
         uint256 id = _register();
-        uint16 over = router.MAX_FEE_BPS() - PLATFORM_FEE_BPS + 1;
+        uint256 maxFee = router.MAX_FEE_BPS(); // cache before prank — a call here would consume it
+        uint16 over = uint16(maxFee) - PLATFORM_FEE_BPS + 1;
         uint256 combined = uint256(over) + PLATFORM_FEE_BPS;
         vm.prank(merchantOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                Access0x1Router.Access0x1__FeeTooHigh.selector, combined, router.MAX_FEE_BPS()
-            )
+            abi.encodeWithSelector(Access0x1Router.Access0x1__FeeTooHigh.selector, combined, maxFee)
         );
         router.updateMerchant(id, payout, feeRecipient, over, true);
     }
