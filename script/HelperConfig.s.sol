@@ -29,15 +29,37 @@ contract HelperConfig is Script {
     /// @notice The chain id of a local Anvil/Foundry node.
     uint256 internal constant LOCAL_CHAIN_ID = 31_337;
 
-    /// @notice Default platform fee when `PLATFORM_FEE_BPS` is unset: 100 bps = 1.00%.
+    /// @notice Arc testnet (Circle). Native gas is USDC-denominated; ERC-20 USDC support is a booth confirm.
+    uint256 internal constant ARC_TESTNET_CHAIN_ID = 5_042_002;
+
+    /// @notice Base Sepolia (Coinbase L2). Standard 6-dec Circle USDC + Chainlink feeds available.
+    uint256 internal constant BASE_SEPOLIA_CHAIN_ID = 84_532;
+
+    /// @notice zkSync Sepolia (Era, ZK Stack). Native = ETH (18 dec); USDC + feed addresses are booth confirms.
+    uint256 internal constant ZKSYNC_SEPOLIA_CHAIN_ID = 300;
+
+    /// @notice Default platform fee when `*_PLATFORM_FEE_BPS` is unset: 100 bps = 1.00%.
     uint16 internal constant DEFAULT_PLATFORM_FEE_BPS = 100;
 
     /// @notice The resolved config for the chain this script runs against.
     NetworkConfig public activeConfig;
 
+    /// @dev One O(1) `if/else if` ladder over `block.chainid` (no loops, no arrays). Local gets fresh
+    ///      mocks; each named event testnet reads its OWN prefixed env vars so a second chain never
+    ///      reuses the first's addresses; anything else falls through to the generic env block. Every
+    ///      branch is additive — the local + catch-all behaviour is unchanged.
     constructor() {
-        activeConfig =
-            block.chainid == LOCAL_CHAIN_ID ? _localConfigWithMocks() : _liveConfigFromEnv();
+        if (block.chainid == LOCAL_CHAIN_ID) {
+            activeConfig = _localConfigWithMocks();
+        } else if (block.chainid == ARC_TESTNET_CHAIN_ID) {
+            activeConfig = _arcTestnetConfig();
+        } else if (block.chainid == BASE_SEPOLIA_CHAIN_ID) {
+            activeConfig = _baseSepoliaConfig();
+        } else if (block.chainid == ZKSYNC_SEPOLIA_CHAIN_ID) {
+            activeConfig = _zkSyncSepoliaConfig();
+        } else {
+            activeConfig = _liveConfigFromEnv();
+        }
     }
 
     /// @notice The active network config (treasury, fee, feeds, token).
@@ -57,6 +79,60 @@ contract HelperConfig is Script {
             usdc: vm.envOr("USDC_ADDRESS", address(0)),
             usdcUsdFeed: vm.envOr("USDC_USD_FEED", address(0)),
             chainRegistry: vm.envOr("CHAIN_REGISTRY", address(0))
+        });
+    }
+
+    /// @dev Arc testnet (chainId 5042002). Reads only `ARC_`-prefixed env so it never collides with
+    ///      another chain's values. `treasury` is required (fails loud via `vm.envAddress`); the fee
+    ///      and feed/USDC addresses are optional and default to address(0) when not yet confirmed.
+    ///      Arc trap: Arc's native gas is USDC-denominated (18 dec) while an ERC-20 USDC, if one is
+    ///      deployed, is 6 dec — never hardcode either; CONFIRM the ERC-20 USDC address at the Circle
+    ///      booth and the native/USD + USDC/USD feeds at the Chainlink/Arc booth. Leave any unconfirmed
+    ///      address blank: DeployAll skips the matching configure call rather than wiring a guess.
+    function _arcTestnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ARC_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ARC_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ARC_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ARC_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ARC_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ARC_CHAIN_REGISTRY", address(0))
+        });
+    }
+
+    /// @dev Base Sepolia (chainId 84532). Reads only `BASE_SEPOLIA_`-prefixed env. Standard Circle
+    ///      USDC (6 dec) and Chainlink ETH/USD + USDC/USD feeds are available — fill the addresses from
+    ///      Circle docs + docs.chain.link/data-feeds. `treasury` is required; everything else optional.
+    function _baseSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("BASE_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("BASE_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("BASE_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("BASE_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("BASE_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("BASE_SEPOLIA_CHAIN_REGISTRY", address(0))
+        });
+    }
+
+    /// @dev zkSync Sepolia (chainId 300, ZK Stack / Era). Reads only `ZKSYNC_SEPOLIA_`-prefixed env.
+    ///      Native token = ETH (18 dec). No Circle App Kit / CCTP and (CONFIRM) no CCIP lane here.
+    ///      USDC ERC-20 + Chainlink feed availability on zkSync Sepolia are booth/docs confirms — leave
+    ///      blank until verified. Broadcast may require `[profile.zksync]` if `forge script` can't emit
+    ///      ZK-Stack-valid bytecode with solc 0.8.28 + cancun (see foundry.toml). `treasury` required.
+    function _zkSyncSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ZKSYNC_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ZKSYNC_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ZKSYNC_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ZKSYNC_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ZKSYNC_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ZKSYNC_SEPOLIA_CHAIN_REGISTRY", address(0))
         });
     }
 
