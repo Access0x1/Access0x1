@@ -394,14 +394,38 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     /// @dev The token fee for a USD-priced policy fee, RE-QUOTED at action time (drift cannot be gamed)
     ///      and CLAMPED to the escrow so the fee can never exceed what is held (the payer refund is
     ///      therefore never negative). A zero USD fee yields zero token (no quote, no revert).
+    /// @dev REFUND-NEVER-BLOCKED. The re-quote is wrapped: a STALE/dead/zero-price feed (or a token
+    ///      de-allowlisted between reserve and resolution) makes {Access0x1Router.quote} REVERT. If we
+    ///      let that bubble, the oracle outage would brick the cancel/no-show — and therefore the
+    ///      payer's refund (law #5). Instead a failed re-quote yields a ZERO fee target: the operator
+    ///      takes nothing and the FULL escrow flows back to the payer. The fee leg is best-effort; the
+    ///      refund is unconditional. (`reserve` deliberately does NOT do this — you must never escrow
+    ///      against a bad price; only the resolution/refund paths are made oracle-fault-tolerant.)
     function _feeToken(uint256 merchantId, address token, uint256 feeUsd8, uint256 escrow)
         private
         view
         returns (uint256 feeToken)
     {
         if (feeUsd8 == 0) return 0;
-        uint256 quoted = router.quote(merchantId, token, feeUsd8);
+        (uint256 quoted, bool ok) = _trySafeQuote(merchantId, token, feeUsd8);
+        if (!ok) return 0; // oracle outage / de-allowlist → take no fee, refund everything
         feeToken = quoted > escrow ? escrow : quoted;
+    }
+
+    /// @dev {Access0x1Router.quote} wrapped so a revert (stale/zero price, de-allowlisted token,
+    ///      missing feed) is surfaced as `ok == false` instead of bubbling and bricking a refund. Used
+    ///      ONLY on the resolution legs where law #5 requires the refund to proceed regardless of the
+    ///      oracle's health; the fee/release simply takes nothing when the price cannot be read.
+    function _trySafeQuote(uint256 merchantId, address token, uint256 usd8)
+        private
+        view
+        returns (uint256 amount, bool ok)
+    {
+        try router.quote(merchantId, token, usd8) returns (uint256 q) {
+            return (q, true);
+        } catch {
+            return (0, false);
+        }
     }
 
     /// @dev Settle a USD-priced deposit leg through the Router fee-split, NEVER re-deriving the split.
@@ -414,7 +438,11 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
         private
         returns (uint256 settled)
     {
-        uint256 grossNow = router.quote(merchantId, token, usd8);
+        // REFUND-NEVER-BLOCKED: a stale/dead oracle (or a de-allowlisted token) makes the re-quote
+        // revert; rather than bricking {complete} and stranding the deposit, treat it as "cannot price
+        // the release" — route nothing, so the FULL escrow refunds to the payer (law #5).
+        (uint256 grossNow, bool ok) = _trySafeQuote(merchantId, token, usd8);
+        if (!ok) return 0;
         uint256 target = grossNow > escrow ? escrow : grossNow;
         settled = _routeFeeThroughRouter(merchantId, token, target);
     }
@@ -469,8 +497,10 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
         view
         returns (uint256 usd8)
     {
-        uint256 tokenPerDollar = router.quote(merchantId, token, 1e8); // ceil(tokens for $1.00)
-        if (tokenPerDollar == 0) return 0;
+        // Wrapped for the same law-#5 reason as the callers: if the oracle cannot be read, route
+        // nothing (the caller refunds the full remainder) rather than bricking the resolution.
+        (uint256 tokenPerDollar, bool ok) = _trySafeQuote(merchantId, token, 1e8); // ceil(tokens/$1)
+        if (!ok || tokenPerDollar == 0) return 0;
         // Round DOWN: floor(amount · 1e8 / tokenPerDollar). The re-quote of this usd8 is then ≤ amount.
         usd8 = Math.mulDiv(amount, 1e8, tokenPerDollar, Math.Rounding.Floor);
     }

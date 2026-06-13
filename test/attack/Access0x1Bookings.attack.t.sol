@@ -254,4 +254,80 @@ contract Access0x1BookingsAttackTest is Test {
         );
         assertEq(bookings.occupant(SLOT_KEY), id2);
     }
+
+    /// @dev Push the feed > 1h stale so the in-tx re-quote on a resolution leg reverts inside the
+    ///      Router's OracleLib guard.
+    function _staleFeed() internal {
+        usdcFeed.setRoundData(99, 1e8, block.timestamp - 4000, block.timestamp - 4000, 99);
+    }
+
+    /// @notice ATTACK (law #5): a STALE oracle must not block a late CANCEL — and therefore must not
+    ///         block the payer's refund. The late fee cannot be priced when the feed is dead, so the fee
+    ///         leg takes NOTHING and the FULL escrow flows back to the payer; the cancel never reverts.
+    ///         REGRESSION for the OPUS red-team finding (oracle outage froze the fee/refund paths because
+    ///         the re-quote bubbled out before the never-blocked machinery ran).
+    function test_attack_staleOracleDoesNotBlockLateCancelRefund() public {
+        uint256 id = _reserve(keccak256("n"));
+        uint256 escrow = bookings.reservationOf(id).escrowAmount;
+
+        // Enter the late-cancel window (within 2h of the slot), then kill the feed.
+        vm.warp(SLOT_TS - 1 hours);
+        _staleFeed();
+
+        uint256 payerBefore = usdc.balanceOf(payer);
+        vm.prank(payer);
+        bookings.cancel(id, IAccess0x1Bookings.ActorType.PAYER); // MUST NOT revert
+
+        // Oracle down → no fee priced → full escrow refunds; operator got nothing.
+        assertEq(usdc.balanceOf(payer) - payerBefore, escrow);
+        assertEq(usdc.balanceOf(payout), 0);
+        assertEq(bookings.escrowedOf(address(usdc)), 0);
+        assertEq(usdc.balanceOf(address(bookings)), 0);
+        assertEq(
+            uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.CANCELLED)
+        );
+    }
+
+    /// @notice ATTACK (law #5): a STALE oracle must not freeze a CONFIRMED no-show — the no-show fee
+    ///         cannot be priced, so the operator keeps nothing and the FULL escrow refunds to the payer
+    ///         rather than the deposit being stranded until the feed recovers.
+    function test_attack_staleOracleDoesNotBlockNoShowRefund() public {
+        uint256 id = _reserve(keccak256("n"));
+        uint256 escrow = bookings.reservationOf(id).escrowAmount;
+        vm.prank(merchantOwner);
+        bookings.confirm(id);
+
+        _staleFeed();
+        uint256 payerBefore = usdc.balanceOf(payer);
+        vm.prank(merchantOwner);
+        bookings.markNoShow(id); // MUST NOT revert
+
+        assertEq(usdc.balanceOf(payer) - payerBefore, escrow);
+        assertEq(usdc.balanceOf(payout), 0);
+        assertEq(bookings.escrowedOf(address(usdc)), 0);
+        assertEq(usdc.balanceOf(address(bookings)), 0);
+    }
+
+    /// @notice ATTACK (law #5): a STALE oracle must not freeze a CONFIRMED complete — the release
+    ///         cannot be priced, so it routes nothing and the FULL escrow refunds to the payer; the
+    ///         deposit is never strandable behind a dead feed.
+    function test_attack_staleOracleDoesNotStrandCompleteDeposit() public {
+        uint256 id = _reserve(keccak256("n"));
+        uint256 escrow = bookings.reservationOf(id).escrowAmount;
+        vm.prank(merchantOwner);
+        bookings.confirm(id);
+
+        _staleFeed();
+        uint256 payerBefore = usdc.balanceOf(payer);
+        vm.prank(merchantOwner);
+        bookings.complete(id); // MUST NOT revert
+
+        assertEq(usdc.balanceOf(payer) - payerBefore, escrow);
+        assertEq(usdc.balanceOf(payout), 0);
+        assertEq(bookings.escrowedOf(address(usdc)), 0);
+        assertEq(usdc.balanceOf(address(bookings)), 0);
+        assertEq(
+            uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.COMPLETED)
+        );
+    }
 }
