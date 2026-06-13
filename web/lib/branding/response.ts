@@ -14,6 +14,7 @@
 
 import { getDefaultChainId, getRouterAddress } from '../chains.js';
 import type { CheckoutMode, HumanVerifier, TenantBranding } from './store.js';
+import type { TrustTier } from '../verification/tiers.js';
 
 /** The exact public branding payload (ADR D4): no payout address, ever. */
 export interface PublicBranding {
@@ -46,6 +47,12 @@ export interface PublicBranding {
   checkoutMode: CheckoutMode;
   /** Where a verified-human proof is checked (only meaningful for verified-human). */
   humanVerifier: HumanVerifier;
+  /**
+   * The minimum Super Verification trust tier a buyer must hold to pay this
+   * merchant ('standard' = anyone). PUBLIC gate data — the checkout uses it to
+   * gate the pay button; it reveals no payout address.
+   */
+  requiredTier: TrustTier;
   /** Whether the business is operated by a verified real human (ADR D1.4 badge). */
   verifiedOperator: boolean;
 }
@@ -87,6 +94,7 @@ export function toPublicBranding(row: TenantBranding): PublicBranding {
     onChain: row.merchantId !== null && row.nameHash !== undefined,
     checkoutMode: row.checkoutMode,
     humanVerifier: row.humanVerifier,
+    requiredTier: row.requiredTier,
     verifiedOperator: row.verifiedOperator,
   };
 }

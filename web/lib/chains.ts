@@ -50,6 +50,66 @@ export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [
   zksyncSepoliaTestnet,
 ]
 
+/**
+ * Per-chain USDC decimals — the SINGLE source of truth the UI uses to FORMAT a
+ * token amount for display. The on-chain money path never reads this (the
+ * router/`quote()` reads `decimals()` in-tx); this table exists ONLY so the
+ * frontend renders the right number of fraction digits.
+ *
+ * THE ARC TRAP (the bug this fixes): Arc's native USDC is the gas token and is
+ * 18-decimal, while bridged USDC on Base Sepolia and ZKsync Sepolia is the
+ * canonical 6-decimal ERC-20. Hardcoding `6` everywhere divides an 18-dec Arc
+ * amount by 10^6 — a 10^12 display error on the LEAD chain. We resolve decimals
+ * PER CHAIN here, defaulting to each chain's `nativeCurrency.decimals` where the
+ * pay-in token IS the native token (Arc), and to 6 for the bridged-USDC chains.
+ *
+ * Honesty: these are the decimals of the USDC each chain settles in. A chain not
+ * listed falls back to {@link DEFAULT_TOKEN_DECIMALS} (6, the ERC-20 norm) rather
+ * than throwing — a wrong-but-safe display beats a crash, and an unsupported
+ * chain never reaches a real money path (those go through `getChain`).
+ */
+const USDC_DECIMALS_BY_CHAIN: Readonly<Record<number, number>> = {
+  // Arc native USDC IS the gas token and is 18-dec (the "Arc trap").
+  [ARC_TESTNET_ID]: arcTestnet.nativeCurrency.decimals,
+  // Bridged USDC on the L2 testnets is the canonical 6-dec ERC-20.
+  [baseSepolia.id]: 6,
+  [zksyncSepoliaTestnet.id]: 6,
+}
+
+/** Fallback display decimals for an unknown chain — the ERC-20 USDC norm. */
+export const DEFAULT_TOKEN_DECIMALS = 6
+
+/**
+ * Resolve the USDC display decimals for a chain. Used by the checkout card and
+ * the receipts dashboard to format the quoted/settled token amount — NOT by the
+ * money path (the contract reads decimals on-chain). Falls back to
+ * {@link DEFAULT_TOKEN_DECIMALS} for an unconfigured chain rather than throwing,
+ * so a display never crashes a checkout (the gate sits off the money path).
+ *
+ * @param chainId The chain whose USDC decimals to resolve.
+ * @returns The token's display decimals (18 on Arc, 6 on the bridged-USDC L2s).
+ */
+export function tokenDecimalsFor(chainId: number): number {
+  return USDC_DECIMALS_BY_CHAIN[chainId] ?? DEFAULT_TOKEN_DECIMALS
+}
+
+/**
+ * Is USDC the NATIVE gas token on this chain? True ONLY for Arc Testnet, where
+ * native USDC pays gas — so a payment there is genuinely "gas-free" in the sense
+ * that the buyer needs no separate gas asset. On Base Sepolia / ZKsync Sepolia
+ * the native gas token is ETH, NOT USDC, so a USDC payment there still needs ETH
+ * for gas — it is NOT gas-free.
+ *
+ * TRUTH-IN-COPY (law #4): any "gas-free" / "no separate gas" UI copy MUST gate on
+ * this — we never claim gas-free on a chain where it isn't true.
+ *
+ * @param chainId The chain to check.
+ * @returns true only for Arc Testnet (5042002).
+ */
+export function isGasFree(chainId: number): boolean {
+  return chainId === ARC_TESTNET_ID
+}
+
 /** Default chain id the app connects to (from env, falling back to Arc Testnet). */
 export function getDefaultChainId(): number {
   const raw = process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID

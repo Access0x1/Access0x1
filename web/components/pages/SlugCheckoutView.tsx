@@ -109,6 +109,7 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
               usdAmount={amount}
               orderParam={orderParam}
               returnUrl={returnUrl}
+              requiredTier={branding.requiredTier}
               {...(() => {
                 // Resolve the D0 choice (verified-human / private / standard),
                 // enforcing mutual exclusion + fail-soft (resolveGate). A

@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import type { CheckoutMode } from '@/lib/branding/store'
+import type { TrustTier } from '@/lib/verification/tiers'
 import { loadBranding, saveCheckoutMode } from '@/lib/branding/client'
 import { ConnectButton } from '@/components/ConnectButton'
 
@@ -23,6 +24,35 @@ interface Option {
   label: string
   helper: string
 }
+
+interface TierOption {
+  value: TrustTier
+  label: string
+  helper: string
+}
+
+/**
+ * The Super Verification buyer-tier gate (separate from identity-vs-privacy
+ * above). "Anyone" is the default; "Verified" / "Super Verified" require the
+ * buyer to have proven enough at /verify before they can pay.
+ */
+const TIER_OPTIONS: TierOption[] = [
+  {
+    value: 'standard',
+    label: 'Anyone',
+    helper: 'No verification needed to pay.',
+  },
+  {
+    value: 'verified',
+    label: 'Verified buyers',
+    helper: 'The buyer must have proven at least one thing (World ID, an ENS name, sign-in, or a real wallet).',
+  },
+  {
+    value: 'super-verified',
+    label: 'Super Verified buyers only',
+    helper: 'The strongest gate: World ID plus two more checks (or three checks total). Great for limited drops and high-trust sales.',
+  },
+]
 
 const OPTIONS: Option[] = [
   {
@@ -55,6 +85,7 @@ export function CheckoutModeForm({
   const tenantId = primaryWallet?.address?.toLowerCase()
 
   const [choice, setChoice] = useState<CheckoutMode>('standard')
+  const [requiredTier, setRequiredTier] = useState<TrustTier>('standard')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -66,6 +97,7 @@ export function CheckoutModeForm({
     void loadBranding(tenantId).then((row) => {
       if (cancelled || !row) return
       setChoice(row.checkoutMode ?? 'standard')
+      setRequiredTier(row.requiredTier ?? 'standard')
     })
     return () => {
       cancelled = true
@@ -80,7 +112,7 @@ export function CheckoutModeForm({
       return
     }
     setSaving(true)
-    const res = await saveCheckoutMode({ tenantId, checkoutMode: choice })
+    const res = await saveCheckoutMode({ tenantId, checkoutMode: choice, requiredTier })
     setSaving(false)
     if (res.ok) {
       setSaved(true)
@@ -141,6 +173,41 @@ export function CheckoutModeForm({
         “Private” is about hiding the trail. For a single payment you pick one — you can’t both
         prove who someone is and hide who they are at the same moment. We give you both; you choose.
       </p>
+
+      <div className="flex flex-col gap-3 border-t border-neutral-100 pt-5">
+        <div>
+          <h2 className="font-medium text-ink">How verified must buyers be?</h2>
+          <p className="text-sm text-neutral-500">
+            Buyers raise their trust at the verification page. Require a tier and only buyers who
+            meet it can pay.
+          </p>
+        </div>
+        <fieldset className="flex flex-col gap-3">
+          {TIER_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition-colors ${
+                requiredTier === opt.value
+                  ? 'border-rail bg-neutral-50'
+                  : 'border-neutral-200 hover:border-neutral-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="required-tier"
+                value={opt.value}
+                checked={requiredTier === opt.value}
+                onChange={() => setRequiredTier(opt.value)}
+                className="mt-1 h-4 w-4 accent-rail"
+              />
+              <span className="flex flex-col gap-1">
+                <span className="font-medium text-ink">{opt.label}</span>
+                <span className="text-sm text-neutral-500">{opt.helper}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {saved && !error ? <p className="text-sm text-green-600">Changes saved.</p> : null}
