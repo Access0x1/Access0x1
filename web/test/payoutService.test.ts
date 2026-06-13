@@ -34,8 +34,10 @@ describe("payoutService", () => {
     delete process.env.UNLINK_API_KEY;
   });
 
-  it("getMerchantClient passes environment/account/userId/authorizationToken to createUnlinkClient", () => {
-    getMerchantClient(ACCOUNT, USER_ID, "auth-token-xyz");
+  it("getMerchantClient passes environment/account/userId/authorizationToken to createUnlinkClient", async () => {
+    // getMerchantClient now loads the SDK at call time (optional/dynamic), so it
+    // is async — await it before asserting the factory was called.
+    await getMerchantClient(ACCOUNT, USER_ID, "auth-token-xyz");
     expect(createUnlinkClient).toHaveBeenCalledWith({
       environment: "arc-testnet",
       account: ACCOUNT,
@@ -44,8 +46,8 @@ describe("payoutService", () => {
     });
   });
 
-  it("getMerchantClient requires a userId", () => {
-    expect(() => getMerchantClient(ACCOUNT, "")).toThrow(/userId/);
+  it("getMerchantClient requires a userId", async () => {
+    await expect(getMerchantClient(ACCOUNT, "")).rejects.toThrow(/userId/);
   });
 
   it("ensureRegistered calls admin.users.register({ userId }) once", async () => {

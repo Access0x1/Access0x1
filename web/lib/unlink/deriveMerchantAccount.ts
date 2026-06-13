@@ -10,13 +10,9 @@
  * ⚠️ BOOTH-CONFIRM the exact import names + arg shapes against the live
  * `@unlink-xyz/sdk` canary at the booth (docs.unlink.xyz/accounts-and-keys.md).
  */
-import {
-  account as UnlinkAccountFactory,
-  buildDeriveSeedMessage,
-  type UnlinkAccount,
-  type WalletClient,
-} from "@unlink-xyz/sdk";
+import type { UnlinkAccount, WalletClient } from "@unlink-xyz/sdk";
 import { ARC_TESTNET_ID } from "../chains.js";
+import { loadUnlinkSdk } from "./loadSdk.js";
 
 /** Arc chain id (5042002) — same chain for Unlink env `arc-testnet` AND Circle `arcTestnet`.
  * Derived from the canonical {@link ARC_TESTNET_ID} (single source of truth in `lib/chains.ts`). */
@@ -60,6 +56,10 @@ export async function deriveMerchantUnlinkAccount(
   if (!accountAddress) {
     throw new Error("deriveMerchantUnlinkAccount: signer has no account address");
   }
+
+  // Load the SDK at call time (optional/dynamic) so a missing package never
+  // breaks the build or module load — only this derivation, when actually used.
+  const { account: UnlinkAccountFactory, buildDeriveSeedMessage } = await loadUnlinkSdk();
 
   const message = buildDeriveSeedMessage({ appId, chainId: ARC_CHAIN_ID });
   const signature = await signer.signMessage({
