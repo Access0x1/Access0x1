@@ -1,60 +1,48 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { ConnectButton } from '@/components/ConnectButton'
-import { RegisterForm, type RegisterResult } from '@/components/RegisterForm'
-import { LinkCard } from '@/components/LinkCard'
+import { BrandingForm } from '@/components/branding/BrandingForm'
 import { AskAssistant } from '@/components/AskAssistant'
 
 /**
- * Onboarding view: connect wallet -> register merchant -> show link / QR /
- * snippet. After register, the merchantId is stashed in localStorage so the
- * dashboard can find the merchant's receipts later.
+ * Onboarding view: sign in (Dynamic) → the non-coder "Make it yours" branding
+ * screen (ADR D2). Three plain-English fields (name, one-line description,
+ * logo), a live "Pay {name}" preview, a live checkout-link check, and one Save
+ * that yields the checkout link + embed tag + a Test-it button. No code, no
+ * deploy, no gas — on-chain registration comes later (the Advanced path, the
+ * existing RegisterForm, is reachable from the dashboard).
  *
  * Rendered client-only (the route wrapper imports it with ssr: false) so the
  * Dynamic wallet hooks never run during static generation.
  */
 export function OnboardView(): ReactNode {
-  const [result, setResult] = useState<RegisterResult | null>(null)
-
-  function handleRegistered(r: RegisterResult): void {
-    try {
-      localStorage.setItem('ax1_merchant_id', r.merchantId.toString())
-      localStorage.setItem('ax1_merchant_name', r.name)
-    } catch {
-      // localStorage may be unavailable (private mode) — non-fatal.
-    }
-    setResult(r)
-  }
-
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-widest text-rail">Access0x1</p>
-          <h1 className="text-2xl font-semibold text-ink">Accept crypto with one link</h1>
+          <h1 className="text-2xl font-semibold text-ink">Make it yours</h1>
         </div>
         <ConnectButton />
       </header>
 
+      <p className="text-sm text-neutral-500">
+        Set your name, a one-line description, and a logo. You&apos;ll get a branded checkout link
+        and an embed tag — live in under two minutes, no code and no gas.
+      </p>
+
       <section className="rounded-2xl border border-neutral-200 p-6">
-        {result ? <LinkCard result={result} /> : <RegisterForm onRegistered={handleRegistered} />}
+        <BrandingForm mode="onboard" />
       </section>
 
-      {result ? (
-        <button
-          type="button"
-          onClick={() => setResult(null)}
-          className="text-sm text-neutral-500 underline-offset-2 hover:underline"
-        >
-          Register another business
-        </button>
-      ) : (
-        <p className="text-sm text-neutral-500">
-          Onboard once, share the link, get paid in USDC. Zero custody — every payment settles
-          straight to your payout address.
-        </p>
-      )}
+      <p className="text-center text-xs text-neutral-400">
+        Already taking payments and want the on-chain settings? Open your{' '}
+        <a href="/dashboard" className="text-rail underline-offset-2 hover:underline">
+          dashboard
+        </a>
+        .
+      </p>
 
       <AskAssistant />
     </main>

@@ -11,6 +11,22 @@
  *     data-merchant="42"
  *     data-amount-usd="29.00"></script>
  *
+ * White-label (ADR unit 5 / D4 b): a tenant can ALSO paste a slug tag —
+ *
+ *   <script
+ *     src="https://<host>/embed.js"
+ *     data-slug="joes-barbershop"
+ *     data-amount-usd="29.00"></script>
+ *
+ * When `data-slug` is present the embed additionally fetches the public,
+ * cacheable branding endpoint `GET /api/branding/{slug}` and, on success,
+ * themes the button with the merchant's brand color, labels it "Pay {name}",
+ * and opens the branded hosted checkout `/c/{slug}`. The branding fetch is
+ * best-effort: on ANY failure the button degrades to the default label + the
+ * "/m/{merchantId}" path (when a merchant id is known) so the host page is
+ * never broken. A NUMERIC-only `data-merchant` tag behaves exactly as before:
+ * at most one eth_call (the quote) and zero branding fetches.
+ *
  * DOCTRINE (see embed-js.spec.md "Doctrine Guardrails"):
  *   - Zero custody: this file holds no keys/tokens; it only calls a view fn and opens a URL.
  *   - Real, booth-confirmed addresses: every address below is a __PLACEHOLDER__ token,
@@ -329,13 +345,18 @@
    * are missing or invalid — the caller then injects nothing.
    *
    * @param {Element} scriptEl - the embed's <script> element.
-   * @returns {{merchantId:string,usdAmount8:string,usdDisplay:string,chainId:number,label:string,theme:string,container:string|null}|null}
+   * @returns {{merchantId:string,slug:string|null,usdAmount8:string,usdDisplay:string,chainId:number,label:string,theme:string,container:string|null}|null}
    */
   function readConfig(scriptEl) {
     var d = scriptEl.dataset || {};
     var merchantId = (d.merchant || '').trim();
-    if (!/^[0-9]+$/.test(merchantId)) {
-      console.warn('[access0x1] embed.js: missing/invalid data-merchant');
+    var slug = (d.slug || '').trim().toLowerCase();
+    var hasMerchant = /^[0-9]+$/.test(merchantId);
+    var hasSlug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+    // A tenant tag may carry EITHER a numeric merchant id OR a checkout slug
+    // (or both). At least one valid identifier is required.
+    if (!hasMerchant && !hasSlug) {
+      console.warn('[access0x1] embed.js: missing/invalid data-merchant / data-slug');
       return null;
     }
     var rawUsd = (d.amountUsd || '').trim();
@@ -348,7 +369,8 @@
     var chainId = parseInt((d.chainId || '').trim(), 10);
     if (!chainId || !CHAIN_DEFAULTS[chainId]) chainId = DEFAULT_CHAIN_ID;
     return {
-      merchantId: merchantId,
+      merchantId: hasMerchant ? merchantId : '',
+      slug: hasSlug ? slug : null,
       usdAmount8: usdAmount8,
       usdDisplay: '$' + rawUsd,
       chainId: chainId,
@@ -356,6 +378,75 @@
       theme: d.theme === 'dark' ? 'dark' : 'light',
       container: (d.container || '').trim() || null,
     };
+  }
+
+  /**
+   * Build the branding endpoint URL for a slug, same-origin with the embed.
+   *
+   * @param {string} slug - the merchant's checkout slug.
+   * @returns {string} the absolute `/api/branding/{slug}` URL.
+   */
+  function brandingUrl(slug) {
+    return EMBED_ORIGIN + '/api/branding/' + encodeURIComponent(slug);
+  }
+
+  /**
+   * Build the BRANDED hosted checkout URL for a slug. Shape:
+   *   <origin>/c/{slug}?amount={usdAmount8}&chainId={chainId}
+   *
+   * @param {string} slug - the merchant's checkout slug.
+   * @param {string} usdAmount8 - the 8-decimal USD integer string.
+   * @param {number} chainId - the chosen chain id.
+   * @returns {string} the absolute branded checkout URL.
+   */
+  function slugCheckoutUrl(slug, usdAmount8, chainId) {
+    return (
+      EMBED_ORIGIN +
+      '/c/' +
+      encodeURIComponent(slug) +
+      '?amount=' +
+      encodeURIComponent(usdAmount8) +
+      '&chainId=' +
+      encodeURIComponent(String(chainId))
+    );
+  }
+
+  /**
+   * Fetch the public branding for a slug. Resolves to the parsed payload, or
+   * null on ANY failure (404, network down, CORS, malformed JSON) so the caller
+   * keeps the default button. Never throws to the host page.
+   *
+   * @param {string} slug - the merchant's checkout slug.
+   * @returns {Promise<{name?:string,description?:string,brandColor?:string}|null>}
+   */
+  function fetchBranding(slug) {
+    return fetch(brandingUrl(slug), { method: 'GET' })
+      .then(function (r) {
+        return r && r.ok ? r.json() : null;
+      })
+      .then(function (json) {
+        return json && typeof json === 'object' && typeof json.name === 'string' ? json : null;
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
+  /**
+   * Re-validate a brand color to a safe 6/8-char hex before it is ever written
+   * into an inline style on the host page (mirrors the server-side CR law). Any
+   * malformed value falls back to null so the default button color is kept.
+   *
+   * @param {string} color - the candidate color from the branding payload.
+   * @returns {string|null} a `#RRGGBB`/`#RRGGBBAA` string, or null.
+   */
+  function safeBrandColor(color) {
+    if (typeof color !== 'string') return null;
+    var hex = color.replace(/^#/, '');
+    if (/^[0-9a-fA-F]{6}$/.test(hex) || /^[0-9a-fA-F]{8}$/.test(hex)) {
+      return '#' + hex;
+    }
+    return null;
   }
 
   /**
@@ -374,27 +465,55 @@
 
       injectStyles();
       var btn = makeButton(cfg.label, cfg.usdDisplay, cfg.theme);
+      var labelSpan = btn.querySelector('.a0x1-label');
       var priceSpan = btn.querySelector('.a0x1-price');
-      var url = checkoutUrl(cfg.merchantId, cfg.usdAmount8, cfg.chainId);
+      // A slug tag opens the BRANDED checkout (/c/{slug}); a numeric tag opens
+      // the merchant checkout (/m/{merchantId}) exactly as before.
+      var url = cfg.slug
+        ? slugCheckoutUrl(cfg.slug, cfg.usdAmount8, cfg.chainId)
+        : checkoutUrl(cfg.merchantId, cfg.usdAmount8, cfg.chainId);
       btn.addEventListener('click', function () {
         window.open(url, '_blank', 'noopener');
       });
       placeInDom(btn, scriptEl, cfg.container);
 
-      // The single, gas-free quote read. On any failure → USD-only label.
-      quote(chain, cfg.merchantId, cfg.usdAmount8)
-        .then(function (tokenAmount) {
-          if (tokenAmount == null) {
+      // The single, gas-free quote read. Only runs when a merchant id is known
+      // (a slug-only tag has no merchant id yet → no eth_call, USD-only price).
+      if (cfg.merchantId) {
+        quote(chain, cfg.merchantId, cfg.usdAmount8)
+          .then(function (tokenAmount) {
+            if (tokenAmount == null) {
+              btn.setAttribute('data-state', 'ready');
+              return; // USD-only fallback (Law #4: never a stale guess)
+            }
+            var amt = formatTokenAmount(tokenAmount, chain.usdcDecimals);
+            priceSpan.textContent = cfg.usdDisplay + ' · ~' + amt + ' USDC';
             btn.setAttribute('data-state', 'ready');
-            return; // USD-only fallback (Law #4: never a stale guess)
-          }
-          var amt = formatTokenAmount(tokenAmount, chain.usdcDecimals);
-          priceSpan.textContent = cfg.usdDisplay + ' · ~' + amt + ' USDC';
-          btn.setAttribute('data-state', 'ready');
-        })
-        .catch(function () {
-          btn.setAttribute('data-state', 'ready');
-        });
+          })
+          .catch(function () {
+            btn.setAttribute('data-state', 'ready');
+          });
+      } else {
+        btn.setAttribute('data-state', 'ready');
+      }
+
+      // White-label: when a slug is present, fetch the public branding and theme
+      // the button (label "Pay {name}", brand color). Best-effort: any failure
+      // leaves the default button untouched (graceful degradation).
+      if (cfg.slug) {
+        fetchBranding(cfg.slug)
+          .then(function (b) {
+            if (!b) return;
+            if (b.name && labelSpan) labelSpan.textContent = 'Pay ' + b.name;
+            var color = safeBrandColor(b.brandColor);
+            if (color && btn.style && btn.style.setProperty) {
+              btn.style.setProperty('--a0x1-bg', color);
+            }
+          })
+          .catch(function () {
+            /* keep the default button */
+          });
+      }
     } catch (_e) {
       // Absolute backstop: never propagate to the host page.
     }
@@ -411,7 +530,8 @@
     var scriptEl = document.currentScript;
     if (!scriptEl) {
       // Defensive: pick the last embed.js script tag if currentScript is null.
-      var scripts = document.querySelectorAll('script[data-merchant]');
+      // Match both the numeric (data-merchant) and the slug (data-slug) tags.
+      var scripts = document.querySelectorAll('script[data-merchant],script[data-slug]');
       scriptEl = scripts.length ? scripts[scripts.length - 1] : null;
     }
     if (!scriptEl) return;
