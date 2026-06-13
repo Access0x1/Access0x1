@@ -14,7 +14,7 @@
 **The proof**
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
-![Tests](https://img.shields.io/badge/Tests-299%20passing-44CC11?style=for-the-badge)
+![Tests](https://img.shields.io/badge/Tests-550%20passing-44CC11?style=for-the-badge)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-100%25-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -95,6 +95,12 @@ flowchart TB
         Session["SessionGrant<br/>ERC-7702 + ERC-6492"]
         Registry["ChainRegistry<br/>multi-chain reference"]
         Receiver["Access0x1Receiver<br/>CRE audit consumer"]
+        subgraph commerce["Commerce quartet (compose the spine)"]
+            Subs["Subscriptions"]
+            Book["Bookings"]
+            Inv["Invoices"]
+            Gift["GiftCards"]
+        end
     end
 
     Feed[("Chainlink<br/>token/USD feed")]
@@ -109,6 +115,8 @@ flowchart TB
     CRE -->|"onReport (off money path)"| Receiver
     Session -.->|"authorizes agent spend"| Buyer
     Registry -.->|"read reference"| Router
+    commerce ==>|"settle through payToken/quote"| Router
+    Subs -.->|"renew debits budget"| Session
 ```
 
 The audited, zero-custody money path is `OracleLib` (staleness guard, `internal`/inlined) →
@@ -118,21 +126,32 @@ and `SessionGrant` / `ChainRegistry` hold no value path at all.
 
 ```text
 src/
-├── Access0x1Router.sol      # the shared, zero-custody money spine
-├── PaymentLanes.sol         # ERC-6909 non-custodial pull receipts
-├── SessionGrant.sol         # ERC-7702 + ERC-6492 agent sessions
-├── ChainRegistry.sol        # per-chain reference (sidecar, no value path)
-├── Access0x1Receiver.sol    # Chainlink CRE "notified settlement" audit consumer
+├── Access0x1Router.sol           # the shared, zero-custody money spine
+├── PaymentLanes.sol              # ERC-6909 non-custodial pull receipts
+├── SessionGrant.sol              # ERC-7702 + ERC-6492 agent sessions
+├── ChainRegistry.sol             # per-chain reference (sidecar, no value path)
+├── Access0x1Receiver.sol         # Chainlink CRE "notified settlement" audit consumer
+├── HouseTokenFactory.sol         # non-custodial business-owned ERC-20 factory …
+├── HouseToken.sol                #   … and the token it deploys (owner gets supply + key)
+├── Access0x1Subscriptions.sol    # recurring USD billing  ┐
+├── Access0x1Bookings.sol         # deposit-escrow + refund │ the commerce quartet —
+├── Access0x1Invoices.sol         # pay-once payment request │ each COMPOSES the spine
+├── Access0x1GiftCards.sol        # prepaid balance + coupons┘ (Router + SessionGrant)
 ├── libraries/
-│   └── OracleLib.sol        # Chainlink staleness + completed-round guard (internal)
-└── interfaces/
-    ├── IPaymentLanes.sol
-    ├── ISessionGrant.sol
-    └── IReceiver.sol
+│   └── OracleLib.sol             # Chainlink staleness + completed-round guard (internal)
+└── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (299 tests)
+test/                        # unit · attack · invariant (550 tests)
 ```
+
+The full first-party surface is **12 contracts**: the money spine (`Access0x1Router`), the receipt
+ledger (`PaymentLanes`), the agent-auth ledger (`SessionGrant`), the per-chain reference
+(`ChainRegistry`), the CRE audit consumer (`Access0x1Receiver`), the house-token factory +
+its `HouseToken`, the four commerce primitives, and the internal `OracleLib`. `make deploy-arc`
+(or `deploy-base` / `deploy-zksync`) runs [`script/DeployAll.s.sol`](script/DeployAll.s.sol),
+which deploys and wires the whole set in a single broadcast (`ChainRegistry` is the one sidecar
+deployed once per chain by `DeployChainRegistry` and carried in as config).
 
 ---
 
@@ -145,6 +164,16 @@ test/                        # unit · attack · invariant (299 tests)
 | [`SessionGrant`](src/SessionGrant.sol) | The **ERC-7702 + ERC-6492** "sign once → budget-scoped, time-bounded agent session" primitive. An owner authorizes a delegate to `spend` up to a budget until an expiry, with no per-spend co-sign; pure authorization ledger, **never holds funds**. |
 | [`ChainRegistry`](src/ChainRegistry.sol) | The canonical on-chain hash-map of per-chain facts (native USDC, local router, CCIP selector, flag word) keyed by `chainId`. A read reference for the SDK / frontend / deploy config — a new chain needs no SDK redeploy. |
 | [`Access0x1Receiver`](src/Access0x1Receiver.sol) | The on-chain half of **Chainlink CRE** "Notified Settlement": a Forwarder-gated consumer that writes an immutable audit entry per settlement. Off the money path by construction — a revert here can never touch a payment. |
+| [`HouseTokenFactory`](src/HouseTokenFactory.sol) / [`HouseToken`](src/HouseToken.sol) | A **non-custodial** factory: a business deploys its OWN ERC-20 (loyalty / credit / closed-loop, settleable through the router) and owns it in its own wallet — ownership AND the full supply are assigned to the business in the same tx, so the factory never holds a key or a balance. It only records provenance. |
+
+**The commerce quartet** — vertical-agnostic primitives that **compose** the spine above (Router + SessionGrant) rather than re-implementing it. Each owns lifecycle/eligibility ONLY; every money leg routes through `Access0x1Router.payToken`/`payNative` (so `net + fee == gross` is the router's audited invariant, never re-derived) and every USD→token price is read in-tx through `Access0x1Router.quote` (the OracleLib staleness guard). They need NO router-side registration — the router's merchant registry is their single source of truth for owner-authorization.
+
+| Contract | One-liner |
+| --- | --- |
+| [`Access0x1Subscriptions`](src/Access0x1Subscriptions.sol) | Recurring, USD-priced, **tiered** billing — the on-chain never-negative AI-spend meter. A subscription IS a budget-scoped [`SessionGrant`](src/SessionGrant.sol): the subscriber signs once; every `renew` debits that budget (hard-reverting past the cap) and pulls the period charge through the router fee-split. Tier entitlement is a read-time view of stored state — no cron, no money path ever writes a tier. |
+| [`Access0x1Bookings`](src/Access0x1Bookings.sol) | A deposit-escrow primitive with a **never-blockable refund**. A payer escrows a USD-priced deposit against an opaque `slotKey`; the booking resolves through one lifecycle transition (confirm / expire / cancel / no-show) under an IMMUTABLE policy snapshot. A failed refund push lands in a per-token pull-map; a stale/dead oracle on a resolution leg yields a zero fee and refunds everything — the refund is unconditional (money-safety invariant #5). |
+| [`Access0x1Invoices`](src/Access0x1Invoices.sol) | The simplest commerce primitive: a USD-priced, **pay-once** payment request. An operator issues a request for `amountUsd8` (optionally locked to one payer / stamped with a `dueBy`); it is priced USD→token in-tx and settled through the router fee-split. `OPEN → {PAID \| VOID}` is one-way and absorbing, so a replayed `pay` reverts — the on-chain unique-index. |
+| [`Access0x1GiftCards`](src/Access0x1GiftCards.sol) | A USD-priced **prepaid-balance** primitive (gift cards / credit packs) plus a merchant-scoped coupon registry. A card balance is a non-custodial USD receipt the holder controls; a debit can NEVER drive it negative (`balance >= applied`, a hard revert). No ERC-20 ever enters the contract — the chargeable remainder is settled by the caller straight through the router in the same tx. |
 
 ### Router functions
 
@@ -168,7 +197,7 @@ cd Access0x1
 forge install          # OpenZeppelin + forge-std (git submodules)
 npm install            # @chainlink/contracts (npm, pinned 1.5.0) — run BEFORE forge build
 forge build
-forge test             # 299 green
+forge test             # 550 green
 forge coverage         # 100% on the router
 forge snapshot         # regenerate .gas-snapshot (see docs/GAS.md)
 ```
@@ -189,10 +218,18 @@ forge script script/DeployAccess0x1Router.s.sol --rpc-url http://localhost:8545 
 
 ## Deploy · multi-chain
 
-`script/DeployAll.s.sol` is the chain-aware entrypoint: it deploys the router (and, with
-`DEPLOY_PAYMENT_LANES=true`, the `PaymentLanes` ledger), then wires the price feeds + USDC allowlist in
-the **same broadcast** so each chain has one replayable path. `HelperConfig` reads the right env block
-from a `block.chainid` ladder, so the same script targets every chain just by switching `--rpc-url`.
+`script/DeployAll.s.sol` is the chain-aware **one-command** entrypoint: a single `make deploy-arc`
+(or `deploy-base` / `deploy-zksync`) deploys the **whole first-party surface, wired together**, in
+the same broadcast — the `Access0x1Router` money spine, the `SessionGrant` agent-auth ledger, the
+`HouseTokenFactory`, the four commerce primitives (`Subscriptions` / `Bookings` / `Invoices` /
+`GiftCards`, each constructed against the freshly deployed Router + SessionGrant so they compose the
+audited spine), and the price-feed + USDC allowlist wiring — plus, when configured,
+the optional `PaymentLanes` ledger (`DEPLOY_PAYMENT_LANES=true`) and the off-money-path
+`Access0x1Receiver` CRE consumer (`<chain>_CRE_FORWARDER`). `HelperConfig` reads the right env block
+from a `block.chainid` ladder, so the same script targets every chain just by switching `--rpc-url`,
+and any address that is not yet booth-confirmed resolves to `address(0)` and is *skipped*, never wired.
+`ChainRegistry` is the one sidecar deployed once per chain by `DeployChainRegistry` and carried in as
+config so the SDK keeps a single reference.
 
 ```sh
 # Arc Testnet (Blockscout verify)
@@ -216,6 +253,25 @@ forge script script/DeployAll.s.sol --profile zksync \
 > `USDC_ADDRESS`, `USDC_USD_FEED`, …) — never a hardcoded address. Signing is **keystore-only**
 > (`--account`, never `--private-key`). Any feed/USDC address that is not yet confirmed resolves to
 > `address(0)` and is *skipped*, never wired. See [`.env.example`](.env.example) for the full key set.
+
+### Deployments
+
+Filled at deploy time from the broadcast log (`broadcast/<chainId>/run-latest.json`) — **never**
+hand-entered (law #4: an address that isn't on-chain isn't claimed). Empty until the owner runs
+`make deploy-<chain>`; `Access0x1Router` is the address an integrator points at.
+
+| Chain | Contract | Address | Tx |
+| --- | --- | --- | --- |
+| Arc Testnet (5042002) | `Access0x1Router` | — | — |
+| Arc Testnet (5042002) | `SessionGrant` | — | — |
+| Arc Testnet (5042002) | `Access0x1Subscriptions` | — | — |
+| Arc Testnet (5042002) | `Access0x1Bookings` | — | — |
+| Arc Testnet (5042002) | `Access0x1Invoices` | — | — |
+| Arc Testnet (5042002) | `Access0x1GiftCards` | — | — |
+| Arc Testnet (5042002) | `HouseTokenFactory` | — | — |
+| Arc Testnet (5042002) | `ChainRegistry` | — | — |
+| Base Sepolia (84532) | `Access0x1Router` | — | — |
+| zkSync Sepolia (300) | `Access0x1Router` | — | — |
 
 ---
 
@@ -250,7 +306,7 @@ deployer is a burner key.
 
 | | |
 | --- | --- |
-| Tests | **299 green** — unit · attack · invariant suites |
+| Tests | **550 green** — unit · attack · invariant suites |
 | Router coverage | **100%** lines · 100% statements · 100% branches · 100% functions |
 | Invariants | **13 fuzz invariants** across 3 suites hold at 4,096 calls each, 0 reverts |
 | Static analysis | **slither: 16 results, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
