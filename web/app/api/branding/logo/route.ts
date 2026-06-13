@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { resolveTenantId, TenantAuthError } from '@/lib/branding/tenant'
+import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
 import { LogoError, MAX_LOGO_RASTER_BYTES, toInlineSvgLogo } from '@/lib/branding/logo'
 
 export const dynamic = 'force-dynamic'
@@ -26,7 +26,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    resolveTenantId(body)
+    // Server-verified Dynamic JWT preferred; falls back to the shape-checked body
+    // tenantId when no issuer is configured (booth-gated).
+    await resolveVerifiedTenant(request, body)
   } catch (err) {
     if (err instanceof TenantAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 })

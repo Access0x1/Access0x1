@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { resolveTenantId, TenantAuthError } from '@/lib/branding/tenant'
+import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
 import {
   asCheckoutMode,
   asHumanVerifier,
@@ -37,7 +37,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let tenantId: string
   try {
-    tenantId = resolveTenantId(body)
+    // Server-verified Dynamic JWT preferred; falls back to the shape-checked body
+    // tenantId when no issuer is configured (booth-gated).
+    ;({ tenantId } = await resolveVerifiedTenant(request, body))
   } catch (err) {
     if (err instanceof TenantAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 })
