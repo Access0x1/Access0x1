@@ -475,4 +475,24 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         if (platformFee > 0) IERC20(token).safeTransfer(platformTreasury, platformFee);
         if (merchantFee > 0) IERC20(token).safeTransfer(merchantFeeDest, merchantFee);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                RESCUE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Withdraw native value that was queued to you when a push failed during settlement
+    ///         (e.g. your payout contract reverted on receive, so the receipt stood but the transfer
+    ///         was parked here). Pure pull-pattern: the router never decides when you are paid — you
+    ///         claim. Open even while the router is paused.
+    /// @dev    CEI + `nonReentrant`: zero the credit BEFORE the call, so a re-entrant claimer finds
+    ///         nothing owed. A failed send reverts the whole claim (the credit is restored by the
+    ///         revert), so a claimant can never zero their balance without receiving the funds.
+    function claimRescue() external nonReentrant {
+        uint256 amount = rescue[msg.sender];
+        if (amount == 0) revert Access0x1__NothingToRescue();
+        rescue[msg.sender] = 0; // effect before interaction
+        emit Rescued(msg.sender, amount);
+        (bool ok,) = msg.sender.call{ value: amount }("");
+        if (!ok) revert Access0x1__NativePushFailed(msg.sender, amount);
+    }
 }

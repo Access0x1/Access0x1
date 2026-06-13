@@ -10,6 +10,7 @@ import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { RevertingReceiver } from "../mocks/RevertingReceiver.sol";
 import { ReentrantPayout } from "../mocks/ReentrantPayout.sol";
 import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
+import { RescueClaimer } from "../mocks/RescueClaimer.sol";
 
 /// @notice The router's unit suite — the full surface in one fixture: constructor, merchant
 ///         registry, pricing, both pay paths (with adversarial mocks), admin, and rescue.
@@ -638,5 +639,60 @@ contract Access0x1RouterTest is Test {
         vm.prank(buyer);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         router.payToken(id, address(usdc), 20e8, ORDER);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                claimRescue
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Queue a rescue credit: a payout contract that rejects the push, paid once.
+    function _queueRescue() internal returns (RescueClaimer claimer, uint256 net) {
+        _configureFeeds();
+        claimer = new RescueClaimer(router); // defaults to Mode.Reject
+        vm.prank(merchantOwner);
+        uint256 id =
+            router.registerMerchant(address(claimer), feeRecipient, MERCHANT_FEE_BPS, NAME_HASH);
+
+        uint256 gross = router.quote(id, address(0), 20e8);
+        (,, net) = _fees(gross);
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        router.payNative{ value: gross }(id, 20e8, ORDER); // push to claimer fails → queued
+        assertEq(router.rescue(address(claimer)), net);
+    }
+
+    function test_claimRescuePullsAndEmits() public {
+        (RescueClaimer claimer, uint256 net) = _queueRescue();
+        claimer.setMode(RescueClaimer.Mode.Accept);
+
+        vm.expectEmit(true, false, false, true, address(router));
+        emit Access0x1Router.Rescued(address(claimer), net);
+        claimer.claim();
+
+        assertEq(address(claimer).balance, net);
+        assertEq(router.rescue(address(claimer)), 0); // credit cleared
+        assertEq(address(router).balance, 0); // no custody left
+    }
+
+    function test_claimRescueRevertsWhenNothingOwed() public {
+        vm.prank(buyer);
+        vm.expectRevert(Access0x1Router.Access0x1__NothingToRescue.selector);
+        router.claimRescue();
+    }
+
+    function test_claimRescueRevertsAndPreservesCreditOnReentry() public {
+        (RescueClaimer claimer, uint256 net) = _queueRescue();
+        claimer.setMode(RescueClaimer.Mode.Reenter);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__NativePushFailed.selector, address(claimer), net
+            )
+        );
+        claimer.claim();
+
+        // The re-entrant claim rolled back whole: the credit is intact, nothing double-paid.
+        assertEq(router.rescue(address(claimer)), net);
+        assertEq(address(claimer).balance, 0);
     }
 }
