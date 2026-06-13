@@ -123,7 +123,13 @@ async function verifyMethod(
  * the Developer Portal env (`not_configured` when unset — pre-booth).
  */
 async function verifyWorldIdMethod(body: Record<string, unknown>): Promise<Verdict> {
-  const proof = body.proof
+  // The proof may arrive nested under `proof` OR as the raw IDKit fields at the
+  // top level (how WorldIdGate forwards a result). Accept both; require SOME
+  // proof field so we never claim "verified" with no proof.
+  const proof =
+    body.proof !== undefined && body.proof !== null
+      ? body.proof
+      : extractRawProof(body)
   if (proof === undefined || proof === null) {
     return { ok: false, code: 'missing_proof', status: 400 }
   }
@@ -144,6 +150,23 @@ async function verifyWorldIdMethod(body: Record<string, unknown>): Promise<Verdi
   }
   if (!fresh) return { ok: false, code: 'already_verified', status: 409 }
   return { ok: true }
+}
+
+/**
+ * Pull the raw IDKit proof out of a top-level body (the shape WorldIdGate sends:
+ * `{ user, method, action, merkle_root, nullifier_hash, proof, ... }`). We strip
+ * our own envelope fields and pass the rest to `verifyWorldProof` AS-IS (no field
+ * remap — a mutation breaks portal verification). Returns null when no recognizable
+ * proof field is present.
+ */
+function extractRawProof(body: Record<string, unknown>): Record<string, unknown> | null {
+  const hasProofFields =
+    'merkle_root' in body || 'nullifier_hash' in body || 'verification_level' in body
+  if (!hasProofFields) return null
+  const { user: _u, method: _m, ...rest } = body
+  void _u
+  void _m
+  return rest
 }
 
 /**
