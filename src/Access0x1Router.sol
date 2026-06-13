@@ -167,4 +167,39 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         emit TreasuryUpdated(address(0), treasury);
         emit PlatformFeeUpdated(0, platformFeeBps_);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            MERCHANT REGISTRY
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Register a business. Permissionless — anyone onboards with a single tx, no per-merchant
+    ///         contract. The caller becomes the merchant `owner` (the only address that may update it).
+    /// @param payout       Where this merchant's net payments land (must be non-zero).
+    /// @param feeRecipient Where this merchant's fee leg lands; `address(0)` ⇒ falls back to `payout`
+    ///                     at pay time (allowed, not an error).
+    /// @param feeBps       The merchant's optional surcharge in bps; `feeBps + platformFeeBps` must
+    ///                     not exceed `MAX_FEE_BPS`.
+    /// @param nameHash     An identity commitment (no preimage stored on-chain).
+    /// @return id          The newly assigned merchantId (≥ 1).
+    function registerMerchant(address payout, address feeRecipient, uint16 feeBps, bytes32 nameHash)
+        external
+        returns (uint256 id)
+    {
+        if (payout == address(0)) revert Access0x1__ZeroAddress();
+        uint256 combinedFeeBps = uint256(feeBps) + platformFeeBps;
+        if (combinedFeeBps > MAX_FEE_BPS) {
+            revert Access0x1__FeeTooHigh(combinedFeeBps, MAX_FEE_BPS);
+        }
+
+        id = nextMerchantId++;
+        merchants[id] = Merchant({
+            payout: payout,
+            owner: msg.sender,
+            feeRecipient: feeRecipient,
+            feeBps: feeBps,
+            active: true,
+            nameHash: nameHash
+        });
+        emit MerchantRegistered(id, msg.sender, payout, feeRecipient, feeBps, nameHash);
+    }
 }
