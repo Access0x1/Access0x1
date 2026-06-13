@@ -31,6 +31,8 @@ export function WorldIdGate({
   onVerified,
   action = worldAction(),
   useSelfieCheck = false,
+  verifyUrl = '/api/world/verify',
+  extraBody,
 }: {
   /** The connected wallet address bound into the proof (anti-swap). */
   signal?: string
@@ -40,6 +42,16 @@ export function WorldIdGate({
   action?: string
   /** Use the Selfie Check preset (no Orb needed) instead of Orb tier. */
   useSelfieCheck?: boolean
+  /**
+   * Where to POST the raw proof. Defaults to the buyer-gate route
+   * (`/api/world/verify`); the Super Verification stack points it at
+   * `/api/verify` so the SAME proof is verified + recorded on the trust profile
+   * in ONE round-trip (no double nullifier claim). Both routes do the identical
+   * verify+claim, so the proof is forwarded AS-IS either way.
+   */
+  verifyUrl?: string
+  /** Extra fields merged into the POST body (e.g. `{ user, method }` for the trust stack). */
+  extraBody?: Record<string, unknown>
 }): ReactNode {
   const [open, setOpen] = useState(false)
   const [status, setStatus] = useState<'idle' | 'verifying' | 'verified' | 'error'>('idle')
@@ -77,11 +89,13 @@ export function WorldIdGate({
   // The widget hands us the raw proof; forward it AS-IS to our backend.
   const handleVerify = useCallback(
     async (result: IDKitResult) => {
-      const res = await fetch('/api/world/verify', {
+      const res = await fetch(verifyUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        // Forward the raw IDKit payload + the action (no field remap).
-        body: JSON.stringify({ ...result, action }),
+        // Forward the raw IDKit payload + the action (no field remap) + any
+        // extra envelope the caller needs (e.g. { user, method } for the trust
+        // profile). The proof fields stay untouched so portal verify still works.
+        body: JSON.stringify({ ...result, action, ...extraBody }),
       })
       if (res.status === 409) {
         // One human, one shot — this person already used this action.
@@ -89,7 +103,7 @@ export function WorldIdGate({
       }
       if (!res.ok) throw new Error('verify_failed')
     },
-    [action],
+    [action, verifyUrl, extraBody],
   )
 
   const onSuccess = useCallback(() => {
