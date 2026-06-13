@@ -46,6 +46,9 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice Basis-point denominator (10_000 = 100%).
     uint256 private constant FEE_DENOMINATOR = 10_000;
 
+    /// @notice Decimals of the USD amounts the SDK passes in, matching Chainlink USD feeds (1e8 = $1).
+    uint256 private constant USD_DECIMALS = 8;
+
     /// @notice Hard ceiling on the combined (platform + merchant) fee: 10%. Enforced at register,
     ///         update, and platform-fee changes, so no configuration can ever exceed it.
     uint16 public constant MAX_FEE_BPS = 1000;
@@ -334,9 +337,12 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 feedDecimals = AggregatorV3Interface(feedAddr).decimals();
         uint256 tokenDecimals = token == NATIVE ? 18 : IERC20Metadata(token).decimals();
 
-        // tokenAmount = usdAmount8 · 10^(feedDecimals + tokenDecimals) / (10^8 · price)
+        // tokenAmount = usdAmount8 · 10^(feedDecimals + tokenDecimals) / (10^USD_DECIMALS · price)
         tokenAmount = Math.mulDiv(
-            usdAmount8, 10 ** (feedDecimals + tokenDecimals), 10 ** 8 * price, Math.Rounding.Ceil
+            usdAmount8,
+            10 ** (feedDecimals + tokenDecimals),
+            10 ** USD_DECIMALS * price,
+            Math.Rounding.Ceil
         );
     }
 
