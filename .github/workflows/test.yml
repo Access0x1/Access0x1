@@ -25,6 +25,16 @@ jobs:
       - name: Show Forge version
         run: forge --version
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # @chainlink/contracts lives in gitignored node_modules (the brownie repo is
+      # deprecated); the remapping resolves into it, so deps must be installed first.
+      - name: Install npm deps (Chainlink contracts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Run Forge fmt
         run: forge fmt --check
 
