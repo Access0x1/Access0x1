@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import type { Hash } from 'viem'
 import type { PaymentReceivedEvent } from '@/lib/contracts'
 import { amount8ToUsd, formatTokenAmount } from '@/lib/quote'
+import { TxHashLink } from './TxHashLink'
 
 /**
  * Success view after a settled payment. Shows the amount paid (in token
@@ -14,12 +15,14 @@ import { amount8ToUsd, formatTokenAmount } from '@/lib/quote'
 export function ReceiptScreen({
   receipt,
   txHash,
+  chainId,
   tokenSymbol,
   tokenDecimals,
   returnUrl,
 }: {
   receipt: PaymentReceivedEvent
   txHash: Hash
+  chainId: number
   tokenSymbol: string
   tokenDecimals: number
   returnUrl?: string
@@ -41,7 +44,9 @@ export function ReceiptScreen({
       <dl className="mx-auto w-full max-w-sm text-left text-sm">
         <div className="flex justify-between border-t border-neutral-100 py-2">
           <dt className="text-neutral-500">Transaction</dt>
-          <dd className="truncate pl-4 font-mono">{txHash}</dd>
+          <dd className="truncate pl-4">
+            <TxHashLink chainId={chainId} hash={txHash} full className="font-mono text-rail underline-offset-2 hover:underline" />
+          </dd>
         </div>
         <div className="flex justify-between border-t border-neutral-100 py-2">
           <dt className="text-neutral-500">Order</dt>
