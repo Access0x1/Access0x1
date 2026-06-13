@@ -271,6 +271,16 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         platformFeeBps = newBps;
     }
 
+    /// @notice Change where the platform fee leg settles. Must be non-zero — a zero treasury would
+    ///         silently burn every platform fee (the `_pushNativeOrQueue` to address(0) would fail
+    ///         and queue, or the ERC-20 transfer would revert the whole payment).
+    /// @param newTreasury The new platform treasury (non-zero).
+    function setTreasury(address newTreasury) external onlyOwner {
+        if (newTreasury == address(0)) revert Access0x1__ZeroAddress();
+        emit TreasuryUpdated(platformTreasury, newTreasury);
+        platformTreasury = newTreasury;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 PRICING
     //////////////////////////////////////////////////////////////*/
