@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { SessionGrant } from "../../src/SessionGrant.sol";
 import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 import { SmartWallet1271, WalletFactory } from "../mocks/SmartWallet1271.sol";
+import { ReentrantSessionFactory } from "../mocks/ReentrantSessionFactory.sol";
 
 /// @notice Adversarial suite for SessionGrant. Each test is an ATTACK the contract must defeat:
 ///         budget overspend (incl. salami / round-trip), expiry bypass, signed-grant replay, session-id
@@ -243,5 +244,92 @@ contract SessionGrantAttackTest is Test {
             abi.encodePacked(abi.encode(address(0), bytes(""), bytes("")), ERC6492_MAGIC);
         vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
         grant.openSessionFor(owner, delegate, BUDGET, expiry, wrapped);
+    }
+
+    /// @dev A 6492 wrapper that names a factory whose `factoryCalldata` is EMPTY must not let an
+    ///      attacker-keyed inner sig pass: with no code at the counterfactual address and no factory
+    ///      prepare, validation falls to EOA recovery of the inner sig, which recovers the attacker —
+    ///      not `signer` — so it is rejected. (Covers the 6492 path with `factory != 0` but no deploy.)
+    function test_attack_6492_emptyFactoryCalldata_forgedInner() public {
+        address w = factory.addressOf(owner);
+        bytes memory forgedInner = _signGrant(attackerPk, w, delegate, BUDGET, expiry, 0);
+        bytes memory wrapped =
+            abi.encodePacked(abi.encode(address(factory), bytes(""), forgedInner), ERC6492_MAGIC);
+        vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
+        grant.openSessionFor(w, delegate, BUDGET, expiry, wrapped);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                  ATTACK: REENTRANCY VIA 6492 PREPARE (slither
+                  reentrancy-no-eth on openSessionFor)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev THE reentrancy probe (slither `reentrancy-no-eth` on openSessionFor). The ONLY external
+    ///      call in SessionGrant is the ERC-6492 `factory.call`, fired BEFORE the owner nonce is
+    ///      written. A malicious "factory" re-enters {openSessionFor} with the SAME captured grant,
+    ///      trying to open a SECOND session off one authorization.
+    ///
+    ///      Before the fix, the re-entrant inner open bumped the nonce 0→1, then the outer {_open}
+    ///      RE-READ the now-advanced nonce and opened a SECOND session at nonce 1 — applying one
+    ///      signature at a nonce it never signed for (a double-open). The fix pins {_open} to the
+    ///      nonce the signature was VALIDATED against and reverts {NonceMismatch} when the live nonce
+    ///      has moved: the outer open reverts, which rolls back the WHOLE transaction (including the
+    ///      inner open), so the malicious grant opens ZERO sessions and the nonce never advances.
+    function test_attack_reentrancy_6492_cannotDoubleOpen() public {
+        // `owner` is an EOA, so the 6492 prepare path fires the factory call, then EOA recovery
+        // validates the inner sig against `owner` directly.
+        ReentrantSessionFactory evil = new ReentrantSessionFactory(grant);
+
+        // The PLAIN signature for (owner, delegate, BUDGET, expiry, nonce 0).
+        bytes memory plainSig = _signGrant(ownerPk, owner, delegate, BUDGET, expiry, 0);
+        // Arm the factory to replay that exact plain sig during the prepare step.
+        evil.arm(owner, delegate, BUDGET, expiry, plainSig);
+
+        // Wrap the SAME plain sig in a 6492 envelope that calls the evil factory.
+        bytes memory wrapped = abi.encodePacked(
+            abi.encode(
+                address(evil), abi.encodeCall(ReentrantSessionFactory.deploy, (owner)), plainSig
+            ),
+            ERC6492_MAGIC
+        );
+
+        // The outer open must REVERT (NonceMismatch surfaced by the re-entrant nonce advance),
+        // rolling back everything — no session, no nonce movement.
+        vm.expectRevert(
+            abi.encodeWithSelector(ISessionGrant.SessionGrant__NonceMismatch.selector, owner, 0, 1)
+        );
+        grant.openSessionFor(owner, delegate, BUDGET, expiry, wrapped);
+
+        // Whole tx reverted → zero sessions, nonce untouched.
+        assertEq(grant.nonces(owner), 0, "no nonce may be consumed when the open reverts");
+    }
+
+    /// @dev Positive control: a HONEST 6492 grant whose factory does NOT re-enter opens exactly one
+    ///      session and advances the nonce by exactly one — the fix does not break the legitimate path.
+    function test_reentrancy_honest6492_opensExactlyOne() public {
+        address w = factory.addressOf(owner);
+        bytes memory innerSig = _signGrant(ownerPk, w, delegate, BUDGET, expiry, 0);
+        bytes memory wrapped = abi.encodePacked(
+            abi.encode(address(factory), abi.encodeCall(WalletFactory.deploy, (owner)), innerSig),
+            ERC6492_MAGIC
+        );
+        bytes32 id = grant.openSessionFor(w, delegate, BUDGET, expiry, wrapped);
+        assertEq(grant.remaining(id), BUDGET);
+        assertEq(grant.nonces(w), 1, "exactly one nonce consumed on the honest path");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          VIEW / DOMAIN BINDING
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev The exposed EIP-712 domain separator is real and unique per deployment, so a relayer/signer
+    ///      cannot be tricked into reusing a digest across two SessionGrant instances (domain binding).
+    function test_domainSeparator_isUniquePerDeployment() public {
+        bytes32 ds = grant.domainSeparator();
+        assertTrue(ds != bytes32(0));
+        SessionGrant other = new SessionGrant("Access0x1 SessionGrant", "1"); // diff address
+        assertTrue(
+            other.domainSeparator() != ds, "domain separators must differ across deployments"
+        );
     }
 }

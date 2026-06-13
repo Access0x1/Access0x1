@@ -102,6 +102,11 @@ interface ISessionGrant {
     /// @notice The supplied grant signature failed validation (EOA / ERC-1271 / ERC-6492).
     error SessionGrant__BadSignature();
 
+    /// @notice The owner nonce moved between signature validation and the session write — the only way
+    ///         this happens is a re-entrant open during the ERC-6492 factory prepare. Refusing pins each
+    ///         authorization to the exact nonce it signed for, so one grant opens exactly one session.
+    error SessionGrant__NonceMismatch(address owner, uint256 expectedNonce, uint256 actualNonce);
+
     // ──────────────────────── views ────────────────────────
 
     /// @notice The next unconsumed grant nonce for `owner` (used to open the next signed session).
