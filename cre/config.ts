@@ -11,9 +11,14 @@
 import { z } from 'zod';
 
 // 0x-prefixed 20-byte EVM address (hex). Validated so a malformed address fails fast at startup.
+// The zero address is rejected explicitly: a config that names address(0) for the router or
+// receiver is a misconfiguration (the workflow would watch/write a burn address), so fail fast
+// rather than silently run against it.
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const evmAddress = z
   .string()
-  .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address');
+  .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address')
+  .refine((addr) => addr.toLowerCase() !== ZERO_ADDRESS, 'must not be the zero address');
 
 export const configSchema = z.object({
   // The chain the router + receiver are deployed on. Resolved to a CRE chain selector via
