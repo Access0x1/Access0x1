@@ -202,4 +202,35 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         });
         emit MerchantRegistered(id, msg.sender, payout, feeRecipient, feeBps, nameHash);
     }
+
+    /// @notice Update a merchant's mutable config. Only the merchant `owner` may call.
+    /// @dev    `owner` and `nameHash` are deliberately immutable post-registration — this is what
+    ///         lets the fuzzer prove a payment to merchant A never mutates merchant B.
+    /// @param id           The merchant to update (must exist).
+    /// @param payout       New payout address (must be non-zero).
+    /// @param feeRecipient New fee recipient (`address(0)` ⇒ falls back to `payout` at pay time).
+    /// @param feeBps       New merchant surcharge; `feeBps + platformFeeBps` must not exceed `MAX_FEE_BPS`.
+    /// @param active       Whether the merchant accepts new payments.
+    function updateMerchant(
+        uint256 id,
+        address payout,
+        address feeRecipient,
+        uint16 feeBps,
+        bool active
+    ) external {
+        Merchant storage m = merchants[id];
+        if (m.owner == address(0)) revert Access0x1__MerchantNotFound(id);
+        if (msg.sender != m.owner) revert Access0x1__NotMerchantOwner(id, msg.sender);
+        if (payout == address(0)) revert Access0x1__ZeroAddress();
+        uint256 combinedFeeBps = uint256(feeBps) + platformFeeBps;
+        if (combinedFeeBps > MAX_FEE_BPS) {
+            revert Access0x1__FeeTooHigh(combinedFeeBps, MAX_FEE_BPS);
+        }
+
+        m.payout = payout;
+        m.feeRecipient = feeRecipient;
+        m.feeBps = feeBps;
+        m.active = active;
+        emit MerchantUpdated(id, payout, feeRecipient, feeBps, active);
+    }
 }
