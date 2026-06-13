@@ -28,7 +28,7 @@ fs_permissions = [
 [profile.default.fuzz]
 runs = 256
 
-# The 5 money invariants must hold WITHOUT swallowed reverts — handlers bound their
+# The 6 router money invariants must hold WITHOUT swallowed reverts — handlers bound their
 # inputs and early-return on invalid preconditions, so a revert is a real failure.
 [profile.default.invariant]
 runs = 64
