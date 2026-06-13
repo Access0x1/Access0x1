@@ -52,3 +52,10 @@ ethglobal2026/
 .claude/
 CLAUDE.md
 PROGRESS.md
+
+# Local design reference (project snapshot) — NOT part of the published product
+linkEvent/
+hackathon/
+sponsors/
+lib-assets/
+contract-docs
