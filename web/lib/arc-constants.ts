@@ -8,10 +8,17 @@
  *
  * On Arc, USDC IS the native gas token (system contract `0x3600…0000`), so the
  * Nanopayments batch layer already makes the payer gas-free — no Paymaster.
+ *
+ * The Arc chain id and RPC URL are NOT re-literalized here: they come from the
+ * canonical chain registry in `chains.ts` so they can never drift. Only the
+ * Gateway / x402 protocol values (wallet, domain, facilitator) — which are
+ * unique to this file — are defined below.
  */
 
+import { ARC_TESTNET_ID, DEFAULT_ARC_RPC_URL } from "./chains.js";
+
 /** CAIP-2 network id for Arc Testnet (chain id 5042002). confirm at booth */
-export const ARC_TESTNET_NETWORK = "eip155:5042002";
+export const ARC_TESTNET_NETWORK = `eip155:${ARC_TESTNET_ID}` as const;
 
 /**
  * Arc Testnet USDC — the Arc system contract. Real USDC, not a mock token
@@ -30,8 +37,8 @@ export const ARC_TESTNET_GATEWAY_WALLET =
 /** Numeric Gateway domain id for the balances API query. confirm at booth */
 export const ARC_TESTNET_GATEWAY_DOMAIN = 26;
 
-/** Arc Testnet JSON-RPC endpoint. confirm at booth */
-export const ARC_TESTNET_RPC = "https://rpc.testnet.arc.network";
+/** Arc Testnet JSON-RPC endpoint (single source: {@link DEFAULT_ARC_RPC_URL}). */
+export const ARC_TESTNET_RPC = DEFAULT_ARC_RPC_URL;
 
 /** Circle Gateway balances API base. confirm at booth */
 export const GATEWAY_BALANCES_API =

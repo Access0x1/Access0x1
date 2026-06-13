@@ -2,22 +2,42 @@ import { defineChain, type Address, type Chain } from 'viem'
 import { baseSepolia, zksyncSepoliaTestnet } from 'viem/chains'
 
 /**
+ * Arc Testnet EVM chain id. `5042002` is the id used across the spec and the
+ * `NEXT_PUBLIC_*` env-var names (confirmed at the Arc/Circle booth).
+ *
+ * This module is the SINGLE source of truth for Arc chain metadata in the web
+ * app — `embedConfig.ts` and `arc-constants.ts` import {@link ARC_TESTNET_ID}
+ * and {@link DEFAULT_ARC_RPC_URL} from here instead of re-literalizing them, so
+ * the Arc RPC string and chain id can never drift across files.
+ */
+export const ARC_TESTNET_ID = 5042002
+
+/**
+ * The default (public, no-key) Arc Testnet JSON-RPC endpoint. Lives in exactly
+ * ONE place; every other registry imports it. A deployed build overrides it via
+ * `NEXT_PUBLIC_ARC_RPC_URL` (the URL is never assumed at a call site).
+ *
+ * confirm at booth
+ */
+export const DEFAULT_ARC_RPC_URL = 'https://rpc.testnet.arc.network'
+
+/**
  * Arc Testnet — the Access0x1 settlement chain.
  *
  * NOTE: id / RPC are CONFIRMED at the Arc booth at the event; the RPC URL is
- * read from env so it is never hardcoded in a shipped build. `5042002` is the
- * placeholder id used across the spec and env var names (NEXT_PUBLIC_*_5042002).
+ * read from env so it is never hardcoded in a shipped build, falling back to
+ * {@link DEFAULT_ARC_RPC_URL}.
  *
  * Native USDC on Arc is 18-decimal (the "Arc trap" the router prices around);
  * the frontend never assumes decimals — it reads them on-chain via `quote()`.
  */
 export const arcTestnet = defineChain({
-  id: 5042002,
+  id: ARC_TESTNET_ID,
   name: 'Arc Testnet',
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network'],
+      http: [process.env.NEXT_PUBLIC_ARC_RPC_URL ?? DEFAULT_ARC_RPC_URL],
     },
   },
   testnet: true,
