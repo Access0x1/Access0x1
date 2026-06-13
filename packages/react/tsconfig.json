@@ -24,6 +24,7 @@
     "node_modules",
     "**/*.test.ts",
     "**/*.test.tsx",
+    "src/test",
     "src/ens.ts"
   ]
 }
