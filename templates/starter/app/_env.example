@@ -62,10 +62,10 @@ NEXT_PUBLIC_DEFAULT_CHAIN_ID={{CHAIN_ID}}
 NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=
 
 # =============================================================================
-# ENS / AuthProvider subnames — OPTIONAL on-chain identity for merchant/payout names
+# ENS subnames — OPTIONAL on-chain identity for merchant/payout names
 # =============================================================================
 # Resolve a human name (e.g. merchant.yourbrand.eth) instead of a raw address. Optional.
-# confirm at booth (ENS / AuthProvider).
+# confirm at booth (ENS).
 NEXT_PUBLIC_ENS_REGISTRY=
 NEXT_PUBLIC_ENS_RESOLVER=
 

@@ -29,7 +29,7 @@ import { ISessionGrant } from "./interfaces/ISessionGrant.sol";
 ///         escrows funds — {spend} only debits an accounting budget and emits an event. A consuming
 ///         contract (e.g. an Access0x1 router) is expected to gate value transfer on a successful
 ///         {spend}, so the budget is the spend CEILING, not a wallet. This isolation is deliberate:
-///         the money-path security budget is never spent on this auth primitive (money-safety invariant).
+///         the money-path security budget is never spent on this auth primitive (a core money-path law).
 ///
 ///         REPLAY: per-owner monotonic `nonces`. Each signed grant pins a nonce; the nonce is consumed
 ///         on a successful {openSessionFor}, so a captured grant signature can never open a second

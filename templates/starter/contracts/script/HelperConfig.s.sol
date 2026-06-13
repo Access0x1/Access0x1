@@ -49,8 +49,8 @@ contract HelperConfig is Script {
     uint16 internal constant DEFAULT_PLATFORM_FEE_BPS = 100;
 
     /// @notice Default dunning grace for `Access0x1Subscriptions` when `*_SUBS_GRACE_FAILS` is unset:
-    ///         a PAST_DUE subscription demotes to UNPAID after 3 failed renewals (mirrors the
-    ///         YourApp grace window). Must be non-zero — the Subscriptions constructor reverts on 0.
+    ///         a PAST_DUE subscription demotes to UNPAID after 3 failed renewals (mirrors a typical
+    ///         grace window). Must be non-zero — the Subscriptions constructor reverts on 0.
     uint16 internal constant DEFAULT_SUBS_GRACE_FAILS = 3;
 
     /// @notice The resolved config for the chain this script runs against.

@@ -19,8 +19,8 @@ import { IAccess0x1Bookings } from "./interfaces/IAccess0x1Bookings.sol";
 ///         the operator via the Router fee-split), expire (refund the payer), cancel (full / late-fee /
 ///         blocked-inside-window per an IMMUTABLE policy snapshot), or no-show (keep the fee, refund
 ///         the remainder). A refund is never blocked: a failed push lands in a per-token pull-map the
-///         owed party (or a keeper) claims later (money-safety invariant #5 — money rolls back, never swallowed;
-///         refunds are never blocked).
+///         owed party (or a keeper) claims later (the money-path law — money rolls back, never
+///         swallowed; refunds are never blocked).
 /// @dev    COMPOSITION, NOT DUPLICATION. This contract owns lifecycle/eligibility ONLY. It never
 ///         re-derives the fee split: the confirm RELEASE leg and the cancel/no-show FEE leg flow
 ///         through {Access0x1Router.payToken}, so `net + fee == gross` is proven by the Router's own
