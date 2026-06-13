@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "check:embed": "node --check public/embed.js",
     "verify:embed": "node scripts/verify-embed.js",
-    "gate": "node --check public/embed.js && node scripts/verify-embed.js && tsc --noEmit"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publish:checkout": "node --experimental-strip-types scripts/publish-checkout.mts",
+    "gate": "node --check public/embed.js && node scripts/verify-embed.js && tsc --noEmit && vitest run"
   },
   "dependencies": {
     "next": "14.2.35",
@@ -21,6 +24,7 @@
     "@types/node": "20.14.10",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
-    "typescript": "5.5.3"
+    "typescript": "5.5.3",
+    "vitest": "1.6.1"
   }
 }
