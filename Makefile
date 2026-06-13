@@ -12,7 +12,7 @@ export PATH := $(HOME)/.foundry/bin:$(PATH)
 
 .PHONY: help install build test test-gas coverage snapshot fmt fmt-check clean \
         gate aderyn slither audit anvil \
-        deploy-dry deploy-local deploy-arc deploy-base deploy-zksync \
+        deploy-dry deploy-local deploy-arc deploy-base deploy-zksync deploy-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
         vyper-build vyper-test \
         cre-build cre-sim all
@@ -84,7 +84,7 @@ deploy-base: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 	forge script script/DeployAll.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(BASESCAN_API_KEY) -vvvv
 
 deploy-zksync: ## Deploy to zkSync Sepolia (keystore `deployer`)
-	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast -vvvv
+	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --zksync -vvvv
 
 # ── Web app (Next.js) ─────────────────────────────────────────────────────────────
 web-install: ## Install the web app deps
@@ -135,3 +135,13 @@ cre-sim: ## Simulate the CRE workflow (the demoable artifact; deploy is Early-Ac
 
 # ── Everything ──────────────────────────────────────────────────────────────────
 all: install gate ## Install everything, then run the full green gate
+
+# ── More test networks (keystore `deployer`; set each RPC + *SCAN_API_KEY in .env) ──
+deploy-sepolia: ## Deploy to Ethereum Sepolia (etherscan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+
+deploy-arbitrum-sepolia: ## Deploy to Arbitrum Sepolia (arbiscan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(ARBITRUM_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(ARBISCAN_API_KEY) -vvvv
+
+deploy-optimism-sepolia: ## Deploy to Optimism Sepolia (etherscan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(OPTIMISM_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(OPTIMISM_API_KEY) -vvvv
