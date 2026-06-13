@@ -7,11 +7,11 @@ set, not just the router core.
 
 | Layer | Result |
 | --- | --- |
-| `forge test` | **550 tests green** (unit + invariant + oracle + `test/attack/**` red-team) |
-| `forge coverage` | **100% functions** on every contract; lines 99.74%, statements 99.15%, branches 95.56% overall (per-contract table below) |
-| Invariants | 6 router money invariants + 3 PaymentLanes conservation/firewall invariants (9 total) hold under `fail_on_revert`, 0 reverts |
-| `slither .` (v0.11.5) | 16 results across 10 detectors, **all triaged** (false-positive / by-design / justified-with-runtime-guard) |
-| `aderyn` (v0.1.9) | 3 High + 9 Low, **all triaged** (false-positive / by-design / style) |
+| `forge test` | **777 tests green, 0 failed, 0 skipped** (69 suites: unit + attack + invariant + integration + fuzz + fork) |
+| `forge coverage` | lines **98.35%**, statements **97.57%**, branches **89.23%**, functions **99.30%** overall (`--ir-minimum`; per-contract table below, raw in [`COVERAGE.md`](COVERAGE.md)) |
+| Invariants | **31 total** hold under `fail_on_revert`, 0 reverts: 6 router + 3 PaymentLanes + 6 Bookings + 6 Invoices + 6 Subscriptions + 4 GiftCards |
+| `slither .` (v0.11.5) | **31 results across 12 detectors**, all triaged (false-positive / by-design / justified-with-runtime-guard); router native-send rows suppressed by inline `slither-disable` |
+| `aderyn` (v0.1.9) | **4 High + 11 Low**, all triaged (false-positive / by-design / style) |
 
 Scope: the full first-party surface — the money spine (`Access0x1Router`), the receipt/auth
 ledgers (`PaymentLanes`, `SessionGrant`), the sidecars (`ChainRegistry`, `Access0x1Receiver`),
@@ -28,33 +28,48 @@ with `FOUNDRY_EVM_VERSION=cancun` (its bundled config crate does not recognise t
 toolchain's newer default evm version) and `--no-snippets`; its generated
 `report.md` is gitignored — this file is the curated record.
 
+**Tool-honesty note (this re-run).** Both static analysers actually executed over
+the full 12-contract surface. **Slither ran clean** (31 / 12). **Aderyn** requires a
+checkout whose `node_modules`/`lib` resolve *inside* the project root — run from a
+worktree with those paths symlinked out of the tree it panics with `StripPrefixError`
+before emitting a report, so the Aderyn numbers here were produced from a checkout
+with a local (non-symlinked) `node_modules`; Aderyn also prints a cosmetic
+version-parse panic *after* writing the report (it cannot parse the `foundry-zksync`
+version string) — the report itself is complete. `forge coverage` uses `--ir-minimum`
+because the commerce quartet trips `Stack too deep` under the default coverage
+pipeline.
+
 ## Coverage by contract
+
+Measured under `forge coverage --ir-minimum` (the quartet trips `Stack too deep`
+under the default coverage pipeline). Raw snapshot: [`COVERAGE.md`](COVERAGE.md).
 
 | Contract | Lines | Statements | Branches | Functions |
 | --- | --- | --- | --- | --- |
-| `Access0x1Receiver.sol` | 100% | 100% | 100% | 100% |
-| `Access0x1Router.sol` | 100% | 100% | 100% | 100% |
-| `ChainRegistry.sol` | 100% | 100% | 100% | 100% |
-| `HouseToken.sol` | 100% | 87.50% | 50% | 100% |
-| `HouseTokenFactory.sol` | 100% | 100% | 100% | 100% |
-| `NameMath.sol` | 100% | 100% | 100% | 100% |
-| `PaymentLanes.sol` | 100% | 97.10% | 85.71% | 100% |
-| `SessionGrant.sol` | 98.90% | 99.19% | 95.83% | 100% |
-| `Access0x1Subscriptions.sol` | 100% (122/122) | 99.29% (140/141) | 96.00% (24/25) | 100% (16/16) |
-| `Access0x1Bookings.sol` | 98.27% (170/173) | 95.50% (191/200) | 78.95% (30/38) | 96.43% (27/28) |
-| `Access0x1Invoices.sol` | 100% (69/69) | 100% (85/85) | 100% (15/15) | 100% (10/10) |
+| `Access0x1Bookings.sol` | 97.69% (169/173) | 95.00% (190/200) | 76.32% (29/38) | 96.43% (27/28) |
 | `Access0x1GiftCards.sol` | 96.43% (81/84) | 96.51% (83/86) | 80.95% (17/21) | 100% (15/15) |
-| `OracleLib.sol` | 100% | 100% | 100% | 100% |
+| `Access0x1Invoices.sol` | 100% (69/69) | 100% (85/85) | 100% (15/15) | 100% (10/10) |
+| `Access0x1Receiver.sol` | 92.00% (23/25) | 92.59% (25/27) | 66.67% (4/6) | 100% (6/6) |
+| `Access0x1Router.sol` | 97.79% (133/136) | 98.08% (153/156) | 97.44% (38/39) | 100% (18/18) |
+| `Access0x1Subscriptions.sol` | 100% (122/122) | 99.29% (140/141) | 96.00% (24/25) | 100% (16/16) |
+| `ChainRegistry.sol` | 100% (17/17) | 100% (22/22) | 100% (4/4) | 100% (5/5) |
+| `HouseToken.sol` | 100% (10/10) | 87.50% (7/8) | 50% (1/2) | 100% (3/3) |
+| `HouseTokenFactory.sol` | 100% (11/11) | 100% (13/13) | 100% (2/2) | 100% (2/2) |
+| `NameMath.sol` | 100% (40/40) | 100% (49/49) | 100% (3/3) | 100% (7/7) |
+| `PaymentLanes.sol` | 100% (68/68) | 97.10% (67/69) | 85.71% (12/14) | 100% (16/16) |
+| `SessionGrant.sol` | 97.80% (89/91) | 98.39% (122/124) | 95.83% (23/24) | 100% (16/16) |
+| `libraries/OracleLib.sol` | 100% (4/4) | 100% (8/8) | 100% (2/2) | 100% (1/1) |
+| **Total** | **98.35% (836/850)** | **97.57% (964/988)** | **89.23% (174/195)** | **99.30% (142/143)** |
 
-The commerce-quartet rows are measured under `forge coverage --ir-minimum` (the four
-contracts trip a `Stack too deep` under the non-IR pipeline coverage uses by default,
-so the IR-minimum profile is the one that compiles the full set). Their uncovered
-branches are the same shape as the rest of the set — **unreachable defense-in-depth
-guards** (zero-address/zero-value constructor reverts that OZ `Ownable` or the router
-fires first, the best-effort `try/catch` catch-arm on the oracle-fault-tolerant refund
-leg, and clamp branches a fuzzed price never crosses) — never a live money path. Every
-function is exercised; `Access0x1Bookings.confirm`/`complete` 1-of-28 function gap is
-the view/getter split the IR-minimum profile counts differently, not an untested path.
+The sub-100% rows are **unreachable defense-in-depth guards** (documented,
+intentionally kept — covering them would require weakening the contract): the
+best-effort `try/catch` catch-arms on Bookings' oracle-fault-tolerant resolution
+legs (`_trySafeQuote`/`_payoutOrQueue` — the refund-never-blocked fallback), the
+Router `_pushNativeOrQueue` rescue arm, the Receiver assembly-length pre-guard, the
+`HouseToken.decimals()` override (both arms return the same value), and the
+zero-owner / `SessionExists` clobber guards below. Every external entrypoint is
+exercised by the unit + attack + invariant suites; the single 142/143 function gap
+is an IR-minimum view/getter split-count, not an untested path.
 
 The earlier sub-100% rows are **unreachable defense-in-depth guards** (documented,
 intentionally kept — covering them would require weakening the contract):
@@ -149,48 +164,65 @@ documented) and add no new untriaged finding.
 
 ---
 
-## Slither — 16 results across 10 detectors, all triaged
+## Slither — 31 results across 12 detectors, all triaged
+
+Slither v0.11.5 found **31 results across 12 detectors** over the 12-contract
+surface. The router's `arbitrary-send-eth` and `reentrancy-eth` rows are NOT among
+the 31 — they are suppressed at source by 17 inline `slither-disable` directives
+(the by-design native-send paths); that suppression is disclosed in the first row
+below rather than hidden.
 
 | Detector | Where | Disposition |
 | --- | --- | --- |
-| `arbitrary-send-eth`, `low-level-calls` | Router `_pushNativeOrQueue`, `payNative` refund, `claimRescue` | **By design.** A payments router must push native value to caller-configured payees; `.transfer`'s 2300-gas cap breaks smart-account payees, so a low-level `call` is required. Recipients are zero-checked at register/update/constructor/setTreasury or are `msg.sender` — never arbitrary. (Inline `slither-disable` directives.) |
-| `reentrancy-eth`, `reentrancy-benign` | Router `payNative`, `_pushNativeOrQueue` | **By design.** Every entry point is `nonReentrant`; the only post-call write is the failure-path `rescue` credit; CEI ordering holds. |
-| `reentrancy-no-eth`, `reentrancy-benign`, `reentrancy-events` | `SessionGrant.openSessionFor` (the 6492 `factory.call` before the nonce write) | **Justified — non-exploitable, guarded at runtime.** The reentrancy is real (the ERC-6492 prepare call), but the `NonceMismatch` guard added this pass pins each authorisation to its validated nonce, so a re-entrant open can never double-open or advance the nonce twice. Slither cannot see the runtime guard; the invariant is proven by the reentrancy attack test above. |
-| `unused-return` | Router `quote`; `SessionGrant._validate1271OrEOA{,Calldata}` (`ECDSA.tryRecover`) | **False positive.** `quote` intentionally drops the feed tuple after the staleness guard. The 1271/EOA validators DO use the recovered address and the `RecoverError`; only the unused third tuple slot is dropped via the `,` placeholder — the canonical `tryRecover` usage. |
-| `timestamp` | `OracleLib.staleCheckLatestRoundData`; `SessionGrant.remaining/_open/spend` | **By design.** Comparing `block.timestamp` against a staleness window (oracle) or a session expiry IS the intended guard; minute-scale validator drift cannot defeat a 1-hour / multi-hour bound. |
+| `arbitrary-send-eth`, `reentrancy-eth` *(suppressed inline)* | Router `_pushNativeOrQueue`, `payNative` refund, `claimRescue` | **By design — suppressed by inline `slither-disable`.** A payments router must push native value to caller-configured payees; `.transfer`'s 2300-gas cap breaks smart-account payees, so a low-level `call` is required. Recipients are zero-checked at register/update/constructor/setTreasury or are `msg.sender` — never arbitrary. Every entry point is `nonReentrant`; the only post-call write is the failure-path `rescue` credit; CEI holds. |
+| `incorrect-equality` | `Access0x1Bookings._payoutOrQueue` (`amount == 0`) | **False positive.** A strict `== 0` early-return on an exact internal value, not a balance/timestamp comparison; nothing external influences `amount`. |
+| `reentrancy-no-eth`, `reentrancy-benign`, `reentrancy-events` | `SessionGrant.openSessionFor` (the 6492 `factory.call` before the nonce write); `Access0x1Bookings._payoutOrQueue` (rescue credit after the best-effort `transfer`) | **Justified — non-exploitable, guarded at runtime.** For SessionGrant the reentrancy is real (the ERC-6492 prepare call), but the `NonceMismatch` guard pins each authorisation to its validated nonce, so a re-entrant open can never double-open or advance the nonce twice (proven by the reentrancy attack test below). For Bookings the post-call write is the fail-soft rescue credit on a rejecting payee; the function is `nonReentrant` and the credit only grows a per-(payee,token) escrowed balance. Slither cannot see the runtime guards. |
+| `uninitialized-local` | Router `quote` (`feedDecimals`/`tokenDecimals`); `Access0x1Bookings._cancel` (`feeTarget`) | **False positive.** Each is assigned on every reachable path before use — the decimals are read from the feed/token, `feeTarget` is set from the `_trySafeQuote` result (defaulting to zero on a fault, intentionally). |
+| `unused-return` | `Access0x1Bookings/Invoices/GiftCards._merchantOwner` (`router.merchants(...)`); `SessionGrant._validate1271OrEOA{,Calldata}` (`ECDSA.tryRecover`) | **False positive.** The quartet helpers read only the merchant struct's `owner` field for an authorization check; the validators use the recovered address + the `RecoverError`, dropping only the unused tuple slot via the `,` placeholder — canonical `tryRecover` usage. |
+| `shadowing-local` | `IAccess0x1GiftCards` params `cardId` vs the `cardId(...)` view; `ISessionGrant.remaining(bytes32)` return name | **False positive / cosmetic.** A parameter or named return matching an interface function name shadows no state or parent symbol — an interface-declaration artifact. |
+| `timestamp` | `OracleLib.staleCheckLatestRoundData`; `SessionGrant.remaining/_open/spend`; `Access0x1Bookings.expireHold/cancelWithSession/_cancel` | **By design.** Comparing `block.timestamp` against a staleness window (oracle) / session expiry / booking cancel-window IS the intended guard; minute-scale validator drift cannot defeat the hour-plus / slot-scale bounds. |
 | `assembly` | `Access0x1Receiver._decodeMetadata` | **By design.** Fixed-offset calldata slicing of the Keystone metadata layout (name at [32..42), owner at [42..62)); guarded by `require(metadata.length >= 62)`. No memory writes, no dynamic offsets. |
 | `low-level-calls` | `SessionGrant._isValidSignatureNow` (6492 `factory.call`), `_validate1271OrEOA{,Calldata}` (1271 `staticcall`) | **By design.** ERC-6492/ERC-1271 require exactly these low-level calls; the 1271 path is a `staticcall` (no state change), the 6492 prepare is best-effort behind the magic suffix, per the standards. |
-| `naming-convention` | `Access0x1Receiver.i_forwarder` | **By design.** The `i_` prefix is the project/Cyfrin convention for an immutable; renaming would break the documented Arc-Testnet wiring note and the storage-layout doc. |
+| `naming-convention` | `Access0x1Receiver.i_forwarder`, `HouseToken._DECIMALS` | **By design.** The `i_` immutable / `_` constant prefixes are the project/Cyfrin conventions; renaming would break the documented wiring + storage-layout notes. |
 | `redundant-statements` | `SessionGrant._isValidSignatureNow` (`ok;`) | **By design.** The standalone `ok;` documents that the best-effort 6492 prepare's success is intentionally ignored (correctness is decided by the subsequent ERC-1271 check). Inline comment explains it. |
-| `shadowing-local` | `ISessionGrant.remaining(bytes32)` return name | **False positive / cosmetic.** A named return value matching the interface function name shadows no state or parent symbol. |
 
-## Aderyn — 3 High + 9 Low, all triaged
+## Aderyn — 4 High + 11 Low, all triaged
 
-| ID | Title | Disposition |
-| --- | --- | --- |
-| **H-1** | Arbitrary `from` in `transferFrom` (Router `_pullExact`) | **False positive.** `from` is the payer threaded down from the pay entrypoint (the address the router pulls the pay-in from), not an attacker-chosen third party with a standing approval. The balance-delta check additionally rejects fee-on-transfer skims. |
-| **H-2** | Uninitialized state variable (`HouseTokenFactory.deployedCount`) | **False positive (style).** `deployedCount` is a deploy counter; Solidity zero-initialises it. Off the money path; an explicit `= 0` adds nothing. |
-| **H-3** | Unprotected native-ETH send (Router `payNative` refund, `claimRescue`) | **False positive / by design.** Same as the slither native-send rows: recipients are caller-configured (zero-checked) merchant/treasury/fee/buyer addresses or `msg.sender`; the contract is `nonReentrant` + CEI. A payments router sending native value is its purpose. |
-| **L-1** | Centralization risk (18×: owner setters + pause across all contracts) | **By design, documented trust assumption.** Owner controls fees/treasury/allowlists/pause and the workflow + router + chain config — a burner key at the event, a multisig in prod. No owner path reaches merchant funds (router settlement is atomic, zero-custody; PaymentLanes admin holds no lane balance; SessionGrant holds no funds at all; Receiver is off the money path). |
-| **L-2** | Missing `address(0)` check (Router `setPaymentLanes`) | **By design.** `address(0)` is the deliberate "disable lanes" sentinel; documented inline with a `slither-disable` directive. |
-| **L-3** | `public` could be `external` (`Access0x1Receiver.supportsInterface`, `HouseToken.decimals`) | **False positive.** Both are `override`s of base interfaces (`IERC165.supportsInterface`, `ERC20.decimals`) that must remain `public`. |
-| **L-4** | Literals could be constants (Router scaling, NameMath SVG math, SessionGrant 6492 slicing) | **Idiomatic.** The remaining literals are decimal-scaling bases, SVG geometry constants and signature byte offsets, not magic numbers; constant-extraction would reduce clarity. |
-| **L-5** | Events missing `indexed` fields (14×) | **By design.** Indexing targets the fields indexers actually filter on (ids/owners/orders); over-indexing wide settlement/audit events costs gas for fields nobody filters. |
-| **L-6** | Large literal `FEE_DENOMINATOR = 10_000` | **Intentional.** `10_000` reads as a basis-point denominator far more clearly than `1e4`; underscore-grouped and named. |
-| **L-7** | Internal functions called once could be inlined (3×: `NameMath` SVG helpers) | **By design.** Named helpers keep the pure on-chain SVG math (color + identicon) readable; via-IR inlines them anyway, so there is no gas or behaviour impact. |
-| **L-8** | Unused custom error `ChainRegistry__ZeroAddress` | **By design.** Documented as the shared error reserved for consumers that enforce a non-zero `usdc`/`router` before use (the registry itself permits zero, since a chain may not have a token/router wired yet). Kept as part of the contract's published surface. |
-| **L-9** | Redundant statement (`SessionGrant` `ok;`) | **By design.** Same as the slither `redundant-statements` row — the deliberate, commented best-effort-ignore of the 6492 prepare result. |
+Aderyn v0.1.9 ran clean over all 21 `src/` files (2157 nSLOC). Counts grew from the
+previous 3H/9L as the commerce quartet was brought into scope (H-4, L-2, and more
+instances of the existing rows); dispositions are unchanged in kind.
+
+| ID | Title | Inst. | Disposition |
+| --- | --- | --- | --- |
+| **H-1** | Arbitrary `from` in `transferFrom`/`safeTransferFrom` (Router `_pullExact`, Invoices `_pullExact`, Subscriptions charge) | 3 | **False positive.** In each case `from`/`subscriber` is the payer threaded from the pay entrypoint (the address the contract pulls the pay-in from), not an attacker-chosen third party with a standing approval. Each pull is followed by a balance-delta check that rejects fee-on-transfer skims. |
+| **H-2** | Uninitialized state variable (`HouseTokenFactory.deployedCount`) | 1 | **False positive (style).** `deployedCount` is a deploy counter; Solidity zero-initialises it. Off the money path; an explicit `= 0` adds nothing. |
+| **H-3** | Unprotected native-ETH send (Router `payNative` refund, `claimRescue`) | 2 | **False positive / by design.** Same as the slither native-send rows: recipients are caller-configured (zero-checked) merchant/treasury/fee/buyer addresses or `msg.sender`; the contract is `nonReentrant` + CEI. A payments router sending native value is its purpose. |
+| **H-4** | Unused return value (`Access0x1Subscriptions._charge` return; `sessionGrant.spend` return) | 2 | **False positive / benign.** `_charge` returns `gross` for the caller that needs it; the trial-skip path and the budget-meter call deliberately ignore the informational return. The state effect (the spend) is never dropped. |
+| **L-1** | Centralization risk (owner setters + pause across all contracts) | 22 | **By design, documented trust assumption.** Owner controls fees/treasury/allowlists/pause and the workflow + router + chain config — a burner key at the event, a multisig in prod. No owner path reaches merchant funds (router settlement is atomic, zero-custody; PaymentLanes admin holds no lane balance; SessionGrant holds no funds at all; Receiver is off the money path). |
+| **L-2** | Unsafe ERC20 operation (`Access0x1Bookings._payoutOrQueue` raw `.transfer`) | 1 | **By design — the refund-never-blocked mechanism.** The raw `.transfer` is wrapped in `try/catch`: a rejecting payee credits `_refundRescue` instead of bubbling. SafeERC20 would *revert* on a hostile token and brick the refund — the opposite of estate law #5. Inline-disabled. |
+| **L-3** | Missing `address(0)` check (Router `setPaymentLanes`) | 1 | **By design.** `address(0)` is the deliberate "disable lanes" sentinel; documented inline with a `slither-disable` directive. |
+| **L-4** | `public` could be `external` (`Access0x1Receiver.supportsInterface`, `HouseToken.decimals`) | 2 | **False positive.** Both are `override`s of base interfaces (`IERC165.supportsInterface`, `ERC20.decimals`) that must remain `public`. |
+| **L-5** | Literals could be constants (Router scaling, NameMath SVG math, SessionGrant 6492 slicing, Bookings scaling) | 15 | **Idiomatic.** The remaining literals are decimal-scaling bases, SVG geometry constants and signature byte offsets, not magic numbers; constant-extraction would reduce clarity. |
+| **L-6** | Events missing `indexed` fields | 25 | **By design.** Indexing targets the fields indexers actually filter on (ids/owners/orders); over-indexing wide settlement/audit events costs gas for fields nobody filters. |
+| **L-7** | Modifier invoked only once (`Access0x1Subscriptions`) | 1 | **By design.** The named modifier documents the merchant-owner authorization gate; inlining hurts readability with no gas/behaviour impact. |
+| **L-8** | Large literal `FEE_DENOMINATOR = 10_000` | 1 | **Intentional.** `10_000` reads as a basis-point denominator far more clearly than `1e4`; underscore-grouped and named. |
+| **L-9** | Internal functions called once could be inlined (3×: `NameMath` SVG helpers) | 3 | **By design.** Named helpers keep the pure on-chain SVG math (color + identicon) readable; via-IR inlines them anyway, so there is no gas or behaviour impact. |
+| **L-10** | Unused custom error `ChainRegistry__ZeroAddress` | 1 | **By design.** Documented as the shared error reserved for consumers that enforce a non-zero `usdc`/`router` before use (the registry itself permits zero, since a chain may not have a token/router wired yet). Kept as part of the contract's published surface. |
+| **L-11** | Redundant statement (`SessionGrant` `ok;`) | 1 | **By design.** Same as the slither `redundant-statements` row — the deliberate, commented best-effort-ignore of the 6492 prepare result. |
 
 ## Manual review + adversarial testing
 
 Beyond the static tools, every contract carries an exploit-only red-team suite
 under `test/attack/**`:
 
-- **Router** (`Access0x1Router.attack.t.sol`, `PaymentLanes*.attack.t.sol`): the 5
-  money invariants — `net + platformFee + merchantFee == gross` exactly; the
-  platform cut always reaches the treasury; the router holds no token; a payment to
-  one merchant never mutates another; no payment is charged more than `MAX_FEE_BPS`.
-  PaymentLanes adds the cross-asset firewall + conservation invariants.
+- **Router** (`Access0x1Router.attack.t.sol`, `PaymentLanes*.attack.t.sol`): the 6
+  money invariants — `net + platformFee + merchantFee == gross` exactly for native
+  (`invariant_conservationNative`) and for token (`invariant_conservationToken`); the
+  platform cut always reaches the treasury (`invariant_platformCutToTreasury`); the
+  router holds no token (`invariant_zeroCustody`); a payment to one merchant never
+  mutates another (`invariant_merchantIsolation`); no payment is charged more than
+  `MAX_FEE_BPS` (`invariant_feeCap`). PaymentLanes adds the cross-asset firewall +
+  conservation invariants.
 - **SessionGrant** (`SessionGrant.attack.t.sol`): budget overspend (single / salami
   / post-revoke), expiry bypass, signed-grant replay (same-grant + cross-domain),
   delegate/owner confusion, ERC-6492 forgery (forged inner sig, wrong-signer
@@ -207,3 +239,24 @@ under `test/attack/**`:
   rejected; Forwarder re-delivery appends monotonic audit ids, benign off-path),
   and metadata length (too-short / empty revert, exact-62 wrong-identity rejected,
   oversized decode-by-offset, junk-cid ignored).
+- **Access0x1Subscriptions** (`Access0x1Subscriptions.attack.t.sol`,
+  `Access0x1SubscriptionsRedTeam.attack.t.sol`): budget-ceiling exactness, renew past
+  budget hard-stopped, double-renew-same-period reverts, revoked/foreign session
+  cannot subscribe or renew, reentrant token-on-pull blocked, foreign-merchant plan
+  cannot be edited, `renewX` never mutates `renewY`.
+- **Access0x1Bookings** (`Access0x1Bookings.attack.t.sol`,
+  `Access0x1BookingsRoundTrip.attack.t.sol`): **the stale-oracle refund-block fix**
+  (stale/dead-feed cancel + no-show still refund; complete-deposit not stranded;
+  reserve still reverts on a stale feed), late fee never exceeds escrow, blocked-refund
+  cannot brick cancel, double-claim-refund reverts, reentrant refund-push cannot
+  over-refund, settling booking A does not touch B's escrow, round-trip never
+  over-pulls.
+- **Access0x1Invoices** (`Access0x1Invoices.attack.t.sol`,
+  `Access0x1Invoices.redteam.t.sol`): settle-at-most-once, cannot pay a void / void a
+  paid invoice, locked-payer cannot be bypassed, reentrant native double-settle
+  reverts, token replay cannot double-charge, stale price blocks settlement.
+- **Access0x1GiftCards** (`Access0x1GiftCards.attack.t.sol`,
+  `Access0x1GiftCardsRedTeam.attack.t.sol`): redeem never goes negative, redeem replay
+  blocked, reversal cannot double-credit, coupon cap cannot be exceeded, coupon
+  namespace isolation, cannot issue/coupon for a foreign merchant, cannot forge a
+  victim card id, transfer cannot underflow, dust round-trips exactly.
