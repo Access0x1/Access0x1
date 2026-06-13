@@ -36,6 +36,38 @@
           "asset": "0x3600000000000000000000000000000000000000",
           "facilitator": "https://gateway-api-testnet.circle.com"
         }
+      },
+      {
+        "uri": "https://eips.ethereum.org/EIPS/eip-7715",
+        "description": "ERC-7715 / ERC-7710 spend-permissions interop (the emerging wallet spend-permissions standard). Access0x1's on-chain SessionGrant IS the standards twin: a 7715 wallet_requestExecutionPermissions grant maps onto SessionGrant.openSessionFor, the opaque 7715 `context` = abi.encode(address sessionGrant, bytes32 sessionId), and an ERC-7710 redeemDelegations redemption maps onto SessionGrant.spend. OFF-CHAIN interop seam today (SessionGrant already does the crypto); the on-chain 7710 router facade is deferred post-event. Grant in any 7715-capable wallet, redeem non-custodially against the existing SessionGrant.",
+        "required": false,
+        "params": {
+          "standards": ["ERC-7715", "ERC-7710"],
+          "grantMapping": "ERC-7715 wallet_requestExecutionPermissions -> SessionGrant.openSessionFor(owner, delegate, budgetCap, expiry, signature)",
+          "contextEncoding": "abi.encode(address sessionGrant, bytes32 sessionId)",
+          "redeemMapping": "ERC-7710 redeemDelegations -> SessionGrant.spend(sessionId, amount)",
+          "revokeMapping": "SessionGrant.revoke(sessionId)",
+          "supportedPermissionTypes": [
+            "native-token-stream",
+            "native-token-periodic",
+            "erc20-token-stream",
+            "erc20-token-periodic"
+          ],
+          "scope": "off-chain interop seam; on-chain ERC-7710 redeemDelegations router facade + Coinbase SpendPermissions bridge deferred to post-event",
+          "adapter": "web/lib/erc7715/permissions.ts"
+        }
+      },
+      {
+        "uri": "https://eips.ethereum.org/EIPS/eip-8004",
+        "description": "ERC-8004 (Trustless Agents) identity hook — the neutral public Ethereum agent identity/reputation/validation registry (co-authored by EF/Google/Coinbase/MetaMask, ENS-backed). Access0x1 publishes its agent identity here as a COMPLEMENT for discovery, not a moat; the enforcing spend authority remains the on-chain SessionGrant. The registry address and the minted agentId are env/booth-confirmed at deploy — NOT invented here.",
+        "required": false,
+        "params": {
+          "registry": "BOOTH-CONFIRM",
+          "registryNote": "ERC-8004 ships public, community-deployed singleton Identity/Reputation/Validation registries on mainnet + major EVM chains (live since 2026-01-29). The exact registry address for the target chain (and the Access0x1 agentId minted under it) is confirmed at the booth/deploy and read from env (e.g. ERC8004_IDENTITY_REGISTRY) — never a hardcoded address.",
+          "agentId": "BOOTH-CONFIRM",
+          "registries": ["identity", "reputation", "validation"],
+          "role": "complement-not-moat"
+        }
       }
     ]
   },
@@ -87,6 +119,17 @@
       "examples": [
         "{ \"grant\": { \"sessionId\": \"0x...\", \"owner\": \"0x...\", \"delegate\": \"0x...\", \"budgetCap\": \"100000000\", \"token\": \"0x3600000000000000000000000000000000000000\", \"expiry\": 4000000000, \"nonce\": 0, \"chainId\": 5042002 } }"
       ]
+    },
+    {
+      "id": "map-erc7715-permission",
+      "name": "Map an ERC-7715 spend permission",
+      "description": "Maps an ERC-7715 wallet_requestExecutionPermissions grant onto SessionGrant.openSessionFor params, returns the opaque 7715 `context` (= abi.encode(address sessionGrant, bytes32 sessionId)), and builds the ERC-7710 redeemDelegations descriptor that points at SessionGrant.spend. Pure off-chain derivation — moves no money; the on-chain 7710 router facade is deferred post-event. Lets a 7715-capable wallet grant once and a 7710-aware delegate redeem non-custodially against the existing SessionGrant.",
+      "tags": ["erc7715", "erc7710", "spend-permissions", "delegation", "interop"],
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "examples": [
+        "{ \"chainId\": 5042002, \"account\": \"0x...\", \"signer\": \"0x...\", \"expiry\": 4000000000, \"nonce\": 0, \"permission\": { \"type\": \"erc20-token-periodic\", \"data\": { \"token\": \"0x3600000000000000000000000000000000000000\", \"amount\": \"100000000\" } } }"
+      ]
     }
   ],
   "supportsAuthenticatedExtendedCard": false,
@@ -96,5 +139,16 @@
     "verificationTruth": "on-chain",
     "onChainMandate": "Access0x1.SessionGrant (ERC-7702 / ERC-6492 / ERC-1271)",
     "humanProof": "World ID (verified-human gate)"
+  },
+  "x-erc7715": {
+    "note": "Access0x1 speaks ERC-7715 / ERC-7710 in the interop/SDK layer on top of the EXISTING SessionGrant contract — no contract change. A 7715 grant maps onto SessionGrant.openSessionFor; the opaque 7715 `context` = abi.encode(address sessionGrant, bytes32 sessionId); an ERC-7710 redeemDelegations redemption maps onto SessionGrant.spend; revocation maps onto SessionGrant.revoke. SessionGrant already validates ECDSA / ERC-1271 / ERC-6492, so any 7715-capable wallet (incl. counterfactual) can authorize a session today.",
+    "scope": "OFF-CHAIN interop seam only. The on-chain ERC-7710 redeemDelegations router facade and the Coinbase SpendPermissions bridge are DEFERRED to post-event (they touch the money path and need audit). This makes us SPEAK 7715/7710; it does NOT change the on-chain money path.",
+    "adapter": "web/lib/erc7715/permissions.ts"
+  },
+  "x-erc8004": {
+    "note": "ERC-8004 (Trustless Agents) identity is published as a COMPLEMENT for discoverability, not as a moat — the enforcing spend authority stays the on-chain SessionGrant. ERC-8004 is a NEUTRAL public Ethereum registry (Identity/Reputation/Validation), co-authored by EF/Google/Coinbase/MetaMask and ENS-backed; it is NOT a Google-operated contract.",
+    "registry": "BOOTH-CONFIRM",
+    "agentId": "BOOTH-CONFIRM",
+    "registryNote": "No registry address is invented here. The public community-deployed ERC-8004 registry singleton for the target chain (and the Access0x1 agentId minted under it) are confirmed at the booth/deploy and read from env (e.g. ERC8004_IDENTITY_REGISTRY) — never hardcoded."
   }
 }
