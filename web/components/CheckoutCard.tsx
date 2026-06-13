@@ -122,6 +122,7 @@ export function CheckoutCard({
       <ReceiptScreen
         receipt={receipt.event}
         txHash={receipt.txHash}
+        chainId={chainId}
         tokenSymbol={USDC_SYMBOL}
         tokenDecimals={USDC_DECIMALS}
         returnUrl={returnUrl}
