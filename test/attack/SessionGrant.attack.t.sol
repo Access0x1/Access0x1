@@ -1,0 +1,247 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.28;
+
+import { Test } from "forge-std/Test.sol";
+import { SessionGrant } from "../../src/SessionGrant.sol";
+import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
+import { SmartWallet1271, WalletFactory } from "../mocks/SmartWallet1271.sol";
+
+/// @notice Adversarial suite for SessionGrant. Each test is an ATTACK the contract must defeat:
+///         budget overspend (incl. salami / round-trip), expiry bypass, signed-grant replay, session-id
+///         collision, delegate/owner confusion, and ERC-6492 signature forgery. A passing test means
+///         the attack is REJECTED (a revert or a no-op), never that it succeeds.
+contract SessionGrantAttackTest is Test {
+    SessionGrant internal grant;
+    WalletFactory internal factory;
+
+    uint256 internal ownerPk;
+    address internal owner;
+    uint256 internal attackerPk;
+    address internal attacker;
+    address internal delegate = makeAddr("delegate");
+
+    uint256 internal constant BUDGET = 1_000e6;
+    uint64 internal expiry;
+
+    bytes32 internal constant ERC6492_MAGIC =
+        0x6492649264926492649264926492649264926492649264926492649264926492;
+
+    function setUp() public {
+        grant = new SessionGrant("Access0x1 SessionGrant", "1");
+        factory = new WalletFactory();
+        (owner, ownerPk) = makeAddrAndKey("owner");
+        (attacker, attackerPk) = makeAddrAndKey("attacker");
+        expiry = uint64(block.timestamp + 1 days);
+    }
+
+    function _signGrant(
+        uint256 pk,
+        address owner_,
+        address delegate_,
+        uint256 budget,
+        uint64 exp,
+        uint256 nonce
+    ) internal view returns (bytes memory) {
+        bytes32 digest = grant.grantDigest(owner_, delegate_, budget, exp, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _open(uint256 budget) internal returns (bytes32 id) {
+        vm.prank(owner);
+        id = grant.openSession(delegate, budget, expiry);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          ATTACK: BUDGET OVERSPEND
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev A single spend over the cap must revert — budget is a hard ceiling.
+    function test_attack_overspend_singleCall() public {
+        bytes32 id = _open(BUDGET);
+        vm.prank(delegate);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISessionGrant.SessionGrant__BudgetExceeded.selector, id, BUDGET, BUDGET + 1
+            )
+        );
+        grant.spend(id, BUDGET + 1);
+    }
+
+    /// @dev Salami attack: many small spends must never sum past the cap. The spend that would tip
+    ///      over the cap reverts and leaves `spent` untouched.
+    function test_attack_overspend_salami() public {
+        bytes32 id = _open(BUDGET);
+        vm.startPrank(delegate);
+        for (uint256 i = 0; i < 10; i++) {
+            grant.spend(id, 100e6); // 10 * 100 == 1000 == BUDGET, exactly
+        }
+        // The 11th unit must be rejected; spent stays pinned at the cap.
+        vm.expectRevert(
+            abi.encodeWithSelector(ISessionGrant.SessionGrant__BudgetExceeded.selector, id, 0, 1)
+        );
+        grant.spend(id, 1);
+        vm.stopPrank();
+        assertEq(grant.sessionOf(id).spent, BUDGET);
+    }
+
+    /// @dev A revoked-then-spent session cannot resurrect remaining budget.
+    function test_attack_spendAfterRevoke() public {
+        bytes32 id = _open(BUDGET);
+        vm.prank(owner);
+        grant.revoke(id);
+        vm.prank(delegate);
+        vm.expectRevert(
+            abi.encodeWithSelector(ISessionGrant.SessionGrant__SessionRevoked.selector, id)
+        );
+        grant.spend(id, 1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          ATTACK: EXPIRY BYPASS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev One second past expiry, no spend is allowed — there is no grace window.
+    function test_attack_expiryBypass_oneSecondLate() public {
+        bytes32 id = _open(BUDGET);
+        vm.warp(expiry + 1);
+        vm.prank(delegate);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISessionGrant.SessionGrant__SessionExpired.selector, id, expiry, expiry + 1
+            )
+        );
+        grant.spend(id, 1);
+    }
+
+    /// @dev An expired session with budget still on it stays dead far into the future.
+    function test_attack_expiryBypass_farFuture() public {
+        bytes32 id = _open(BUDGET);
+        vm.warp(expiry + 365 days);
+        vm.prank(delegate);
+        vm.expectRevert(); // SessionExpired
+        grant.spend(id, 1);
+        assertEq(grant.remaining(id), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          ATTACK: GRANT REPLAY
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Replaying the SAME signed grant a second time must fail: the nonce advanced on the first
+    ///      open, so the second submission validates the signature against the NEW nonce (mismatch →
+    ///      BadSignature). The captured signature is single-use.
+    function test_attack_replay_sameGrantTwice() public {
+        bytes memory sig = _signGrant(ownerPk, owner, delegate, BUDGET, expiry, 0);
+        grant.openSessionFor(owner, delegate, BUDGET, expiry, sig);
+
+        // Second submission: nonce is now 1, signature was over nonce 0 → fails validation.
+        vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
+        grant.openSessionFor(owner, delegate, BUDGET, expiry, sig);
+    }
+
+    /// @dev A grant signed for THIS contract's domain cannot be replayed against a fresh deployment
+    ///      with a different domain separator (EIP-712 domain binding).
+    function test_attack_replay_crossDomain() public {
+        bytes memory sig = _signGrant(ownerPk, owner, delegate, BUDGET, expiry, 0);
+        SessionGrant other = new SessionGrant("Access0x1 SessionGrant", "1"); // diff address → diff domain
+        vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
+        other.openSessionFor(owner, delegate, BUDGET, expiry, sig);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                       ATTACK: AUTHORIZATION CONFUSION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev The attacker cannot spend a session whose delegate is someone else, even knowing the id.
+    function test_attack_delegateImpersonation() public {
+        bytes32 id = _open(BUDGET);
+        vm.prank(attacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(ISessionGrant.SessionGrant__NotDelegate.selector, id, attacker)
+        );
+        grant.spend(id, 1);
+    }
+
+    /// @dev The attacker cannot revoke (grief) a session they do not own.
+    function test_attack_revokeByNonOwner() public {
+        bytes32 id = _open(BUDGET);
+        vm.prank(attacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(ISessionGrant.SessionGrant__NotOwner.selector, id, attacker)
+        );
+        grant.revoke(id);
+    }
+
+    /// @dev The delegate is NOT the owner: a delegate cannot revoke its own session to escape a future
+    ///      owner revoke, nor can it open sessions for the owner.
+    function test_attack_delegateCannotRevoke() public {
+        bytes32 id = _open(BUDGET);
+        vm.prank(delegate);
+        vm.expectRevert(
+            abi.encodeWithSelector(ISessionGrant.SessionGrant__NotOwner.selector, id, delegate)
+        );
+        grant.revoke(id);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         ATTACK: ERC-6492 FORGERY
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev A 6492 wrapper whose INNER signature is from the attacker (not the counterfactual wallet's
+    ///      configured signer) must fail even though the factory call succeeds and deploys a wallet.
+    ///      The forged inner sig recovers to the wrong key → ERC-1271 rejects → BadSignature.
+    function test_attack_6492_forgedInnerSig() public {
+        address w = factory.addressOf(owner); // wallet's signer == owner
+        // Attacker signs the grant instead of the owner.
+        bytes memory forgedInner = _signGrant(attackerPk, w, delegate, BUDGET, expiry, 0);
+        bytes memory wrapped = abi.encodePacked(
+            abi.encode(
+                address(factory), abi.encodeCall(WalletFactory.deploy, (owner)), forgedInner
+            ),
+            ERC6492_MAGIC
+        );
+        vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
+        grant.openSessionFor(w, delegate, BUDGET, expiry, wrapped);
+    }
+
+    /// @dev A 6492 wrapper that deploys a wallet whose signer is the ATTACKER (factory called with the
+    ///      attacker's key) cannot satisfy a grant claimed for `w` — because `w` is the counterfactual
+    ///      address derived from the OWNER's key, so the attacker-keyed deploy lands at a DIFFERENT
+    ///      address and `w` still has no/foreign code → validation fails.
+    function test_attack_6492_factoryDeploysWrongSigner() public {
+        address w = factory.addressOf(owner); // address bound to owner's key
+        bytes memory inner = _signGrant(attackerPk, w, delegate, BUDGET, expiry, 0);
+        // Factory call deploys a wallet for the ATTACKER, at a different CREATE2 address than `w`.
+        bytes memory wrapped = abi.encodePacked(
+            abi.encode(address(factory), abi.encodeCall(WalletFactory.deploy, (attacker)), inner),
+            ERC6492_MAGIC
+        );
+        vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
+        grant.openSessionFor(w, delegate, BUDGET, expiry, wrapped);
+        assertEq(w.code.length, 0); // `w` itself was never deployed
+    }
+
+    /// @dev A 6492 wrapper pointing at a factory that reverts must surface as BadSignature, not bubble
+    ///      the factory revert (best-effort prepare). With no code at `w`, ERC-1271 cannot pass.
+    function test_attack_6492_revertingFactory() public {
+        address w = factory.addressOf(owner);
+        bytes memory inner = _signGrant(ownerPk, w, delegate, BUDGET, expiry, 0);
+        // Point the factory call at a selector that does not exist → the call reverts internally.
+        bytes memory wrapped = abi.encodePacked(
+            abi.encode(address(factory), abi.encodeWithSignature("nope()"), inner), ERC6492_MAGIC
+        );
+        vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
+        grant.openSessionFor(w, delegate, BUDGET, expiry, wrapped);
+    }
+
+    /// @dev The magic suffix alone, with garbage in the wrapper body, must not panic the decoder into
+    ///      a successful open — it decodes to junk, the inner sig is invalid, and it reverts cleanly.
+    function test_attack_6492_garbageBodyWithMagic() public {
+        // 96 bytes of zero (decodes to factory=0, empty bytes, empty bytes) + magic.
+        bytes memory wrapped =
+            abi.encodePacked(abi.encode(address(0), bytes(""), bytes("")), ERC6492_MAGIC);
+        vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
+        grant.openSessionFor(owner, delegate, BUDGET, expiry, wrapped);
+    }
+}
