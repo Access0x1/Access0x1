@@ -453,6 +453,15 @@ contract Access0x1RouterTest is Test {
         assertEq(net + platformFee + merchantFee, gross);
     }
 
+    function test_payTokenRevertsOnUnknownMerchant() public {
+        _configureFeeds();
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__MerchantNotFound.selector, 999)
+        );
+        router.payToken(999, address(usdc), 20e8, ORDER);
+    }
+
     function test_payTokenRevertsOnNativeToken() public {
         _configureFeeds();
         uint256 id = _register();
