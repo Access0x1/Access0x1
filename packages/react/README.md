@@ -37,6 +37,43 @@ function Checkout() {
 
 No contract code. No seed-phrase UX. The integrator passes `merchantId` (the number from `registerMerchant`) and the router address — never a raw token address.
 
+## Quick start — `usePayment` (custom UI)
+
+`<PayButton>` is built on the `usePayment` hook. Use the hook directly when you want your own button, status copy, or layout:
+
+```tsx
+import { usePayment, clientFromViem } from '@access0x1/react';
+import { usePublicClient, useWalletClient } from 'wagmi';
+
+function PayInUsdc() {
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const client = clientFromViem(publicClient!, walletClient ?? undefined);
+
+  const { pay, status, quote, txHash, error } = usePayment({
+    merchantId: 42n,
+    usdAmount: 29.0,
+    token: '0x...',            // the USDC address on your settlement chain; omit for native pay
+    routerAddress: '0x...',    // the deployed Access0x1Router
+    client,
+    onSuccess: (receipt) => console.log('paid', receipt.txHash),
+  });
+
+  const busy = status === 'quoting' || status === 'confirm' || status === 'pending';
+
+  return (
+    <button onClick={pay} disabled={busy}>
+      {status === 'idle' && 'Pay with Crypto'}
+      {busy && 'Confirming…'}
+      {status === 'success' && 'Paid'}
+      {status === 'error' && error && `Error: ${error.code}`}
+    </button>
+  );
+}
+```
+
+For an ERC-20 the hook approves the **exact gross** (minimum necessary approval) only if the existing allowance is short, then calls `payToken`; native pay carries `msg.value`. The `quote` is the token amount returned by `router.quote()`.
+
 ## Hooks
 
 - **`usePayment(options)`** — the engine: `quote`, `pay()`, `status`, `txHash`, `receipt`, `reset()`. For an ERC-20 it approves the **exact gross** (minimum necessary approval) only if the existing allowance is short, then calls `payToken`; native pay carries `msg.value`.
