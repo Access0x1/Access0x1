@@ -5,6 +5,13 @@
  * calls or decodes are included. Future changes to unrelated router functions must not churn this
  * file. Custom errors are included so viem can decode a revert into a typed, human-readable name.
  *
+ * The fragments here are a STRICT SUBSET of the canonical full router ABI in `web/lib/contracts.ts`
+ * (the web app's single source of truth, which adds `registerMerchant`, `platformFeeBps`,
+ * `tokenAllowed`, the `MerchantRegistered` event, and the registration-only errors the SDK does not
+ * call). The two packages publish independently with no build-time link, so this copy is kept in
+ * lockstep by hand. Argument names, types, and ordering MUST match the on-chain ABI exactly so the
+ * UI and the SDK decode every revert and event identically.
+ *
  * Extracted from the deployed `Access0x1Router` / `Access0x1Lanes` sources — see
  * {@link https://github.com/Access0x1/Access0x1}.
  */
@@ -24,8 +31,9 @@ export const ROUTER_ABI = [
     type: 'function',
     name: 'quote',
     stateMutability: 'view',
+    // On-chain the first param is unnamed: `quote(uint256, address token, uint256 usdAmount8)`.
     inputs: [
-      { name: 'merchantId', type: 'uint256' },
+      { name: '', type: 'uint256' },
       { name: 'token', type: 'address' },
       { name: 'usdAmount8', type: 'uint256' },
     ],
@@ -58,7 +66,8 @@ export const ROUTER_ABI = [
     type: 'function',
     name: 'merchants',
     stateMutability: 'view',
-    inputs: [{ name: 'id', type: 'uint256' }],
+    // Auto-generated public-mapping getter: the key param is unnamed on-chain.
+    inputs: [{ name: '', type: 'uint256' }],
     outputs: [
       { name: 'payout', type: 'address' },
       { name: 'owner', type: 'address' },
