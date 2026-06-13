@@ -33,6 +33,9 @@ import { claimNullifier } from '@/lib/worldid/nullifierStore'
 import { worldAction } from '@/lib/worldid/config'
 import { resolveENS, EnsResolutionError } from '@/lib/ens'
 import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
+import { verifyOidcToken } from '@/lib/oidc/verify'
+import { oidcIssuer } from '@/lib/oidc/config'
+import { claimSubject } from '@/lib/oidc/subjectStore'
 import { getPublicClient } from '@/lib/wallet'
 import { getDefaultChainId } from '@/lib/chains'
 
@@ -112,9 +115,47 @@ async function verifyMethod(
       return verifyEnsMethod(user, body)
     case 'dynamic':
       return verifyDynamicMethod(user, body, request)
+    case 'oidc':
+      return verifyOidcMethod(body)
     case 'onchain':
       return verifyOnchainMethod(user)
   }
+}
+
+/**
+ * OIDC ("Sign in with Google"): verify the provider-signed ID token server-side
+ * (signature + issuer + audience, via lib/oidc/verify) and claim the OIDC account
+ * (one issuer+subject verifies once), mirroring the World ID nullifier gate.
+ * Booth-gated: when no audience (client id) is configured the verify lib returns
+ * `not_configured` and we surface 503 rather than faking a pass (law #4). The
+ * dedicated /api/oidc/verify route also echoes the verified user/agent; this
+ * primary-route case keeps the method stackable alongside the others.
+ */
+async function verifyOidcMethod(body: Record<string, unknown>): Promise<Verdict> {
+  const token =
+    typeof body.token === 'string'
+      ? body.token
+      : typeof body.id_token === 'string'
+        ? body.id_token
+        : undefined
+  const result = await verifyOidcToken(token)
+  if (!result.ok) {
+    switch (result.code) {
+      case 'not_configured':
+        return { ok: false, code: 'not_configured', status: 503 }
+      case 'jwks_unreachable':
+        return { ok: false, code: 'jwks_unreachable', status: 502 }
+      case 'missing_token':
+        return { ok: false, code: 'missing_token', status: 400 }
+      default:
+        return { ok: false, code: 'token_invalid', status: 401 }
+    }
+  }
+  // One OIDC account verifies once (anti-farm), like the World ID nullifier.
+  if (!claimSubject(oidcIssuer(), result.identity.subject)) {
+    return { ok: false, code: 'already_verified', status: 409 }
+  }
+  return { ok: true }
 }
 
 /**
