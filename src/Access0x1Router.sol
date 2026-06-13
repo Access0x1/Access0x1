@@ -8,6 +8,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import {
     AggregatorV3Interface
 } from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
@@ -253,5 +254,49 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     function setPriceFeed(address token, address feed) external onlyOwner {
         priceFeedOf[token] = feed;
         emit PriceFeedSet(token, feed);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                PRICING
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Convert a USD amount (8 decimals) into the token amount required, via the token's
+    ///         Chainlink <token>/USD feed read THROUGH the staleness guard.
+    /// @dev    Reading the feed here — and therefore inside `payNative`/`payToken`'s settlement tx —
+    ///         is the Chainlink "Connect the World" qualification: a feed read that drives an
+    ///         on-chain state change, not a frontend preview. The first parameter is the merchantId
+    ///         (kept in the public signature for the SDK + pay paths, reserved for future
+    ///         per-merchant pricing); the conversion itself is purely token-based. Decimals are
+    ///         read live (`feed.decimals()`, token `decimals()`), never hardcoded — this is what
+    ///         makes the Arc trap (native USDC = 18 dec, ERC-20 USDC = 6 dec, feed = 8 dec) safe.
+    ///         `mulDiv` keeps full 512-bit precision and rounds UP, so the merchant is never paid
+    ///         less than the quoted USD value (dust ≤ 1 wei of token).
+    /// @param token       The pay-in token (`address(0)` = native).
+    /// @param usdAmount8  The price in USD with 8 decimals (e.g. $29.00 = 29e8).
+    /// @return tokenAmount The amount of `token`, in its own decimals, worth `usdAmount8`.
+    function quote(uint256, address token, uint256 usdAmount8)
+        public
+        view
+        returns (uint256 tokenAmount)
+    {
+        if (usdAmount8 == 0) revert Access0x1__ZeroAmount();
+        if (token != NATIVE && !tokenAllowed[token]) revert Access0x1__TokenNotAllowed(token);
+
+        address feedAddr = priceFeedOf[token];
+        if (feedAddr == address(0)) revert Access0x1__TokenNotAllowed(token);
+
+        (, int256 answer,,,) = AggregatorV3Interface(feedAddr).staleCheckLatestRoundData();
+        if (answer <= 0) revert Access0x1__InvalidPrice(answer);
+        // answer > 0 is enforced by the guard above, so this int256→uint256 cast cannot wrap.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint256 price = uint256(answer);
+
+        uint256 feedDecimals = AggregatorV3Interface(feedAddr).decimals();
+        uint256 tokenDecimals = token == NATIVE ? 18 : IERC20Metadata(token).decimals();
+
+        // tokenAmount = usdAmount8 · 10^(feedDecimals + tokenDecimals) / (10^8 · price)
+        tokenAmount = Math.mulDiv(
+            usdAmount8, 10 ** (feedDecimals + tokenDecimals), 10 ** 8 * price, Math.Rounding.Ceil
+        );
     }
 }
