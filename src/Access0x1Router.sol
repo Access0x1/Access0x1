@@ -13,6 +13,7 @@ import {
     AggregatorV3Interface
 } from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import { OracleLib } from "./libraries/OracleLib.sol";
+import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 
 /// @title  Access0x1Router
 /// @author Access0x1
@@ -75,6 +76,13 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     ///         Credited instead of reverting a settled payment; the owed party calls `claimRescue`.
     mapping(address => uint256) public rescue;
 
+    /// @notice Optional ERC-6909 PaymentLanes receipt contract. When unset (the default,
+    ///         `address(0)`), token settlement is unchanged — net pushes straight to the merchant.
+    ///         When set, `payToken` routes the merchant's net into PaymentLanes and mints the merchant
+    ///         a non-custodial lane receipt it pulls later via `claim`. The credit is a post-settlement
+    ///         leg only; a PaymentLanes failure can never roll back a fee already paid.
+    address public paymentLanes;
+
     /// @notice A new business registered.
     event MerchantRegistered(
         uint256 indexed id,
@@ -118,6 +126,9 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
 
     /// @notice A queued native push was claimed.
     event Rescued(address indexed to, uint256 amount);
+
+    /// @notice The optional PaymentLanes receipt contract was set or cleared (`address(0)` disables it).
+    event PaymentLanesSet(address indexed oldLanes, address indexed newLanes);
 
     /// @notice A zero address was supplied where a non-zero one is required.
     error Access0x1__ZeroAddress();
@@ -294,6 +305,19 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice Resume pay-ins after a `pause`.
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /// @notice Set (or clear, with `address(0)`) the PaymentLanes receipt contract. When set, the
+    ///         router must be authorized on that PaymentLanes (`setRouter(this, true)`) for the credit
+    ///         leg to succeed; if it is not, `payToken` falls back to paying the merchant directly —
+    ///         a misconfiguration can never strand or revert a settled payment.
+    /// @param newLanes The PaymentLanes contract, or `address(0)` to disable the lanes leg.
+    /// @dev    `address(0)` is a DELIBERATE sentinel ("disable lanes"), so there is no zero-check —
+    ///         the Slither missing-zero-address-validation flag is acknowledged by design.
+    // slither-disable-next-line missing-zero-check
+    function setPaymentLanes(address newLanes) external onlyOwner {
+        emit PaymentLanesSet(paymentLanes, newLanes);
+        paymentLanes = newLanes;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -493,9 +517,41 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
             0
         );
 
-        IERC20(token).safeTransfer(m.payout, net);
+        _settleNet(token, m.payout, net);
         if (platformFee > 0) IERC20(token).safeTransfer(platformTreasury, platformFee);
         if (merchantFee > 0) IERC20(token).safeTransfer(merchantFeeDest, merchantFee);
+    }
+
+    /// @dev Deliver the merchant's net. When no PaymentLanes is configured (the default), this is the
+    ///      unchanged direct push `payout ← net`. When one IS configured, the net is routed into
+    ///      PaymentLanes as a non-custodial lane RECEIPT the merchant pulls later via `claim` — the
+    ///      "receive in any coin" seam. The lane credit is APPEND-ONLY and NON-REVERTING: it runs
+    ///      after the receipt event and all router effects, and a PaymentLanes failure (e.g. the
+    ///      router was never authorized there) is caught and falls back to the direct push, so a
+    ///      lanes problem can never strand or roll back a settled payment (law #5). The router holds
+    ///      no token after either branch (zero custody): on the lanes path the approval is consumed by
+    ///      PaymentLanes' `safeTransferFrom`; on failure the leftover approval is reset to 0 and net is
+    ///      pushed out directly.
+    function _settleNet(address token, address payout, uint256 net) private {
+        address lanes = paymentLanes;
+        if (lanes == address(0)) {
+            IERC20(token).safeTransfer(payout, net);
+            return;
+        }
+        // Approve PaymentLanes to pull exactly `net`, then credit the merchant's lane. On any revert
+        // there, drop the approval and pay the merchant directly — the payment still settles. The
+        // returned lane id is intentionally unused (the router never reads lane state); the credit is
+        // the LAST interaction after all router effects, so reentrancy-events is benign by design.
+        IERC20(token).forceApprove(lanes, net);
+        // slither-disable-next-line unused-return,reentrancy-events,reentrancy-benign,uninitialized-local
+        try IPaymentLanes(lanes).credit(payout, token, net) {
+        // Net is now held by PaymentLanes, backing the merchant's lane receipt. Done.
+        }
+        catch {
+            // Lanes leg failed: reset the dangling approval and fall back to the direct push.
+            IERC20(token).forceApprove(lanes, 0);
+            IERC20(token).safeTransfer(payout, net);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
