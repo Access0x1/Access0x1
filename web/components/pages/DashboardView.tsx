@@ -2,13 +2,11 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { parseAbiItem, type Address } from 'viem'
-import { getDefaultChainId, getRouterAddress } from '@/lib/chains'
+import { getDefaultChainId, getRouterAddress, tokenDecimalsFor } from '@/lib/chains'
 import { getPublicClient } from '@/lib/wallet'
 import { amount8ToUsd, formatTokenAmount } from '@/lib/quote'
 import { ConnectButton } from '@/components/ConnectButton'
 import { TxHashLink } from '@/components/TxHashLink'
-
-const USDC_DECIMALS = 6
 
 const PAYMENT_RECEIVED_EVENT = parseAbiItem(
   'event PaymentReceived(uint256 indexed merchantId, address indexed buyer, address indexed token, uint256 grossAmount, uint256 feeAmount, uint256 netAmount, uint256 usdAmount8, bytes32 orderId, uint64 srcChainSelector)',
@@ -151,7 +149,7 @@ export function DashboardView(): ReactNode {
                 {rows.map((r) => (
                   <tr key={`${r.txHash}-${r.buyer}`} className="border-b border-neutral-100">
                     <td className="py-2 font-mono text-xs">{r.block.toString()}</td>
-                    <td className="py-2">{formatTokenAmount(r.gross, USDC_DECIMALS)} USDC</td>
+                    <td className="py-2">{formatTokenAmount(r.gross, tokenDecimalsFor(chainId))} USDC</td>
                     <td className="py-2">${amount8ToUsd(r.usd8)}</td>
                     <td className="py-2 font-mono text-xs">{short(r.buyer)}</td>
                     <td className="py-2 font-mono text-xs">
