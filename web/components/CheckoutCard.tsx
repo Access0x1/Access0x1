@@ -9,6 +9,8 @@ import { fetchQuote, usdToAmount8 } from '@/lib/quote'
 import { getWalletClient, getPublicClient } from '@/lib/wallet'
 import { ConnectButton } from './ConnectButton'
 import { ReceiptScreen } from './ReceiptScreen'
+import { WorldIdGate } from './WorldIdGate'
+import type { CheckoutMode, HumanVerifier } from '@/lib/branding/store'
 
 const USDC_SYMBOL = 'USDC'
 const USDC_DECIMALS = 6 // ERC-20 USDC display decimals (the contract reads on-chain decimals in-tx)
@@ -27,6 +29,8 @@ export function CheckoutCard({
   usdAmount,
   orderParam,
   returnUrl,
+  checkoutMode = 'standard',
+  humanVerifier = 'offchain',
 }: {
   chainId: number
   merchantId: bigint
@@ -35,9 +39,22 @@ export function CheckoutCard({
   usdAmount: string
   orderParam?: string
   returnUrl?: string
+  /**
+   * The merchant's D0 choice (World ID ADR). 'verified-human' requires a World
+   * ID proof before pay; 'private'/'standard' leave the pay button as today.
+   * The gate is OFF the money path — a verified-human merchant who isn't
+   * configured degrades to standard upstream (`resolveGate`), never blocking pay.
+   */
+  checkoutMode?: CheckoutMode
+  /** Where a verified-human proof is checked. 'onchain' is a documented seam (below). */
+  humanVerifier?: HumanVerifier
 }): ReactNode {
   const { primaryWallet } = useDynamicContext()
   const usdAmount8 = usdToAmount8(Number(usdAmount))
+
+  // World ID gate state: when the merchant requires verified humans, the pay
+  // button stays disabled until the buyer completes the one-tap proof.
+  const [humanVerified, setHumanVerified] = useState(checkoutMode !== 'verified-human')
 
   const [quoteDisplay, setQuoteDisplay] = useState<string | null>(null)
   const [quoteError, setQuoteError] = useState<string | null>(null)
@@ -88,6 +105,12 @@ export function CheckoutCard({
       setPayError('Access0x1__MerchantInactive')
       return
     }
+    if (checkoutMode === 'verified-human' && !humanVerified) {
+      // Precondition, not interception: the gate sits in FRONT of pay; it never
+      // touches settlement (ADR D3 — off the money path by construction).
+      setPayError('Please verify you’re a real person first.')
+      return
+    }
     // Re-fetch the quote immediately before confirming so the price is current.
     await refreshQuote()
     if (quoteError) return
@@ -130,7 +153,13 @@ export function CheckoutCard({
     )
   }
 
-  const payDisabled = paying || loadingQuote || quoteError !== null || !merchant.active
+  const needsHuman = checkoutMode === 'verified-human'
+  const payDisabled =
+    paying ||
+    loadingQuote ||
+    quoteError !== null ||
+    !merchant.active ||
+    (needsHuman && !humanVerified)
 
   return (
     <div className="flex flex-col gap-5">
@@ -156,6 +185,25 @@ export function CheckoutCard({
 
       {!merchant.active ? (
         <p className="text-sm text-red-600">This merchant is not currently accepting payments.</p>
+      ) : null}
+
+      {primaryWallet && needsHuman && !humanVerified ? (
+        // Verified-humans-only checkout: the World ID gate stands in front of
+        // pay. Off-chain verifier (default) posts the proof to /api/world/verify.
+        // ON-CHAIN SEAM (ADR D3 / unit 5): when humanVerifier === 'onchain', a
+        // future build calls Access0x1HumanGate.isCleared(merchantId, buyer)
+        // (a free eth_call) here instead of the off-chain proof, gating on the
+        // on-chain nullifier mapping. That gate is OFF the money path by
+        // construction (Access0x1Receiver precedent) — never imported by the
+        // Router. We build only the off-chain path here; the contract is a
+        // documented seam, not built in this unit. `humanVerifier` is threaded
+        // through so the swap is a branch, not a new prop.
+        <div data-human-verifier={humanVerifier}>
+          <WorldIdGate
+            signal={primaryWallet.address}
+            onVerified={() => setHumanVerified(true)}
+          />
+        </div>
       ) : null}
 
       {primaryWallet ? (

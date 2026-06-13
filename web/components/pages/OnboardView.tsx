@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { ConnectButton } from '@/components/ConnectButton'
 import { BrandingForm } from '@/components/branding/BrandingForm'
+import { CheckoutModeForm } from '@/components/branding/CheckoutModeForm'
 import { AskAssistant } from '@/components/AskAssistant'
 
 /**
@@ -34,6 +35,13 @@ export function OnboardView(): ReactNode {
 
       <section className="rounded-2xl border border-neutral-200 p-6">
         <BrandingForm mode="onboard" />
+      </section>
+
+      <section className="rounded-2xl border border-neutral-200 p-6">
+        <p className="mb-4 text-xs font-medium uppercase tracking-widest text-neutral-400">
+          Optional — you can skip this and decide later
+        </p>
+        <CheckoutModeForm mode="onboard" />
       </section>
 
       <p className="text-center text-xs text-neutral-400">

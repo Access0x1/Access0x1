@@ -8,10 +8,41 @@
  * UI can show a plain-English message (non-coder law: no raw errors).
  */
 
-import type { TenantBranding } from './store'
+import type { CheckoutMode, HumanVerifier, TenantBranding } from './store'
 
 /** The tenant-facing branding row returned by GET/POST /api/branding. */
 export type ClientBranding = TenantBranding
+
+/**
+ * Save the D0 "Who can pay you?" choice (World ID ADR D0). Rides on the same
+ * branding row; requires the tenant to have saved their name/logo first (the
+ * card is only shown after that), so a `no_branding` 400 is surfaced plainly.
+ */
+export async function saveCheckoutMode(input: {
+  tenantId: string
+  checkoutMode: CheckoutMode
+  humanVerifier?: HumanVerifier
+}): Promise<{ ok: true; branding: ClientBranding } | { ok: false; error: string; code?: string }> {
+  try {
+    const res = await fetch('/api/branding/checkout-mode', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    const json = (await res.json()) as { branding?: ClientBranding; error?: string; code?: string }
+    if (res.ok && json.branding) return { ok: true, branding: json.branding }
+    if (json.error === 'no_branding') {
+      return {
+        ok: false,
+        error: 'Set your business name first, then choose who can pay you.',
+        code: 'no_branding',
+      }
+    }
+    return { ok: false, error: json.error ?? 'Could not save. Please try again.', code: json.code }
+  } catch {
+    return { ok: false, error: 'Could not reach the server. Check your connection.' }
+  }
+}
 
 /** Save (or edit) the tenant's branding. */
 export async function saveBranding(input: {
