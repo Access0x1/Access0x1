@@ -145,8 +145,9 @@ interface IPaymentLanes {
     /// @notice Burn the caller's full balance on an explicit lane `id` and return `asset`. Lets a
     ///         transferee (who holds a lane keyed to the original recipient) pull the underlying. The
     ///         caller MUST pass the `asset` that funded `id`: the lane stores its backing asset at
-    ///         {credit} time, so a mismatched `asset` reverts with {PaymentLanes__AssetMismatch} and
-    ///         can never release another asset's pool (the cross-asset firewall).
+    ///         {credit} time, so pointing a credited lane at a DIFFERENT asset is a safe no-op return
+    ///         (no burn, no transfer) and can never release another asset's pool (the cross-asset
+    ///         firewall); a truly empty or never-funded lane reverts with {PaymentLanes__NothingToClaim}.
     /// @param id    The lane id to burn (e.g. one received via {transfer}).
     /// @param asset The ERC-20 that funded `id` (must equal the asset bound at credit time).
     function claimLane(uint256 id, address asset) external;
