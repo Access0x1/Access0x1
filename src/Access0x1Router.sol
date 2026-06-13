@@ -358,8 +358,27 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         // forge-lint: disable-next-line(unsafe-typecast)
         uint256 price = uint256(answer);
 
-        uint256 feedDecimals = AggregatorV3Interface(feedAddr).decimals();
-        uint256 tokenDecimals = token == NATIVE ? 18 : IERC20Metadata(token).decimals();
+        // Read decimals through try/catch so a hostile/broken feed or token that reverts on
+        // `decimals()` yields the typed `Access0x1__TokenNotAllowed` (the same revert the
+        // allowlist/feed checks above give) instead of an opaque, unattributable bubble-up. A
+        // token that cannot answer `decimals()` cannot be priced, so it is simply not allowed.
+        uint256 feedDecimals;
+        try AggregatorV3Interface(feedAddr).decimals() returns (uint8 fd) {
+            feedDecimals = fd;
+        } catch {
+            revert Access0x1__TokenNotAllowed(token);
+        }
+
+        uint256 tokenDecimals;
+        if (token == NATIVE) {
+            tokenDecimals = 18;
+        } else {
+            try IERC20Metadata(token).decimals() returns (uint8 td) {
+                tokenDecimals = td;
+            } catch {
+                revert Access0x1__TokenNotAllowed(token);
+            }
+        }
 
         // tokenAmount = usdAmount8 · 10^(feedDecimals + tokenDecimals) / (10^USD_DECIMALS · price)
         tokenAmount = Math.mulDiv(

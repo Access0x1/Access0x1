@@ -11,6 +11,9 @@ import { RevertingReceiver } from "../mocks/RevertingReceiver.sol";
 import { ReentrantPayout } from "../mocks/ReentrantPayout.sol";
 import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
 import { RescueClaimer } from "../mocks/RescueClaimer.sol";
+import {
+    AggregatorV3Interface
+} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 /// @notice The router's unit suite — the full surface in one fixture: constructor, merchant
 ///         registry, pricing, both pay paths (with adversarial mocks), admin, and rescue.
@@ -292,6 +295,57 @@ contract Access0x1RouterTest is Test {
             abi.encodeWithSelector(Access0x1Router.Access0x1__InvalidPrice.selector, int256(-1))
         );
         router.quote(1, address(0), 20e8);
+    }
+
+    /// @dev A token whose `decimals()` reverts must surface the TYPED `Access0x1__TokenNotAllowed`
+    ///      (caught in the `quote()` try/catch), never an opaque bubble-up. The token is fully
+    ///      allowlisted with a valid feed, so it reaches the `IERC20Metadata(token).decimals()`
+    ///      read — and the revert there is exactly the griefing case the guard exists to absorb.
+    function test_quoteRevertsWhenTokenDecimalsRevert() public {
+        _configureFeeds();
+        RevertingDecimalsToken hostile = new RevertingDecimalsToken();
+        vm.startPrank(owner);
+        router.setTokenAllowed(address(hostile), true);
+        router.setPriceFeed(address(hostile), address(usdcFeed)); // valid $1 feed
+        vm.stopPrank();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__TokenNotAllowed.selector, address(hostile)
+            )
+        );
+        router.quote(1, address(hostile), 20e8);
+    }
+
+    /// @dev A feed whose `decimals()` reverts (but whose `latestRoundData()` is valid + fresh, so the
+    ///      staleness guard passes) must ALSO surface the typed `Access0x1__TokenNotAllowed` from the
+    ///      `feed.decimals()` try/catch — the other half of the same hardening.
+    function test_quoteRevertsWhenFeedDecimalsRevert() public {
+        _configureFeeds();
+        RevertingDecimalsFeed hostileFeed = new RevertingDecimalsFeed(2000e8);
+        address tok = makeAddr("tokWithHostileFeed");
+        vm.startPrank(owner);
+        router.setTokenAllowed(tok, true);
+        router.setPriceFeed(tok, address(hostileFeed));
+        vm.stopPrank();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__TokenNotAllowed.selector, tok)
+        );
+        router.quote(1, tok, 20e8);
+    }
+
+    /// @dev `feedDecimals` enters the `mulDiv` exponent, so a non-8-decimal feed must still produce
+    ///      the correct token amount. Wire an 18-decimal ETH/USD feed at $2000 and assert $20.00
+    ///      still quotes 0.01 ETH — proving the live `feed.decimals()` read (not a hardcoded 8) is
+    ///      what makes the arithmetic vendor-agnostic.
+    function test_quoteWithNonEightDecimalFeed() public {
+        vm.warp(1_700_000_000);
+        MockV3Aggregator feed18 = new MockV3Aggregator(18, 2000e18); // ETH/USD, 18 dp, $2000
+        vm.prank(owner);
+        router.setPriceFeed(address(0), address(feed18));
+        // $20.00 (8 dp) at ETH=$2000 → 0.01 ETH, independent of the feed's own decimals.
+        assertEq(router.quote(1, address(0), 20e8), 0.01 ether);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -703,5 +757,58 @@ contract Access0x1RouterTest is Test {
         // The re-entrant claim rolled back whole: the credit is intact, nothing double-paid.
         assertEq(router.rescue(address(claimer)), net);
         assertEq(address(claimer).balance, 0);
+    }
+}
+
+/// @notice Test-only token whose `decimals()` REVERTS. Stands in for a hostile/broken ERC-20 that
+///         griefs the pricing path; the router's `quote()` try/catch must convert this into the
+///         typed `Access0x1__TokenNotAllowed`. Only `decimals()` is exercised (quote is view-only).
+contract RevertingDecimalsToken {
+    error DecimalsBlocked();
+
+    function decimals() external pure returns (uint8) {
+        revert DecimalsBlocked();
+    }
+}
+
+/// @notice Test-only Chainlink feed that returns a valid + fresh round but REVERTS on `decimals()`.
+///         Exercises the `feed.decimals()` half of the `quote()` try/catch hardening.
+contract RevertingDecimalsFeed is AggregatorV3Interface {
+    error DecimalsBlocked();
+
+    int256 private immutable i_answer;
+
+    constructor(int256 answer_) {
+        i_answer = answer_;
+    }
+
+    function decimals() external pure override returns (uint8) {
+        revert DecimalsBlocked();
+    }
+
+    function description() external pure override returns (string memory) {
+        return "RevertingDecimalsFeed";
+    }
+
+    function version() external pure override returns (uint256) {
+        return 0;
+    }
+
+    function getRoundData(uint80)
+        external
+        view
+        override
+        returns (uint80, int256, uint256, uint256, uint80)
+    {
+        return (1, i_answer, block.timestamp, block.timestamp, 1);
+    }
+
+    function latestRoundData()
+        external
+        view
+        override
+        returns (uint80, int256, uint256, uint256, uint80)
+    {
+        return (1, i_answer, block.timestamp, block.timestamp, 1);
     }
 }
