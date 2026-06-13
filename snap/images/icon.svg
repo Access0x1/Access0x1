@@ -1,5 +1,21 @@
 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="48" height="48" rx="12" fill="#0B0B0F" />
-  <path d="M16 32L24 14L32 32" stroke="#5AF0C8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M19 26H29" stroke="#5AF0C8" stroke-width="3" stroke-linecap="round" />
+  <!--
+    Access0x1 Snap icon — the "bridge" emblem on a rounded night-water tile.
+    Same glyph as brand-assets/access0x1/access0x1-mark.svg (two pylons + a
+    broken top span = the void/gap; unbroken base rail = the settled layer),
+    re-centered into a 48x48 MetaMask icon tile with safe-area padding.
+    Palette (BRAND.md): ink #0B1020, accent #22D3EE (cyan), accent-2 #2DD4BF (teal).
+  -->
+  <rect width="48" height="48" rx="12" fill="#0B1020"/>
+
+  <!-- Left pylon -->
+  <rect x="11" y="18" width="8" height="22" rx="2" fill="#22D3EE"/>
+  <!-- Right pylon -->
+  <rect x="29" y="18" width="8" height="22" rx="2" fill="#22D3EE"/>
+  <!-- Top span left half -->
+  <rect x="11" y="11" width="12" height="8" rx="2" fill="#22D3EE"/>
+  <!-- Top span right half (broken in center = the gap) -->
+  <rect x="25" y="11" width="12" height="8" rx="2" fill="#22D3EE"/>
+  <!-- Base rail: teal accent, unbroken — the settled ground layer -->
+  <rect x="11" y="37" width="26" height="3" rx="1.5" fill="#2DD4BF"/>
 </svg>
