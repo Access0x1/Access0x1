@@ -2,6 +2,8 @@
 pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
@@ -520,5 +522,41 @@ contract Access0x1RouterTest is Test {
             abi.encodeWithSelector(Access0x1Router.Access0x1__MerchantInactive.selector, id)
         );
         router.payToken(id, address(usdc), 20e8, ORDER);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            ADMIN — setPlatformFee
+    //////////////////////////////////////////////////////////////*/
+
+    function test_setPlatformFeeUpdatesAndEmits() public {
+        vm.expectEmit(false, false, false, true, address(router));
+        emit Access0x1Router.PlatformFeeUpdated(PLATFORM_FEE_BPS, 250);
+        vm.prank(owner);
+        router.setPlatformFee(250);
+        assertEq(router.platformFeeBps(), 250);
+    }
+
+    function test_setPlatformFeeAllowsExactlyMax() public {
+        uint16 maxFee = router.MAX_FEE_BPS();
+        vm.prank(owner);
+        router.setPlatformFee(maxFee);
+        assertEq(router.platformFeeBps(), maxFee);
+    }
+
+    function test_setPlatformFeeRevertsAboveMax() public {
+        uint16 maxFee = router.MAX_FEE_BPS();
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__FeeTooHigh.selector, maxFee + 1, maxFee
+            )
+        );
+        router.setPlatformFee(maxFee + 1);
+    }
+
+    function test_setPlatformFeeRevertsWhenNotOwner() public {
+        vm.prank(buyer);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, buyer));
+        router.setPlatformFee(250);
     }
 }
