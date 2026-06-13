@@ -109,4 +109,39 @@ contract Access0x1LanesTest is Test {
     function test_isMinter_defaultsFalse() public view {
         assertFalse(lanes.isMinter(owner), "no minter is set at construction, not even the owner");
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            ADMIN — setMinter
+    //////////////////////////////////////////////////////////////*/
+
+    event MinterSet(address indexed minter, bool allowed);
+
+    function test_setMinter_ownerAllowsAndRevokes() public {
+        address router = makeAddr("router");
+
+        vm.expectEmit(true, false, false, true, address(lanes));
+        emit MinterSet(router, true);
+        vm.prank(owner);
+        lanes.setMinter(router, true);
+        assertTrue(lanes.isMinter(router), "owner allowlisted the router");
+
+        vm.prank(owner);
+        lanes.setMinter(router, false);
+        assertFalse(lanes.isMinter(router), "owner revoked the router");
+    }
+
+    function test_setMinter_revertsForNonOwner() public {
+        address stranger = makeAddr("stranger");
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger)
+        );
+        vm.prank(stranger);
+        lanes.setMinter(stranger, true);
+    }
+
+    function test_setMinter_revertsZeroAddress() public {
+        vm.expectRevert(Access0x1Lanes.Access0x1Lanes__ZeroAddress.selector);
+        vm.prank(owner);
+        lanes.setMinter(address(0), true);
+    }
 }
