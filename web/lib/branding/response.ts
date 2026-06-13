@@ -13,7 +13,7 @@
  */
 
 import { getDefaultChainId, getRouterAddress } from '../chains.js';
-import type { TenantBranding } from './store.js';
+import type { CheckoutMode, HumanVerifier, TenantBranding } from './store.js';
 
 /** The exact public branding payload (ADR D4): no payout address, ever. */
 export interface PublicBranding {
@@ -38,6 +38,16 @@ export interface PublicBranding {
    * just report that an on-chain registration exists (ADR honesty law #4).
    */
   onChain: boolean;
+  /**
+   * The merchant's D0 checkout choice (World ID ADR D0). PUBLIC display/gate
+   * data only — it tells the checkout whether to mount the World ID gate or run
+   * the Unlink leg. It is NOT a secret and never reveals a payout address.
+   */
+  checkoutMode: CheckoutMode;
+  /** Where a verified-human proof is checked (only meaningful for verified-human). */
+  humanVerifier: HumanVerifier;
+  /** Whether the business is operated by a verified real human (ADR D1.4 badge). */
+  verifiedOperator: boolean;
 }
 
 /** CORS headers for the public read endpoints (embed + Snap `fetch`). */
@@ -75,5 +85,8 @@ export function toPublicBranding(row: TenantBranding): PublicBranding {
     router,
     chainId,
     onChain: row.merchantId !== null && row.nameHash !== undefined,
+    checkoutMode: row.checkoutMode,
+    humanVerifier: row.humanVerifier,
+    verifiedOperator: row.verifiedOperator,
   };
 }

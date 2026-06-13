@@ -32,6 +32,37 @@ export const MIN_SLUG_LEN = 2;
 export const MAX_SLUG_LEN = 48;
 
 /**
+ * The per-merchant checkout identity/privacy choice (World ID ADR D0). One
+ * plain-English question, three options, opposite poles:
+ *   - 'verified-human' → World ID gate in front of pay (proof-of-personhood)
+ *   - 'private'        → the existing Unlink confidential payout leg
+ *   - 'standard'       → today's behavior (the default; nothing breaks)
+ * They are mutually exclusive per single checkout (a payment is identity OR
+ * privacy, never both — enforced in `lib/worldid/gateConfig.ts`).
+ */
+export type CheckoutMode = 'verified-human' | 'private' | 'standard';
+
+/** Where a verified-human proof is checked (World ID ADR D2). Off-chain default. */
+export type HumanVerifier = 'offchain' | 'onchain';
+
+/** The default checkout mode — sensible, non-breaking (ADR D5). */
+export const DEFAULT_CHECKOUT_MODE: CheckoutMode = 'standard';
+/** The default verifier when mode = verified-human (no gas, no contract). */
+export const DEFAULT_HUMAN_VERIFIER: HumanVerifier = 'offchain';
+
+/** Narrow an untrusted value into a {@link CheckoutMode}, defaulting to standard. */
+export function asCheckoutMode(v: unknown): CheckoutMode {
+  return v === 'verified-human' || v === 'private' || v === 'standard'
+    ? v
+    : DEFAULT_CHECKOUT_MODE;
+}
+
+/** Narrow an untrusted value into a {@link HumanVerifier}, defaulting to off-chain. */
+export function asHumanVerifier(v: unknown): HumanVerifier {
+  return v === 'onchain' ? 'onchain' : DEFAULT_HUMAN_VERIFIER;
+}
+
+/**
  * One tenant's branding row (ADR D3 Tier-1 table). `merchant_id`, `name_hash`,
  * and `logo_blob_id` are null until the tenant goes on-chain / publishes to
  * Walrus (the Snap-invoke + Walrus seams attach there later — unit 8).
@@ -57,6 +88,21 @@ export interface TenantBranding {
   nameHash: `0x${string}`;
   /** Walrus blob id for the durable logo copy, or null until published. */
   logoBlobId: string | null;
+  /**
+   * The D0 checkout choice (World ID ADR D3 table). Default 'standard' so an
+   * existing tenant is untouched. 'verified-human' mounts the World ID gate;
+   * 'private' runs the existing Unlink leg.
+   */
+  checkoutMode: CheckoutMode;
+  /** Where a verified-human proof is checked. Only meaningful when mode = verified-human. */
+  humanVerifier: HumanVerifier;
+  /** Merchant-side "operated by a verified real human" trust badge (ADR D1.4). */
+  verifiedOperator: boolean;
+  /**
+   * The merchant's onboarding-action nullifier (decimal string) when they
+   * proved operator personhood, or null. A DISTINCT action from the buyer gate.
+   */
+  operatorNullifier: string | null;
   /** Record create / last-update timestamps (Date.now()). */
   createdAt: number;
   updatedAt: number;
@@ -76,6 +122,13 @@ export interface BrandingInput {
   /** Optional on-chain anchors (attached later by the Snap/Walrus seams). */
   merchantId?: string | null;
   logoBlobId?: string | null;
+  /** The D0 checkout choice (World ID ADR D0). Omit to keep the existing/default. */
+  checkoutMode?: CheckoutMode;
+  /** Verifier sub-choice for verified-human. Omit to keep the existing/default. */
+  humanVerifier?: HumanVerifier;
+  /** Operator-verified badge + its nullifier (set by the operator-verify seam). */
+  verifiedOperator?: boolean;
+  operatorNullifier?: string | null;
 }
 
 /** Thrown on invalid branding input (slug collision, bad name, etc.). */
@@ -261,6 +314,22 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
     nameHash: nameHashOf(displayName),
     logoBlobId:
       input.logoBlobId !== undefined ? input.logoBlobId : (existing?.logoBlobId ?? null),
+    checkoutMode:
+      input.checkoutMode !== undefined
+        ? asCheckoutMode(input.checkoutMode)
+        : (existing?.checkoutMode ?? DEFAULT_CHECKOUT_MODE),
+    humanVerifier:
+      input.humanVerifier !== undefined
+        ? asHumanVerifier(input.humanVerifier)
+        : (existing?.humanVerifier ?? DEFAULT_HUMAN_VERIFIER),
+    verifiedOperator:
+      input.verifiedOperator !== undefined
+        ? Boolean(input.verifiedOperator)
+        : (existing?.verifiedOperator ?? false),
+    operatorNullifier:
+      input.operatorNullifier !== undefined
+        ? input.operatorNullifier
+        : (existing?.operatorNullifier ?? null),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
