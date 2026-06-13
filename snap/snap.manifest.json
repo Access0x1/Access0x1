@@ -1,0 +1,37 @@
+{
+  "version": "0.1.0",
+  "description": "Access0x1 — readable payment insight + private payout inside MetaMask",
+  "proposedName": "Access0x1 Payments",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Access0x1/Access0x1.git"
+  },
+  "source": {
+    "shasum": "WT+dW+IR80zbhrFRTuHo+Ab2DSul07ahEp4ifzGkMT8=",
+    "location": {
+      "npm": {
+        "filePath": "dist/bundle.js",
+        "iconPath": "images/icon.svg",
+        "packageName": "@access0x1/snap",
+        "registry": "https://registry.npmjs.org/"
+      }
+    }
+  },
+  "initialPermissions": {
+    "endowment:transaction-insight": {},
+    "endowment:rpc": {
+      "dapps": true,
+      "snaps": false
+    },
+    "snap_manageState": {},
+    "snap_getBip44Entropy": [
+      {
+        "coinType": 60
+      }
+    ],
+    "endowment:network-access": {},
+    "endowment:ethereum-provider": {}
+  },
+  "platformVersion": "11.1.1",
+  "manifestVersion": "0.1"
+}
