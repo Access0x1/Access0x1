@@ -30,7 +30,6 @@ contract Access0x1RouterTest is Test {
 
     address internal buyer = makeAddr("buyer");
     bytes32 internal constant ORDER = keccak256("order-1");
-    uint16 internal constant TOTAL_FEE_BPS = PLATFORM_FEE_BPS + MERCHANT_FEE_BPS; // 150
 
     function setUp() public virtual {
         router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
@@ -54,6 +53,17 @@ contract Access0x1RouterTest is Test {
     function _register() internal returns (uint256 id) {
         vm.prank(merchantOwner);
         id = router.registerMerchant(payout, feeRecipient, MERCHANT_FEE_BPS, NAME_HASH);
+    }
+
+    /// @dev The two-leg split for the default merchant: platform cut, merchant surcharge, net.
+    function _fees(uint256 gross)
+        internal
+        pure
+        returns (uint256 platformFee, uint256 merchantFee, uint256 net)
+    {
+        platformFee = gross * PLATFORM_FEE_BPS / 10_000;
+        merchantFee = gross * MERCHANT_FEE_BPS / 10_000;
+        net = gross - platformFee - merchantFee;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -289,19 +299,21 @@ contract Access0x1RouterTest is Test {
         _configureFeeds();
         uint256 id = _register();
         uint256 gross = router.quote(id, address(0), 20e8); // 0.01 ether
-        uint256 fee = gross * TOTAL_FEE_BPS / 10_000;
-        uint256 net = gross - fee;
+        (uint256 platformFee, uint256 merchantFee, uint256 net) = _fees(gross);
 
         vm.deal(buyer, 1 ether);
         vm.expectEmit(true, true, true, true, address(router));
-        emit Access0x1Router.PaymentReceived(id, buyer, address(0), gross, fee, net, 20e8, ORDER, 0);
+        emit Access0x1Router.PaymentReceived(
+            id, buyer, address(0), gross, platformFee + merchantFee, net, 20e8, ORDER, 0
+        );
         vm.prank(buyer);
         router.payNative{ value: gross }(id, 20e8, ORDER);
 
         assertEq(payout.balance, net);
-        assertEq(feeRecipient.balance, fee); // feeDest = feeRecipient (it was set)
+        assertEq(treasury.balance, platformFee); // platform cut always → treasury
+        assertEq(feeRecipient.balance, merchantFee); // merchant surcharge → feeRecipient
         assertEq(address(router).balance, 0); // no custody
-        assertEq(fee + net, gross); // invariant: fee + net == gross
+        assertEq(net + platformFee + merchantFee, gross); // net + fee == gross
     }
 
     function test_payNativeRefundsExcess() public {
@@ -360,15 +372,15 @@ contract Access0x1RouterTest is Test {
         uint256 id =
             router.registerMerchant(address(badPayout), feeRecipient, MERCHANT_FEE_BPS, NAME_HASH);
         uint256 gross = router.quote(id, address(0), 20e8);
-        uint256 fee = gross * TOTAL_FEE_BPS / 10_000;
-        uint256 net = gross - fee;
+        (uint256 platformFee, uint256 merchantFee, uint256 net) = _fees(gross);
 
         vm.deal(buyer, 1 ether);
         vm.prank(buyer);
         router.payNative{ value: gross }(id, 20e8, ORDER); // receipt still emits
 
         assertEq(router.rescue(address(badPayout)), net); // queued, not lost
-        assertEq(feeRecipient.balance, fee); // fee still paid
+        assertEq(treasury.balance, platformFee); // platform cut still paid
+        assertEq(feeRecipient.balance, merchantFee); // merchant surcharge still paid
         assertEq(address(router).balance, net); // router holds exactly the rescued net
     }
 
@@ -398,8 +410,7 @@ contract Access0x1RouterTest is Test {
         router.updateMerchant(id, address(attacker), feeRecipient, MERCHANT_FEE_BPS, true);
 
         uint256 gross = router.quote(id, address(0), 20e8);
-        uint256 fee = gross * TOTAL_FEE_BPS / 10_000;
-        uint256 net = gross - fee;
+        (uint256 platformFee, uint256 merchantFee, uint256 net) = _fees(gross);
 
         vm.deal(buyer, 1 ether);
         vm.prank(buyer);
@@ -407,7 +418,8 @@ contract Access0x1RouterTest is Test {
 
         // re-entry reverted → net push failed → queued; the merchant is NOT settled twice
         assertEq(router.rescue(address(attacker)), net);
-        assertEq(feeRecipient.balance, fee);
+        assertEq(treasury.balance, platformFee);
+        assertEq(feeRecipient.balance, merchantFee);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -418,8 +430,7 @@ contract Access0x1RouterTest is Test {
         _configureFeeds();
         uint256 id = _register();
         uint256 gross = router.quote(id, address(usdc), 20e8); // 20 USDC
-        uint256 fee = gross * TOTAL_FEE_BPS / 10_000;
-        uint256 net = gross - fee;
+        (uint256 platformFee, uint256 merchantFee, uint256 net) = _fees(gross);
 
         usdc.mint(buyer, 100e6);
         vm.prank(buyer);
@@ -427,15 +438,16 @@ contract Access0x1RouterTest is Test {
 
         vm.expectEmit(true, true, true, true, address(router));
         emit Access0x1Router.PaymentReceived(
-            id, buyer, address(usdc), gross, fee, net, 20e8, ORDER, 0
+            id, buyer, address(usdc), gross, platformFee + merchantFee, net, 20e8, ORDER, 0
         );
         vm.prank(buyer);
         router.payToken(id, address(usdc), 20e8, ORDER);
 
         assertEq(usdc.balanceOf(payout), net);
-        assertEq(usdc.balanceOf(feeRecipient), fee);
+        assertEq(usdc.balanceOf(treasury), platformFee); // platform cut → treasury
+        assertEq(usdc.balanceOf(feeRecipient), merchantFee); // merchant surcharge → feeRecipient
         assertEq(usdc.balanceOf(address(router)), 0); // no custody — zero residual
-        assertEq(fee + net, gross);
+        assertEq(net + platformFee + merchantFee, gross);
     }
 
     function test_payTokenRevertsOnNativeToken() public {

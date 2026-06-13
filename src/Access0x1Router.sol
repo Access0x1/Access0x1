@@ -304,17 +304,32 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
                               SETTLEMENT
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev The one fee-split core both pay paths share. `fee` floors (so net rounds in the
-    ///      merchant's favour) and `net = gross - fee`, so `fee + net == gross` holds exactly.
-    ///      `feeDest` falls back to the payout when the merchant set no fee recipient.
+    /// @dev The one fee-split core both pay paths share. The single total fee splits two ways: the
+    ///      PLATFORM portion (`platformFeeBps`) always settles to `platformTreasury` — a merchant
+    ///      can never redirect Access0x1's cut — and the MERCHANT surcharge (`feeBps`) settles to
+    ///      `merchantFeeDest` (the merchant's `feeRecipient`, or its `payout` if unset). Each leg
+    ///      floors, so `net = gross - platformFee - merchantFee` and `net + platformFee +
+    ///      merchantFee == gross` holds exactly (the event records `platformFee + merchantFee`).
+    /// @return platformFee     The platform's cut → `platformTreasury`.
+    /// @return merchantFee     The merchant's surcharge → `merchantFeeDest`.
+    /// @return net             What the merchant nets → `payout`.
+    /// @return merchantFeeDest Where the merchant surcharge lands.
     function _splitFee(Merchant memory m, uint256 gross)
         private
         view
-        returns (uint256 fee, uint256 net, address feeDest)
+        returns (uint256 platformFee, uint256 merchantFee, uint256 net, address merchantFeeDest)
     {
-        fee = Math.mulDiv(gross, uint256(platformFeeBps) + m.feeBps, FEE_DENOMINATOR);
-        net = gross - fee;
-        feeDest = m.feeRecipient == address(0) ? m.payout : m.feeRecipient;
+        uint256 pBps = platformFeeBps;
+        uint256 mBps = m.feeBps;
+        // Hard buyer-protection cap: even if a later platform-fee change pushed the sum past
+        // MAX_FEE_BPS, the buyer is never charged more than the cap — squeeze the MERCHANT surcharge,
+        // never the buyer and never the platform cut. Makes "effective fee ≤ MAX_FEE_BPS" hold
+        // unconditionally (invariant 5). `pBps` is itself capped at MAX_FEE_BPS by `setPlatformFee`.
+        if (pBps + mBps > MAX_FEE_BPS) mBps = pBps >= MAX_FEE_BPS ? 0 : MAX_FEE_BPS - pBps;
+        platformFee = Math.mulDiv(gross, pBps, FEE_DENOMINATOR);
+        merchantFee = Math.mulDiv(gross, mBps, FEE_DENOMINATOR);
+        net = gross - platformFee - merchantFee;
+        merchantFeeDest = m.feeRecipient == address(0) ? m.payout : m.feeRecipient;
     }
 
     /// @dev Push native value, or credit the pull-map on failure. A settled receipt must never be
@@ -356,13 +371,23 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 gross = quote(merchantId, NATIVE, usdAmount8); // reads the feed IN-TX
         if (msg.value < gross) revert Access0x1__Underpaid(gross, msg.value);
 
-        (uint256 fee, uint256 net, address feeDest) = _splitFee(m, gross);
+        (uint256 platformFee, uint256 merchantFee, uint256 net, address merchantFeeDest) =
+            _splitFee(m, gross);
         emit PaymentReceived(
-            merchantId, msg.sender, NATIVE, gross, fee, net, usdAmount8, orderId, 0
+            merchantId,
+            msg.sender,
+            NATIVE,
+            gross,
+            platformFee + merchantFee,
+            net,
+            usdAmount8,
+            orderId,
+            0
         );
 
         _pushNativeOrQueue(m.payout, net);
-        _pushNativeOrQueue(feeDest, fee);
+        _pushNativeOrQueue(platformTreasury, platformFee);
+        _pushNativeOrQueue(merchantFeeDest, merchantFee);
 
         uint256 refundAmount = msg.value - gross;
         if (refundAmount > 0) {
@@ -395,10 +420,22 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 gross = quote(merchantId, token, usdAmount8); // allowlist + feed + staleness, IN-TX
         _pullExact(token, msg.sender, gross); // pull + reject fee-on-transfer via the balance delta
 
-        (uint256 fee, uint256 net, address feeDest) = _splitFee(m, gross);
-        emit PaymentReceived(merchantId, msg.sender, token, gross, fee, net, usdAmount8, orderId, 0);
+        (uint256 platformFee, uint256 merchantFee, uint256 net, address merchantFeeDest) =
+            _splitFee(m, gross);
+        emit PaymentReceived(
+            merchantId,
+            msg.sender,
+            token,
+            gross,
+            platformFee + merchantFee,
+            net,
+            usdAmount8,
+            orderId,
+            0
+        );
 
         IERC20(token).safeTransfer(m.payout, net);
-        if (fee > 0) IERC20(token).safeTransfer(feeDest, fee);
+        if (platformFee > 0) IERC20(token).safeTransfer(platformTreasury, platformFee);
+        if (merchantFee > 0) IERC20(token).safeTransfer(merchantFeeDest, merchantFee);
     }
 }
