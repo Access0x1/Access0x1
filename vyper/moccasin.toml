@@ -1,0 +1,20 @@
+# Access0x1 — Moccasin (mox) project for the ISOLATED Vyper NameMath conformance demonstrator.
+#
+# This project lives entirely under `vyper/` so it can NEVER interfere with the Foundry gate:
+# `foundry.toml` pins `src = "src"`, so `forge build`/`forge test` never see `vyper/*.vy`.
+#
+# CANCUN PIN: the repo targets the cancun EVM. The authoritative pin for Vyper is the
+# `# pragma evm-version cancun` line at the top of `src/NameMath.vy` (Vyper compiles each file to
+# that target). The conformance test ALSO recompiles with an explicit cancun target and asserts it,
+# so a drift to vyper-0.4.x's Prague default would fail the gate, not slip through.
+#
+# Run from THIS directory (vyper/):  mox test
+# Toolchain caveats (Python 3.13 + cancun) are documented in vyper/README.md.
+
+[project]
+src = "src"
+out = "out"
+
+# Local in-process EVM (titanoboa pyevm). Pure functions only — no network, no keys, no money.
+[networks.pyevm]
+is_zksync = false
