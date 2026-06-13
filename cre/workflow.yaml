@@ -1,0 +1,34 @@
+# Access0x1 — "Notified Settlement" CRE workflow manifest.
+#
+# The CRE CLI reads this to build (workflow.ts -> WASM via Javy) and simulate the workflow. The
+# `config` and `secrets` files are co-located; SIMULATE uses placeholder addresses (see config.json).
+#
+# ⚠️ ARTIFACT STATUS: BUILD + SIMULATE only. CRE deploy is Early-Access (approval-gated; `cre whoami`
+# shows "Deploy Access: Not enabled"). The free, event-available path is `cre workflow build` +
+# `cre workflow simulate [--broadcast]`. The prize rule is "build, simulate, OR deploy" — simulate
+# qualifies. Do NOT claim a self-served live deploy.
+
+# A short, human identifier for this workflow. On Arc Testnet (prod) this becomes the on-DON
+# workflow name (bytes10) the Access0x1Receiver allowlists via setAllowedWorkflowName.
+workflow-name: "a0x1-notify"
+
+# TypeScript SDK entrypoint (compiled to WASM). main() wires the EVM-log trigger + handler.
+user-workflow:
+  workflow-path: "./workflow.ts"
+
+# Per-run config validated against the Zod schema in config.ts at Runner.newRunner({ configSchema }).
+# Holds only PUBLIC values (chain + router/receiver addresses + webhook URL + the secret's ID — never
+# the secret value). The build session fills the real Arc-Testnet addresses here.
+config-path: "./config.json"
+
+# The merchant webhook auth key lives in the CRE secrets vault, referenced BY ID (webhookSecretId in
+# config.json) and pulled at runtime with runtime.getSecret — never committed, never inlined here.
+# Local simulate can supply it via a gitignored secrets.yaml (cre secrets ...); none is committed.
+secrets-path: "./secrets.yaml"
+
+# Trigger summary (the authoritative wiring is in workflow.ts):
+#   EVM-log trigger on Access0x1Router.PaymentReceived
+#     topic0 = 0x0e7e4f9badfadd9437d5fe53bdba0ca985b1b3414cb35b09a4459416e1735eea
+#     (keccak256 "PaymentReceived(uint256,address,address,uint256,uint256,uint256,uint256,bytes32,uint64)")
+#   -> (a) HTTP POST to the merchant webhook   [external API]
+#   -> (b) writeReport AuditEntry to Access0x1Receiver.onReport via the KeystoneForwarder  [on-chain]
