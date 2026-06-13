@@ -17,6 +17,8 @@
  * booth-confirmed and wired through `NEXT_PUBLIC_*` (SPEC.md + CHAINS.md law).
  */
 
+import { ARC_TESTNET_ID, DEFAULT_ARC_RPC_URL } from './chains.js';
+
 /** A single supported chain's embed configuration. */
 export interface ChainEmbedConfig {
   /** EVM chain id (e.g. 5042002 = Arc testnet). */
@@ -52,8 +54,11 @@ export const EMBED_ADDRESS_PLACEHOLDERS: Readonly<Record<string, string>> = {
   __ZKSYNC_SEPOLIA_USDC_ADDRESS__: 'NEXT_PUBLIC_USDC_ZKSYNC_SEPOLIA',
 } as const;
 
-/** Arc testnet chain id — the embed's default chain. */
-export const DEFAULT_CHAIN_ID = 5042002;
+/**
+ * Arc testnet chain id — the embed's default chain. Re-exported from the
+ * canonical {@link ARC_TESTNET_ID} in `chains.ts` so the id has one source.
+ */
+export const DEFAULT_CHAIN_ID = ARC_TESTNET_ID;
 
 /**
  * Build the typed chain registry from the current environment. Addresses come
@@ -68,10 +73,10 @@ export function buildEmbedConfig(
   env: Record<string, string | undefined> = process.env,
 ): Readonly<Record<number, ChainEmbedConfig>> {
   return Object.freeze({
-    5042002: {
-      chainId: 5042002,
+    [ARC_TESTNET_ID]: {
+      chainId: ARC_TESTNET_ID,
       name: 'Arc testnet',
-      rpc: 'https://rpc.testnet.arc.network',
+      rpc: DEFAULT_ARC_RPC_URL,
       router: env.NEXT_PUBLIC_ROUTER_ARC,
       usdc: env.NEXT_PUBLIC_USDC_ARC,
       usdcDecimals: 18, // Arc native USDC is 18-dec (confirm at booth)
