@@ -66,6 +66,12 @@ describe('GET /api/branding/{slug}', () => {
       router: '0xRouter0000000000000000000000000000000099',
       chainId: 5042002,
       onChain: false,
+      // World ID ADR D0: the public payload now carries the (non-secret,
+      // display/gate-only) checkout choice so the checkout knows whether to
+      // mount the World ID gate or run the Unlink leg. Defaults for a fresh row.
+      checkoutMode: 'standard',
+      humanVerifier: 'offchain',
+      verifiedOperator: false,
     })
   })
 
