@@ -90,8 +90,8 @@ contract Access0x1RouterTest is Test {
     }
 
     function test_registerRevertsWhenFeeCapExceeded() public {
-        uint256 maxFee = router.MAX_FEE_BPS(); // cache before prank — a call here would consume it
-        uint16 over = uint16(maxFee) - PLATFORM_FEE_BPS + 1; // combined = 1001 > 1000
+        uint16 maxFee = router.MAX_FEE_BPS(); // cache before prank — a call here would consume it
+        uint16 over = maxFee - PLATFORM_FEE_BPS + 1; // combined = 1001 > 1000
         uint256 combined = uint256(over) + PLATFORM_FEE_BPS;
         vm.prank(merchantOwner);
         vm.expectRevert(
@@ -169,8 +169,8 @@ contract Access0x1RouterTest is Test {
 
     function test_updateRevertsWhenFeeCapExceeded() public {
         uint256 id = _register();
-        uint256 maxFee = router.MAX_FEE_BPS(); // cache before prank — a call here would consume it
-        uint16 over = uint16(maxFee) - PLATFORM_FEE_BPS + 1;
+        uint16 maxFee = router.MAX_FEE_BPS(); // cache before prank — a call here would consume it
+        uint16 over = maxFee - PLATFORM_FEE_BPS + 1;
         uint256 combined = uint256(over) + PLATFORM_FEE_BPS;
         vm.prank(merchantOwner);
         vm.expectRevert(
