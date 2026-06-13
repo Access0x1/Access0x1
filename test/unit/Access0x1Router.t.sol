@@ -3,6 +3,8 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
+import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { MockUSDC } from "../mocks/MockUSDC.sol";
 
 /// @notice Base fixture for the router's registry/admin/quote unit tests. Pay-path tests (which
 ///         need token + reverting-receiver mocks) live in their own file built on the same shape.
@@ -19,8 +21,26 @@ contract Access0x1RouterTest is Test {
     uint16 internal constant MERCHANT_FEE_BPS = 50; // 0.5%
     bytes32 internal constant NAME_HASH = keccak256("acme");
 
+    MockV3Aggregator internal nativeFeed; // ETH/USD, 8 dp
+    MockV3Aggregator internal usdcFeed; // USDC/USD, 8 dp
+    MockUSDC internal usdc; // 6 dp
+
     function setUp() public virtual {
         router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
+    }
+
+    /// @dev Deploy + wire a native ($2000) and a USDC ($1) feed, and allowlist USDC. Called by the
+    ///      pricing tests; a fresh, non-zero warp keeps the feeds inside the staleness window.
+    function _configureFeeds() internal {
+        vm.warp(1_700_000_000);
+        nativeFeed = new MockV3Aggregator(8, 2000e8);
+        usdcFeed = new MockV3Aggregator(8, 1e8);
+        usdc = new MockUSDC();
+        vm.startPrank(owner);
+        router.setPriceFeed(address(0), address(nativeFeed));
+        router.setTokenAllowed(address(usdc), true);
+        router.setPriceFeed(address(usdc), address(usdcFeed));
+        vm.stopPrank();
     }
 
     /// @dev Register the default merchant as `merchantOwner`; returns its id.
@@ -177,5 +197,80 @@ contract Access0x1RouterTest is Test {
             abi.encodeWithSelector(Access0x1Router.Access0x1__FeeTooHigh.selector, combined, maxFee)
         );
         router.updateMerchant(id, payout, feeRecipient, over, true);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                QUOTE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_quoteNativeConversion() public {
+        _configureFeeds();
+        // $20.00 at ETH=$2000 → 0.01 ETH
+        assertEq(router.quote(1, address(0), 20e8), 0.01 ether);
+    }
+
+    function test_quoteUsdcConversion() public {
+        _configureFeeds();
+        // $20.00 at USDC=$1 → 20 USDC (6 dp) — proves non-18-decimal handling
+        assertEq(router.quote(1, address(usdc), 20e8), 20e6);
+    }
+
+    function test_quoteRoundsUp() public {
+        _configureFeeds();
+        vm.prank(owner);
+        // ETH=$3000: 1e-8 USD → 1e26 / 3e19 = 3333333.33… → ceil 3333334
+        nativeFeed.updateAnswer(3000e8);
+        assertEq(router.quote(1, address(0), 1), 3_333_334);
+    }
+
+    function test_quoteRevertsOnZeroUsd() public {
+        _configureFeeds();
+        vm.expectRevert(Access0x1Router.Access0x1__ZeroAmount.selector);
+        router.quote(1, address(0), 0);
+    }
+
+    function test_quoteRevertsWhenTokenNotAllowed() public {
+        _configureFeeds();
+        address rando = makeAddr("rando");
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__TokenNotAllowed.selector, rando)
+        );
+        router.quote(1, rando, 20e8);
+    }
+
+    function test_quoteRevertsWhenAllowedButNoFeed() public {
+        _configureFeeds();
+        address noFeed = makeAddr("noFeed");
+        vm.prank(owner);
+        router.setTokenAllowed(noFeed, true); // allowed, but priceFeedOf stays 0
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__TokenNotAllowed.selector, noFeed)
+        );
+        router.quote(1, noFeed, 20e8);
+    }
+
+    function test_quoteRevertsOnStaleFeed() public {
+        _configureFeeds();
+        nativeFeed.setRoundData(1, 2000e8, block.timestamp - 3601, block.timestamp - 3601, 1);
+        vm.expectRevert(); // OracleLib__StalePrice, surfaced through the inlined guard
+        router.quote(1, address(0), 20e8);
+    }
+
+    function test_quoteRevertsOnZeroPrice() public {
+        _configureFeeds();
+        nativeFeed.updateAnswer(0);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__InvalidPrice.selector, int256(0))
+        );
+        router.quote(1, address(0), 20e8);
+    }
+
+    function test_quoteRevertsOnNegativePrice() public {
+        _configureFeeds();
+        nativeFeed.updateAnswer(-1);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__InvalidPrice.selector, int256(-1))
+        );
+        router.quote(1, address(0), 20e8);
     }
 }
