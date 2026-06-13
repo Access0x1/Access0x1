@@ -22,6 +22,7 @@
 
 import { keccak256, toHex } from 'viem';
 import { DEFAULT_BRAND_COLOR, normalizeBrandColor } from './logo.js';
+import { asTrustTier, type TrustTier } from '../verification/tiers.js';
 
 /** Max chars we keep for a one-line description (ADR D2 step 2: ~140). */
 export const MAX_DESCRIPTION_CHARS = 140;
@@ -47,6 +48,16 @@ export type HumanVerifier = 'offchain' | 'onchain';
 
 /** The default checkout mode — sensible, non-breaking (ADR D5). */
 export const DEFAULT_CHECKOUT_MODE: CheckoutMode = 'standard';
+
+/**
+ * The minimum Super Verification trust tier a buyer must hold to pay this
+ * merchant (Super Verification feature). 'standard' = anyone (the default,
+ * non-breaking). 'verified' / 'super-verified' compose the existing World ID
+ * gate with the other methods (ENS / Dynamic / on-chain). This is SEPARATE from
+ * `checkoutMode` (identity-vs-privacy): a merchant can require a tier AND still
+ * pick verified-human or private, and the checkout enforces both.
+ */
+export const DEFAULT_REQUIRED_TIER: TrustTier = 'standard';
 /** The default verifier when mode = verified-human (no gas, no contract). */
 export const DEFAULT_HUMAN_VERIFIER: HumanVerifier = 'offchain';
 
@@ -96,6 +107,11 @@ export interface TenantBranding {
   checkoutMode: CheckoutMode;
   /** Where a verified-human proof is checked. Only meaningful when mode = verified-human. */
   humanVerifier: HumanVerifier;
+  /**
+   * The minimum Super Verification trust tier a BUYER must hold to pay this
+   * merchant ('standard' = anyone, the default). Composes with `checkoutMode`.
+   */
+  requiredTier: TrustTier;
   /** Merchant-side "operated by a verified real human" trust badge (ADR D1.4). */
   verifiedOperator: boolean;
   /**
@@ -126,6 +142,8 @@ export interface BrandingInput {
   checkoutMode?: CheckoutMode;
   /** Verifier sub-choice for verified-human. Omit to keep the existing/default. */
   humanVerifier?: HumanVerifier;
+  /** Minimum buyer trust tier required to pay (Super Verification). Omit to keep existing/default. */
+  requiredTier?: TrustTier;
   /** Operator-verified badge + its nullifier (set by the operator-verify seam). */
   verifiedOperator?: boolean;
   operatorNullifier?: string | null;
@@ -322,6 +340,10 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
       input.humanVerifier !== undefined
         ? asHumanVerifier(input.humanVerifier)
         : (existing?.humanVerifier ?? DEFAULT_HUMAN_VERIFIER),
+    requiredTier:
+      input.requiredTier !== undefined
+        ? asTrustTier(input.requiredTier)
+        : (existing?.requiredTier ?? DEFAULT_REQUIRED_TIER),
     verifiedOperator:
       input.verifiedOperator !== undefined
         ? Boolean(input.verifiedOperator)

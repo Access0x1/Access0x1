@@ -9,6 +9,7 @@
  */
 
 import type { CheckoutMode, HumanVerifier, TenantBranding } from './store'
+import type { TrustTier } from '../verification/tiers'
 
 /** The tenant-facing branding row returned by GET/POST /api/branding. */
 export type ClientBranding = TenantBranding
@@ -22,6 +23,8 @@ export async function saveCheckoutMode(input: {
   tenantId: string
   checkoutMode: CheckoutMode
   humanVerifier?: HumanVerifier
+  /** Minimum buyer trust tier required to pay (Super Verification). */
+  requiredTier?: TrustTier
 }): Promise<{ ok: true; branding: ClientBranding } | { ok: false; error: string; code?: string }> {
   try {
     const res = await fetch('/api/branding/checkout-mode', {
