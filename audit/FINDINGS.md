@@ -7,11 +7,11 @@ set, not just the router core.
 
 | Layer | Result |
 | --- | --- |
-| `forge test` | **261 tests green** (unit + invariant + oracle + `test/attack/**` red-team) |
-| `forge coverage` | **100% functions** on every contract; lines 99.70%, statements 99.25%, branches 96.39% overall (per-contract table below) |
-| Invariants | 5 router money invariants + PaymentLanes conservation hold under `fail_on_revert`, 0 reverts |
-| `slither .` (v0.11.5) | 15 results, **all triaged** (false-positive / by-design / justified-with-runtime-guard) |
-| `aderyn` (v0.1.9) | 2 High + 8 Low, **all triaged** (false-positive / by-design / style) |
+| `forge test` | **295 tests green** (unit + invariant + oracle + `test/attack/**` red-team) |
+| `forge coverage` | **100% functions** on every contract; lines 99.74%, statements 99.15%, branches 95.56% overall (per-contract table below) |
+| Invariants | 6 router money invariants + 3 PaymentLanes conservation/firewall invariants (9 total) hold under `fail_on_revert`, 0 reverts |
+| `slither .` (v0.11.5) | 16 results across 10 detectors, **all triaged** (false-positive / by-design / justified-with-runtime-guard) |
+| `aderyn` (v0.1.9) | 3 High + 9 Low, **all triaged** (false-positive / by-design / style) |
 
 Tooling config: [`slither.config.json`](../slither.config.json) filters
 `lib/ node_modules/ test/ script/` so analysis focuses on `src/`. Aderyn is run
@@ -26,11 +26,15 @@ toolchain's newer default evm version) and `--no-snippets`; its generated
 | `Access0x1Receiver.sol` | 100% | 100% | 100% | 100% |
 | `Access0x1Router.sol` | 100% | 100% | 100% | 100% |
 | `ChainRegistry.sol` | 100% | 100% | 100% | 100% |
+| `HouseToken.sol` | 100% | 87.50% | 50% | 100% |
+| `HouseTokenFactory.sol` | 100% | 100% | 100% | 100% |
+| `NameMath.sol` | 100% | 100% | 100% | 100% |
 | `PaymentLanes.sol` | 100% | 97.10% | 85.71% | 100% |
-| `SessionGrant.sol` | 98.89% | 99.19% | 95.83% | 100% |
+| `SessionGrant.sol` | 98.90% | 99.19% | 95.83% | 100% |
 | `OracleLib.sol` | 100% | 100% | 100% | 100% |
+| **Overall** | **99.74%** | **99.15%** | **95.56%** | **100%** |
 
-The two sub-100% rows are **unreachable defense-in-depth guards** (documented,
+The sub-100% rows are **unreachable defense-in-depth guards** (documented,
 intentionally kept — covering them would require weakening the contract):
 
 - `PaymentLanes` constructor `if (initialOwner == address(0)) revert
@@ -41,6 +45,9 @@ intentionally kept — covering them would require weakening the contract):
   nonce bumps monotonically on every open and the `NonceMismatch` re-entrancy guard
   fires before any same-nonce collision could form, so the collision branch is
   unreachable via the public API. Kept as a clobber guard for any future open path.
+- `HouseToken.decimals()` override branch: a defensive return of the
+  construction-time `_DECIMALS`; behavior is identical regardless of the branch
+  the fixtures take.
 
 ---
 
@@ -68,7 +75,7 @@ cannotDoubleOpen` (attack reverts) and `test_reentrancy_honest6492_opensExactlyO
 
 ---
 
-## Slither — 15 results, all triaged
+## Slither — 16 results across 10 detectors, all triaged
 
 | Detector | Where | Disposition |
 | --- | --- | --- |
@@ -83,20 +90,22 @@ cannotDoubleOpen` (attack reverts) and `test_reentrancy_honest6492_opensExactlyO
 | `redundant-statements` | `SessionGrant._isValidSignatureNow` (`ok;`) | **By design.** The standalone `ok;` documents that the best-effort 6492 prepare's success is intentionally ignored (correctness is decided by the subsequent ERC-1271 check). Inline comment explains it. |
 | `shadowing-local` | `ISessionGrant.remaining(bytes32)` return name | **False positive / cosmetic.** A named return value matching the interface function name shadows no state or parent symbol. |
 
-## Aderyn — 2 High + 8 Low, all triaged
+## Aderyn — 3 High + 9 Low, all triaged
 
 | ID | Title | Disposition |
 | --- | --- | --- |
 | **H-1** | Arbitrary `from` in `transferFrom` (Router `_pullExact`) | **False positive.** `from` is the payer threaded down from the pay entrypoint (the address the router pulls the pay-in from), not an attacker-chosen third party with a standing approval. The balance-delta check additionally rejects fee-on-transfer skims. |
-| **H-2** | Unprotected native-ETH send (Router `payNative`, `claimRescue`) | **False positive / by design.** Same as the slither `arbitrary-send-eth` row: recipients are caller-configured (zero-checked) merchant/treasury/fee/buyer addresses or `msg.sender`; the contract is `nonReentrant` + CEI. A payments router sending native value is its purpose. |
-| **L-1** | Centralization risk (16×: owner setters + pause across all contracts) | **By design, documented trust assumption.** Owner controls fees/treasury/allowlists/pause and the workflow + router + chain config — a burner key at the event, a multisig in prod. No owner path reaches merchant funds (router settlement is atomic, zero-custody; PaymentLanes admin holds no lane balance; SessionGrant holds no funds at all; Receiver is off the money path). |
+| **H-2** | Uninitialized state variable (`HouseTokenFactory.deployedCount`) | **False positive (style).** `deployedCount` is a deploy counter; Solidity zero-initialises it. Off the money path; an explicit `= 0` adds nothing. |
+| **H-3** | Unprotected native-ETH send (Router `payNative` refund, `claimRescue`) | **False positive / by design.** Same as the slither native-send rows: recipients are caller-configured (zero-checked) merchant/treasury/fee/buyer addresses or `msg.sender`; the contract is `nonReentrant` + CEI. A payments router sending native value is its purpose. |
+| **L-1** | Centralization risk (18×: owner setters + pause across all contracts) | **By design, documented trust assumption.** Owner controls fees/treasury/allowlists/pause and the workflow + router + chain config — a burner key at the event, a multisig in prod. No owner path reaches merchant funds (router settlement is atomic, zero-custody; PaymentLanes admin holds no lane balance; SessionGrant holds no funds at all; Receiver is off the money path). |
 | **L-2** | Missing `address(0)` check (Router `setPaymentLanes`) | **By design.** `address(0)` is the deliberate "disable lanes" sentinel; documented inline with a `slither-disable` directive. |
-| **L-3** | `public` could be `external` (`Access0x1Receiver.supportsInterface`) | **False positive.** It is an `override` of `IERC165.supportsInterface`, which must remain `public`. |
-| **L-4** | Literals could be constants (Router scaling, SessionGrant 6492 slicing) | **Idiomatic.** The remaining literals are decimal-scaling bases and signature byte offsets, not magic numbers; constant-extraction would reduce clarity. |
+| **L-3** | `public` could be `external` (`Access0x1Receiver.supportsInterface`, `HouseToken.decimals`) | **False positive.** Both are `override`s of base interfaces (`IERC165.supportsInterface`, `ERC20.decimals`) that must remain `public`. |
+| **L-4** | Literals could be constants (Router scaling, NameMath SVG math, SessionGrant 6492 slicing) | **Idiomatic.** The remaining literals are decimal-scaling bases, SVG geometry constants and signature byte offsets, not magic numbers; constant-extraction would reduce clarity. |
 | **L-5** | Events missing `indexed` fields (14×) | **By design.** Indexing targets the fields indexers actually filter on (ids/owners/orders); over-indexing wide settlement/audit events costs gas for fields nobody filters. |
 | **L-6** | Large literal `FEE_DENOMINATOR = 10_000` | **Intentional.** `10_000` reads as a basis-point denominator far more clearly than `1e4`; underscore-grouped and named. |
-| **L-7** | Unused custom error `ChainRegistry__ZeroAddress` | **By design.** Documented as the shared error reserved for consumers that enforce a non-zero `usdc`/`router` before use (the registry itself permits zero, since a chain may not have a token/router wired yet). Kept as part of the contract's published surface. |
-| **L-8** | Redundant statement (`SessionGrant` `ok;`) | **By design.** Same as the slither `redundant-statements` row — the deliberate, commented best-effort-ignore of the 6492 prepare result. |
+| **L-7** | Internal functions called once could be inlined (3×: `NameMath` SVG helpers) | **By design.** Named helpers keep the pure on-chain SVG math (color + identicon) readable; via-IR inlines them anyway, so there is no gas or behaviour impact. |
+| **L-8** | Unused custom error `ChainRegistry__ZeroAddress` | **By design.** Documented as the shared error reserved for consumers that enforce a non-zero `usdc`/`router` before use (the registry itself permits zero, since a chain may not have a token/router wired yet). Kept as part of the contract's published surface. |
+| **L-9** | Redundant statement (`SessionGrant` `ok;`) | **By design.** Same as the slither `redundant-statements` row — the deliberate, commented best-effort-ignore of the 6492 prepare result. |
 
 ## Manual review + adversarial testing
 

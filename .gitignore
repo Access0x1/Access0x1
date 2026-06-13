@@ -23,8 +23,11 @@ cre/package-lock.json
 # ── Foundry / Solidity ──
 cache/
 out/
-# aderyn's generated report — curated findings live in audit/FINDINGS.md
-report.md
+# aderyn's generated report — curated findings live in audit/FINDINGS.md.
+# Scope to the repo-root file aderyn writes; do NOT swallow the committed
+# audit report (case-insensitive filesystems would otherwise match REPORT.md).
+/report.md
+!audit/REPORT.md
 broadcast/*/31337/        # local anvil runs only
 broadcast/**/dry-run/     # keep REAL broadcasts — they're the on-chain deploy proof
 # NOTE: do NOT ignore lib/ — forge deps are git submodules (.gitmodules is tracked)
