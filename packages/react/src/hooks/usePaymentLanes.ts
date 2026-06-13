@@ -1,7 +1,7 @@
 /**
- * @file Optional read-only hook: ERC-6909 lane balance from `Access0x1Lanes`.
+ * @file Optional read-only hook: ERC-6909 lane balance from `PaymentLanes`.
  *
- * Given a credited asset + recipient + source-chain selector, derive the lane's ERC-6909 token id
+ * Given a credited asset + recipient + chain id, derive the lane's ERC-6909 token id
  * (`laneId`, a pure function) and read `balanceOf(owner, id)`. Read-only — this unit issues no
  * writes against the lanes contract (credits are minted by the router/cross-chain receiver, never
  * the SDK; guardrail #1, zero custody).
@@ -26,12 +26,13 @@ export interface UsePaymentLanesReturn {
 }
 
 /**
- * Read an ERC-6909 lane balance for `(chainSelector, asset, owner)`.
+ * Read an ERC-6909 lane balance for `(chainId, asset, owner)`.
  *
- * @param lanesAddress  The deployed `Access0x1Lanes` contract.
+ * @param lanesAddress  The deployed `PaymentLanes` contract.
  * @param owner         The recipient whose lane balance to read.
  * @param asset         The credited asset ({@link NATIVE_TOKEN} for native).
- * @param chainSelector The CCIP-style source chain selector; `0n` = local chain (default).
+ * @param chainId       The EVM chain id bound at credit time (`block.chainid`); `0n` lets the
+ *                      contract resolve the active chain (default).
  * @param client        The viem-backed client (read-only is sufficient).
  * @returns See {@link UsePaymentLanesReturn}.
  */
@@ -39,7 +40,7 @@ export function usePaymentLanes(
   lanesAddress: Hex,
   owner: Hex,
   asset: Hex = NATIVE_TOKEN,
-  chainSelector: bigint = 0n,
+  chainId: bigint = 0n,
   client?: Access0x1Client,
 ): UsePaymentLanesReturn {
   const [laneId, setLaneId] = useState<bigint | null>(null);
@@ -58,7 +59,7 @@ export function usePaymentLanes(
         address: lanesAddress,
         abi: LANES_ABI as unknown as import('viem').Abi,
         functionName: 'laneId',
-        args: [chainSelector, asset, owner],
+        args: [chainId, asset, owner],
       });
       if (cancelled) return;
       setLaneId(id);
@@ -86,7 +87,7 @@ export function usePaymentLanes(
     return () => {
       cancelled = true;
     };
-  }, [lanesAddress, owner, asset, chainSelector, client]);
+  }, [lanesAddress, owner, asset, chainId, client]);
 
   return { laneId, balance, isLoading, error };
 }
