@@ -15,7 +15,6 @@
     "jsx": "preserve",
     "incremental": true,
     "forceConsistentCasingInFileNames": true,
-    "allowImportingTsExtensions": true,
     "types": ["node", "vitest/globals"],
     "plugins": [{ "name": "next" }],
     "baseUrl": ".",
