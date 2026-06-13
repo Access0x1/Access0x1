@@ -1,0 +1,26 @@
+{
+  "name": "@access0x1/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Access0x1 hosted web app: hosted checkout (/m/[merchantId]) and the public One-Tag Checkout embed (public/embed.js).",
+  "license": "MIT",
+  "scripts": {
+    "prebuild": "node scripts/replace-embed-addrs.js",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "check:embed": "node --check public/embed.js",
+    "verify:embed": "node scripts/verify-embed.js",
+    "gate": "node --check public/embed.js && node scripts/verify-embed.js && tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "typescript": "5.5.3"
+  }
+}
