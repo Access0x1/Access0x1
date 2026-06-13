@@ -121,3 +121,49 @@ export async function fetchMerchantName(
     return fallback;
   }
 }
+
+/**
+ * Read a merchant's on-chain `nameHash` (the branding trust anchor, ADR D3).
+ *
+ * Reads `merchants(id)` via `eth_call` and returns the `bytes32 nameHash` field.
+ * The chain stores the HASH, never the readable name — a surface verifies a name
+ * by checking `keccak256(name) === nameHash`. Returns `null` on any failure or
+ * for an unregistered slot, so the branding resolver degrades gracefully. NEVER
+ * throws into `onTransaction`.
+ *
+ * @param id - The merchant id from the decoded call.
+ * @param routerAddress - The deployed router address (from Snap config; never hardcoded).
+ * @param provider - EIP-1193 provider for the `eth_call`.
+ * @returns The 32-byte `nameHash`, or `null`.
+ */
+export async function fetchMerchantNameHash(
+  id: bigint,
+  routerAddress: `0x${string}` | null,
+  provider: EthProvider,
+): Promise<`0x${string}` | null> {
+  if (!routerAddress) {
+    return null;
+  }
+  try {
+    const data = encodeFunctionData({
+      abi: MERCHANTS_ABI,
+      functionName: 'merchants',
+      args: [id],
+    });
+    const raw = (await provider.request({
+      method: 'eth_call',
+      params: [{ to: routerAddress, data }, 'latest'],
+    })) as `0x${string}`;
+    const [, owner, , , , nameHash] = decodeFunctionResult({
+      abi: MERCHANTS_ABI,
+      functionName: 'merchants',
+      data: raw,
+    });
+    if (isAddressEqual(owner, ZERO_ADDRESS)) {
+      return null;
+    }
+    return nameHash;
+  } catch {
+    return null;
+  }
+}
