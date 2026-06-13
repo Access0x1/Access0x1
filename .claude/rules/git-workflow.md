@@ -25,25 +25,26 @@ history Sunday should watch the system grow one deliberate move at a time.
 - **Bootstrap exception:** the first commits (DISCIPLINE.md, forge scaffold,
   CLAUDE.md, .claude/ harness, deps) go DIRECTLY to `main` — an empty repo has
   nothing to review. The branch law starts with the first feature commit.
-- **One branch per build-order unit, never per function:**
-  `feat/router-core` → `feat/token-allowlist` (real tokens, NO demo) →
-  `feat/payment-lanes` (ERC-6909) → `feat/multichain` (Arc+Base+zkSync) →
-  `feat/arc-gasfree` → `feat/dynamic-agent` → `feat/unlink-private` →
-  `feat/checkout-web` → `feat/ens-resolve` → one branch per stretch
-  (`feat/session-grant` (7702/6492), `feat/cre-notify`, `feat/walrus-host`,
-  `feat/metamask-snap`).
-- **At unit start:** `git switch -c feat/<unit>` from the latest tip, first
-  commit, `git push -u origin feat/<unit>`, then `gh pr create --draft --fill`.
+- **Branch = the AGENT's name.** Each agent works on its OWN branch named after
+  it — `proc-contracts`, `chain-base`, `fable-redteam-oracle`, … (suffix the unit
+  when one agent owns several: `proc-contracts/router-core`). Parallel agents =
+  parallel agent-named branches in ISOLATED worktrees, no collisions; Fable
+  integrates them. The build-order UNITS each agent delivers: `router-core` →
+  `token-allowlist` (real tokens, NO demo) → `payment-lanes` (ERC-6909) →
+  `multichain` (Arc+Base+zkSync) → `arc-gasfree` → `dynamic-agent` →
+  `unlink-private` → `checkout-web` → `ens-resolve` → stretches (`session-grant`
+  7702/6492, `cre-notify`, `walrus-host`, `metamask-snap`).
+- **At unit start:** `git switch -c <agent>[/<unit>]` from the latest tip, first
+  commit, `git push -u origin <branch>`, then `gh pr create --draft --fill`.
 - **Per function:** commit (laws 1–5) → `git push` — every commit is public
   within minutes.
-- **At unit end:** gate green → `gh pr ready` → **the OWNER merges, as a MERGE
-  COMMIT (`gh pr merge --merge`) — NEVER squash, NEVER rebase** (squash
-  collapses the unit into the single-commit pattern 1inch disqualifies and
-  destroys the per-function history).
-- **Owner-unreachable fallback (pre-authorized):** PR green + unmerged > 2h +
-  owner unreachable → the agent merges it (`gh pr merge --merge`), owner
-  reviews retroactively. Next unit branches off the unmerged tip meanwhile;
-  PRs merge in order. No rebase.
+- **At unit end — FABLE merges to `main`** (owner's call, 2026-06-13), as a
+  **MERGE COMMIT (`gh pr merge --merge`) — NEVER squash, NEVER rebase** (squash
+  destroys the per-function history) — **but ONLY after confirming GREEN:** the
+  local gate passes (`forge build && forge test && forge fmt --check`, or the web
+  typecheck/lint/build) **OR** the unit is verified on TESTNET with dummy/test
+  data. **No green → no merge.** PRs merge in dependency order. (The owner may
+  also merge; Fable is authorized to merge on confirmed green.)
 - **Abandoned experiment = closed PR.** Main stays green and clean.
 - **Before submission: zero open PRs** — unmerged work is invisible to judges.
 
