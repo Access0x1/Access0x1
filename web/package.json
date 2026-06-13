@@ -1,0 +1,21 @@
+{
+  "name": "@access0x1/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Access0x1 web surface — the private payout leg (Unlink shield + withdraw) and demo API routes.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "viem": "^2.47.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.8"
+  }
+}
