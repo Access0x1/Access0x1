@@ -1,0 +1,7 @@
+{
+  "chainSelectorName": "arc-testnet",
+  "routerAddress": "0x0000000000000000000000000000000000000000",
+  "receiverAddress": "0x0000000000000000000000000000000000000000",
+  "merchantWebhookUrl": "https://example.invalid/access0x1/settlement-webhook",
+  "webhookSecretId": "MERCHANT_WEBHOOK_KEY"
+}
