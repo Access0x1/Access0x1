@@ -8,7 +8,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { RouterHandler } from "./RouterHandler.sol";
 
-/// @notice The router's five money invariants under a bounded, handler-driven fuzzer — the security
+/// @notice The router's six money invariants under a bounded, handler-driven fuzzer — the security
 ///         floor for a zero-custody payments contract. Every property is asserted against an
 ///         INDEPENDENT ghost recomputation in the handler, never against the contract's own numbers.
 /// @dev    The handler owns the platform + every merchant and drives register/update/setPlatformFee/
