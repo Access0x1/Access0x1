@@ -10,9 +10,9 @@ export PATH := $(HOME)/.foundry/bin:$(PATH)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install build test test-gas coverage snapshot fmt fmt-check clean \
+.PHONY: help install build test test-gas test-scenario coverage snapshot fmt fmt-check clean \
         gate aderyn slither audit anvil \
-        deploy-dry deploy-local deploy-arc deploy-base deploy-zksync deploy-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
+        deploy-dry deploy-local drive-local deploy-arc deploy-base deploy-zksync deploy-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
         vyper-build vyper-test \
         cre-build cre-sim all
@@ -31,11 +31,14 @@ install: ## Install all deps: forge submodules + npm (@chainlink) + web + sdk
 build: ## Compile the contracts (forge build)
 	forge build
 
-test: ## Run all tests: unit + invariant + attack + integration
+test: ## Run all tests: unit + invariant + attack + integration + scenario
 	forge test
 
 test-gas: ## Run tests with the per-function gas report
 	forge test --gas-report
+
+test-scenario: ## Run ONLY the human-style end-to-end scenario suite (test/scenario/**)
+	forge test --match-path 'test/scenario/*'
 
 coverage: ## Test coverage over src/
 	forge coverage
@@ -76,6 +79,11 @@ deploy-dry: ## Deploy DRY-RUN — simulation only, no broadcast, no keys
 
 deploy-local: ## Deploy to a local anvil (broadcast)
 	forge script script/DeployAll.s.sol --rpc-url http://localhost:8545 --broadcast -vvvv
+
+drive-local: ## Deploy + DRIVE the coffee-shop money flow on a local anvil (run `make anvil` first)
+	forge script script/Interactions.s.sol:DriveCoffeeShopLocal \
+		--rpc-url http://localhost:8545 --broadcast --unlocked \
+		--sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 -vvvv
 
 deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast -vvvv
