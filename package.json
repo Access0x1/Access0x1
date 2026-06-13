@@ -1,0 +1,10 @@
+{
+  "name": "access0x1-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Solidity dependency manifest for Access0x1. Foundry resolves @chainlink/contracts into node_modules via a remapping (the canonical source now that chainlink-brownie-contracts is deprecated). Run `npm install` before `forge build`.",
+  "license": "MIT",
+  "dependencies": {
+    "@chainlink/contracts": "1.5.0"
+  }
+}
