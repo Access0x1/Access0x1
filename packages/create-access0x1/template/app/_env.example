@@ -1,0 +1,76 @@
+# {{PROJECT_NAME}} — environment variable NAMES only (no values, no secrets).
+#
+# Copy this to .env.local (create-access0x1 already did that for you) and fill the values there.
+# This file is committed; .env.local is NOT (see .gitignore). LAW #3: secrets never leave their box.
+#
+# DOCTRINE / LAW #4 (truth in copy): EVERY address slot below is intentionally BLANK. Never paste an
+# invented address. Fill each one from EITHER:
+#   - your own deploy broadcast (contracts/DEPLOY.md → broadcast/<chainId>/run-latest.json), OR
+#   - the sponsor booth (Circle USDC, Chainlink feeds, Arc RPC) — "confirm at booth".
+# A blank router makes checkout fail loudly rather than call the wrong contract.
+
+# =============================================================================
+# Your settlement chain: {{CHAIN_NAME}} (chain id {{CHAIN_ID}})
+# =============================================================================
+# The deployed Access0x1Router on this chain. REQUIRED before checkout works.
+# Fill from your `forge script DeployAll` broadcast, or paste a router you trust.
+{{ROUTER_ENV}}=
+
+# The allowlisted Circle USDC token on this chain (the default ERC-20 pay-in token).
+# confirm at booth (Circle). On Arc, USDC is the NATIVE gas token — you may leave this
+# blank to pay natively in USDC.
+NEXT_PUBLIC_USDC_ADDRESS_{{CHAIN_ID}}=
+
+# Per-chain JSON-RPC endpoint. Leave blank to use the public default; set a keyed RPC for prod.
+# confirm at booth (Arc RPC) — e.g. https://rpc.testnet.arc.network for Arc.
+NEXT_PUBLIC_RPC_URL_{{CHAIN_ID}}=
+
+# =============================================================================
+# Chainlink price feeds (USD pricing) — configured ON-CHAIN at deploy time
+# =============================================================================
+# The router prices USD→token via Chainlink feeds wired at deploy by
+# contracts/script/HelperConfig.s.sol. You set the feed addresses THERE (per chain), not here:
+#   NATIVE_USD_FEED / USDC_USD_FEED (or the chain-prefixed ARC_* / BASE_SEPOLIA_* variants).
+# confirm at booth (Chainlink) — docs.chain.link/data-feeds. Leave blank until confirmed; the
+# deploy script SKIPS an unset feed rather than wiring a guess.
+
+# =============================================================================
+# Circle USDC — additional chains (only fill the chains you actually deploy to)
+# =============================================================================
+# Arc Testnet (5042002)
+NEXT_PUBLIC_ROUTER_ADDRESS_5042002=
+NEXT_PUBLIC_USDC_ADDRESS_5042002=
+NEXT_PUBLIC_RPC_URL_5042002=
+# Base Sepolia (84532)
+NEXT_PUBLIC_ROUTER_ADDRESS_84532=
+NEXT_PUBLIC_USDC_ADDRESS_84532=
+NEXT_PUBLIC_RPC_URL_84532=
+# zkSync Sepolia (300)
+NEXT_PUBLIC_ROUTER_ADDRESS_300=
+NEXT_PUBLIC_USDC_ADDRESS_300=
+NEXT_PUBLIC_RPC_URL_300=
+
+# Default chain the app connects to.
+NEXT_PUBLIC_DEFAULT_CHAIN_ID={{CHAIN_ID}}
+
+# =============================================================================
+# Dynamic — hosted wallet auth / signing (OPTIONAL)
+# =============================================================================
+# The scaffold's bundled checkout uses a plain injected wallet (window.ethereum) so it boots with
+# zero credentials. To use Dynamic instead, set your environment id (Dynamic dashboard).
+# confirm at booth (Dynamic).
+NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=
+
+# =============================================================================
+# ENS / AuthProvider subnames — OPTIONAL on-chain identity for merchant/payout names
+# =============================================================================
+# Resolve a human name (e.g. merchant.yourbrand.eth) instead of a raw address. Optional.
+# confirm at booth (ENS / AuthProvider).
+NEXT_PUBLIC_ENS_REGISTRY=
+NEXT_PUBLIC_ENS_RESOLVER=
+
+# =============================================================================
+# Server-only secrets (NEVER prefixed NEXT_PUBLIC_; NEVER committed)
+# =============================================================================
+# Anthropic API key for any server-side AI features you add. Server-only.
+CLAUDE_API_KEY=

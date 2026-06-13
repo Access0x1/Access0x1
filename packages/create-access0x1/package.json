@@ -1,0 +1,39 @@
+{
+  "name": "create-access0x1",
+  "version": "0.1.0",
+  "description": "Scaffold a complete Access0x1 project in one command — a non-custodial, USD-priced (Chainlink) crypto checkout (Next.js + @access0x1/react) plus the BYO Solidity contracts (Foundry) you deploy to own your own router. Like create-next-app, for payments.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-access0x1": "./bin/index.mjs"
+  },
+  "files": [
+    "bin",
+    "template",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Access0x1/Access0x1.git",
+    "directory": "packages/create-access0x1"
+  },
+  "keywords": [
+    "access0x1",
+    "create",
+    "scaffold",
+    "initializer",
+    "payments",
+    "usdc",
+    "chainlink",
+    "non-custodial",
+    "viem",
+    "wagmi",
+    "next"
+  ]
+}

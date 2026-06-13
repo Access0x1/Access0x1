@@ -1,0 +1,17 @@
+/* Minimal global reset + the SDK spinner keyframe the bundled <PayButton> spinner uses. */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* @access0x1/react's <PayButton> spinner animates via this keyframe (no external CSS dep). */
+@keyframes access0x1-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
