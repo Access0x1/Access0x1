@@ -6,7 +6,7 @@ import { DeployAll } from "../../script/DeployAll.s.sol";
 import { DeployAccess0x1Router } from "../../script/DeployAccess0x1Router.s.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
-import { Access0x1Lanes } from "../../src/Access0x1Lanes.sol";
+import { PaymentLanes } from "../../src/PaymentLanes.sol";
 
 /// @notice deploy-multichain unit suite. Two halves:
 ///         (1) HelperConfig per-chain branch selection — `vm.chainId` forces each branch and proves
@@ -114,9 +114,9 @@ contract DeployAllTest is Test {
         vm.chainId(LOCAL);
         _ownerIsBroadcaster();
 
-        // Lanes ON: router + lanes deployed, feeds + USDC wired, router authorized as lane minter.
+        // Lanes ON: router + lanes deployed, feeds + USDC wired, router authorized + wired on the ledger.
         vm.setEnv("DEPLOY_PAYMENT_LANES", "true");
-        (Access0x1Router router, Access0x1Lanes lanes, HelperConfig hc) = new DeployAll().run();
+        (Access0x1Router router, PaymentLanes lanes, HelperConfig hc) = new DeployAll().run();
         HelperConfig.NetworkConfig memory cfg = hc.getConfig();
 
         assertTrue(address(router) != address(0));
@@ -132,11 +132,12 @@ contract DeployAllTest is Test {
         assertEq(router.priceFeedOf(cfg.usdc), cfg.usdcUsdFeed);
 
         assertTrue(address(lanes) != address(0));
-        assertTrue(lanes.isMinter(address(router))); // zero-custody router may mint lane receipts
+        assertTrue(lanes.isRouter(address(router))); // zero-custody router authorized to credit lanes
+        assertEq(router.paymentLanes(), address(lanes)); // and wired into the router's pay path
 
         // Lanes OFF: the optional ledger is not deployed; router stays in direct-push mode.
         vm.setEnv("DEPLOY_PAYMENT_LANES", "false");
-        (, Access0x1Lanes lanesOff,) = new DeployAll().run();
+        (, PaymentLanes lanesOff,) = new DeployAll().run();
         assertEq(address(lanesOff), address(0));
     }
 
