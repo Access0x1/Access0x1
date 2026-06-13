@@ -31,6 +31,8 @@ node_modules/
 dist/
 build/
 coverage/
+# MetaMask Snaps CLI scratch dir
+.snap/
 *.tsbuildinfo
 .vercel/
 .eslintcache
