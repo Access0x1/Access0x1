@@ -576,7 +576,7 @@ contract Access0x1RouterTest is Test {
 
     function test_setTreasuryUpdatesAndEmits() public {
         address newTreasury = makeAddr("newTreasury");
-        vm.expectEmit(false, false, false, true, address(router));
+        vm.expectEmit(true, false, false, true, address(router)); // newTreasury is indexed
         emit Access0x1Router.TreasuryUpdated(treasury, newTreasury);
         vm.prank(owner);
         router.setTreasury(newTreasury);

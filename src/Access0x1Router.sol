@@ -104,8 +104,8 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice The platform fee changed.
     event PlatformFeeUpdated(uint16 oldBps, uint16 newBps);
 
-    /// @notice The platform treasury changed.
-    event TreasuryUpdated(address oldTreasury, address newTreasury);
+    /// @notice The platform treasury changed. `newTreasury` is indexed so indexers can key on it.
+    event TreasuryUpdated(address oldTreasury, address indexed newTreasury);
 
     /// @notice A token was added to / removed from the pay-in allowlist.
     event TokenAllowedSet(address indexed token, bool allowed);
@@ -322,6 +322,9 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         address feedAddr = priceFeedOf[token];
         if (feedAddr == address(0)) revert Access0x1__TokenNotAllowed(token);
 
+        // Only the answer is needed; the staleness guard already reverted a stale/invalid round,
+        // so the other tuple fields are intentionally unused (Slither unused-return acknowledged).
+        // slither-disable-next-line unused-return
         (, int256 answer,,,) = AggregatorV3Interface(feedAddr).staleCheckLatestRoundData();
         if (answer <= 0) revert Access0x1__InvalidPrice(answer);
         // answer > 0 is enforced by the guard above, so this int256→uint256 cast cannot wrap.
@@ -371,8 +374,16 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
 
     /// @dev Push native value, or credit the pull-map on failure. A settled receipt must never be
     ///      reverted by a payee that rejects ETH (no custody, no stuck funds) — they pull instead.
+    ///      `to` is a merchant/treasury/fee address the caller configured, never arbitrary; a native
+    ///      transfer requires a low-level call (`.transfer` caps gas at 2300 and breaks smart-account
+    ///      payees); and the only state write is the failure-path `rescue` credit, reached solely
+    ///      from `nonReentrant` callers — `claimRescue` is `nonReentrant` too, so the shared guard
+    ///      makes cross-function reentrancy on `rescue` impossible. The Slither flags below
+    ///      (arbitrary-send-eth, low-level-calls, reentrancy-benign) are acknowledged by design.
+    // slither-disable-next-line arbitrary-send-eth,low-level-calls,reentrancy-benign,reentrancy-events
     function _pushNativeOrQueue(address to, uint256 amount) private {
         if (amount == 0) return;
+        // slither-disable-next-line arbitrary-send-eth,low-level-calls
         (bool ok,) = to.call{ value: amount }("");
         if (!ok) rescue[to] += amount;
     }
@@ -395,6 +406,10 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     /// @param merchantId The merchant to pay.
     /// @param usdAmount8 The price in USD (8 decimals).
     /// @param orderId    An opaque order reference echoed in the receipt event.
+    /// @dev    Slither reentrancy-eth is acknowledged: the only post-call state write is the
+    ///         failure-path `rescue` credit in `_pushNativeOrQueue`, and the `nonReentrant` guard
+    ///         (shared with `payToken`/`claimRescue`) makes re-entry impossible. CEI is preserved.
+    // slither-disable-next-line reentrancy-eth,reentrancy-events
     function payNative(uint256 merchantId, uint256 usdAmount8, bytes32 orderId)
         external
         payable
@@ -428,6 +443,7 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
 
         uint256 refundAmount = msg.value - gross;
         if (refundAmount > 0) {
+            // slither-disable-next-line low-level-calls
             (bool ok,) = msg.sender.call{ value: refundAmount }("");
             if (!ok) revert Access0x1__NativePushFailed(msg.sender, refundAmount);
         }
@@ -492,6 +508,7 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         if (amount == 0) revert Access0x1__NothingToRescue();
         rescue[msg.sender] = 0; // effect before interaction
         emit Rescued(msg.sender, amount);
+        // slither-disable-next-line low-level-calls
         (bool ok,) = msg.sender.call{ value: amount }("");
         if (!ok) revert Access0x1__NativePushFailed(msg.sender, amount);
     }

@@ -1,0 +1,9 @@
+{
+  "filter_paths": "lib/|node_modules/|test/|script/",
+  "exclude_dependencies": true,
+  "solc_remaps": [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@chainlink/contracts/=node_modules/@chainlink/contracts/",
+    "forge-std/=lib/forge-std/src/"
+  ]
+}
