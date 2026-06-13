@@ -15,6 +15,10 @@
  *                 low-medium signal that there is an account behind the session.
  *   - On-chain   (a funded wallet / a prior payment / an active SessionGrant =
  *                 "a real wallet, not a throwaway") — a low signal.
+ *   - OIDC       (the user signed in with an OIDC provider — "Sign in with
+ *                 Google" by default, any OIDC issuer or the operator's own
+ *                 backend by env — and we verified the issuer-signed ID token) —
+ *                 a low-medium signal of a real, provider-backed account.
  *
  * TIERS (the rungs the UI shows and the merchant gate enforces):
  *   - Standard       (0 methods)        — anyone.
@@ -28,25 +32,28 @@
  * limit applies (World ID Developer Portal, ENS mainnet resolver).
  */
 
-/** The four ways to verify, composed into one trust profile. */
-export type VerificationMethod = 'world-id' | 'ens' | 'dynamic' | 'onchain'
+/** The ways to verify, composed into one trust profile. */
+export type VerificationMethod = 'world-id' | 'ens' | 'dynamic' | 'oidc' | 'onchain'
 
 /** Every method, in display/priority order (World ID first — strongest). */
 export const VERIFICATION_METHODS: readonly VerificationMethod[] = [
   'world-id',
   'ens',
   'dynamic',
+  'oidc',
   'onchain',
 ] as const
 
 /**
  * Per-method trust weight (points toward the score). World ID dominates because
- * it is the only true proof-of-personhood; the others are realness signals.
+ * it is the only true proof-of-personhood; the others are realness signals. OIDC
+ * (a provider-signed "Sign in with Google" account) sits alongside Dynamic.
  */
 export const METHOD_WEIGHTS: Readonly<Record<VerificationMethod, number>> = {
   'world-id': 50,
   ens: 25,
   dynamic: 15,
+  oidc: 15,
   onchain: 10,
 }
 
@@ -65,6 +72,10 @@ export const METHOD_INFO: Readonly<
   dynamic: {
     label: 'Signed in',
     adds: 'You are signed in with an email, social, or wallet account.',
+  },
+  oidc: {
+    label: 'Sign in with Google',
+    adds: 'You signed in with Google (or your configured OIDC provider) — a real, provider-backed account, verified from the signed ID token.',
   },
   onchain: {
     label: 'Real wallet',
@@ -160,7 +171,9 @@ export function asTrustTier(v: unknown): TrustTier {
 
 /** Narrow an untrusted value into a {@link VerificationMethod}, or null. */
 export function asVerificationMethod(v: unknown): VerificationMethod | null {
-  return v === 'world-id' || v === 'ens' || v === 'dynamic' || v === 'onchain' ? v : null
+  return v === 'world-id' || v === 'ens' || v === 'dynamic' || v === 'oidc' || v === 'onchain'
+    ? v
+    : null
 }
 
 /**
