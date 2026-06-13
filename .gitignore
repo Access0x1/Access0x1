@@ -18,6 +18,8 @@ secrets.json
 # ── Foundry / Solidity ──
 cache/
 out/
+# aderyn's generated report — curated findings live in audit/FINDINGS.md
+report.md
 broadcast/*/31337/        # local anvil runs only
 broadcast/**/dry-run/     # keep REAL broadcasts — they're the on-chain deploy proof
 # NOTE: do NOT ignore lib/ — forge deps are git submodules (.gitmodules is tracked)
