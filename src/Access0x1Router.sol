@@ -325,6 +325,16 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         if (!ok) rescue[to] += amount;
     }
 
+    /// @dev Pull exactly `amount` of an ERC-20 in, verifying via the balance delta that the token
+    ///      did not skim (fee-on-transfer / rebasing) — those are rejected. Kept as a helper so the
+    ///      pay path's stack stays shallow.
+    function _pullExact(address token, address from, uint256 amount) private {
+        uint256 balBefore = IERC20(token).balanceOf(address(this));
+        IERC20(token).safeTransferFrom(from, address(this), amount);
+        uint256 received = IERC20(token).balanceOf(address(this)) - balBefore;
+        if (received != amount) revert Access0x1__FeeOnTransferToken(amount, received);
+    }
+
     /// @notice Pay a merchant in the chain's native token, priced in USD. Refunds any excess.
     /// @dev    CEI: checks (active merchant, fresh quote, sufficient value) → effects (split + emit)
     ///         → interactions (push net, push fee, refund). net/fee pushes that fail are queued to
@@ -359,5 +369,36 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
             (bool ok,) = msg.sender.call{ value: refundAmount }("");
             if (!ok) revert Access0x1__NativePushFailed(msg.sender, refundAmount);
         }
+    }
+
+    /// @notice Pay a merchant in an allowlisted ERC-20, priced in USD.
+    /// @dev    CEI with pull-then-verify: `safeTransferFrom` the gross in, then assert the balance
+    ///         delta equals `gross` (rejecting fee-on-transfer / rebasing tokens) BEFORE splitting
+    ///         and pushing net→payout + fee→feeDest with `SafeERC20`. An ERC-20 push that fails
+    ///         reverts the whole tx (nothing has settled yet — correct), so there is no rescue map
+    ///         here. `nonReentrant` + `whenNotPaused`; the allowlist + feed are checked in `quote`.
+    ///         Router holds ~zero token balance afterwards (no custody).
+    /// @param merchantId The merchant to pay.
+    /// @param token      The allowlisted pay-in ERC-20 (native is rejected — use `payNative`).
+    /// @param usdAmount8 The price in USD (8 decimals).
+    /// @param orderId    An opaque order reference echoed in the receipt event.
+    function payToken(uint256 merchantId, address token, uint256 usdAmount8, bytes32 orderId)
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        Merchant memory m = merchants[merchantId];
+        if (m.owner == address(0)) revert Access0x1__MerchantNotFound(merchantId);
+        if (!m.active) revert Access0x1__MerchantInactive(merchantId);
+        if (token == NATIVE) revert Access0x1__TokenNotAllowed(token); // native goes through payNative
+
+        uint256 gross = quote(merchantId, token, usdAmount8); // allowlist + feed + staleness, IN-TX
+        _pullExact(token, msg.sender, gross); // pull + reject fee-on-transfer via the balance delta
+
+        (uint256 fee, uint256 net, address feeDest) = _splitFee(m, gross);
+        emit PaymentReceived(merchantId, msg.sender, token, gross, fee, net, usdAmount8, orderId, 0);
+
+        IERC20(token).safeTransfer(m.payout, net);
+        if (fee > 0) IERC20(token).safeTransfer(feeDest, fee);
     }
 }
