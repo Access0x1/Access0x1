@@ -5,9 +5,11 @@ import { Test } from "forge-std/Test.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
+import { RevertingReceiver } from "../mocks/RevertingReceiver.sol";
+import { ReentrantPayout } from "../mocks/ReentrantPayout.sol";
 
-/// @notice Base fixture for the router's registry/admin/quote unit tests. Pay-path tests (which
-///         need token + reverting-receiver mocks) live in their own file built on the same shape.
+/// @notice The router's unit suite — the full surface in one fixture: constructor, merchant
+///         registry, pricing, both pay paths (with adversarial mocks), admin, and rescue.
 contract Access0x1RouterTest is Test {
     Access0x1Router internal router;
 
@@ -24,6 +26,10 @@ contract Access0x1RouterTest is Test {
     MockV3Aggregator internal nativeFeed; // ETH/USD, 8 dp
     MockV3Aggregator internal usdcFeed; // USDC/USD, 8 dp
     MockUSDC internal usdc; // 6 dp
+
+    address internal buyer = makeAddr("buyer");
+    bytes32 internal constant ORDER = keccak256("order-1");
+    uint16 internal constant TOTAL_FEE_BPS = PLATFORM_FEE_BPS + MERCHANT_FEE_BPS; // 150
 
     function setUp() public virtual {
         router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
@@ -272,5 +278,134 @@ contract Access0x1RouterTest is Test {
             abi.encodeWithSelector(Access0x1Router.Access0x1__InvalidPrice.selector, int256(-1))
         );
         router.quote(1, address(0), 20e8);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              PAY NATIVE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_payNativeSettlesAndEmits() public {
+        _configureFeeds();
+        uint256 id = _register();
+        uint256 gross = router.quote(id, address(0), 20e8); // 0.01 ether
+        uint256 fee = gross * TOTAL_FEE_BPS / 10_000;
+        uint256 net = gross - fee;
+
+        vm.deal(buyer, 1 ether);
+        vm.expectEmit(true, true, true, true, address(router));
+        emit Access0x1Router.PaymentReceived(id, buyer, address(0), gross, fee, net, 20e8, ORDER, 0);
+        vm.prank(buyer);
+        router.payNative{ value: gross }(id, 20e8, ORDER);
+
+        assertEq(payout.balance, net);
+        assertEq(feeRecipient.balance, fee); // feeDest = feeRecipient (it was set)
+        assertEq(address(router).balance, 0); // no custody
+        assertEq(fee + net, gross); // invariant: fee + net == gross
+    }
+
+    function test_payNativeRefundsExcess() public {
+        _configureFeeds();
+        uint256 id = _register();
+        uint256 gross = router.quote(id, address(0), 20e8);
+
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        router.payNative{ value: gross + 0.5 ether }(id, 20e8, ORDER);
+
+        assertEq(buyer.balance, 1 ether - gross); // net effect: buyer paid exactly gross
+    }
+
+    function test_payNativeRevertsUnderpaid() public {
+        _configureFeeds();
+        uint256 id = _register();
+        uint256 gross = router.quote(id, address(0), 20e8);
+
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__Underpaid.selector, gross, gross - 1)
+        );
+        router.payNative{ value: gross - 1 }(id, 20e8, ORDER);
+    }
+
+    function test_payNativeRevertsWhenMerchantNotFound() public {
+        _configureFeeds();
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__MerchantNotFound.selector, 42)
+        );
+        router.payNative{ value: 1 ether }(42, 20e8, ORDER);
+    }
+
+    function test_payNativeRevertsWhenInactive() public {
+        _configureFeeds();
+        uint256 id = _register();
+        vm.prank(merchantOwner);
+        router.updateMerchant(id, payout, feeRecipient, MERCHANT_FEE_BPS, false); // deactivate
+
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__MerchantInactive.selector, id)
+        );
+        router.payNative{ value: 1 ether }(id, 20e8, ORDER);
+    }
+
+    function test_payNativeQueuesRescueWhenPayoutRejects() public {
+        _configureFeeds();
+        RevertingReceiver badPayout = new RevertingReceiver();
+        vm.prank(merchantOwner);
+        uint256 id =
+            router.registerMerchant(address(badPayout), feeRecipient, MERCHANT_FEE_BPS, NAME_HASH);
+        uint256 gross = router.quote(id, address(0), 20e8);
+        uint256 fee = gross * TOTAL_FEE_BPS / 10_000;
+        uint256 net = gross - fee;
+
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        router.payNative{ value: gross }(id, 20e8, ORDER); // receipt still emits
+
+        assertEq(router.rescue(address(badPayout)), net); // queued, not lost
+        assertEq(feeRecipient.balance, fee); // fee still paid
+        assertEq(address(router).balance, net); // router holds exactly the rescued net
+    }
+
+    function test_payNativeRevertsWhenRefundFails() public {
+        _configureFeeds();
+        uint256 id = _register();
+        uint256 gross = router.quote(id, address(0), 20e8);
+
+        RevertingReceiver badBuyer = new RevertingReceiver();
+        vm.deal(address(badBuyer), 1 ether);
+        vm.prank(address(badBuyer));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__NativePushFailed.selector, address(badBuyer), 0.5 ether
+            )
+        );
+        router.payNative{ value: gross + 0.5 ether }(id, 20e8, ORDER);
+    }
+
+    function test_payNativeReentrancyIsBlocked() public {
+        _configureFeeds();
+        vm.prank(merchantOwner);
+        uint256 id = router.registerMerchant(payout, feeRecipient, MERCHANT_FEE_BPS, NAME_HASH);
+
+        ReentrantPayout attacker = new ReentrantPayout(router, id);
+        vm.prank(merchantOwner);
+        router.updateMerchant(id, address(attacker), feeRecipient, MERCHANT_FEE_BPS, true);
+
+        uint256 gross = router.quote(id, address(0), 20e8);
+        uint256 fee = gross * TOTAL_FEE_BPS / 10_000;
+        uint256 net = gross - fee;
+
+        vm.deal(buyer, 1 ether);
+        vm.prank(buyer);
+        router.payNative{ value: gross }(id, 20e8, ORDER);
+
+        // re-entry reverted → net push failed → queued; the merchant is NOT settled twice
+        assertEq(router.rescue(address(attacker)), net);
+        assertEq(feeRecipient.balance, fee);
     }
 }
