@@ -29,7 +29,7 @@ describe('usePaymentLanes', () => {
     expect(result.current.balance).toBe(100n);
     expect(result.current.error).toBeNull();
 
-    // laneId called with (chainSelector, asset, recipient); balanceOf with (owner, id)
+    // laneId called with (chainId, asset, recipient); balanceOf with (owner, id)
     const laneCall = client.readContract.mock.calls.find((c) => c[0].functionName === 'laneId');
     expect(laneCall?.[0].args).toEqual([0n, NATIVE_TOKEN, OWNER]);
     const balCall = client.readContract.mock.calls.find((c) => c[0].functionName === 'balanceOf');
