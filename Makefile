@@ -14,6 +14,7 @@ export PATH := $(HOME)/.foundry/bin:$(PATH)
         gate aderyn slither audit anvil \
         deploy-dry deploy-local deploy-arc deploy-base deploy-zksync \
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
+        vyper-build vyper-test \
         cre-build cre-sim all
 
 help: ## Show every command
@@ -106,6 +107,24 @@ web-gate: ## Web gate: embed check + typecheck + unit tests
 
 sdk-build: ## Typecheck the @access0x1/react SDK
 	cd packages/react && npx tsc --noEmit
+
+# ── Vyper conformance demonstrator (ISOLATED under vyper/; NOT in the Foundry gate) ──────────────
+# `src` in foundry.toml is "src", so forge never sees vyper/*.vy. These targets no-op with a clear
+# message when the snake toolchain (vyper + mox) is absent, so the repo still builds without it.
+# Toolchain: `uv tool install moccasin` + `uv tool install vyper` (Python 3.13). See vyper/README.md.
+vyper-build: ## Compile the Vyper NameMath demonstrator (cancun); no-op if vyper not installed
+	@if command -v vyper >/dev/null 2>&1; then \
+		vyper --evm-version cancun vyper/src/NameMath.vy >/dev/null && echo "==> vyper-build OK (cancun)"; \
+	else \
+		echo "vyper not installed — skipping (see vyper/README.md: uv tool install vyper)"; \
+	fi
+
+vyper-test: ## Run the Vyper==Solidity byte-for-byte conformance test; no-op if mox not installed
+	@if command -v mox >/dev/null 2>&1; then \
+		cd vyper && mox test; \
+	else \
+		echo "mox (moccasin) not installed — skipping (see vyper/README.md: uv tool install moccasin)"; \
+	fi
 
 # ── Chainlink CRE (Notified-Settlement workflow; deploy is Early-Access) ──────────
 cre-build: ## Build the CRE workflow (needs the CRE CLI)
