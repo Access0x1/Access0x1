@@ -115,4 +115,69 @@ contract Access0x1RouterTest is Test {
         (,, address fr,,,) = router.merchants(id);
         assertEq(fr, address(0)); // allowed: pay path falls back to payout
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            UPDATE MERCHANT
+    //////////////////////////////////////////////////////////////*/
+
+    function test_updateChangesConfigAndPreservesIdentity() public {
+        uint256 id = _register();
+        address newPayout = makeAddr("newPayout");
+        address newFeeRecipient = makeAddr("newFeeRecipient");
+        uint16 newFeeBps = 200;
+
+        vm.expectEmit(true, false, false, true, address(router));
+        emit Access0x1Router.MerchantUpdated(id, newPayout, newFeeRecipient, newFeeBps, false);
+        vm.prank(merchantOwner);
+        router.updateMerchant(id, newPayout, newFeeRecipient, newFeeBps, false);
+
+        (address p, address o, address fr, uint16 fb, bool active, bytes32 nh) =
+            router.merchants(id);
+        assertEq(p, newPayout);
+        assertEq(fr, newFeeRecipient);
+        assertEq(fb, newFeeBps);
+        assertFalse(active);
+        assertEq(o, merchantOwner); // owner is immutable
+        assertEq(nh, NAME_HASH); // nameHash is immutable
+    }
+
+    function test_updateRevertsOnUnknownId() public {
+        vm.prank(merchantOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__MerchantNotFound.selector, 999)
+        );
+        router.updateMerchant(999, payout, feeRecipient, MERCHANT_FEE_BPS, true);
+    }
+
+    function test_updateRevertsWhenNotOwner() public {
+        uint256 id = _register();
+        address attacker = makeAddr("attacker");
+        vm.prank(attacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__NotMerchantOwner.selector, id, attacker
+            )
+        );
+        router.updateMerchant(id, payout, feeRecipient, MERCHANT_FEE_BPS, true);
+    }
+
+    function test_updateRevertsOnZeroPayout() public {
+        uint256 id = _register();
+        vm.prank(merchantOwner);
+        vm.expectRevert(Access0x1Router.Access0x1__ZeroAddress.selector);
+        router.updateMerchant(id, address(0), feeRecipient, MERCHANT_FEE_BPS, true);
+    }
+
+    function test_updateRevertsWhenFeeCapExceeded() public {
+        uint256 id = _register();
+        uint16 over = router.MAX_FEE_BPS() - PLATFORM_FEE_BPS + 1;
+        uint256 combined = uint256(over) + PLATFORM_FEE_BPS;
+        vm.prank(merchantOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__FeeTooHigh.selector, combined, router.MAX_FEE_BPS()
+            )
+        );
+        router.updateMerchant(id, payout, feeRecipient, over, true);
+    }
 }
