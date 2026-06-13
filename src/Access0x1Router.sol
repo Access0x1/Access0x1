@@ -233,4 +233,25 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         m.active = active;
         emit MerchantUpdated(id, payout, feeRecipient, feeBps, active);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          TOKEN / FEED CONFIG (admin)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Add or remove a token from the pay-in allowlist. Native (address(0)) is implicit.
+    /// @param token   The ERC-20 to (dis)allow as a pay-in currency.
+    /// @param allowed Whether `payToken` will accept it.
+    function setTokenAllowed(address token, bool allowed) external onlyOwner {
+        tokenAllowed[token] = allowed;
+        emit TokenAllowedSet(token, allowed);
+    }
+
+    /// @notice Set (or clear) the Chainlink <token>/USD feed used to price a token. `priceFeedOf[0]`
+    ///         is the native/USD feed. Passing `feed == address(0)` clears the mapping.
+    /// @param token The token (address(0) = native) whose feed is being set.
+    /// @param feed  The Chainlink aggregator, or address(0) to clear.
+    function setPriceFeed(address token, address feed) external onlyOwner {
+        priceFeedOf[token] = feed;
+        emit PriceFeedSet(token, feed);
+    }
 }
