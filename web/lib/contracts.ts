@@ -1,6 +1,4 @@
 import {
-  decodeEventLog,
-  encodeFunctionData,
   erc20Abi,
   parseEventLogs,
   type Address,
@@ -18,7 +16,7 @@ import {
  * lockstep with the contract; if the contract changes, regenerate from
  * `forge inspect Access0x1Router abi`.
  *
- * Revert cases the UI must surface (parsed via {@link parseRouterError}):
+ * Revert cases the UI must surface (matched by name in `CheckoutCard.humanizeRevert`):
  *   - Access0x1__MerchantNotFound(uint256)
  *   - Access0x1__MerchantInactive(uint256)
  *   - Access0x1__TokenNotAllowed(address)
@@ -324,7 +322,7 @@ export async function registerMerchant(
  *
  * Off-CEI: this never triggers a swap/bridge — it pays and returns (guardrail #4).
  * @throws Access0x1__MerchantInactive / Access0x1__TokenNotAllowed /
- *   Access0x1__Underpaid / OracleLib__StalePrice (surface via parseRouterError).
+ *   Access0x1__Underpaid / OracleLib__StalePrice (surfaced by name in the UI).
  */
 export async function payToken(
   walletClient: WalletClient,
@@ -428,65 +426,4 @@ export function parsePaymentReceived(
   const ev = parsed[0]
   if (!ev) throw new Error('payment: PaymentReceived event not found in receipt')
   return ev.args as PaymentReceivedEvent
-}
-
-/**
- * Decode a router revert into a human-readable error name (e.g.
- * "Access0x1__MerchantInactive"). Returns null if the data is not a known
- * router/oracle error, so callers can fall back to a generic message.
- */
-export function parseRouterError(data: `0x${string}`): string | null {
-  try {
-    const decoded = decodeEventLog({
-      abi: ROUTER_ABI,
-      data,
-      topics: [data.slice(0, 10) as `0x${string}`],
-    })
-    return decoded.eventName ?? null
-  } catch {
-    // Not an event; try matching the 4-byte selector against the error fragments.
-    return matchErrorSelector(data)
-  }
-}
-
-/** Match a 4-byte error selector against the known router/oracle custom errors. */
-function matchErrorSelector(data: `0x${string}`): string | null {
-  const selector = data.slice(0, 10).toLowerCase()
-  for (const item of ROUTER_ABI) {
-    if (item.type !== 'error') continue
-    const sig = `${item.name}(${item.inputs.map((i) => i.type).join(',')})`
-    if (errorSelector(sig).toLowerCase() === selector) return item.name
-  }
-  return null
-}
-
-/** keccak-based 4-byte selector for an error signature, computed lazily via encodeFunctionData fallback. */
-function errorSelector(signature: string): string {
-  // viem does not expose toFunctionSelector for errors directly here without an
-  // ABI item, so we reconstruct a function-like ABI to derive the selector.
-  const name = signature.slice(0, signature.indexOf('('))
-  const types = signature
-    .slice(signature.indexOf('(') + 1, signature.lastIndexOf(')'))
-    .split(',')
-    .filter(Boolean)
-    .map((t) => ({ type: t }))
-  try {
-    const encoded = encodeFunctionData({
-      abi: [
-        {
-          type: 'function',
-          name,
-          stateMutability: 'nonpayable',
-          inputs: types,
-          outputs: [],
-        },
-      ],
-      functionName: name,
-      // zero args of the right arity; selector is in the first 4 bytes regardless of values
-      args: types.map(() => 0n) as never,
-    })
-    return encoded.slice(0, 10)
-  } catch {
-    return '0x00000000'
-  }
 }
