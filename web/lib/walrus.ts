@@ -240,7 +240,9 @@ export class WalrusClient {
     const res = await this.fetchImpl(url, {
       method: 'PUT',
       headers,
-      body: typeof data === 'string' ? new TextEncoder().encode(data) : data,
+      // TS 5.7 types Uint8Array as generic over its buffer and no longer auto-widens it to
+      // BodyInit; the value is a valid fetch body at runtime, so cast it explicitly.
+      body: (typeof data === 'string' ? new TextEncoder().encode(data) : data) as BodyInit,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
