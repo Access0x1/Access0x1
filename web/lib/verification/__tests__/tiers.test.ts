@@ -113,6 +113,30 @@ describe('asTrustTier / asVerificationMethod narrowers', () => {
   })
 })
 
+describe('oidc method (Sign in with Google) stacks like the others', () => {
+  it('is a recognized method with a weight', () => {
+    expect(asVerificationMethod('oidc')).toBe('oidc')
+    expect(METHOD_WEIGHTS.oidc).toBeGreaterThan(0)
+  })
+  it('oidc alone -> verified', () => {
+    expect(computeTier(p('oidc'))).toBe('verified')
+    expect(computeTrustScore(p('oidc'))).toBe(METHOD_WEIGHTS.oidc)
+  })
+  it('World ID + ens + oidc -> super-verified (oidc counts as an "other")', () => {
+    expect(computeTier(p('world-id', 'ens', 'oidc'))).toBe('super-verified')
+  })
+  it('oidc + ens + onchain (no World ID) -> super-verified (3-method composite)', () => {
+    expect(computeTier(p('oidc', 'ens', 'onchain'))).toBe('super-verified')
+  })
+  it('normalizeMethods keeps oidc in priority order (after dynamic, before onchain)', () => {
+    expect(normalizeMethods(['onchain', 'oidc', 'world-id'] as never)).toEqual([
+      'world-id',
+      'oidc',
+      'onchain',
+    ])
+  })
+})
+
 describe('nextStepToSuper', () => {
   it('null once super-verified', () => {
     expect(nextStepToSuper(p('ens', 'dynamic', 'onchain'))).toBeNull()

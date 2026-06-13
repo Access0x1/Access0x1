@@ -368,6 +368,15 @@ sponsor let us *not* build, not a sponsor wall.
   lets a merchant require a one-tap proof-of-personhood before pay. The gate sits *in front of*
   settlement and never touches the money path — a misconfigured gate degrades to standard checkout
   rather than blocking a payment.
+- **OIDC verify-for-all — "Sign in with Google" (or any OIDC provider).**
+  [`web/lib/oidc`](web/lib/oidc) + [`web/app/api/oidc/verify`](web/app/api/oidc/verify) verify a
+  provider-signed ID token server-side (signature + issuer + audience via `jose`) and record an `oidc`
+  method that stacks into Standard → Verified → Super Verified next to World ID / ENS / Dynamic /
+  on-chain. **Install → verify for all:** any app built from this template inherits the method by setting
+  `NEXT_PUBLIC_OIDC_CLIENT_ID` (audience) — blank ⇒ OIDC is OFF (fail-soft). The defaults verify
+  Sign-in-with-Google ID tokens; override `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` to point at
+  *any* OIDC provider or your own auth backend with no code change. A verified token identifies a USER
+  and, when it carries an agent claim, a verified AGENT — verify for all.
 - **ENS — human-readable names on both ends.** [`web/lib/ens.ts`](web/lib/ens.ts) resolves an ENS name
   to the merchant's payout address *on the settlement chain* (always passing the chain's `coinType`),
   so both the brand and the payout destination can be a name instead of a hex string.
