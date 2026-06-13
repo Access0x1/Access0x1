@@ -1,0 +1,29 @@
+{
+  "name": "@access0x1/snap",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Access0x1 — readable payment insight + private payout inside MetaMask",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Access0x1/Access0x1.git"
+  },
+  "scripts": {
+    "build": "mm-snap build",
+    "serve": "mm-snap serve",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@metamask/snaps-sdk": "11.1.1",
+    "viem": "2.52.2"
+  },
+  "devDependencies": {
+    "@metamask/snaps-cli": "8.4.1",
+    "typescript": "5.9.2",
+    "vitest": "1.6.1"
+  }
+}
