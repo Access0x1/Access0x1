@@ -1,0 +1,26 @@
+{
+  "name": "@access0x1/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Access0x1 hosted web app: the server-side Dynamic AI payment agent (lib/agent) plus the hosted checkout surface. The agent authenticates a Dynamic MPC server wallet on Arc Testnet and pays x402 micro-payments autonomously, gated by a never-negative daily USD budget meter.",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gate": "tsc --noEmit && vitest run"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "viem": "^2.35.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "typescript": "5.5.3",
+    "vitest": "^2.1.8"
+  }
+}
