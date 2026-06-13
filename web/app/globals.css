@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ax1-ink: #0a0a0a;
+  --ax1-rail: #6366f1;
+}
+
+html,
+body {
+  background: #ffffff;
+  color: var(--ax1-ink);
+  -webkit-font-smoothing: antialiased;
+}
