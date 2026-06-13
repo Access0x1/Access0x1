@@ -16,9 +16,11 @@ import {
   type UnlinkAccount,
   type WalletClient,
 } from "@unlink-xyz/sdk";
+import { ARC_TESTNET_ID } from "../chains.js";
 
-/** Arc chain id (5042002) — same chain for Unlink env `arc-testnet` AND Circle `arcTestnet`. */
-export const ARC_CHAIN_ID = 5042002;
+/** Arc chain id (5042002) — same chain for Unlink env `arc-testnet` AND Circle `arcTestnet`.
+ * Derived from the canonical {@link ARC_TESTNET_ID} (single source of truth in `lib/chains.ts`). */
+export const ARC_CHAIN_ID = ARC_TESTNET_ID;
 
 /**
  * Derive a merchant's Unlink account deterministically from their Dynamic signer.
