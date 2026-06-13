@@ -1,0 +1,16 @@
+{
+  "name": "{{PROJECT_NAME}}-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Solidity dependency manifest for {{PROJECT_NAME}} — your own non-custodial Access0x1Router. Foundry resolves @chainlink/contracts into node_modules via a remapping (the canonical source now that chainlink-brownie-contracts is deprecated). Run `npm install` then `forge install`, then `forge build`. See DEPLOY.md.",
+  "license": "MIT",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "deploy:local": "forge script script/DeployAll.s.sol --rpc-url http://127.0.0.1:8545 --broadcast",
+    "postinstall:contracts": "forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts"
+  },
+  "dependencies": {
+    "@chainlink/contracts": "1.5.0"
+  }
+}

@@ -1,0 +1,12 @@
+# Foundry build artifacts
+/out/
+/cache/
+/broadcast/*/dry-run/
+
+# dependencies (installed via `forge install` and `npm install`)
+/lib/
+/node_modules/
+
+# env — NEVER commit RPC keys or a deployer key
+.env
+.env.local
