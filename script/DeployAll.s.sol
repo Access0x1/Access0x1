@@ -216,6 +216,51 @@ contract DeployAll is Script {
             console2.log("  USDC/USD feed       :", cfg.usdcUsdFeed);
         }
 
+        // 11. Multi-token checkout: allowlist + price-feed the EXTRA pay tokens a buyer may settle in
+        //     (WETH/LINK/UNI/ENS/DAI/WBTC), each USD-priced via its own Chainlink <token>/USD feed.
+        //     Env-driven, NEVER hardcoded: each `TOKEN_<SYM>_ADDR` + `TOKEN_<SYM>_USD_FEED` pair is read
+        //     from env and SKIPPED whenever the address resolves to address(0) (not booth-confirmed yet),
+        //     mirroring the USDC handling above. The Router already supports `payToken(any allowlisted
+        //     token)` + `setTokenAllowed` + `setPriceFeed`; this wires the token SET. USDC stays the
+        //     default and is handled above (its own confirmed vars) — it is NOT re-listed here.
+        _configureExtraPayTokens(router);
+
         vm.stopBroadcast();
+    }
+
+    /// @notice The non-USDC pay-token symbols whose env pairs (`TOKEN_<SYM>_ADDR` / `TOKEN_<SYM>_USD_FEED`)
+    ///         the deploy reads — the same set the buyer-facing picker offers (lib/tokens.ts), minus USDC
+    ///         (its own confirmed vars handle USDC above). PUBLIC tokens/standards — allowlisted only when
+    ///         env-confirmed for the chain.
+    function _payTokenSymbols() private pure returns (string[6] memory) {
+        return ["WETH", "LINK", "UNI", "ENS", "DAI", "WBTC"];
+    }
+
+    /// @notice Allowlist + price-feed each env-configured extra pay token on the Router. For each symbol,
+    ///         reads `TOKEN_<SYM>_ADDR` and `TOKEN_<SYM>_USD_FEED` (both default to address(0)); a token
+    ///         is wired ONLY when its address is non-zero. The feed is set only when ALSO non-zero — an
+    ///         allowlisted-but-unfed token would revert at `quote()` (Access0x1__InvalidPrice), surfacing
+    ///         loudly rather than mispricing, so a half-configured token never silently settles wrong.
+    ///
+    ///         Owner-only calls (`setTokenAllowed` / `setPriceFeed`), NOT on the payNative/payToken CEI
+    ///         path — no money-path/CEI concern. They execute when `owner` defaulted to the broadcaster;
+    ///         with a separate ROUTER_OWNER they revert by design and the admin re-runs from its own key
+    ///         (fail-loud, never a silent half-config — same contract as the USDC block above).
+    /// @param  router The freshly deployed Router to configure.
+    function _configureExtraPayTokens(Access0x1Router router) private {
+        string[6] memory syms = _payTokenSymbols();
+        for (uint256 i = 0; i < syms.length; i++) {
+            address tokenAddr = vm.envOr(string.concat("TOKEN_", syms[i], "_ADDR"), address(0));
+            if (tokenAddr == address(0)) continue; // not booth-confirmed on this chain — skip, never guess.
+
+            router.setTokenAllowed(tokenAddr, true);
+            console2.log(string.concat("  ", syms[i], " allowlisted    :"), tokenAddr);
+
+            address feed = vm.envOr(string.concat("TOKEN_", syms[i], "_USD_FEED"), address(0));
+            if (feed != address(0)) {
+                router.setPriceFeed(tokenAddr, feed);
+                console2.log(string.concat("  ", syms[i], "/USD feed       :"), feed);
+            }
+        }
     }
 }
