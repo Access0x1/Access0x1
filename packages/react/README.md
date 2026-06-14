@@ -12,6 +12,15 @@ npm install @access0x1/react viem wagmi
 
 `react`, `viem ^2.35`, and `wagmi ^3` are peer dependencies your app already provides. Wallet/auth (e.g. Dynamic) is always the host app's concern — the SDK is auth-agnostic and reads your viem clients.
 
+> **Not on npm yet?** Build and install directly from this repo:
+> ```bash
+> cd packages/react
+> npm ci && npm run build && npm pack   # creates access0x1-react-0.1.0.tgz
+> # In your app:
+> npm install ../path/to/access0x1-react-0.1.0.tgz viem wagmi
+> ```
+> Or use the `templates/starter` — its `npm run setup` script handles the pack-and-wire step automatically.
+
 ## Quick start — `<PayButton>`
 
 ```tsx

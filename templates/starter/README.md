@@ -29,15 +29,23 @@ A non-custodial, USD-priced (Chainlink) crypto checkout, scaffolded from the
 ## Get this template
 
 ```bash
-# Fetch the starter directly (no CLI, no npm install of a scaffolder) — recommended:
+# Recommended — degit copies the template and npm run setup bootstraps everything:
 npx degit Access0x1/Access0x1/templates/starter my-checkout
 cd my-checkout
+npm run setup   # installs Foundry + deps + packs @access0x1/react; see step 1 below
 ```
 
-`degit` copies the template verbatim. Replace the `{{...}}` placeholders (`{{PROJECT_NAME}}`,
-`{{CHAIN_NAME}}`, `{{CHAIN_ID}}`, `{{ROUTER_ENV}}`, `{{FEATURES}}`) with your own values — or use
-the convenience CLI from a checkout of this repo (`node packages/create-access0x1/bin/index.mjs
-my-app --chain {{CHAIN}} --yes`), which substitutes them for you.
+The template ships with **Arc Testnet as the default chain** (gas-free USDC checkout). The
+`{{PROJECT_NAME}}`, `{{CHAIN_NAME}}`, etc. tokens in comments and strings are display-only — the
+runtime config already contains the correct Arc values. To target Base Sepolia or zkSync Sepolia
+instead, edit `CHAIN_KEY` at the top of `app/access0x1.config.ts` (set it to `'base'` or `'zksync'`).
+
+Alternatively, use the convenience CLI from a checkout of this repo to scaffold with substitution
+already done:
+
+```bash
+node packages/create-access0x1/bin/index.mjs my-checkout --chain base --yes
+```
 
 ---
 
@@ -53,6 +61,11 @@ This detects Foundry (installs it via `foundryup` if missing), `forge install`s 
 submodules, `npm install`s the contract + app deps (`@chainlink/contracts`, Next.js,
 `@access0x1/react`), and runs `forge build` to prove the vendored contracts compile. It installs
 TOOLING only — it never deploys and never writes an address.
+
+> **`@access0x1/react` not on npm yet?** `npm run setup` detects this automatically. It locates
+> the `packages/react` source in the local Access0x1 repo checkout (or clones a known path), runs
+> `npm run build && npm pack`, drops the tarball into `vendor/`, and wires a `file:` reference into
+> `app/package.json` — so `npm install` succeeds with no manual steps.
 
 ### 2. Point at a router — pick ONE path
 
