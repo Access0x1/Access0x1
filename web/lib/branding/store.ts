@@ -462,3 +462,25 @@ export function __resetBrandingStore(): void {
   const g = globalThis as unknown as Record<string, BrandingStore | undefined>;
   g[GLOBAL_KEY] = { byTenant: new Map(), bySlug: new Map(), byMerchant: new Map() };
 }
+
+// ── Featured-merchant seed (optional, env-driven, fail-soft) ─────────────────
+// Seed ONE stable default brand at module load IF the deployment set the
+// FEATURED_MERCHANT_* env (see ./seed.ts). This runs once per process, here at
+// the BOTTOM of the module so `upsertBranding` is already defined (no circular
+// init), and is wrapped so a bad env value can never crash the store on import.
+// When the env is unset it is a no-op — the open-source default is the unchanged
+// empty store. Pinned on globalThis so it seeds at most once across hot-reloads.
+import { seedFeaturedMerchant } from './seed.js';
+
+const SEED_FLAG_KEY = '__ax1_featured_seeded__';
+{
+  const g = globalThis as unknown as Record<string, boolean | undefined>;
+  if (!g[SEED_FLAG_KEY]) {
+    g[SEED_FLAG_KEY] = true;
+    try {
+      seedFeaturedMerchant(upsertBranding);
+    } catch {
+      // Fail-soft: never let the seed break the store module load.
+    }
+  }
+}
