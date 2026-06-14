@@ -12,6 +12,7 @@ import { MerchantIdentity } from './MerchantIdentity'
 import { FundButton } from './FundButton'
 import { isOnrampPublicConfigured } from '@/lib/onramp'
 import { isBlinkPublicConfigured, runBlinkDeposit } from '@/lib/funding/blink'
+import { isPaymasterActiveForChain } from '@/lib/paymaster'
 import { ReceiptScreen } from './ReceiptScreen'
 import { TokenPicker } from './TokenPicker'
 import { WorldIdGate } from './WorldIdGate'
@@ -143,6 +144,9 @@ export function CheckoutCard({
   // existing handlePay below — funding never settles a payment itself.
   const bankConfigured = isOnrampPublicConfigured()
   const oneTapConfigured = isBlinkPublicConfigured()
+  // ERC-7677 paymaster: true ONLY when a paymaster is configured AND it covers
+  // this checkout's chain. The badge is hidden on all other chains (law #4).
+  const gasSponsored = isPaymasterActiveForChain(chainId)
   const [funding, setFunding] = useState(false)
   const [fundNote, setFundNote] = useState<string | null>(null)
 
@@ -353,6 +357,32 @@ export function CheckoutCard({
             so we never show this for a non-USDC selection. */}
         {isGasFree(chainId) && tokenSymbol === USDC_SYMBOL ? (
           <p className="mt-1 text-xs text-neutral-400">Pay in USDC — no separate gas token needed.</p>
+        ) : null}
+        {/* ERC-7677 sponsored-gas badge (env-gated, fail-soft).
+            Shown ONLY when a paymaster is configured AND it covers this chain
+            (`isPaymasterActiveForChain`). A paymaster for chain A never shows on
+            chain B — no false "free gas" claim (law #4 / truth-in-copy). When
+            NEXT_PUBLIC_PAYMASTER_URL or NEXT_PUBLIC_PAYMASTER_CHAIN_ID are unset
+            this is false and the badge is absent; the pay flow is unchanged. */}
+        {gasSponsored ? (
+          <div
+            data-testid="gas-sponsored-badge"
+            className="mt-1 flex items-center gap-1.5 rounded-md border border-green-200 bg-green-50 px-2 py-1"
+          >
+            <svg
+              aria-hidden="true"
+              className="h-3.5 w-3.5 flex-shrink-0 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-xs font-medium text-green-700">
+              Gas sponsored — you pay $0 in network fees.
+            </p>
+          </div>
         ) : null}
       </div>
 
