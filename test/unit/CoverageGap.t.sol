@@ -191,9 +191,7 @@ contract CoverageGapTest is Test {
         bytes32 cid = keccak256("FLAT10");
         vm.prank(merchantOwner);
         // AMOUNT coupon: flat $10 discount
-        cards.setCoupon(
-            merchantId, cid, IAccess0x1GiftCards.DiscountType.AMOUNT, 10e8, 0, 0
-        );
+        cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.AMOUNT, 10e8, 0, 0);
 
         uint256 discount = cards.applyCoupon(merchantId, cid, 100e8);
         assertEq(discount, 10e8, "AMOUNT discount: flat $10 off a $100 sale");
