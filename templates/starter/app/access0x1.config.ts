@@ -7,32 +7,67 @@
  * address fails loudly at checkout rather than producing a silent wrong call.
  *
  * The only baked-in value is the public chain ID — a fact, not a secret.
+ *
+ * Scaffolded chain: {{CHAIN_NAME}} (chain id {{CHAIN_ID}}).
+ *
+ * HOW CHAIN VALUES ARE SET
+ * ─────────────────────────
+ * This file works out of the box after `degit` AND after `npm create access0x1`.
+ *
+ * - After `npx degit`: CHAIN_KEY defaults to '{{CHAIN}}' (unsubstituted); the CHAIN_DEFAULTS
+ *   lookup table falls back to Arc Testnet (the lead chain). Edit CHAIN_KEY to 'base' or 'zksync'
+ *   to target a different chain — the lookup table fills the rest automatically.
+ *
+ * - After `npm create access0x1 --chain base` (or `arc`/`zksync`): the create-access0x1 CLI
+ *   substitutes '{{CHAIN}}', '{{CHAIN_NAME}}', and '{{ROUTER_ENV}}' with the correct values.
+ *   CHAIN_DEFAULTS is still present as a human-readable reference; the resolved values win.
  */
 
 import type { Hex } from '@access0x1/react';
 
+/** Public chain metadata. All values are facts (chain IDs), never invented addresses. */
+const CHAIN_DEFAULTS = {
+  arc:    { name: 'Arc Testnet',      id: 5042002, routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_5042002' },
+  base:   { name: 'Base Sepolia',     id: 84532,   routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_84532'   },
+  zksync: { name: 'zkSync Sepolia',   id: 300,     routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_300'     },
+} as const;
+type ChainKey = keyof typeof CHAIN_DEFAULTS;
+
+// create-access0x1 substitutes '{{CHAIN}}' with the chosen chain key.
+// After plain degit the token stays literal; the fallback below catches it.
+const _rawKey = '{{CHAIN}}';
+const CHAIN_KEY: ChainKey = (_rawKey in CHAIN_DEFAULTS ? _rawKey : 'arc') as ChainKey;
+const _defaults = CHAIN_DEFAULTS[CHAIN_KEY];
+
+// create-access0x1 also substitutes '{{CHAIN_NAME}}' and '{{ROUTER_ENV}}' in the strings below.
+// If unsubstituted (degit path), the lookup table values above are used instead — same result.
+const _scaffoldName = '{{CHAIN_NAME}}';
+const _scaffoldEnv  = '{{ROUTER_ENV}}';
+const CHAIN_NAME_STR   = _scaffoldName.startsWith('{{') ? _defaults.name     : _scaffoldName;
+const ROUTER_ENV_KEY   = _scaffoldEnv.startsWith('{{')  ? _defaults.routerEnv : _scaffoldEnv;
+
 /** This project's settlement chain (chosen at scaffold time). */
 export const CHAIN = {
-  /** Human key from create-access0x1 (`arc` | `base` | `zksync`). */
-  key: '{{CHAIN}}' as const,
+  /** Human key (`arc` | `base` | `zksync`). */
+  key: CHAIN_KEY,
   /** Human-readable name. */
-  name: '{{CHAIN_NAME}}',
+  name: CHAIN_NAME_STR,
   /** EVM chain id — public fact. */
-  id: {{CHAIN_ID}},
+  id: _defaults.id,
 } as const;
 
 /**
  * The deployed Access0x1Router on {@link CHAIN}. Read from the chain-scoped env var so it is never
- * hardcoded (doctrine guardrail #5/#7). The SDK's <PayButton> takes this as a required prop.
+ * hardcoded. The SDK's <PayButton> takes this as a required prop.
  *
- * Fill {{ROUTER_ENV}} in .env.local after you deploy (forge script DeployAll) or paste a router
+ * Fill the env var in .env.local after you deploy (forge script DeployAll) or paste a router
  * address you trust. Throws if absent so a misconfig surfaces immediately.
  */
 export function getRouterAddress(): Hex {
-  const addr = process.env.{{ROUTER_ENV}};
+  const addr = process.env[ROUTER_ENV_KEY];
   if (!addr) {
     throw new Error(
-      'No router configured. Set {{ROUTER_ENV}} in .env.local — deploy your own ' +
+      `No router configured. Set ${ROUTER_ENV_KEY} in .env.local — deploy your own ` +
         '(contracts/DEPLOY.md) or paste a router address you trust. Never invent one (LAW #4).',
     );
   }
@@ -46,7 +81,7 @@ export function getRouterAddress(): Hex {
  * On Arc, USDC IS the native gas token — leave this blank to pay natively in USDC.
  */
 export function getUsdcAddress(): Hex | undefined {
-  const addr = process.env.NEXT_PUBLIC_USDC_ADDRESS_{{CHAIN_ID}};
+  const addr = process.env[`NEXT_PUBLIC_USDC_ADDRESS_${CHAIN.id}`];
   return addr ? (addr as Hex) : undefined;
 }
 
@@ -55,7 +90,7 @@ export function getUsdcAddress(): Hex | undefined {
  * with NEXT_PUBLIC_RPC_URL_<chainId> for a keyed/private RPC.
  */
 export function getRpcUrl(): string | undefined {
-  return process.env.NEXT_PUBLIC_RPC_URL_{{CHAIN_ID}} || undefined;
+  return process.env[`NEXT_PUBLIC_RPC_URL_${CHAIN.id}`] || undefined;
 }
 
 /**
@@ -74,8 +109,8 @@ export function getDynamicEnvId(): string | undefined {
 export const SPONSOR_SEAMS = {
   /** Chainlink price feeds are configured ON-CHAIN at deploy time (HelperConfig), not in the app. */
   chainlinkFeeds: 'set via contracts/script/HelperConfig.s.sol at deploy',
-  /** Circle USDC token address — NEXT_PUBLIC_USDC_ADDRESS_{{CHAIN_ID}}. */
-  circleUsdc: 'NEXT_PUBLIC_USDC_ADDRESS_{{CHAIN_ID}}',
+  /** Circle USDC token address — NEXT_PUBLIC_USDC_ADDRESS_<chainId>. */
+  circleUsdc: `NEXT_PUBLIC_USDC_ADDRESS_${CHAIN.id}`,
   /** Dynamic wallet auth — NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID. */
   dynamic: 'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID',
   /** ENS subname resolution — optional, NEXT_PUBLIC_ENS_*. */
