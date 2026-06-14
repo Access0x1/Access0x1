@@ -4,8 +4,9 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 
 /**
  * Collapsible "Ask Access0x1" widget. Posts a question to /api/ask (the
- * server-side Claude proxy) and renders the answer. The Claude key lives only
- * on the server; this component never sees it.
+ * server-side Claude proxy) and STREAMS the grounded answer in. The Claude key
+ * lives only on the server; this component never sees it. For the full-page
+ * booth experience it links out to /ask.
  */
 export function AskAssistant(): ReactNode {
   const [open, setOpen] = useState(false)
@@ -27,11 +28,28 @@ export function AskAssistant(): ReactNode {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ question: q }),
       })
-      const body = (await res.json()) as { answer?: string; error?: string }
-      if (!res.ok || body.error) {
-        setError(body.error ?? `Request failed (${res.status})`)
-      } else {
-        setAnswer(body.answer ?? '')
+      if (!res.ok || !res.body) {
+        // Error responses are JSON ({ error }); the success path streams text.
+        let msg = `Request failed (${res.status})`
+        if (res.status === 503) {
+          msg = 'The assistant is not configured on this deployment yet.'
+        } else {
+          try {
+            const body = (await res.json()) as { error?: string }
+            if (body?.error) msg = body.error
+          } catch {
+            // non-JSON error body — keep the generic message.
+          }
+        }
+        setError(msg)
+        return
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        setAnswer((prev) => prev + decoder.decode(value, { stream: true }))
       }
     } catch {
       setError('Could not reach the assistant.')
@@ -87,6 +105,13 @@ export function AskAssistant(): ReactNode {
       {answer ? (
         <p className="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm text-ink">{answer}</p>
       ) : null}
+
+      <a
+        href="/ask"
+        className="text-xs text-neutral-400 underline-offset-2 hover:text-ink hover:underline"
+      >
+        Open the full booth assistant →
+      </a>
     </div>
   )
 }
