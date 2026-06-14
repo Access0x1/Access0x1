@@ -52,6 +52,19 @@ const nextConfig: NextConfig = {
         ? [...externals, unlinkExternal]
         : [externals, unlinkExternal].filter(Boolean)
     }
+    // The one-tap deposit funding SDK (`@swype-org/deposit`) is also installed
+    // only at the booth and ships here as a local type shim (types/deposit-sdk.d.ts).
+    // Its only consumer is the guarded `lib/funding/loadSdk.ts` dynamic import, which
+    // fails soft (DepositSdkUnavailableError) when the package is absent. Marking it
+    // a `commonjs` external on BOTH the server and client bundles means webpack
+    // emits a runtime `require` instead of trying to resolve the missing package at
+    // build time: `next build` succeeds off a clean `main`, and the only consumer's
+    // try/catch turns the missing-package require into "deposit_sdk_unavailable"
+    // rather than wedging the build.
+    config.externals = config.externals || []
+    if (Array.isArray(config.externals)) {
+      config.externals.push({ '@swype-org/deposit': 'commonjs @swype-org/deposit' })
+    }
     return config
   },
 }

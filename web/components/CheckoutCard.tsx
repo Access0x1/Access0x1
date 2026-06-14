@@ -9,6 +9,9 @@ import { fetchQuote, usdToAmount8 } from '@/lib/quote'
 import { getWalletClient, getPublicClient } from '@/lib/wallet'
 import { ConnectButton } from './ConnectButton'
 import { MerchantIdentity } from './MerchantIdentity'
+import { FundButton } from './FundButton'
+import { isOnrampPublicConfigured } from '@/lib/onramp'
+import { isBlinkPublicConfigured, runBlinkDeposit } from '@/lib/funding/blink'
 import { ReceiptScreen } from './ReceiptScreen'
 import { TokenPicker } from './TokenPicker'
 import { WorldIdGate } from './WorldIdGate'
@@ -131,6 +134,74 @@ export function CheckoutCard({
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<{ event: PaymentReceivedEvent; txHash: Hash } | null>(null)
+
+  // ── Funding seam (env-gated, fail-soft) ──────────────────────────────────────
+  // "Get USDC into the wallet" two ways, BOTH off the money path: a hosted fiat
+  // on-ramp (bank/card) and a one-tap crypto deposit. Visibility is gated on the
+  // PUBLIC config only (the client can't see the server flags); the route/SDK do
+  // the full check. Either path funds the connected EOA, which then pays via the
+  // existing handlePay below — funding never settles a payment itself.
+  const bankConfigured = isOnrampPublicConfigured()
+  const oneTapConfigured = isBlinkPublicConfigured()
+  const [funding, setFunding] = useState(false)
+  const [fundNote, setFundNote] = useState<string | null>(null)
+
+  const handleFundWithBank = useCallback(async (): Promise<void> => {
+    setFundNote(null)
+    const addr = primaryWallet?.address
+    if (!addr) {
+      setFundNote('Connect a wallet to fund it.')
+      return
+    }
+    setFunding(true)
+    try {
+      const res = await fetch('/api/onramp/session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ address: addr, amount: usdAmount, redirectUrl: returnUrl }),
+      })
+      if (res.status === 503) {
+        setFundNote('Bank funding is not configured yet.')
+        return
+      }
+      const data = (await res.json()) as { url?: string; reason?: string }
+      if (res.ok && data.url) {
+        // Hand off to the provider's hosted checkout (a new tab keeps the cart).
+        window.open(data.url, '_blank', 'noopener,noreferrer')
+      } else {
+        setFundNote(data.reason ?? 'Could not start bank funding. Please try again.')
+      }
+    } catch {
+      setFundNote('Could not start bank funding. Please try again.')
+    } finally {
+      setFunding(false)
+    }
+  }, [primaryWallet?.address, usdAmount, returnUrl])
+
+  const handleOneTapDeposit = useCallback(async (): Promise<void> => {
+    setFundNote(null)
+    const addr = primaryWallet?.address
+    if (!addr) {
+      setFundNote('Connect a wallet to fund it.')
+      return
+    }
+    setFunding(true)
+    try {
+      const res = await runBlinkDeposit({ amount: usdAmount, address: addr as Address, chainId })
+      if (!res.ok) {
+        setFundNote(
+          res.code === 'not_configured'
+            ? 'One-tap deposit is not configured yet.'
+            : 'One-tap deposit is unavailable right now.',
+        )
+      }
+      // On success the USDC lands in the EOA; the buyer then taps Pay below.
+    } catch {
+      setFundNote('One-tap deposit is unavailable right now.')
+    } finally {
+      setFunding(false)
+    }
+  }, [primaryWallet?.address, usdAmount, chainId])
 
   // Resolve the SELECTED token's on-chain address. USDC comes from the existing
   // per-chain seam (chains.ts); every other coin from the env-driven token set.
@@ -356,6 +427,17 @@ export function CheckoutCard({
             </a>
           ) : null}
         </div>
+      ) : null}
+
+      {primaryWallet ? (
+        <FundButton
+          showBank={bankConfigured}
+          showOneTap={oneTapConfigured}
+          onFundWithBank={() => void handleFundWithBank()}
+          onOneTapDeposit={() => void handleOneTapDeposit()}
+          busy={funding}
+          note={fundNote}
+        />
       ) : null}
 
       {primaryWallet ? (
