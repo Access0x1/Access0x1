@@ -159,13 +159,16 @@ Gas is paid in ETH. The router spine costs roughly 1.74 M gas to deploy;
 `payToken` costs 105 k gas at the median (213 k with PaymentLanes enabled).
 On Base Sepolia, ETH has no monetary value — use a faucet.
 
-For **production Base Mainnet** (not this testnet build), the recommended path
-is the Base Paymaster: the buyer pays in USDC and has their gas sponsored via
-Coinbase's Paymaster, so:
+On chains where the native gas token is ETH (not USDC), gas can optionally be
+sponsored through a generic [ERC-7677](https://eips.ethereum.org/EIPS/eip-7677)
+paymaster seam — the buyer pays in USDC and a configured paymaster provider
+covers the gas, so:
 
-> **gas sponsored — buyer pays $0 in ETH (Base Paymaster)**
+> **gas sponsored — buyer pays $0 in network fees (when a paymaster is configured)**
 
-There is no Paymaster code in this contract — the buyer-side gas abstraction is
+This seam is provider-agnostic and env-gated (`web/lib/paymaster`): it is OFF
+unless a paymaster endpoint is set, and the app brands no specific provider.
+There is no Paymaster code in the contracts — the buyer-side gas abstraction is
 a frontend / SDK concern. The contracts are gas-model agnostic.
 
 ---
@@ -329,9 +332,10 @@ full `DeployAll` (all 9 contracts + configure) is additive.
 > gas in the same USDC balance, with no Paymaster to run.
 
 **Base Sepolia / Base Mainnet:**
-> Gas is paid in ETH on Base. For production use, the Base Paymaster lets
-> buyers pay gas in USDC — gas sponsored, buyer pays $0 in ETH. No Paymaster
-> contract code lives in this repo; it is a frontend SDK integration.
+> Gas is paid in ETH on Base. An optional, generic ERC-7677 paymaster seam can
+> sponsor gas where a provider is configured — buyers pay in USDC, gas sponsored,
+> $0 in network fees. The seam is provider-agnostic and env-gated; no paymaster
+> contract code lives in this repo, it is a frontend SDK integration.
 
 **zkSync Sepolia:**
 > Requires `foundry-zksync` (`foundryup-zksync`) and `--zksync` flag. See
