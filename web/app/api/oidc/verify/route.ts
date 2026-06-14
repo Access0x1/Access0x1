@@ -24,11 +24,19 @@
  */
 
 import { NextResponse } from 'next/server'
-import { getProfile, addMethod, normalizeUserKey } from '@/lib/verification/store'
+import {
+  getProfile,
+  addMethod,
+  addAgentMethod,
+  normalizeUserKey,
+  normalizeAgentKey,
+} from '@/lib/verification/store'
 import {
   computeTier,
   computeTrustScore,
   nextStepToSuper,
+  type TrustTier,
+  type VerificationMethod,
   type VerificationProfile,
 } from '@/lib/verification/tiers'
 import { verifyOidcToken } from '@/lib/oidc/verify'
@@ -37,11 +45,24 @@ import { claimSubject } from '@/lib/oidc/subjectStore'
 
 export const dynamic = 'force-dynamic'
 
+/** The derived agent-profile block echoed back when the token bound an agent. */
+interface AgentBlock {
+  agentId: string
+  methods: VerificationMethod[]
+  score: number
+  tier: TrustTier
+}
+
 /** Shape the profile + derived fields the UI consumes (matches /api/verify). */
 function profileResponse(
   user: string,
   profile: VerificationProfile,
-  extra: { subject: string; email: string | null; agent: string | null },
+  extra: {
+    subject: string
+    email: string | null
+    agent: string | null
+    agentProfile: AgentBlock | null
+  },
 ) {
   return {
     user,
@@ -51,6 +72,41 @@ function profileResponse(
     nextStep: nextStepToSuper(profile),
     // "verify for all" — the verified principals from the token.
     oidc: { subject: extra.subject, email: extra.email, agent: extra.agent },
+    // When the token bound a valid agentId, the AGENT profile we recorded the OIDC
+    // method against (so "this agent is Google-verified" is durably queryable).
+    agentProfile: extra.agentProfile,
+  }
+}
+
+/**
+ * Record the verified OIDC method against the AGENT when the token's agent claim is
+ * a valid bytes32 agentId, and return the derived agent block.
+ *
+ * FAIL-SOFT: a missing claim, or a present-but-malformed claim (not a bytes32 agent
+ * id), records nothing on the agent and returns null — it NEVER throws and never
+ * blocks the user's own verification. The user method has already been recorded by
+ * the caller; binding the agent is strictly additive.
+ *
+ * @param agentClaim - the raw `agent` claim off the verified token (may be null).
+ * @returns the recorded agent block, or null when there was no bindable agent.
+ */
+function bindAgentMethod(agentClaim: string | null): AgentBlock | null {
+  if (agentClaim === null) return null
+  let agentId: string
+  try {
+    agentId = normalizeAgentKey(agentClaim)
+  } catch {
+    // A token may carry a non-agentId value in the claim (e.g. a provider's own
+    // opaque id). That is not a forge and not an error: we simply do not bind an
+    // agent profile, and the user verification still stands.
+    return null
+  }
+  const agentProfile = addAgentMethod(agentId, 'oidc')
+  return {
+    agentId,
+    methods: agentProfile.methods,
+    score: computeTrustScore(agentProfile),
+    tier: computeTier(agentProfile),
   }
 }
 
@@ -111,11 +167,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   // Record the verified USER's `oidc` method — it stacks into the trust tier.
   const profile = addMethod(user, 'oidc')
 
+  // "Verify for all": if the verified token carried a valid agentId, bind the OIDC
+  // method to the AGENT profile too, so "this agent is Google-verified" is durably
+  // queryable. Fail-soft — a missing/malformed agent claim records nothing extra.
+  const agentProfile = bindAgentMethod(result.identity.agent)
+
   return NextResponse.json(
     profileResponse(user, profile, {
       subject: result.identity.subject,
       email: result.identity.email,
       agent: result.identity.agent,
+      agentProfile,
     }),
     { status: 200 },
   )
