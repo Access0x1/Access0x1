@@ -22,6 +22,8 @@ import type { NextConfig } from 'next'
  */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Output a standalone Node.js server bundle for EC2/container deploys.
+  output: 'standalone',
   // The repo root has a Foundry package-lock.json; pin tracing to this app dir
   // so Next does not infer the monorepo root as the workspace.
   outputFileTracingRoot: __dirname,

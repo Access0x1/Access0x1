@@ -235,13 +235,42 @@ export function getChain(chainId: number): Chain {
 }
 
 /**
+ * Static per-chain env lookups for NEXT_PUBLIC_* addresses.
+ *
+ * Next.js inlines NEXT_PUBLIC_* env vars at BUILD TIME — but ONLY when the key
+ * is a literal string at the call site. A computed key like
+ * `process.env[\`NEXT_PUBLIC_ROUTER_ADDRESS_${chainId}\`]` is NOT inlined into
+ * the client bundle, so the value is always undefined in the browser.
+ *
+ * This map lists every chain id we ship with a static literal for each key so
+ * that Next's transform inlines the value correctly. The generic
+ * `getRouterAddress` / `getUsdcAddress` functions below fall through to these
+ * statics for the known chains and remain dynamic (server-side) for others.
+ */
+const ROUTER_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
+  [baseSepolia.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_84532,
+}
+
+const USDC_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
+  [baseSepolia.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_84532,
+}
+
+/**
  * Resolve the Access0x1Router address for a chain from
  * `NEXT_PUBLIC_ROUTER_ADDRESS_<chainId>`. Throws (never returns undefined) so a
  * missing config surfaces loudly instead of producing a silent wrong call.
  * Doctrine guardrail #5: no address from memory.
+ *
+ * NOTE: for client-bundle chains (e.g. Base Sepolia 84532) we read from
+ * {@link ROUTER_ADDRESS_BY_CHAIN} which uses literal env keys that Next inlines.
+ * The computed `process.env[\`..._${chainId}\`]` form is server-side only.
  */
 export function getRouterAddress(chainId: number): Address {
-  const addr = process.env[`NEXT_PUBLIC_ROUTER_ADDRESS_${chainId}`]
+  const addr =
+    ROUTER_ADDRESS_BY_CHAIN[chainId] ??
+    (typeof window === 'undefined'
+      ? (process.env[`NEXT_PUBLIC_ROUTER_ADDRESS_${chainId}`] ?? undefined)
+      : undefined)
   if (!addr) throw new Error(`No router address configured for chain ${chainId}`)
   return addr as Address
 }
@@ -249,9 +278,15 @@ export function getRouterAddress(chainId: number): Address {
 /**
  * Resolve the allowlisted USDC address for a chain from
  * `NEXT_PUBLIC_USDC_ADDRESS_<chainId>`. Throws on a missing config.
+ *
+ * See {@link getRouterAddress} for the static-vs-computed env key rationale.
  */
 export function getUsdcAddress(chainId: number): Address {
-  const addr = process.env[`NEXT_PUBLIC_USDC_ADDRESS_${chainId}`]
+  const addr =
+    USDC_ADDRESS_BY_CHAIN[chainId] ??
+    (typeof window === 'undefined'
+      ? (process.env[`NEXT_PUBLIC_USDC_ADDRESS_${chainId}`] ?? undefined)
+      : undefined)
   if (!addr) throw new Error(`No USDC address configured for chain ${chainId}`)
   return addr as Address
 }
