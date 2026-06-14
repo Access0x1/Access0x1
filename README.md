@@ -341,13 +341,14 @@ See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full operator g
 | Arc Testnet (5042002) | `PaymentLanes` | — | — |
 | Arc Testnet (5042002) | `Access0x1Receiver` | — | — |
 | Arc Testnet (5042002) | `ChainRegistry` | — | — |
-| Base Sepolia (84532) | `Access0x1Router` | — | — |
-| Base Sepolia (84532) | `SessionGrant` | — | — |
-| Base Sepolia (84532) | `HouseTokenFactory` | — | — |
-| Base Sepolia (84532) | `Access0x1Subscriptions` | — | — |
-| Base Sepolia (84532) | `Access0x1Bookings` | — | — |
-| Base Sepolia (84532) | `Access0x1Invoices` | — | — |
-| Base Sepolia (84532) | `Access0x1GiftCards` | — | — |
+| Base Sepolia (84532) | `Access0x1Router` | [`0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57`](https://base-sepolia.blockscout.com/address/0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57) | `0x099628a1…4611` |
+| Base Sepolia (84532) | `SessionGrant` | [`0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6`](https://base-sepolia.blockscout.com/address/0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6) | — |
+| Base Sepolia (84532) | `PaymentLanes` | [`0x5578929702b0158682286982e3f82d04a08f3b92`](https://base-sepolia.blockscout.com/address/0x5578929702b0158682286982e3f82d04a08f3b92) | — |
+| Base Sepolia (84532) | `HouseTokenFactory` | [`0x2067238186ee13d9c543742e1bb6be9fe4a1b20b`](https://base-sepolia.blockscout.com/address/0x2067238186ee13d9c543742e1bb6be9fe4a1b20b) | — |
+| Base Sepolia (84532) | `Access0x1Subscriptions` | [`0xd3ac71914d01a8229d00c2cf9abc7f93237a253d`](https://base-sepolia.blockscout.com/address/0xd3ac71914d01a8229d00c2cf9abc7f93237a253d) | — |
+| Base Sepolia (84532) | `Access0x1Bookings` | [`0xbcb59e981662d26769ff1fe5d75f66e38c68c99b`](https://base-sepolia.blockscout.com/address/0xbcb59e981662d26769ff1fe5d75f66e38c68c99b) | — |
+| Base Sepolia (84532) | `Access0x1Invoices` | [`0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909`](https://base-sepolia.blockscout.com/address/0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909) | — |
+| Base Sepolia (84532) | `Access0x1GiftCards` | [`0x2ba5411803bc7734652afa292bc97f39ae409f76`](https://base-sepolia.blockscout.com/address/0x2ba5411803bc7734652afa292bc97f39ae409f76) | — |
 | Base Sepolia (84532) | `ChainRegistry` | — | — |
 | zkSync Sepolia (300) | `Access0x1Router` | — | — |
 | zkSync Sepolia (300) | `SessionGrant` | — | — |
@@ -391,10 +392,10 @@ deployer is a burner key.
 
 | | |
 | --- | --- |
-| Tests | **846 green** — unit · attack · invariant suites |
-| Router coverage | **100%** lines · 100% statements · 100% branches · 100% functions |
+| Tests | **849 green** — unit · attack · invariant suites |
+| Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)) |
 | Invariants | **13 fuzz invariants** across 3 suites hold at 4,096 calls each, 0 reverts |
-| Static analysis | **slither: 16 results, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
+| Static analysis | **slither: 31 results / 12 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
 
 The 13 invariants: **6 router money invariants** — native conservation · token conservation ·
 platform cut always to treasury · zero-custody residual · merchant isolation · effective fee ≤
