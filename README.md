@@ -39,9 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Arc (Circle) is the lead settlement chain**, with
-> Base Sepolia and zkSync Sepolia as bridge targets — there are **no mainnet deployments and no
-> mainnet claims** here.
+> and on a public branch from commit #1. **Deployed + verified on two chains: Arc Testnet (5042002) and Base Sepolia (84532).** zkSync Sepolia is one-command ready (`make deploy-zksync`) but not yet broadcast. **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -412,8 +410,7 @@ Gas hot-paths are documented in [`docs/GAS.md`](docs/GAS.md).
 ## Stack
 
 Foundry · Solidity 0.8.28 (EVM cancun, `via_ir`, optimizer 200 runs) · OpenZeppelin 5.x ·
-Chainlink contracts 1.5.0 (Data Feeds + CRE). **Arc (Circle) is the lead settlement chain**;
-Base Sepolia and zkSync Sepolia are bridge targets — all **testnets**.
+Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed + verified on Arc Testnet (5042002) and Base Sepolia (84532)**; zkSync Sepolia is one-command ready — all **testnets, no mainnet deployments**.
 
 ---
 
