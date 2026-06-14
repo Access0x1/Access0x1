@@ -10,14 +10,23 @@
  * point that unit consumes.
  *
  * Doctrine:
+ *  - caller auth (guardrail #0): the caller MUST present a Dynamic JWT verified
+ *    against the issuer's JWKS via `resolveVerifiedTenant`. The verified wallet
+ *    MUST equal SELLER_ADDRESS. An anonymous caller, or any wallet other than the
+ *    seller's, receives 401 — the withdrawal NEVER proceeds.
  *  - zero custody (guardrail #1): the balance belongs to SELLER_ADDRESS.
  *  - law #5 (money paths never swallow): a gas error is TRANSLATED to a friendly
  *    message and returned as 400/502 — never swallowed, never re-thrown raw.
- *  - off-CEI (guardrail #5): validate + balance pre-check BEFORE the signed tx.
+ *  - off-CEI (guardrail #5): auth + validate + balance pre-check BEFORE the signed tx.
  */
 import { GATEWAY_DOMAINS, GatewayClient } from "@circle-fin/x402-batching/client";
 import type { SupportedChainName } from "@circle-fin/x402-batching/client";
 import type { Hex } from "viem";
+
+import {
+  resolveVerifiedTenant,
+  TenantAuthError,
+} from "@/lib/branding/tenant.js";
 
 import { ARC_TESTNET_GATEWAY_CHAIN, ARC_TESTNET_RPC } from "@/lib/arc-constants.js";
 
@@ -80,17 +89,52 @@ function translateError(err: unknown): string {
 /**
  * Withdraw accrued USDC from the seller's Gateway Balance.
  *
+ * Auth: requires a Dynamic JWT in `Authorization: Bearer <token>`. The verified
+ * wallet MUST equal SELLER_ADDRESS (only the seller may withdraw their own
+ * balance). Missing/invalid token → 401. Wrong wallet → 403.
+ *
  * @param req - body: { amount: decimal string, destinationChain: chain key, recipient: address }
  * @returns 200 { mintTxHash } on success; 400 on validation / balance failure;
- *          502 on an upstream gateway error
+ *          401/403 on auth failure; 502 on an upstream gateway error
  */
 export async function POST(req: Request): Promise<Response> {
-  let body: WithdrawBody;
+  // ── Auth: verify the caller IS the seller BEFORE reading the body ────────────
+  // Clone the request so the body stream can be read again below.
+  const reqForAuth = req.clone();
+  let authBody: unknown;
   try {
-    body = (await req.json()) as WithdrawBody;
+    authBody = await reqForAuth.json();
   } catch {
-    return Response.json({ error: "invalid JSON body" }, { status: 400 });
+    authBody = {};
   }
+
+  let callerWallet: string;
+  try {
+    const resolved = await resolveVerifiedTenant(req, authBody);
+    callerWallet = resolved.tenantId;
+  } catch (err) {
+    if (err instanceof TenantAuthError) {
+      return Response.json({ error: err.message }, { status: 401 });
+    }
+    return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const sellerAddress = (process.env.SELLER_ADDRESS ?? "").trim().toLowerCase();
+  if (!sellerAddress) {
+    return Response.json(
+      { error: "SELLER_ADDRESS is not configured on this server." },
+      { status: 500 },
+    );
+  }
+  if (callerWallet !== sellerAddress) {
+    return Response.json(
+      { error: "forbidden: caller wallet does not match the seller address" },
+      { status: 403 },
+    );
+  }
+
+  // ── Body parsing (already parsed above for auth; reuse the same object) ──────
+  const body = authBody as WithdrawBody;
 
   const amount = typeof body.amount === "string" ? body.amount.trim() : "";
   const destinationChain =
