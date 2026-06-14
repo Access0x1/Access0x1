@@ -37,8 +37,10 @@ gambit.conf.json
 # audit report (case-insensitive filesystems would otherwise match REPORT.md).
 /report.md
 !audit/REPORT.md
-broadcast/*/31337/        # local anvil runs only
-broadcast/**/dry-run/     # keep REAL broadcasts — they're the on-chain deploy proof
+# local anvil runs (chainId 31337) — scratch, never the on-chain proof, never committed
+broadcast/*/31337/
+# dry-run simulations only — KEEP real testnet/mainnet broadcasts (the on-chain deploy proof)
+broadcast/**/dry-run/
 # NOTE: do NOT ignore lib/ — forge deps are git submodules (.gitmodules is tracked)
 
 # ── Vyper / Moccasin (the ISOLATED vyper/ conformance demonstrator) — Python build artifacts ──
