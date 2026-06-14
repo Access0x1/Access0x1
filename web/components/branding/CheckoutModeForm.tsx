@@ -2,10 +2,13 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
-import type { CheckoutMode } from '@/lib/branding/store'
+import type { CheckoutMode, MerchantVertical } from '@/lib/branding/store'
 import type { TrustTier } from '@/lib/verification/tiers'
-import { loadBranding, saveCheckoutMode } from '@/lib/branding/client'
+import { loadBranding, loadOperatorVerified, saveCheckoutMode } from '@/lib/branding/client'
+import { isWorldIdConfigured, worldOperatorAction } from '@/lib/worldid/config'
 import { ConnectButton } from '@/components/ConnectButton'
+import { WorldIdGate } from '@/components/WorldIdGate'
+import { CasinoVerifiedBadge } from '@/components/CasinoVerifiedBadge'
 
 /**
  * CheckoutModeForm — the plain-English "Who can pay you?" card (World ID ADR D0
@@ -86,9 +89,17 @@ export function CheckoutModeForm({
 
   const [choice, setChoice] = useState<CheckoutMode>('standard')
   const [requiredTier, setRequiredTier] = useState<TrustTier>('standard')
+  const [vertical, setVertical] = useState<MerchantVertical>('standard')
+  const [operatorVerified, setOperatorVerified] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+
+  const isCasino = vertical === 'casino'
+  const worldConfigured = isWorldIdConfigured()
+  // A casino is FORCED to verified-human (players pass the World ID gate); the
+  // radios below are locked so it is not operator-overridable while casino.
+  const effectiveMode: CheckoutMode = isCasino ? 'verified-human' : choice
 
   // Prefill from the tenant's existing row.
   useEffect(() => {
@@ -98,11 +109,20 @@ export function CheckoutModeForm({
       if (cancelled || !row) return
       setChoice(row.checkoutMode ?? 'standard')
       setRequiredTier(row.requiredTier ?? 'standard')
+      setVertical(row.vertical ?? 'standard')
+      setOperatorVerified(row.verifiedOperator === true)
     })
     return () => {
       cancelled = true
     }
   }, [tenantId])
+
+  // After the operator completes World ID, re-read the row so the flag + badge
+  // reflect the server truth (the gate POSTed to /operator-verify).
+  async function refreshOperator(): Promise<void> {
+    if (!tenantId) return
+    setOperatorVerified(await loadOperatorVerified(tenantId))
+  }
 
   async function handleSave(): Promise<void> {
     setError(null)
@@ -111,12 +131,26 @@ export function CheckoutModeForm({
       setError('Sign in to choose who can pay you.')
       return
     }
+    // Front-stop: a casino cannot be saved until the operator is World ID-verified.
+    // The server enforces this too (CASINO_NEEDS_OPERATOR) — this is just a clearer
+    // local message before the round-trip.
+    if (isCasino && !operatorVerified) {
+      setError(
+        'Casinos must verify with World ID before going live. Complete the World ID step above to prove a real person is running this casino.',
+      )
+      return
+    }
     setSaving(true)
-    const res = await saveCheckoutMode({ tenantId, checkoutMode: choice, requiredTier })
+    const res = await saveCheckoutMode({
+      tenantId,
+      checkoutMode: effectiveMode,
+      requiredTier,
+      vertical,
+    })
     setSaving(false)
     if (res.ok) {
       setSaved(true)
-      onSaved?.(choice)
+      onSaved?.(effectiveMode)
     } else {
       setError(res.error)
     }
@@ -135,37 +169,109 @@ export function CheckoutModeForm({
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Casino vertical (World prize): World ID is load-bearing. Marking the
+          business a casino FORCES verified-human and requires the operator to
+          complete World ID before the casino can go live. */}
+      <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            name="vertical-casino"
+            checked={isCasino}
+            onChange={(e) => {
+              setVertical(e.target.checked ? 'casino' : 'standard')
+              setSaved(false)
+              setError(null)
+            }}
+            className="mt-1 h-4 w-4 accent-rail"
+          />
+          <span className="flex flex-col gap-1">
+            <span className="font-medium text-ink">This is a casino (play or wagering access)</span>
+            <span className="text-sm text-neutral-600">
+              Casinos must verify with World ID. Verifying proves a real, unique person is running
+              the casino and makes every player pass the World ID gate — so your checkout shows the
+              “Verified Humans Only · World ID” badge. World ID proves a unique human only; it is not
+              a gambling licence, age check, or eligibility check.
+            </span>
+          </span>
+        </label>
+
+        {isCasino ? (
+          operatorVerified ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-green-700" data-operator-verified="true">
+                ✓ You verified with World ID. This casino can go live.
+              </p>
+              <CasinoVerifiedBadge
+                verifiedOperator={operatorVerified}
+                checkoutMode="verified-human"
+                vertical="casino"
+                worldConfigured={worldConfigured}
+              />
+            </div>
+          ) : worldConfigured ? (
+            <div className="flex flex-col gap-2" data-operator-step="required">
+              <p className="text-sm font-medium text-ink">
+                Step required: verify with World ID to make this casino trustworthy.
+              </p>
+              {tenantId ? (
+                <WorldIdGate
+                  signal={tenantId}
+                  action={worldOperatorAction()}
+                  verifyUrl="/api/branding/operator-verify"
+                  extraBody={{ tenantId }}
+                  onVerified={() => void refreshOperator()}
+                />
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-sm text-amber-700" data-operator-step="unconfigured">
+              World ID required — configure World ID to verify this casino. Until then this casino
+              cannot go live and the badge cannot be issued.
+            </p>
+          )
+        ) : null}
+      </div>
+
       <div>
         <h2 className="font-medium text-ink">Who can pay you, and how?</h2>
         <p className="text-sm text-neutral-500">
-          Pick one. You can change this any time — and use a different choice on different products.
+          {isCasino
+            ? 'Casinos are set to verified real people (World ID) — this is locked while “casino” is on.'
+            : 'Pick one. You can change this any time — and use a different choice on different products.'}
         </p>
       </div>
 
-      <fieldset className="flex flex-col gap-3">
-        {OPTIONS.map((opt) => (
-          <label
-            key={opt.value}
-            className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition-colors ${
-              choice === opt.value
-                ? 'border-rail bg-neutral-50'
-                : 'border-neutral-200 hover:border-neutral-300'
-            }`}
-          >
-            <input
-              type="radio"
-              name="checkout-mode"
-              value={opt.value}
-              checked={choice === opt.value}
-              onChange={() => setChoice(opt.value)}
-              className="mt-1 h-4 w-4 accent-rail"
-            />
-            <span className="flex flex-col gap-1">
-              <span className="font-medium text-ink">{opt.label}</span>
-              <span className="text-sm text-neutral-500">{opt.helper}</span>
-            </span>
-          </label>
-        ))}
+      <fieldset className="flex flex-col gap-3" disabled={isCasino}>
+        {OPTIONS.map((opt) => {
+          const selected = effectiveMode === opt.value
+          return (
+            <label
+              key={opt.value}
+              className={`flex gap-3 rounded-xl border p-4 transition-colors ${
+                isCasino ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+              } ${
+                selected
+                  ? 'border-rail bg-neutral-50'
+                  : 'border-neutral-200 hover:border-neutral-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="checkout-mode"
+                value={opt.value}
+                checked={selected}
+                disabled={isCasino}
+                onChange={() => setChoice(opt.value)}
+                className="mt-1 h-4 w-4 accent-rail"
+              />
+              <span className="flex flex-col gap-1">
+                <span className="font-medium text-ink">{opt.label}</span>
+                <span className="text-sm text-neutral-500">{opt.helper}</span>
+              </span>
+            </label>
+          )
+        })}
       </fieldset>
 
       <p className="rounded-lg bg-neutral-50 p-3 text-xs text-neutral-500">
@@ -215,10 +321,16 @@ export function CheckoutModeForm({
       <button
         type="button"
         onClick={() => void handleSave()}
-        disabled={saving}
+        disabled={saving || (isCasino && !operatorVerified)}
         className="self-start rounded-lg bg-rail px-4 py-3 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {saving ? 'Saving…' : mode === 'onboard' ? 'Save my choice' : 'Save changes'}
+        {saving
+          ? 'Saving…'
+          : isCasino && !operatorVerified
+            ? 'Verify with World ID to finish'
+            : mode === 'onboard'
+              ? 'Save my choice'
+              : 'Save changes'}
       </button>
     </div>
   )

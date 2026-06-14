@@ -13,7 +13,7 @@
  */
 
 import { getDefaultChainId, getRouterAddress } from '../chains.js';
-import type { CheckoutMode, HumanVerifier, TenantBranding } from './store.js';
+import type { CheckoutMode, HumanVerifier, MerchantVertical, TenantBranding } from './store.js';
 import type { TrustTier } from '../verification/tiers.js';
 
 /** The exact public branding payload (ADR D4): no payout address, ever. */
@@ -53,6 +53,12 @@ export interface PublicBranding {
    * gate the pay button; it reveals no payout address.
    */
   requiredTier: TrustTier;
+  /**
+   * The merchant's business category (Casino vertical). PUBLIC display/gate data:
+   * the checkout uses it to know a casino's World ID gate is load-bearing. It
+   * never reveals a payout address.
+   */
+  vertical: MerchantVertical;
   /** Whether the business is operated by a verified real human (ADR D1.4 badge). */
   verifiedOperator: boolean;
 }
@@ -95,6 +101,7 @@ export function toPublicBranding(row: TenantBranding): PublicBranding {
     checkoutMode: row.checkoutMode,
     humanVerifier: row.humanVerifier,
     requiredTier: row.requiredTier,
+    vertical: row.vertical,
     verifiedOperator: row.verifiedOperator,
   };
 }

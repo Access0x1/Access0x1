@@ -10,6 +10,8 @@ import { resolveGate } from '@/lib/worldid/gateConfig'
 import { BrandMark } from '@/components/BrandMark'
 import { CheckoutCard } from '@/components/CheckoutCard'
 import { BrandPreview } from '@/components/branding/BrandPreview'
+import { CasinoVerifiedBadge } from '@/components/CasinoVerifiedBadge'
+import { isWorldIdConfigured } from '@/lib/worldid/config'
 import { AskAssistant } from '@/components/AskAssistant'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -99,6 +101,19 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
               logoSvg={branding.logoSvg || undefined}
               brandColor={branding.brandColor}
             />
+            {/* Casino vertical (World prize): the "Verified Humans Only · World
+                ID" badge. Renders ONLY when the operator is World ID-verified AND
+                the checkout is verified-human AND World ID is configured; for a
+                casino with World ID off it shows the honest "configure to verify"
+                line instead of faking the green check (law #4 / fail-soft). */}
+            <div className="mt-3">
+              <CasinoVerifiedBadge
+                verifiedOperator={branding.verifiedOperator}
+                checkoutMode={branding.checkoutMode}
+                vertical={branding.vertical}
+                worldConfigured={isWorldIdConfigured()}
+              />
+            </div>
           </div>
 
           {branding.merchantId && merchant ? (
