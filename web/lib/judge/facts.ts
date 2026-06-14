@@ -224,19 +224,20 @@ export const FACT_SECTIONS: readonly FactSection[] = [
     id: 'proof',
     title: 'The test and audit proof',
     body:
-      'The proof is in the suites. forge test runs 831 contract tests green across 77 ' +
+      'The proof is in the suites. forge test runs 846 contract tests green across 84 ' +
       'suites (unit + adversarial/attack + invariant + integration + fuzz + fork), 0 ' +
-      'failed, 0 skipped. The Access0x1Router has 100% line, statement, branch, and ' +
-      'function coverage; overall first-party coverage is ~98% lines / ~98% statements / ' +
-      '~89% branches / ~99% functions (forge coverage with --ir-minimum). There are 31 ' +
-      'fuzz invariants that hold under fail_on_revert with 0 reverts: 6 router money ' +
-      'invariants (native conservation, token conservation, platform cut always to ' +
-      'treasury, zero-custody residual, merchant isolation, effective fee ≤ MAX_FEE_BPS), ' +
-      '3 PaymentLanes conservation invariants, and 6 each for Bookings, Invoices, and ' +
-      'Subscriptions plus 4 for GiftCards (including the cross-asset firewall). Static ' +
-      'analysis: Slither v0.11.5 ran clean (31 results across 12 detectors, all triaged ' +
-      'as false-positive / by-design / justified) and Aderyn v0.1.9 produced 4 High + 11 ' +
-      'Low, all triaged. The web app also has its own vitest suite. IMPORTANT: this is an ' +
+      'failed, 0 skipped. The web vitest suite runs 709 tests green across 71 test files, ' +
+      '0 failed. Combined: 1,555 tests green. The Access0x1Router has 100% line, ' +
+      'statement, branch, and function coverage; overall first-party coverage is ~98% ' +
+      'lines / ~98% statements / ~89% branches / ~99% functions (forge coverage with ' +
+      '--ir-minimum). There are 31 fuzz invariants that hold under fail_on_revert with 0 ' +
+      'reverts: 6 router money invariants (native conservation, token conservation, ' +
+      'platform cut always to treasury, zero-custody residual, merchant isolation, ' +
+      'effective fee ≤ MAX_FEE_BPS), 3 PaymentLanes conservation invariants, and 6 each ' +
+      'for Bookings, Invoices, and Subscriptions plus 4 for GiftCards (including the ' +
+      'cross-asset firewall). Static analysis: Slither v0.11.5 ran clean (31 results ' +
+      'across 12 detectors, all triaged as false-positive / by-design / justified) and ' +
+      'Aderyn v0.1.9 produced 4 High + 11 Low, all triaged. IMPORTANT: this is an ' +
       'internal engineering audit and adversarial-testing record, NOT a third-party ' +
       'audit and not a substitute for one — mainnet is gated on an independent ' +
       'third-party audit.',
