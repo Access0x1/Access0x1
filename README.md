@@ -334,16 +334,17 @@ See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full operator g
 
 | Chain | Contract | Address | Tx |
 | --- | --- | --- | --- |
-| Arc Testnet (5042002) | `Access0x1Router` | — | — |
-| Arc Testnet (5042002) | `SessionGrant` | — | — |
-| Arc Testnet (5042002) | `HouseTokenFactory` | — | — |
-| Arc Testnet (5042002) | `Access0x1Subscriptions` | — | — |
-| Arc Testnet (5042002) | `Access0x1Bookings` | — | — |
-| Arc Testnet (5042002) | `Access0x1Invoices` | — | — |
-| Arc Testnet (5042002) | `Access0x1GiftCards` | — | — |
-| Arc Testnet (5042002) | `PaymentLanes` | — | — |
-| Arc Testnet (5042002) | `Access0x1Receiver` | — | — |
-| Arc Testnet (5042002) | `ChainRegistry` | — | — |
+| Arc Testnet (5042002) | `Access0x1Router` | [`0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad`](https://testnet.arcscan.app/address/0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad) | — |
+| Arc Testnet (5042002) | `SessionGrant` | [`0xFd75F29369a29800FAD5A5172cD8A8C4b9cC0F1B`](https://testnet.arcscan.app/address/0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b) | — |
+| Arc Testnet (5042002) | `PaymentLanes` | [`0x89f904a7328eaB1Fd8Ea422A5e635344766fBF4d`](https://testnet.arcscan.app/address/0x89f904a7328eab1fd8ea422a5e635344766fbf4d) | — |
+| Arc Testnet (5042002) | `HouseTokenFactory` | [`0x3A43171f6d503ab314366d19b7ddc7Aa861125f2`](https://testnet.arcscan.app/address/0x3a43171f6d503ab314366d19b7ddc7aa861125f2) | — |
+| Arc Testnet (5042002) | `Access0x1Subscriptions` | [`0x1dB513eC23bc7De46AFD6DAE5133dE14D8A62BF8`](https://testnet.arcscan.app/address/0x1db513ec23bc7de46afd6dae5133de14d8a62bf8) | — |
+| Arc Testnet (5042002) | `Access0x1Bookings` | [`0x4e099b81a9A46A99378Ac70cAd195Bf8E25F0c82`](https://testnet.arcscan.app/address/0x4e099b81a9a46a99378ac70cad195bf8e25f0c82) | — |
+| Arc Testnet (5042002) | `Access0x1Invoices` | [`0x1001dc04da8706D53b24389c3348Ca512A5bA6b7`](https://testnet.arcscan.app/address/0x1001dc04da8706d53b24389c3348ca512a5ba6b7) | — |
+| Arc Testnet (5042002) | `Access0x1GiftCards` | [`0xBe1a9c1E8194928215045Cf186283d41470ABDcd`](https://testnet.arcscan.app/address/0xbe1a9c1e8194928215045cf186283d41470abdcd) | — |
+| Arc Testnet (5042002) | `USDC/USD feed` | [`0x60eb647D166b70662e0567551Af7E575f13e8008`](https://testnet.arcscan.app/address/0x60eb647d166b70662e0567551af7e575f13e8008) | — |
+| Arc Testnet (5042002) | `Access0x1Receiver` | — (sidecar, not deployed) | — |
+| Arc Testnet (5042002) | `ChainRegistry` | — (sidecar, not deployed) | — |
 | Base Sepolia (84532) | `Access0x1Router` | [`0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57`](https://base-sepolia.blockscout.com/address/0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57) | `0x099628a1…4611` |
 | Base Sepolia (84532) | `SessionGrant` | [`0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6`](https://base-sepolia.blockscout.com/address/0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6) | — |
 | Base Sepolia (84532) | `PaymentLanes` | [`0x5578929702b0158682286982e3f82d04a08f3b92`](https://base-sepolia.blockscout.com/address/0x5578929702b0158682286982e3f82d04a08f3b92) | — |
