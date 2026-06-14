@@ -75,6 +75,25 @@ describe('coverage of the judge topics', () => {
   })
 })
 
+describe('proof section accuracy', () => {
+  const proofSection = FACT_SECTIONS.find((s) => s.id === 'proof')
+
+  it('exists and contains the current forge test count', () => {
+    expect(proofSection).toBeDefined()
+    // Forge contract tests — update this when the suite grows.
+    expect(proofSection!.body).toContain('846 contract tests')
+    expect(proofSection!.body).toContain('84 suites')
+  })
+
+  it('contains the current web vitest test count', () => {
+    expect(proofSection!.body).toContain('709 tests')
+  })
+
+  it('states the combined total', () => {
+    expect(proofSection!.body).toContain('1,555 tests')
+  })
+})
+
 describe('honesty / no false claims', () => {
   const brief = buildFactsBrief().toLowerCase()
 
