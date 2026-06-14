@@ -10,6 +10,23 @@ import {
   mantleSepoliaTestnet,
   blastSepolia,
   unichainSepolia,
+  // MAINNET chain definitions — AUDIT-GATED, NOT DEPLOYED (see MAINNET_CHAINS below). Importing a
+  // viem chain object only carries its public id/native/explorer metadata; it makes NO claim that
+  // Access0x1 is live there. No mainnet address is ever hardcoded — they resolve from env, undefined
+  // until set.
+  mainnet,
+  base,
+  arbitrum,
+  optimism,
+  polygon,
+  avalanche,
+  bsc,
+  scroll,
+  linea,
+  mantle,
+  blast,
+  unichain,
+  zksync,
 } from 'viem/chains'
 
 /**
@@ -82,6 +99,39 @@ export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [
 ]
 
 /**
+ * MAINNET chain profiles — **AUDIT-GATED, NOT DEPLOYED**.
+ *
+ * Every chain above has a testnet profile; this is the mainnet TWIN of each, kept SEPARATE from
+ * {@link SUPPORTED_CHAINS} on purpose. Listing a chain here is config/readiness ONLY — it makes **no
+ * claim** that Access0x1 is live on mainnet. This repo is testnet-only and unaudited; there is **no
+ * mainnet deployment**. A mainnet target is reachable only after a third-party audit, via the
+ * banner-gated `make deploy-<chain>-mainnet` flow.
+ *
+ * As with the testnets, NO on-chain address is hardcoded here — router/USDC addresses resolve from
+ * `NEXT_PUBLIC_ROUTER_ADDRESS_<id>` / `NEXT_PUBLIC_USDC_ADDRESS_<id>` and are **undefined until set**
+ * (law #4: never a guessed address). The viem objects carry only each chain's public id, native
+ * currency, RPC and explorer.
+ *
+ * Arc MAINNET is INTENTIONALLY ABSENT: Arc is testnet-only today and its mainnet chain id is not
+ * launched/known, so we never invent it here (mirrors the contract-side `ARC_MAINNET_CHAIN_ID` env).
+ */
+export const MAINNET_CHAINS: readonly [Chain, ...Chain[]] = [
+  mainnet,
+  base,
+  arbitrum,
+  optimism,
+  polygon,
+  avalanche,
+  bsc,
+  scroll,
+  linea,
+  mantle,
+  blast,
+  unichain,
+  zksync,
+]
+
+/**
  * Per-chain USDC decimals — the SINGLE source of truth the UI uses to FORMAT a
  * token amount for display. The on-chain money path never reads this (the
  * router/`quote()` reads `decimals()` in-tx); this table exists ONLY so the
@@ -115,6 +165,22 @@ const USDC_DECIMALS_BY_CHAIN: Readonly<Record<number, number>> = {
   [mantleSepoliaTestnet.id]: 6,
   [blastSepolia.id]: 6,
   [unichainSepolia.id]: 6,
+  // MAINNET display decimals (AUDIT-GATED, NOT DEPLOYED). Canonical Circle USDC is the 6-dec ERC-20 on
+  // every one of these chains; native gas is the chain's OWN token (ETH / POL / AVAX / BNB / MNT), so
+  // none is gas-free. Display-only — the money path always reads decimals() on-chain.
+  [mainnet.id]: 6,
+  [base.id]: 6,
+  [arbitrum.id]: 6,
+  [optimism.id]: 6,
+  [polygon.id]: 6,
+  [avalanche.id]: 6,
+  [bsc.id]: 6,
+  [scroll.id]: 6,
+  [linea.id]: 6,
+  [mantle.id]: 6,
+  [blast.id]: 6,
+  [unichain.id]: 6,
+  [zksync.id]: 6,
 }
 
 /** Fallback display decimals for an unknown chain — the ERC-20 USDC norm. */
@@ -143,6 +209,10 @@ export function tokenDecimalsFor(chainId: number): number {
  *
  * TRUTH-IN-COPY (law #4): any "gas-free" / "no separate gas" UI copy MUST gate on
  * this — we never claim gas-free on a chain where it isn't true.
+ *
+ * MAINNET: this stays `false` for EVERY mainnet in {@link MAINNET_CHAINS}. Gas-free
+ * USDC is an Arc-only property, and Arc MAINNET is not launched (no chain id, not
+ * deployed), so no mainnet here is — or claims to be — gas-free.
  *
  * @param chainId The chain to check.
  * @returns true only for Arc Testnet (5042002).
@@ -219,6 +289,22 @@ const EXPLORER_BASE_URLS: Readonly<Record<number, string>> = {
   [mantleSepoliaTestnet.id]: mantleSepoliaTestnet.blockExplorers.default.url.replace(/\/$/, ''),
   [blastSepolia.id]: blastSepolia.blockExplorers.default.url,
   [unichainSepolia.id]: unichainSepolia.blockExplorers.default.url,
+  // MAINNET explorers (AUDIT-GATED, NOT DEPLOYED) — read straight off each viem chain object so the
+  // link can never drift from the canonical definition. Present here only so a (future, post-audit)
+  // mainnet tx hash renders as a real link rather than plain text; this maps NO Access0x1 deployment.
+  [mainnet.id]: mainnet.blockExplorers.default.url.replace(/\/$/, ''),
+  [base.id]: base.blockExplorers.default.url.replace(/\/$/, ''),
+  [arbitrum.id]: arbitrum.blockExplorers.default.url.replace(/\/$/, ''),
+  [optimism.id]: optimism.blockExplorers.default.url.replace(/\/$/, ''),
+  [polygon.id]: polygon.blockExplorers.default.url.replace(/\/$/, ''),
+  [avalanche.id]: avalanche.blockExplorers.default.url.replace(/\/$/, ''),
+  [bsc.id]: bsc.blockExplorers.default.url.replace(/\/$/, ''),
+  [scroll.id]: scroll.blockExplorers.default.url.replace(/\/$/, ''),
+  [linea.id]: linea.blockExplorers.default.url.replace(/\/$/, ''),
+  [mantle.id]: mantle.blockExplorers.default.url.replace(/\/$/, ''),
+  [blast.id]: blast.blockExplorers.default.url.replace(/\/$/, ''),
+  [unichain.id]: unichain.blockExplorers.default.url.replace(/\/$/, ''),
+  [zksync.id]: zksync.blockExplorers.default.url.replace(/\/$/, ''),
 }
 
 /**
