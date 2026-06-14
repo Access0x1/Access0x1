@@ -7,6 +7,7 @@
 
 export PATH := $(HOME)/.foundry/bin:$(PATH)
 -include .env
+ANVIL_SENDER ?= 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
 .DEFAULT_GOAL := help
 
@@ -143,8 +144,8 @@ anvil: ## Run a local anvil node
 deploy-dry: ## Deploy DRY-RUN — simulation only, no broadcast, no keys
 	forge script script/DeployAll.s.sol
 
-deploy-local: ## Deploy to a local anvil (broadcast)
-	forge script script/DeployAll.s.sol --rpc-url http://localhost:8545 --broadcast -vvvv
+deploy-local: ## Deploy to a local anvil (anvil's default unlocked account[0]; no keystore needed)
+	forge script script/DeployAll.s.sol --rpc-url http://localhost:8545 --broadcast --unlocked --sender $(ANVIL_SENDER) -vvvv
 
 drive-local: ## Deploy + DRIVE the coffee-shop money flow on a local anvil (run `make anvil` first)
 	forge script script/Interactions.s.sol:DriveCoffeeShopLocal \
