@@ -153,13 +153,13 @@ drive-local: ## Deploy + DRIVE the coffee-shop money flow on a local anvil (run 
 		--sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 -vvvv
 
 deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
-	forge script script/DeployAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast -vvvv
+	forge script script/DeployAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(ARC_SCAN_VERIFIER_URL) -vvvv
 
 deploy-base: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 	forge script script/DeployAll.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(BASESCAN_API_KEY) -vvvv
 
 deploy-zksync: ## Deploy to zkSync Sepolia (keystore `deployer`)
-	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --zksync -vvvv
+	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --zksync --verify --verifier zksync --verifier-url $(ZKSYNC_VERIFIER_URL) -vvvv
 
 # Compile against the zkEVM (zksolc) — the ONLY way to catch zkSync-specific build/size/opcode issues.
 # `forge test` runs the EVM, not the zkEVM (see docs/ZKSYNC-TESTING.md): EVM-green != zkSync-green.
