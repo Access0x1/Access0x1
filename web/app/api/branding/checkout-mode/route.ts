@@ -3,6 +3,7 @@ import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
 import {
   asCheckoutMode,
   asHumanVerifier,
+  asVertical,
   BrandingError,
   getByTenant,
   upsertBranding,
@@ -54,6 +55,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   // requiredTier is OPTIONAL: only override when the body carries it, so a
   // mode-only save never resets the merchant's buyer-tier requirement.
   const requiredTier = b.requiredTier !== undefined ? asTrustTier(b.requiredTier) : undefined
+  // vertical is OPTIONAL (Casino vertical, World prize): only override when the
+  // body carries it. When it resolves to 'casino', upsertBranding FORCES
+  // checkoutMode to 'verified-human' and BLOCKS the save until the operator is
+  // World ID-verified — so the requested checkoutMode above is irrelevant for a
+  // casino, and an unverified casino save returns CASINO_NEEDS_OPERATOR below.
+  const vertical = b.vertical !== undefined ? asVertical(b.vertical) : undefined
 
   const existing = getByTenant(tenantId)
   if (!existing) {
@@ -68,6 +75,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       checkoutMode,
       humanVerifier,
       requiredTier,
+      vertical,
     })
     return NextResponse.json({ branding: row }, { status: 200 })
   } catch (err) {

@@ -43,6 +43,25 @@ export const MAX_SLUG_LEN = 48;
  */
 export type CheckoutMode = 'verified-human' | 'private' | 'standard';
 
+/**
+ * The merchant's business category (Casino vertical, World prize). Almost every
+ * tenant is 'standard' (the default — nothing changes). 'casino' marks a tenant
+ * whose checkout sells play/wagering access; for that vertical World ID becomes
+ * LOAD-BEARING:
+ *   - the operator MUST complete World ID proof-of-personhood (verifiedOperator)
+ *     before the casino can be saved / go live (enforced in `upsertBranding`),
+ *   - `checkoutMode` is FORCED to 'verified-human' so a player must pass the
+ *     World ID gate — it is NOT operator-overridable while vertical = 'casino'.
+ * This is the "what breaks without World ID" answer: a casino simply cannot be
+ * brought online without a real, unique human behind it AND a human gate in
+ * front of every player. It says NOTHING about a gambling licence, the player's
+ * age, or legal eligibility — World ID only proves unique personhood (law #4).
+ */
+export type MerchantVertical = 'standard' | 'casino';
+
+/** The default vertical — the existing, unchanged behaviour (non-breaking). */
+export const DEFAULT_VERTICAL: MerchantVertical = 'standard';
+
 /** Where a verified-human proof is checked (World ID ADR D2). Off-chain default. */
 export type HumanVerifier = 'offchain' | 'onchain';
 
@@ -72,6 +91,23 @@ export function asCheckoutMode(v: unknown): CheckoutMode {
 export function asHumanVerifier(v: unknown): HumanVerifier {
   return v === 'onchain' ? 'onchain' : DEFAULT_HUMAN_VERIFIER;
 }
+
+/** Narrow an untrusted value into a {@link MerchantVertical}, defaulting to standard. */
+export function asVertical(v: unknown): MerchantVertical {
+  return v === 'casino' ? 'casino' : DEFAULT_VERTICAL;
+}
+
+/** Is this merchant a casino (World ID load-bearing vertical)? */
+export function isCasino(v: unknown): boolean {
+  return asVertical(v) === 'casino';
+}
+
+/**
+ * Thrown when a casino save is blocked because the operator has not yet
+ * completed World ID proof-of-personhood. Distinct code so the onboarding UI can
+ * branch on it and show the "Casinos must verify with World ID" step.
+ */
+export const CASINO_NEEDS_OPERATOR_CODE = 'CASINO_NEEDS_OPERATOR';
 
 /**
  * One tenant's branding row (ADR D3 Tier-1 table). `merchant_id`, `name_hash`,
@@ -112,6 +148,12 @@ export interface TenantBranding {
    * merchant ('standard' = anyone, the default). Composes with `checkoutMode`.
    */
   requiredTier: TrustTier;
+  /**
+   * The merchant's business category (Casino vertical). Default 'standard' so an
+   * existing tenant is untouched. 'casino' makes World ID load-bearing: the
+   * operator must be verified and `checkoutMode` is forced to 'verified-human'.
+   */
+  vertical: MerchantVertical;
   /** Merchant-side "operated by a verified real human" trust badge (ADR D1.4). */
   verifiedOperator: boolean;
   /**
@@ -144,6 +186,8 @@ export interface BrandingInput {
   humanVerifier?: HumanVerifier;
   /** Minimum buyer trust tier required to pay (Super Verification). Omit to keep existing/default. */
   requiredTier?: TrustTier;
+  /** The merchant's business category (Casino vertical). Omit to keep existing/default. */
+  vertical?: MerchantVertical;
   /** Operator-verified badge + its nullifier (set by the operator-verify seam). */
   verifiedOperator?: boolean;
   operatorNullifier?: string | null;
@@ -315,6 +359,47 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
     input.description ?? existing?.description ?? '',
   );
 
+  // ── Casino vertical: World ID is load-bearing (World prize) ────────────────
+  // Resolve the effective vertical (explicit input > existing > default). Almost
+  // every tenant is 'standard' and falls straight through; only 'casino' adds
+  // rules. The rules are enforced HERE, in the one write path, so no caller can
+  // route around them: the checkout mode forced below + the operator block.
+  const vertical: MerchantVertical =
+    input.vertical !== undefined
+      ? asVertical(input.vertical)
+      : (existing?.vertical ?? DEFAULT_VERTICAL);
+
+  // Resolve the operator-verified flag the SAME way the row build does below, so
+  // the casino block sees the value this very write will persist (e.g. the
+  // operator just verified in this request).
+  const verifiedOperatorResolved =
+    input.verifiedOperator !== undefined
+      ? Boolean(input.verifiedOperator)
+      : (existing?.verifiedOperator ?? false);
+
+  // Resolve the requested checkout mode (explicit > existing > default). For a
+  // casino this is then OVERRIDDEN to 'verified-human' regardless — a casino is
+  // never operator-overridable to standard/private while it stays a casino.
+  let checkoutMode: CheckoutMode =
+    input.checkoutMode !== undefined
+      ? asCheckoutMode(input.checkoutMode)
+      : (existing?.checkoutMode ?? DEFAULT_CHECKOUT_MODE);
+
+  if (vertical === 'casino') {
+    // 2a) FORCE verified-human so every player must pass the World ID gate. Not
+    // user-overridable while vertical = casino (any other choice is ignored).
+    checkoutMode = 'verified-human';
+    // 2b) BLOCK the save (cannot go live) until the operator has completed World
+    // ID proof-of-personhood. This is the "what breaks without World ID": a
+    // casino simply cannot exist without a verified real human behind it.
+    if (!verifiedOperatorResolved) {
+      throw new BrandingError(
+        'Casinos must verify with World ID before going live. Complete the operator World ID step to prove a real, unique person is running this casino.',
+        CASINO_NEEDS_OPERATOR_CODE,
+      );
+    }
+  }
+
   const now = Date.now();
   const row: TenantBranding = {
     tenantId,
@@ -332,10 +417,9 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
     nameHash: nameHashOf(displayName),
     logoBlobId:
       input.logoBlobId !== undefined ? input.logoBlobId : (existing?.logoBlobId ?? null),
-    checkoutMode:
-      input.checkoutMode !== undefined
-        ? asCheckoutMode(input.checkoutMode)
-        : (existing?.checkoutMode ?? DEFAULT_CHECKOUT_MODE),
+    // Casino forced this to 'verified-human' above; otherwise it's the resolved
+    // explicit/existing/default value.
+    checkoutMode,
     humanVerifier:
       input.humanVerifier !== undefined
         ? asHumanVerifier(input.humanVerifier)
@@ -344,10 +428,8 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
       input.requiredTier !== undefined
         ? asTrustTier(input.requiredTier)
         : (existing?.requiredTier ?? DEFAULT_REQUIRED_TIER),
-    verifiedOperator:
-      input.verifiedOperator !== undefined
-        ? Boolean(input.verifiedOperator)
-        : (existing?.verifiedOperator ?? false),
+    vertical,
+    verifiedOperator: verifiedOperatorResolved,
     operatorNullifier:
       input.operatorNullifier !== undefined
         ? input.operatorNullifier

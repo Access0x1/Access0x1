@@ -73,6 +73,8 @@ describe('GET /api/branding/{slug}', () => {
       humanVerifier: 'offchain',
       // Super Verification: the minimum buyer trust tier ('standard' = anyone).
       requiredTier: 'standard',
+      // Casino vertical (World prize): default 'standard' for a fresh row.
+      vertical: 'standard',
       verifiedOperator: false,
     })
   })
