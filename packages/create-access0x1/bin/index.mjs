@@ -216,13 +216,9 @@ function applyTokens(content, tokens) {
   );
 }
 
-// Some files must ship with a literal name (e.g. `.gitignore`, `_env.example`) because npm
-// strips `.gitignore` from published packages and `.env.example` can be filtered by tooling.
-// We store them with a `_` prefix in the template and rename on copy.
-const RENAME_ON_COPY = {
-  '_gitignore': '.gitignore',
-  '_env.example': '.env.example',
-};
+// Template files use their real names (.gitignore, .env.example) so degit copies them correctly.
+// The RENAME_ON_COPY map is kept as an empty hook in case future template entries need aliasing.
+const RENAME_ON_COPY = {};
 
 function copyTree(srcDir, destDir, tokens) {
   mkdirSync(destDir, { recursive: true });

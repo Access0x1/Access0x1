@@ -230,15 +230,18 @@ make web-dev           # cd web && npm run dev  →  http://localhost:3000
 ### Build on it — no contracts to write
 
 Don't want the monorepo, just the stack in your own app? Scaffold a pre-wired starter — checkout +
-one-tag embed + your own Foundry contracts. `@access0x1/react` is the only published package, so you
-fetch the starter directly with `degit`:
+one-tag embed + your own Foundry contracts. Fetch the starter directly with `degit`:
 
 ```sh
 npx degit Access0x1/Access0x1/templates/starter my-checkout
 cd my-checkout
-npm run setup          # detects/installs Foundry, installs deps, builds the contracts (never deploys)
+npm run setup          # installs Foundry, packs @access0x1/react locally, builds the contracts
 npm run dev            # http://localhost:3000 — point it at a router in .env.local
 ```
+
+> **`@access0x1/react` not on npm yet?** `npm run setup` handles it automatically: it finds the
+> `packages/react` source in the Access0x1 repo checkout, runs `npm pack`, and wires a local `file:`
+> reference into `app/package.json`. No manual steps needed.
 
 No Solidity required: set your name, logo, and a router address in `access0x1.config.ts` / `.env.local`
 (it ships **no** default address — LAW #4: never a guessed address). Deploying your own router is
