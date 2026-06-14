@@ -9,17 +9,32 @@ import { fetchQuote, usdToAmount8 } from '@/lib/quote'
 import { getWalletClient, getPublicClient } from '@/lib/wallet'
 import { ConnectButton } from './ConnectButton'
 import { ReceiptScreen } from './ReceiptScreen'
+import { TokenPicker } from './TokenPicker'
 import { WorldIdGate } from './WorldIdGate'
 import { SuperVerifiedBadge } from './verification/SuperVerifiedBadge'
 import type { CheckoutMode, HumanVerifier } from '@/lib/branding/store'
 import { TIER_INFO, tierMeets, type TrustTier } from '@/lib/verification/tiers'
 import { loadProfile } from '@/lib/verification/client'
+import {
+  DEFAULT_PAY_TOKEN,
+  defaultPayToken,
+  payTokenBySymbol,
+  resolvePayTokens,
+  type PayTokenSymbol,
+  type ResolvedPayToken,
+} from '@/lib/tokens'
 
 const USDC_SYMBOL = 'USDC'
 // USDC display decimals are resolved PER CHAIN via `tokenDecimalsFor(chainId)`
 // (18 on Arc's native USDC, 6 on the bridged-USDC L2s) — never hardcoded to 6,
 // which would mis-render Arc amounts by 10^12. The contract reads on-chain
 // decimals in-tx; this constant is for the display/receipt formatting only.
+//
+// MULTI-TOKEN: a buyer may pay in ANY allowlisted coin (USDC default, plus
+// WETH/LINK/UNI/ENS/DAI/WBTC when configured on the chain). The picker sets which
+// token we quote + settle in; USDC's address/decimals come from chains.ts (the
+// existing per-chain USDC seam), every other token from lib/tokens.ts (env-driven,
+// undefined-until-configured). The display decimals below are resolved PER TOKEN.
 
 /**
  * The hosted checkout card. Loads the merchant's name (passed from the page),
@@ -65,8 +80,24 @@ export function CheckoutCard({
 }): ReactNode {
   const { primaryWallet } = useDynamicContext()
   const usdAmount8 = usdToAmount8(Number(usdAmount))
-  // Resolve USDC display decimals for THIS chain (Arc native = 18, L2 USDC = 6).
-  const tokenDecimals = tokenDecimalsFor(chainId)
+
+  // The pay-token menu for THIS chain (USDC first; others disabled until env-set).
+  const payTokens = resolvePayTokens(chainId)
+  // Open on USDC when configured; else the first configured token; else USDC meta.
+  const initialSymbol = (defaultPayToken(chainId)?.symbol ?? DEFAULT_PAY_TOKEN) as PayTokenSymbol
+  const [tokenSymbol, setTokenSymbol] = useState<PayTokenSymbol>(initialSymbol)
+  const selectedToken: ResolvedPayToken | undefined =
+    payTokens.find((t) => t.symbol === tokenSymbol) ??
+    (() => {
+      const meta = payTokenBySymbol(tokenSymbol)
+      return meta ? { ...meta, address: undefined, feed: undefined, available: false } : undefined
+    })()
+
+  // Display decimals for the SELECTED token. USDC is per-chain (Arc native = 18,
+  // L2 USDC = 6, the "Arc trap"); every other token uses its canonical decimals.
+  // The on-chain money path always reads `decimals()` in-tx — this is display-only.
+  const tokenDecimals =
+    tokenSymbol === USDC_SYMBOL ? tokenDecimalsFor(chainId) : (selectedToken?.decimals ?? 18)
 
   // World ID gate state: when the merchant requires verified humans, the pay
   // button stays disabled until the buyer completes the one-tap proof.
@@ -100,22 +131,32 @@ export function CheckoutCard({
   const [payError, setPayError] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<{ event: PaymentReceivedEvent; txHash: Hash } | null>(null)
 
-  // Always fetch the quote fresh on mount — never show a stale price (law #4).
+  // Resolve the SELECTED token's on-chain address. USDC comes from the existing
+  // per-chain seam (chains.ts); every other coin from the env-driven token set.
+  // Throws (never a guessed address) when the selected coin isn't configured here.
+  const resolveTokenAddress = useCallback((): Address => {
+    if (tokenSymbol === USDC_SYMBOL) return getUsdcAddress(chainId)
+    if (selectedToken?.address) return selectedToken.address
+    throw new Error(`${tokenSymbol} is not available on this chain.`)
+  }, [tokenSymbol, chainId, selectedToken?.address])
+
+  // Always fetch the quote fresh on mount / token-change — never a stale price (law #4).
   const refreshQuote = useCallback(async () => {
     setLoadingQuote(true)
     setQuoteError(null)
-    let usdc: Address
+    let token: Address
     try {
-      usdc = getUsdcAddress(chainId)
+      token = resolveTokenAddress()
     } catch (err) {
-      setQuoteError(err instanceof Error ? err.message : 'USDC not configured.')
+      setQuoteError(err instanceof Error ? err.message : `${tokenSymbol} not configured.`)
+      setQuoteDisplay(null)
       setLoadingQuote(false)
       return
     }
     const result = await fetchQuote({
       chainId,
       merchantId,
-      token: usdc,
+      token,
       usdAmount8,
       decimals: tokenDecimals,
     })
@@ -126,7 +167,7 @@ export function CheckoutCard({
       setQuoteDisplay(result.display ?? null)
     }
     setLoadingQuote(false)
-  }, [chainId, merchantId, usdAmount8, tokenDecimals])
+  }, [chainId, merchantId, usdAmount8, tokenDecimals, resolveTokenAddress, tokenSymbol])
 
   useEffect(() => {
     void refreshQuote()
@@ -164,7 +205,9 @@ export function CheckoutCard({
     setPaying(true)
     try {
       const routerAddress = getRouterAddress(chainId)
-      const usdc = getUsdcAddress(chainId)
+      // Settle in the SELECTED allowlisted token (USDC default). The Router's
+      // payToken(any allowlisted token) prices it via that token's Chainlink feed.
+      const token = resolveTokenAddress()
       const walletClient = await getWalletClient(primaryWallet)
       const publicClient = getPublicClient(chainId)
       const orderId = (orderParam
@@ -175,12 +218,12 @@ export function CheckoutCard({
         walletClient,
         publicClient,
         routerAddress,
-        usdc,
+        token,
         { merchantId, usdAmount8, orderId },
       )
       setReceipt({ event, txHash })
     } catch (err) {
-      setPayError(humanizeRevert(err))
+      setPayError(humanizeRevert(err, tokenSymbol))
     } finally {
       setPaying(false)
     }
@@ -192,7 +235,7 @@ export function CheckoutCard({
         receipt={receipt.event}
         txHash={receipt.txHash}
         chainId={chainId}
-        tokenSymbol={USDC_SYMBOL}
+        tokenSymbol={tokenSymbol}
         tokenDecimals={tokenDecimals}
         returnUrl={returnUrl}
       />
@@ -225,13 +268,14 @@ export function CheckoutCard({
                 ? 'Price feed stale — try again'
                 : `Quote unavailable (${quoteError})`
               : quoteDisplay
-                ? `≈ ${quoteDisplay} ${USDC_SYMBOL}`
+                ? `≈ ${quoteDisplay} ${tokenSymbol}`
                 : null}
         </p>
         {/* Truth-in-copy (law #4): only claim "no separate gas" on a chain where
-            USDC IS the native gas token (Arc). Never shown on Base/ZKsync, where
-            a USDC payment still needs ETH for gas. */}
-        {isGasFree(chainId) ? (
+            USDC IS the native gas token (Arc) AND the buyer is paying IN USDC.
+            Paying in another coin (WETH/LINK/…) still needs the chain's gas asset,
+            so we never show this for a non-USDC selection. */}
+        {isGasFree(chainId) && tokenSymbol === USDC_SYMBOL ? (
           <p className="mt-1 text-xs text-neutral-400">Pay in USDC — no separate gas token needed.</p>
         ) : null}
       </div>
@@ -239,6 +283,20 @@ export function CheckoutCard({
       {!merchant.active ? (
         <p className="text-sm text-red-600">This merchant is not currently accepting payments.</p>
       ) : null}
+
+      {/* Multi-token picker: the buyer chooses which allowlisted coin to pay in.
+          USDC is the default; coins not configured on this chain show DISABLED
+          with an honest note. Off the money path — it only sets which token we
+          quote + settle in. Re-selecting re-fetches the quote (refreshQuote dep). */}
+      <TokenPicker
+        tokens={payTokens}
+        selected={tokenSymbol}
+        onSelect={(symbol) => {
+          setTokenSymbol(symbol)
+          setPayError(null)
+        }}
+        disabled={paying}
+      />
 
       {primaryWallet && needsHuman && !humanVerified ? (
         // Verified-humans-only checkout: the World ID gate stands in front of
@@ -320,8 +378,13 @@ export function CheckoutCard({
   )
 }
 
-/** Pull a recognizable revert/custom-error name out of a thrown error, if present. */
-function humanizeRevert(err: unknown): string {
+/**
+ * Pull a recognizable revert/custom-error name out of a thrown error, if present.
+ * The insufficient-balance message names the SELECTED token (USDC default) so the
+ * buyer is told the right coin to top up — never a hardcoded "USDC" when paying in
+ * another allowlisted coin (law #4 truth-in-copy).
+ */
+function humanizeRevert(err: unknown, tokenSymbol: string = USDC_SYMBOL): string {
   const message = err instanceof Error ? err.message : String(err)
   const known = [
     'Access0x1__MerchantInactive',
@@ -334,6 +397,6 @@ function humanizeRevert(err: unknown): string {
   for (const name of known) {
     if (message.includes(name)) return name
   }
-  if (/insufficient/i.test(message)) return 'Insufficient USDC balance for this payment.'
+  if (/insufficient/i.test(message)) return `Insufficient ${tokenSymbol} balance for this payment.`
   return 'Payment failed. Please try again.'
 }

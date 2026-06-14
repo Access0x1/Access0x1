@@ -108,11 +108,23 @@ contract DeployAllTest is Test {
         DEPLOYALL — LOCAL (owns DEPLOY_PAYMENT_LANES + ROUTER_OWNER)
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Owns `DEPLOY_PAYMENT_LANES` + `ROUTER_OWNER`. Full local flow: deploy → configure feeds +
-    ///      USDC allowlist → lanes ON (router authorized as minter) → lanes OFF (no lanes deployed).
+    /// @dev Owns `DEPLOY_PAYMENT_LANES` + `ROUTER_OWNER` + every `TOKEN_*_ADDR`/`TOKEN_*_USD_FEED` key.
+    ///      Full local flow: deploy → configure feeds + USDC allowlist → MULTI-TOKEN allowlist + feeds
+    ///      (a fully-configured token, an allowlisted-but-unfed token, and an unset/skipped token) →
+    ///      lanes ON (router authorized as minter) → lanes OFF (no lanes deployed). All TOKEN_* keys are
+    ///      set HERE (and cleared before the lanes-OFF re-run) so no sibling test ever reads them.
     function test_deployAll_local_deployConfigureAndLanes() public {
         vm.chainId(LOCAL);
         _ownerIsBroadcaster();
+
+        // Multi-token env: LINK fully configured (addr + feed), DAI allowlisted-but-unfed (addr only),
+        // WBTC + the rest left UNSET so the deploy SKIPS them (never a guessed address).
+        address link = makeAddr("link");
+        address linkFeed = makeAddr("linkFeed");
+        address dai = makeAddr("dai");
+        vm.setEnv("TOKEN_LINK_ADDR", vm.toString(link));
+        vm.setEnv("TOKEN_LINK_USD_FEED", vm.toString(linkFeed));
+        vm.setEnv("TOKEN_DAI_ADDR", vm.toString(dai)); // no DAI feed → allowlisted, no priceFeed
 
         // Lanes ON: router + lanes deployed, feeds + USDC wired, router authorized + wired on the ledger.
         vm.setEnv("DEPLOY_PAYMENT_LANES", "true");
@@ -131,14 +143,29 @@ contract DeployAllTest is Test {
         assertTrue(router.tokenAllowed(cfg.usdc));
         assertEq(router.priceFeedOf(cfg.usdc), cfg.usdcUsdFeed);
 
+        // MULTI-TOKEN: LINK is allowlisted AND priced; DAI is allowlisted but has NO feed (a half-config
+        // surfaces loudly at quote(), never a silent misprice); WBTC was unset → never allowlisted.
+        assertTrue(router.tokenAllowed(link));
+        assertEq(router.priceFeedOf(link), linkFeed);
+        assertTrue(router.tokenAllowed(dai));
+        assertEq(router.priceFeedOf(dai), address(0)); // unfed by design (env had no DAI feed)
+        assertFalse(router.tokenAllowed(makeAddr("wbtc"))); // unset symbol → skipped, not guessed
+
         assertTrue(address(lanes) != address(0));
         assertTrue(lanes.isRouter(address(router))); // zero-custody router authorized to credit lanes
         assertEq(router.paymentLanes(), address(lanes)); // and wired into the router's pay path
 
+        // Clear the TOKEN_* keys so the lanes-OFF re-run (and any sibling) sees them unset (skip path).
+        vm.setEnv("TOKEN_LINK_ADDR", "");
+        vm.setEnv("TOKEN_LINK_USD_FEED", "");
+        vm.setEnv("TOKEN_DAI_ADDR", "");
+
         // Lanes OFF: the optional ledger is not deployed; router stays in direct-push mode.
         vm.setEnv("DEPLOY_PAYMENT_LANES", "false");
-        (, PaymentLanes lanesOff,) = new DeployAll().run();
+        (Access0x1Router routerOff, PaymentLanes lanesOff,) = new DeployAll().run();
         assertEq(address(lanesOff), address(0));
+        // With the TOKEN_* env cleared, the extra-token loop is a clean no-op (nothing allowlisted).
+        assertFalse(routerOff.tokenAllowed(link));
     }
 
     /*//////////////////////////////////////////////////////////////
