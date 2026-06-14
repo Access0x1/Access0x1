@@ -15,6 +15,7 @@ ANVIL_SENDER ?= 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
         fmt fmt-check clean sizes storage-layout \
         gate aderyn slither analyze mutation halmos audit anvil \
         deploy-dry deploy-local drive-local deploy-arc deploy-base deploy-zksync deploy-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
+        deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
         vyper-build vyper-test \
         cre-build cre-sim zksync-build all
@@ -235,3 +236,27 @@ deploy-arbitrum-sepolia: ## Deploy to Arbitrum Sepolia (arbiscan verify)
 
 deploy-optimism-sepolia: ## Deploy to Optimism Sepolia (etherscan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(OPTIMISM_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(OPTIMISM_API_KEY) -vvvv
+
+deploy-polygon-amoy: ## Deploy to Polygon Amoy (polygonscan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(POLYGON_AMOY_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(POLYGONSCAN_API_KEY) -vvvv
+
+deploy-avalanche-fuji: ## Deploy to Avalanche Fuji (snowtrace verify)
+	forge script script/DeployAll.s.sol --rpc-url $(AVALANCHE_FUJI_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(SNOWTRACE_API_KEY) -vvvv
+
+deploy-bnb-testnet: ## Deploy to BNB Smart Chain testnet (bscscan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(BNB_TESTNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(BSCSCAN_API_KEY) -vvvv
+
+deploy-scroll-sepolia: ## Deploy to Scroll Sepolia (scrollscan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(SCROLL_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(SCROLLSCAN_API_KEY) -vvvv
+
+deploy-linea-sepolia: ## Deploy to Linea Sepolia (lineascan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(LINEA_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(LINEASCAN_API_KEY) -vvvv
+
+deploy-mantle-sepolia: ## Deploy to Mantle Sepolia (blockscout verify)
+	forge script script/DeployAll.s.sol --rpc-url $(MANTLE_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(MANTLE_SEPOLIA_VERIFIER_URL) -vvvv
+
+deploy-blast-sepolia: ## Deploy to Blast Sepolia (blastscan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(BLAST_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(BLASTSCAN_API_KEY) -vvvv
+
+deploy-unichain-sepolia: ## Deploy to Unichain Sepolia (uniscan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(UNICHAIN_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(UNISCAN_API_KEY) -vvvv
