@@ -45,6 +45,30 @@ contract HelperConfig is Script {
     /// @notice zkSync Sepolia (Era, ZK Stack). Native = ETH (18 dec); USDC + feed addresses are booth confirms.
     uint256 internal constant ZKSYNC_SEPOLIA_CHAIN_ID = 300;
 
+    /// @notice Polygon Amoy (PoS testnet). Native = POL (18 dec). Circle USDC + Chainlink feeds exist — confirm.
+    uint256 internal constant POLYGON_AMOY_CHAIN_ID = 80_002;
+
+    /// @notice Avalanche Fuji (C-Chain testnet). Native = AVAX (18 dec). Circle USDC + feeds exist — confirm.
+    uint256 internal constant AVALANCHE_FUJI_CHAIN_ID = 43_113;
+
+    /// @notice BNB Smart Chain testnet. Native = tBNB (18 dec). USDC + BNB/USD feed addresses are confirms.
+    uint256 internal constant BNB_TESTNET_CHAIN_ID = 97;
+
+    /// @notice Scroll Sepolia (zkEVM L2). Native = ETH (18 dec). USDC + feed addresses are booth/docs confirms.
+    uint256 internal constant SCROLL_SEPOLIA_CHAIN_ID = 534_351;
+
+    /// @notice Linea Sepolia (Consensys zkEVM L2). Native = ETH (18 dec). USDC + feed addresses are confirms.
+    uint256 internal constant LINEA_SEPOLIA_CHAIN_ID = 59_141;
+
+    /// @notice Mantle Sepolia (OP-stack L2). Native = MNT (18 dec). Blockscout verifier; USDC + feeds confirms.
+    uint256 internal constant MANTLE_SEPOLIA_CHAIN_ID = 5_003;
+
+    /// @notice Blast Sepolia (OP-stack L2). Native = ETH (18 dec). USDC + feed addresses are booth/docs confirms.
+    uint256 internal constant BLAST_SEPOLIA_CHAIN_ID = 168_587_773;
+
+    /// @notice Unichain Sepolia (OP-stack L2). Native = ETH (18 dec). USDC + feed addresses are confirms.
+    uint256 internal constant UNICHAIN_SEPOLIA_CHAIN_ID = 1_301;
+
     /// @notice Default platform fee when `*_PLATFORM_FEE_BPS` is unset: 100 bps = 1.00%.
     uint16 internal constant DEFAULT_PLATFORM_FEE_BPS = 100;
 
@@ -69,6 +93,22 @@ contract HelperConfig is Script {
             activeConfig = _baseSepoliaConfig();
         } else if (block.chainid == ZKSYNC_SEPOLIA_CHAIN_ID) {
             activeConfig = _zkSyncSepoliaConfig();
+        } else if (block.chainid == POLYGON_AMOY_CHAIN_ID) {
+            activeConfig = _polygonAmoyConfig();
+        } else if (block.chainid == AVALANCHE_FUJI_CHAIN_ID) {
+            activeConfig = _avalancheFujiConfig();
+        } else if (block.chainid == BNB_TESTNET_CHAIN_ID) {
+            activeConfig = _bnbTestnetConfig();
+        } else if (block.chainid == SCROLL_SEPOLIA_CHAIN_ID) {
+            activeConfig = _scrollSepoliaConfig();
+        } else if (block.chainid == LINEA_SEPOLIA_CHAIN_ID) {
+            activeConfig = _lineaSepoliaConfig();
+        } else if (block.chainid == MANTLE_SEPOLIA_CHAIN_ID) {
+            activeConfig = _mantleSepoliaConfig();
+        } else if (block.chainid == BLAST_SEPOLIA_CHAIN_ID) {
+            activeConfig = _blastSepoliaConfig();
+        } else if (block.chainid == UNICHAIN_SEPOLIA_CHAIN_ID) {
+            activeConfig = _unichainSepoliaConfig();
         } else {
             activeConfig = _liveConfigFromEnv();
         }
@@ -166,6 +206,167 @@ contract HelperConfig is Script {
                 vm.envOr("ZKSYNC_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
             ),
             creForwarder: vm.envOr("ZKSYNC_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Polygon Amoy (chainId 80002, PoS testnet). Reads only `POLYGON_AMOY_`-prefixed env. Native
+    ///      = POL (18 dec). Circle USDC (6 dec) + Chainlink POL/USD + USDC/USD feeds exist on Amoy — fill
+    ///      from Circle docs + docs.chain.link/data-feeds. `treasury` required; everything else optional
+    ///      and skipped (address(0)) until confirmed, so a partial broadcast never wires a guess.
+    function _polygonAmoyConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("POLYGON_AMOY_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("POLYGON_AMOY_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("POLYGON_AMOY_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("POLYGON_AMOY_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("POLYGON_AMOY_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("POLYGON_AMOY_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("POLYGON_AMOY_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("POLYGON_AMOY_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Avalanche Fuji (chainId 43113, C-Chain testnet). Reads only `AVALANCHE_FUJI_`-prefixed env.
+    ///      Native = AVAX (18 dec). Circle USDC (6 dec) + Chainlink AVAX/USD + USDC/USD feeds exist on
+    ///      Fuji. `treasury` required; feed/USDC addresses optional and skipped until confirmed.
+    function _avalancheFujiConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("AVALANCHE_FUJI_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("AVALANCHE_FUJI_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("AVALANCHE_FUJI_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("AVALANCHE_FUJI_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("AVALANCHE_FUJI_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("AVALANCHE_FUJI_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("AVALANCHE_FUJI_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("AVALANCHE_FUJI_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev BNB Smart Chain testnet (chainId 97). Reads only `BNB_TESTNET_`-prefixed env. Native =
+    ///      tBNB (18 dec). USDC + Chainlink BNB/USD + USDC/USD feeds exist on BSC testnet — confirm the
+    ///      USDC address (peg-token vs Circle) from docs. `treasury` required; the rest skipped until set.
+    function _bnbTestnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("BNB_TESTNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("BNB_TESTNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("BNB_TESTNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("BNB_TESTNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("BNB_TESTNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("BNB_TESTNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("BNB_TESTNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("BNB_TESTNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Scroll Sepolia (chainId 534351, zkEVM L2). Reads only `SCROLL_SEPOLIA_`-prefixed env. Native
+    ///      = ETH (18 dec). USDC + Chainlink ETH/USD + USDC/USD feed availability are booth/docs confirms
+    ///      — leave blank until verified. `treasury` required; anything unconfirmed is skipped, not wired.
+    function _scrollSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("SCROLL_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("SCROLL_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("SCROLL_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("SCROLL_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("SCROLL_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("SCROLL_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("SCROLL_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("SCROLL_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Linea Sepolia (chainId 59141, Consensys zkEVM L2). Reads only `LINEA_SEPOLIA_`-prefixed env.
+    ///      Native = ETH (18 dec). USDC + Chainlink ETH/USD + USDC/USD feed availability are docs confirms
+    ///      — leave blank until verified. `treasury` required; everything else optional/skipped.
+    function _lineaSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("LINEA_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("LINEA_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("LINEA_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("LINEA_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("LINEA_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("LINEA_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("LINEA_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("LINEA_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Mantle Sepolia (chainId 5003, OP-stack L2). Reads only `MANTLE_SEPOLIA_`-prefixed env. Native
+    ///      = MNT (18 dec) — NOT ETH, so the native/USD feed is an MNT/USD feed; confirm it exists before
+    ///      wiring. Verifier is Blockscout (no Etherscan key). USDC + feeds are confirms; `treasury` req.
+    function _mantleSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("MANTLE_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("MANTLE_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("MANTLE_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("MANTLE_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("MANTLE_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("MANTLE_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("MANTLE_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("MANTLE_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Blast Sepolia (chainId 168587773, OP-stack L2). Reads only `BLAST_SEPOLIA_`-prefixed env.
+    ///      Native = ETH (18 dec). USDC + Chainlink ETH/USD + USDC/USD feed availability are confirms —
+    ///      leave blank until verified. `treasury` required; unconfirmed addresses are skipped, not wired.
+    function _blastSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("BLAST_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("BLAST_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("BLAST_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("BLAST_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("BLAST_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("BLAST_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("BLAST_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("BLAST_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Unichain Sepolia (chainId 1301, OP-stack L2). Reads only `UNICHAIN_SEPOLIA_`-prefixed env.
+    ///      Native = ETH (18 dec). USDC + Chainlink ETH/USD + USDC/USD feed availability are confirms —
+    ///      leave blank until verified. `treasury` required; everything else optional/skipped.
+    function _unichainSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("UNICHAIN_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("UNICHAIN_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("UNICHAIN_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("UNICHAIN_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("UNICHAIN_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("UNICHAIN_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("UNICHAIN_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("UNICHAIN_SEPOLIA_CRE_FORWARDER", address(0))
         });
     }
 

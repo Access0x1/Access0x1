@@ -1,5 +1,16 @@
 import { defineChain, type Address, type Chain } from 'viem'
-import { baseSepolia, zksyncSepoliaTestnet } from 'viem/chains'
+import {
+  baseSepolia,
+  zksyncSepoliaTestnet,
+  polygonAmoy,
+  avalancheFuji,
+  bscTestnet,
+  scrollSepolia,
+  lineaSepolia,
+  mantleSepoliaTestnet,
+  blastSepolia,
+  unichainSepolia,
+} from 'viem/chains'
 
 /**
  * Arc Testnet EVM chain id. `5042002` is the id used across the spec and the
@@ -43,11 +54,31 @@ export const arcTestnet = defineChain({
   testnet: true,
 })
 
-/** Every chain checkout-web supports. Arc is the lead; the others are bridge targets. */
+/**
+ * Every chain checkout-web supports. Arc is the lead; the others are bridge
+ * targets. All the testnets below settle in the canonical 6-dec bridged USDC and
+ * pay gas in their OWN native token (ETH / POL / AVAX / tBNB / MNT) — so NONE of
+ * them is "gas-free" the way Arc is (see {@link isGasFree}). The viem chain
+ * objects carry each chain's id, native currency, public RPC and explorer; we
+ * never re-literalize an id or an explorer URL we'd otherwise invent (law #4).
+ *
+ * The on-chain USDC + router addresses for each chain are NEVER hardcoded here —
+ * they resolve from `NEXT_PUBLIC_USDC_ADDRESS_<id>` / `NEXT_PUBLIC_ROUTER_ADDRESS_<id>`
+ * at the call site (see {@link getUsdcAddress} / {@link getRouterAddress}), and a
+ * missing value throws rather than guessing. "USDC undefined until confirmed."
+ */
 export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [
   arcTestnet,
   baseSepolia,
   zksyncSepoliaTestnet,
+  polygonAmoy,
+  avalancheFuji,
+  bscTestnet,
+  scrollSepolia,
+  lineaSepolia,
+  mantleSepoliaTestnet,
+  blastSepolia,
+  unichainSepolia,
 ]
 
 /**
@@ -74,6 +105,16 @@ const USDC_DECIMALS_BY_CHAIN: Readonly<Record<number, number>> = {
   // Bridged USDC on the L2 testnets is the canonical 6-dec ERC-20.
   [baseSepolia.id]: 6,
   [zksyncSepoliaTestnet.id]: 6,
+  // The additional EVM testnets all settle in the canonical 6-dec bridged USDC
+  // (native gas is ETH / POL / AVAX / tBNB / MNT — NOT USDC — so none are gas-free).
+  [polygonAmoy.id]: 6,
+  [avalancheFuji.id]: 6,
+  [bscTestnet.id]: 6,
+  [scrollSepolia.id]: 6,
+  [lineaSepolia.id]: 6,
+  [mantleSepoliaTestnet.id]: 6,
+  [blastSepolia.id]: 6,
+  [unichainSepolia.id]: 6,
 }
 
 /** Fallback display decimals for an unknown chain — the ERC-20 USDC norm. */
@@ -161,10 +202,23 @@ export function getRpcUrl(chainId: number): string {
  * Arc Testnet is INTENTIONALLY ABSENT: its explorer is not booth-confirmed, so
  * we leave it undefined and render the hash as plain text rather than invent a
  * link — mirroring the "confirm at booth" doctrine for the Arc RPC above.
+ *
+ * For the additional EVM testnets we read each explorer URL straight off its viem
+ * chain object (`blockExplorers.default.url`) rather than re-literalizing a string
+ * here — so the link can never drift from the canonical viem definition, and an
+ * explorer-less chain simply never appears in this map (its hash renders as text).
  */
 const EXPLORER_BASE_URLS: Readonly<Record<number, string>> = {
   [baseSepolia.id]: 'https://sepolia.basescan.org',
   [zksyncSepoliaTestnet.id]: 'https://sepolia.explorer.zksync.io',
+  [polygonAmoy.id]: polygonAmoy.blockExplorers.default.url,
+  [avalancheFuji.id]: avalancheFuji.blockExplorers.default.url,
+  [bscTestnet.id]: bscTestnet.blockExplorers.default.url,
+  [scrollSepolia.id]: scrollSepolia.blockExplorers.default.url,
+  [lineaSepolia.id]: lineaSepolia.blockExplorers.default.url,
+  [mantleSepoliaTestnet.id]: mantleSepoliaTestnet.blockExplorers.default.url.replace(/\/$/, ''),
+  [blastSepolia.id]: blastSepolia.blockExplorers.default.url,
+  [unichainSepolia.id]: unichainSepolia.blockExplorers.default.url,
 }
 
 /**
