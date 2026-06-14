@@ -191,28 +191,58 @@ deployed once per chain by `DeployChainRegistry` and carried in as config).
 
 ## Quickstart
 
+**Prerequisites:** [Git](https://git-scm.com/) · [Foundry](https://book.getfoundry.sh/getting-started/installation) ·
+[Node.js](https://nodejs.org/) 18+. Foundry resolves `@chainlink/contracts` from `node_modules` via a
+remapping, so **`npm install` must run before `forge build`**. `make install` does it all in the right
+order — git submodules (OpenZeppelin + forge-std) + npm (`@chainlink`) + the web app + the SDK:
+
 ```sh
 git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
-forge install          # OpenZeppelin + forge-std (git submodules)
-npm install            # @chainlink/contracts (npm, pinned 1.5.0) — run BEFORE forge build
-forge build
-forge test             # 846 green
-forge coverage         # 100% on the router
-forge snapshot         # regenerate .gas-snapshot (see docs/GAS.md)
+make install           # forge submodules + npm (@chainlink) + web + SDK — one command
+make build             # forge build
+make test              # 846 tests, all green
 ```
 
-**Prerequisites:** [Git](https://git-scm.com/) · [Foundry](https://book.getfoundry.sh/getting-started/installation) ·
-[Node.js](https://nodejs.org/) (for the `@chainlink/contracts` npm dependency, which Foundry resolves
-into `node_modules` via a remapping).
+> Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
+> More: `make coverage` (100% on the router) · `make snapshot` (gas) · `make gate` (the full pre-commit gate) · `make audit`.
 
-Deploy to a local Anvil (deploys mock feeds + a mock USDC, then the router):
+### Run it locally — no keys, no keystore
+
+A fresh Anvil node ships unlocked dev accounts, so the local deploy needs **no private key and no
+keystore**. It deploys mock price feeds + a mock USDC, then the whole wired surface:
 
 ```sh
-anvil &
-forge script script/DeployAccess0x1Router.s.sol --rpc-url http://localhost:8545 \
-  --account <keystore> --broadcast
+make anvil             # terminal 1 — local node on http://localhost:8545
+make deploy-local      # terminal 2 — deploys the full wired surface to the local node
 ```
+
+Want to *see money move*? `make drive-local` runs a full coffee-shop payment on the local node
+(register a merchant → quote in USD → pay in USDC → `net + fee == gross`, zero custody). Copy-paste
+`cast` walkthroughs for every contract are in [`docs/MANUAL-TESTING.md`](docs/MANUAL-TESTING.md).
+
+### Run the web app
+
+```sh
+make web-dev           # cd web && npm run dev  →  http://localhost:3000
+```
+
+### Build on it — no contracts to write
+
+Don't want the monorepo, just the stack in your own app? Scaffold a pre-wired starter — checkout +
+one-tag embed + your own Foundry contracts. `@access0x1/react` is the only published package, so you
+fetch the starter directly with `degit`:
+
+```sh
+npx degit Access0x1/Access0x1/templates/starter my-checkout
+cd my-checkout
+npm run setup          # detects/installs Foundry, installs deps, builds the contracts (never deploys)
+npm run dev            # http://localhost:3000 — point it at a router in .env.local
+```
+
+No Solidity required: set your name, logo, and a router address in `access0x1.config.ts` / `.env.local`
+(it ships **no** default address — LAW #4: never a guessed address). Deploying your own router is
+optional; the starter's `contracts/DEPLOY.md` is the runbook.
 
 ---
 
