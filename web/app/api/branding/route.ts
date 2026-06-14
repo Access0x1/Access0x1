@@ -7,8 +7,28 @@ import {
   type TenantBranding,
 } from '@/lib/branding/store'
 import { DEFAULT_BRAND_COLOR, monogramSvg, normalizeBrandColor } from '@/lib/branding/logo'
+import { issueMerchantSubname } from '@/lib/ens-subnames'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * Best-effort ENS subname on onboarding (WRITE seam). Fires AFTER the save so it
+ * can NEVER block or fail the branding write — the seam is itself fail-soft (a
+ * clean no-op when `NAMESTONE_API_KEY` / `ENS_SUBNAME_PARENT` are unset), and we
+ * additionally swallow any error here. Off the money path, purely additive: a
+ * merchant who gets no subname still has a fully working checkout.
+ *
+ * The label id prefers the on-chain merchant id; until the tenant registers
+ * on-chain it falls back to the checkout slug so the name is stable + readable.
+ * The owner is the tenant's wallet (the tenant id IS the 0x address).
+ */
+function issueSubnameInBackground(row: TenantBranding): void {
+  const id = row.merchantId ?? row.checkoutSlug
+  if (!id) return
+  void issueMerchantSubname({ id, owner: row.tenantId }).catch(() => {
+    // Swallow: additive seam, never surfaced to the merchant's save flow.
+  })
+}
 
 /**
  * GET /api/branding  (tenant-scoped read for the dashboard / Settings → Branding)
@@ -94,6 +114,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       checkoutSlug,
       logoSvgInline,
     })
+    // Best-effort gasless ENS subname for the merchant (WRITE seam). Fire-and-
+    // forget AFTER the save so it can never block or fail the branding write;
+    // a clean no-op when the seam is unconfigured. Off the money path.
+    issueSubnameInBackground(row)
     return NextResponse.json({ branding: toClientBranding(row) }, { status: 200 })
   } catch (err) {
     if (err instanceof BrandingError) {

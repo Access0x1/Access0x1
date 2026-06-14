@@ -415,9 +415,23 @@ sponsor let us *not* build, not a sponsor wall.
   Sign-in-with-Google ID tokens; override `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` to point at
   *any* OIDC provider or your own auth backend with no code change. A verified token identifies a USER
   and, when it carries an agent claim, a verified AGENT — verify for all.
-- **ENS — human-readable names on both ends.** [`web/lib/ens.ts`](web/lib/ens.ts) resolves an ENS name
-  to the merchant's payout address *on the settlement chain* (always passing the chain's `coinType`),
-  so both the brand and the payout destination can be a name instead of a hex string.
+- **ENS — verified merchant identity + gasless subnames.** [`web/lib/ens.ts`](web/lib/ens.ts) resolves
+  an ENS name to the merchant's payout address *on the settlement chain* (always passing the chain's
+  `coinType`), so both the brand and the payout destination can be a name instead of a hex string. On
+  top of that, two env-gated seams:
+  - **READ — ENSIP-19 verified identity at checkout.** `verifiedPrimaryName(address, chainId)` calls
+    the ENS **Universal Resolver**'s ENSIP-19 `reverse(address, coinType)` (coinType derived via
+    ENSIP-11) and returns the primary name **only when it forward-resolves back to that exact address**
+    (forward == reverse). The checkout badge ([`web/components/MerchantIdentity.tsx`](web/components/MerchantIdentity.tsx))
+    then shows e.g. *"Paying acme.eth ✓"* — otherwise the truncated address. It never fabricates a name,
+    never throws, and sits off the money path. The Universal Resolver address has a built-in default and
+    is overridable via `NEXT_PUBLIC_ENS_UNIVERSAL_RESOLVER` (confirm on Etherscan).
+  - **WRITE — Namestone gasless subnames.** [`web/lib/ens-subnames.ts`](web/lib/ens-subnames.ts) +
+    [`web/app/api/ens/subname`](web/app/api/ens/subname) issue `merchant-<id>.<parent>.eth` with **zero
+    gas** via Namestone and write the merchant's USD-pricing / settlement config into ENS **text records**
+    (`com.access0x1.*`). The subname **parent is your own ENS name**, read only from `ENS_SUBNAME_PARENT`
+    (never hardcoded); with `NAMESTONE_API_KEY` it's live. **Blank ⇒ the whole seam is a clean no-op**
+    (no fabricated name, no network call) — fail-soft, like OIDC degrading when unconfigured.
 - **Walrus — an un-takedownable checkout.** [`web/lib/walrus.ts`](web/lib/walrus.ts) publishes the
   checkout page and receipt blobs to Walrus (Sui decentralized storage). Because a blob is
   content-addressed and served by any aggregator on the network, the checkout isn't pinned to one
