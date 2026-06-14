@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { ConnectButton } from '@/components/ConnectButton'
 import { WorldIdGate } from '@/components/WorldIdGate'
-import { SuperVerifiedBadge } from './SuperVerifiedBadge'
+import { VerificationLevels } from './VerificationLevels'
 import {
   METHOD_INFO,
   VERIFICATION_METHODS,
@@ -80,36 +80,15 @@ export function VerificationStack(): ReactNode {
     )
   }
 
-  const tier = profile?.tier ?? 'standard'
+  const methods = profile?.methods ?? []
   const score = profile?.score ?? 0
-  const nextStep = profile?.nextStep ?? null
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 p-5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-ink">Your verification</span>
-          <SuperVerifiedBadge tier={tier} score={score} />
-        </div>
-        {/* Trust meter. */}
-        <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
-          <div
-            className="h-full rounded-full bg-rail transition-all"
-            style={{ width: `${score}%` }}
-            role="progressbar"
-            aria-valuenow={score}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          />
-        </div>
-        {nextStep ? (
-          <p className="text-sm text-neutral-600">{nextStep}</p>
-        ) : (
-          <p className="text-sm font-medium text-rail">
-            ★ You&apos;re Super Verified — the highest trust tier.
-          </p>
-        )}
-      </div>
+      {/* The shadcn ladder panel: trust meter, method chips, current level, and
+          the "Verify more" CTA. Pure/presentational — this stack owns the data
+          and the per-method actions below. */}
+      <VerificationLevels methods={methods} score={score} />
 
       <ul className="flex flex-col gap-3">
         {VERIFICATION_METHODS.map((method) => {

@@ -3,6 +3,12 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Transform JSX/TSX with the automatic runtime (matches Next.js: components
+  // don't import React). Without this, esbuild defaults to the classic runtime
+  // and SSR-rendering a .tsx component throws "React is not defined".
+  esbuild: {
+    jsx: 'automatic',
+  },
   resolve: {
     alias: [
       // Mirror the tsconfig `@/*` → `./*` path mapping. Route files import

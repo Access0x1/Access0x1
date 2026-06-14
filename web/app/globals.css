@@ -5,6 +5,36 @@
 :root {
   --ax1-ink: #0a0a0a;
   --ax1-rail: #6366f1;
+
+  /*
+   * shadcn/ui design tokens (additive — these sit alongside the --ax1-* brand
+   * tokens above and never override the app's existing styles). HSL channel
+   * triples so shadcn components can compose `hsl(var(--token) / <alpha>)`.
+   * Mapped onto the app palette: foreground = ink (#0A0A0A), primary = rail
+   * (#6366F1, the indigo accent), background = white. Light theme only.
+   */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 4%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 4%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 4%;
+  --primary: 239 84% 67%; /* rail / indigo */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 9%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 239 84% 67%;
+  --radius: 0.75rem;
 }
 
 html,
@@ -12,4 +42,29 @@ body {
   background: #ffffff;
   color: var(--ax1-ink);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Super Verified shimmer — a subtle sheen that sweeps across the gold/gradient
+ * L4 badge. Respects prefers-reduced-motion (the animation is disabled there;
+ * the gradient stays). Scoped to the badge variant via the .ax1-shimmer class.
+ */
+@keyframes ax1-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.ax1-shimmer {
+  background-size: 200% 100%;
+  animation: ax1-shimmer 3s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ax1-shimmer {
+    animation: none;
+  }
 }
