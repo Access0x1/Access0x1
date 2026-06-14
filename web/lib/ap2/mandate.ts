@@ -34,6 +34,8 @@
 
 import { createHash } from "node:crypto";
 
+import { agentNameHash } from "../agent/identity.js";
+
 /** A 0x-prefixed hex string (an EVM address or a keccak/sha digest), as used across the web app. */
 export type Hex = `0x${string}`;
 
@@ -156,6 +158,19 @@ export interface IntentMandate extends MandateBase {
   readonly credentialSubject: {
     /** DID of the agent the mandate authorizes (derived from the SessionGrant delegate). */
     readonly id: string;
+    /**
+     * The agent's human DISPLAY NAME, present only when the caller supplied one (the
+     * caller holds the plaintext client-side, like the merchant business name). It
+     * makes the agent card carry a readable name for an AP2/A2A counterparty to show.
+     * Absent when no name was provided — never fabricated (law #4).
+     */
+    readonly agentName?: string;
+    /**
+     * keccak256(toHex(agentName)) — the COMMITMENT to the display name, so a
+     * counterparty can confirm the shown name matches the on-chain/on-the-wire
+     * commitment (mirrors the merchant `nameHash`). Present iff `agentName` is.
+     */
+    readonly agentNameHash?: Hex;
     /** The bounded spending scope — the heart of the Intent Mandate. */
     readonly spendingScope: {
       readonly budgetCap: string;
@@ -302,6 +317,14 @@ export interface BuildOptions {
   readonly nowSeconds?: number;
   /** Origin used to mint mandate `id` URNs. Defaults to "https://access0x1.xyz". */
   readonly origin?: string;
+  /**
+   * The agent's human DISPLAY NAME, to carry on the Intent Mandate's agent card.
+   * OPTIONAL: the caller (client-side) holds the plaintext; when supplied, the
+   * credentialSubject gains a readable `agentName` + its `agentNameHash` commitment.
+   * Omit it and the agent card stays name-less (the on-chain mandate is unaffected).
+   * Blank / whitespace is treated as absent — we never fabricate a name (law #4).
+   */
+  readonly agentName?: string;
 }
 
 function resolveOpts(opts: BuildOptions | undefined, grant: SessionGrantAuthorization) {
@@ -334,6 +357,16 @@ export function sessionGrantToIntentMandate(
   const { issuerDid, nowSeconds, issuanceDate, origin } = resolveOpts(opts, grant);
   const spent = grant.spent ?? "0";
   const remaining = remainingBudget(grant, nowSeconds);
+  // The agent's human name is OPTIONAL and held client-side: when supplied we carry
+  // both the readable name and its commitment hash on the agent card; when absent we
+  // add neither field (never fabricate a name — law #4). This is the ONLY addition to
+  // the credential body; the proof stub is still built over the body unchanged, so the
+  // unsigned-stub honesty (it covers exactly THIS content, signature still deferred) holds.
+  const trimmedAgentName = (opts?.agentName ?? "").trim();
+  const agentNameFields: { agentName: string; agentNameHash: Hex } | Record<string, never> =
+    trimmedAgentName.length > 0
+      ? { agentName: trimmedAgentName, agentNameHash: agentNameHash(trimmedAgentName) as Hex }
+      : {};
   const body = {
     "@context": AP2_CONTEXTS,
     id: `${origin}/ap2/intent/${grant.sessionId}`,
@@ -343,6 +376,7 @@ export function sessionGrantToIntentMandate(
     issuanceDate,
     credentialSubject: {
       id: didForAddress(grant.delegate, grant.chainId),
+      ...agentNameFields,
       spendingScope: {
         budgetCap: grant.budgetCap,
         spent,
