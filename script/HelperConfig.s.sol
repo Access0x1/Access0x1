@@ -69,6 +69,68 @@ contract HelperConfig is Script {
     /// @notice Unichain Sepolia (OP-stack L2). Native = ETH (18 dec). USDC + feed addresses are confirms.
     uint256 internal constant UNICHAIN_SEPOLIA_CHAIN_ID = 1_301;
 
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // MAINNET chain ids — AUDIT-GATED, NOT DEPLOYED.
+    //
+    // These ids exist so each chain has BOTH a testnet and a mainnet config PROFILE. They change
+    // NOTHING about what is live: this repo is testnet-only and unaudited, and there is NO mainnet
+    // deployment and NO mainnet claim anywhere. Every mainnet branch below reads ALL of its addresses
+    // from `<CHAIN>_MAINNET_*` env (default address(0)) exactly like the testnet branches, so nothing
+    // is ever hardcoded — a real USDC/feed address here would imply a deployment we have not made and
+    // is therefore forbidden (law #4). A mainnet target is reachable ONLY by an explicit, audit-gated
+    // `make deploy-<chain>-mainnet` (each of those targets carries a loud "do not run until audited"
+    // banner). The constructor arms below sit ABOVE the `_liveConfigFromEnv()` fallback purely so the
+    // RIGHT env prefix is read per chain; selecting a branch never broadcasts anything by itself.
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// @notice Ethereum mainnet (chainId 1). AUDIT-GATED config profile only — no deployment exists.
+    uint256 internal constant ETHEREUM_MAINNET_CHAIN_ID = 1;
+
+    /// @notice Base mainnet (Coinbase L2, chainId 8453). AUDIT-GATED config profile only — not deployed.
+    uint256 internal constant BASE_MAINNET_CHAIN_ID = 8_453;
+
+    /// @notice Arbitrum One (chainId 42161). AUDIT-GATED config profile only — not deployed.
+    uint256 internal constant ARBITRUM_MAINNET_CHAIN_ID = 42_161;
+
+    /// @notice Optimism mainnet (OP Mainnet, chainId 10). AUDIT-GATED config profile only — not deployed.
+    uint256 internal constant OPTIMISM_MAINNET_CHAIN_ID = 10;
+
+    /// @notice Polygon mainnet (PoS, chainId 137). Native = POL (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant POLYGON_MAINNET_CHAIN_ID = 137;
+
+    /// @notice Avalanche C-Chain mainnet (chainId 43114). Native = AVAX (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant AVALANCHE_MAINNET_CHAIN_ID = 43_114;
+
+    /// @notice BNB Smart Chain mainnet (chainId 56). Native = BNB (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant BNB_MAINNET_CHAIN_ID = 56;
+
+    /// @notice Scroll mainnet (zkEVM L2, chainId 534352). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant SCROLL_MAINNET_CHAIN_ID = 534_352;
+
+    /// @notice Linea mainnet (Consensys zkEVM, chainId 59144). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant LINEA_MAINNET_CHAIN_ID = 59_144;
+
+    /// @notice Mantle mainnet (OP-stack L2, chainId 5000). Native = MNT (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant MANTLE_MAINNET_CHAIN_ID = 5_000;
+
+    /// @notice Blast mainnet (OP-stack L2, chainId 81457). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant BLAST_MAINNET_CHAIN_ID = 81_457;
+
+    /// @notice Unichain mainnet (OP-stack L2, chainId 130). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant UNICHAIN_MAINNET_CHAIN_ID = 130;
+
+    /// @notice zkSync Era mainnet (ZK Stack, chainId 324). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant ZKSYNC_MAINNET_CHAIN_ID = 324;
+
+    /// @notice Arc MAINNET is NOT launched (Arc is testnet-only today), so its chain id is UNKNOWN and
+    ///         MUST NOT be invented. The Arc-mainnet branch is selected ONLY when the operator sets
+    ///         `ARC_MAINNET_CHAIN_ID` to the real id at launch; until then this resolves to 0, which can
+    ///         never equal a live `block.chainid`, so the branch is unreachable and claims nothing. This
+    ///         is read at construction (not a compile-time constant) precisely because the id is TBD.
+    function _arcMainnetChainId() internal view returns (uint256) {
+        return vm.envOr("ARC_MAINNET_CHAIN_ID", uint256(0));
+    }
+
     /// @notice Default platform fee when `*_PLATFORM_FEE_BPS` is unset: 100 bps = 1.00%.
     uint16 internal constant DEFAULT_PLATFORM_FEE_BPS = 100;
 
@@ -109,9 +171,51 @@ contract HelperConfig is Script {
             activeConfig = _blastSepoliaConfig();
         } else if (block.chainid == UNICHAIN_SEPOLIA_CHAIN_ID) {
             activeConfig = _unichainSepoliaConfig();
+        } else if (block.chainid == ETHEREUM_MAINNET_CHAIN_ID) {
+            // ── MAINNET arms (AUDIT-GATED, NOT DEPLOYED) — each reads only its own `<CHAIN>_MAINNET_*`
+            //    env (default address(0)); selecting a branch never deploys. See the mainnet-id block.
+            activeConfig = _ethereumMainnetConfig();
+        } else if (block.chainid == BASE_MAINNET_CHAIN_ID) {
+            activeConfig = _baseMainnetConfig();
+        } else if (block.chainid == ARBITRUM_MAINNET_CHAIN_ID) {
+            activeConfig = _arbitrumMainnetConfig();
+        } else if (block.chainid == OPTIMISM_MAINNET_CHAIN_ID) {
+            activeConfig = _optimismMainnetConfig();
+        } else if (block.chainid == POLYGON_MAINNET_CHAIN_ID) {
+            activeConfig = _polygonMainnetConfig();
+        } else if (block.chainid == AVALANCHE_MAINNET_CHAIN_ID) {
+            activeConfig = _avalancheMainnetConfig();
+        } else if (block.chainid == BNB_MAINNET_CHAIN_ID) {
+            activeConfig = _bnbMainnetConfig();
+        } else if (block.chainid == SCROLL_MAINNET_CHAIN_ID) {
+            activeConfig = _scrollMainnetConfig();
+        } else if (block.chainid == LINEA_MAINNET_CHAIN_ID) {
+            activeConfig = _lineaMainnetConfig();
+        } else if (block.chainid == MANTLE_MAINNET_CHAIN_ID) {
+            activeConfig = _mantleMainnetConfig();
+        } else if (block.chainid == BLAST_MAINNET_CHAIN_ID) {
+            activeConfig = _blastMainnetConfig();
+        } else if (block.chainid == UNICHAIN_MAINNET_CHAIN_ID) {
+            activeConfig = _unichainMainnetConfig();
+        } else if (block.chainid == ZKSYNC_MAINNET_CHAIN_ID) {
+            activeConfig = _zkSyncMainnetConfig();
+        } else if (_isArcMainnet()) {
+            // Arc MAINNET — id is TBD (not launched), so this matches ONLY when the operator has set
+            // `ARC_MAINNET_CHAIN_ID` to the real id AND the node reports it. Unreachable until then.
+            activeConfig = _arcMainnetConfig();
         } else {
             activeConfig = _liveConfigFromEnv();
         }
+    }
+
+    /// @dev True only when the operator has set a NON-ZERO `ARC_MAINNET_CHAIN_ID` env AND it matches the
+    ///      live `block.chainid`. The zero guard is essential: an unset env resolves to 0, and matching
+    ///      `block.chainid == 0` could mis-select Arc-mainnet on a misconfigured node — so we never match
+    ///      on 0. This keeps the Arc-mainnet branch dormant until Arc mainnet actually exists and the id
+    ///      is known (the id is never invented in code).
+    function _isArcMainnet() internal view returns (bool) {
+        uint256 id = _arcMainnetChainId();
+        return id != 0 && block.chainid == id;
     }
 
     /// @notice The active network config (treasury, fee, feeds, token).
@@ -367,6 +471,291 @@ contract HelperConfig is Script {
                 vm.envOr("UNICHAIN_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
             ),
             creForwarder: vm.envOr("UNICHAIN_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // MAINNET config helpers — AUDIT-GATED, NOT DEPLOYED.
+    //
+    // Each helper mirrors its testnet twin exactly: it reads ONLY its `<CHAIN>_MAINNET_`-prefixed env,
+    // requires `<CHAIN>_MAINNET_PLATFORM_TREASURY` (fails loud via `vm.envAddress` ONLY when that branch
+    // is actually selected on the live chain), and resolves every feed/USDC/registry/forwarder address
+    // from env with an address(0) default. address(0) ⇒ DeployAll SKIPS that configure call, so an
+    // unconfirmed (or deliberately blank, pre-audit) value is never wired. NOTHING here is hardcoded:
+    // a guessed real mainnet USDC/feed address would imply a deployment this repo has NOT made and is
+    // forbidden (law #4). The `make deploy-<chain>-mainnet` targets that reach these branches are all
+    // banner-gated "do not run until a third-party audit is complete".
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// @dev Ethereum mainnet (chainId 1). AUDIT-GATED, NOT DEPLOYED. Reads only `ETHEREUM_MAINNET_`-
+    ///      prefixed env. Native = ETH (18 dec). Fill ETH/USD + Circle USDC + USDC/USD from the canonical
+    ///      docs ONLY after audit; blank ⇒ skipped, never a guessed address.
+    function _ethereumMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ETHEREUM_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ETHEREUM_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ETHEREUM_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ETHEREUM_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ETHEREUM_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ETHEREUM_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ETHEREUM_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ETHEREUM_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Base mainnet (chainId 8453, Coinbase L2). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `BASE_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _baseMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("BASE_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("BASE_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("BASE_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("BASE_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("BASE_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("BASE_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("BASE_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("BASE_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Arbitrum One (chainId 42161). AUDIT-GATED, NOT DEPLOYED. Reads only `ARBITRUM_MAINNET_`-
+    ///      prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _arbitrumMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ARBITRUM_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ARBITRUM_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ARBITRUM_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ARBITRUM_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ARBITRUM_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ARBITRUM_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ARBITRUM_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ARBITRUM_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Optimism mainnet (OP Mainnet, chainId 10). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `OPTIMISM_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _optimismMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("OPTIMISM_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("OPTIMISM_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("OPTIMISM_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("OPTIMISM_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("OPTIMISM_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("OPTIMISM_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("OPTIMISM_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("OPTIMISM_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Polygon mainnet (PoS, chainId 137). AUDIT-GATED, NOT DEPLOYED. Reads only `POLYGON_MAINNET_`-
+    ///      prefixed env. Native = POL (18 dec) — native/USD is a POL/USD feed. Addresses post-audit only.
+    function _polygonMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("POLYGON_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("POLYGON_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("POLYGON_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("POLYGON_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("POLYGON_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("POLYGON_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("POLYGON_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("POLYGON_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Avalanche C-Chain mainnet (chainId 43114). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `AVALANCHE_MAINNET_`-prefixed env. Native = AVAX (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _avalancheMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("AVALANCHE_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("AVALANCHE_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("AVALANCHE_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("AVALANCHE_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("AVALANCHE_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("AVALANCHE_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("AVALANCHE_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("AVALANCHE_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev BNB Smart Chain mainnet (chainId 56). AUDIT-GATED, NOT DEPLOYED. Reads only `BNB_MAINNET_`-
+    ///      prefixed env. Native = BNB (18 dec). USDC may be a peg-token vs Circle — confirm post-audit.
+    function _bnbMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("BNB_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("BNB_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("BNB_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("BNB_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("BNB_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("BNB_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("BNB_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("BNB_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Scroll mainnet (zkEVM L2, chainId 534352). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `SCROLL_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _scrollMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("SCROLL_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("SCROLL_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("SCROLL_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("SCROLL_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("SCROLL_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("SCROLL_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("SCROLL_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("SCROLL_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Linea mainnet (Consensys zkEVM, chainId 59144). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `LINEA_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _lineaMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("LINEA_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("LINEA_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("LINEA_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("LINEA_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("LINEA_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("LINEA_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("LINEA_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("LINEA_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Mantle mainnet (OP-stack L2, chainId 5000). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `MANTLE_MAINNET_`-prefixed env. Native = MNT (18 dec) — native/USD is an MNT/USD feed.
+    ///      Verifier is Blockscout. Addresses post-audit only; blank ⇒ skipped.
+    function _mantleMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("MANTLE_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("MANTLE_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("MANTLE_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("MANTLE_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("MANTLE_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("MANTLE_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("MANTLE_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("MANTLE_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Blast mainnet (OP-stack L2, chainId 81457). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `BLAST_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _blastMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("BLAST_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("BLAST_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("BLAST_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("BLAST_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("BLAST_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("BLAST_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("BLAST_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("BLAST_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Unichain mainnet (OP-stack L2, chainId 130). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `UNICHAIN_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _unichainMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("UNICHAIN_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("UNICHAIN_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("UNICHAIN_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("UNICHAIN_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("UNICHAIN_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("UNICHAIN_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("UNICHAIN_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("UNICHAIN_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev zkSync Era mainnet (ZK Stack, chainId 324). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `ZKSYNC_MAINNET_`-prefixed env. Native = ETH (18 dec). Broadcast needs the `--zksync` flag +
+    ///      foundry-zksync (EVM-green != zkSync-green). Addresses post-audit only; blank ⇒ skipped.
+    function _zkSyncMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ZKSYNC_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ZKSYNC_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ZKSYNC_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ZKSYNC_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ZKSYNC_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ZKSYNC_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ZKSYNC_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ZKSYNC_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Arc MAINNET — NOT launched, id is TBD, AUDIT-GATED, NOT DEPLOYED. Reachable only when the
+    ///      operator sets a real `ARC_MAINNET_CHAIN_ID` (see `_isArcMainnet`). Reads only `ARC_MAINNET_`-
+    ///      prefixed env. Arc trap carries over: native USDC is 18-dec while an ERC-20 USDC (if any) is
+    ///      6-dec — never hardcode either; confirm both post-launch + post-audit. Addresses default to
+    ///      address(0) ⇒ skipped, never a guess.
+    function _arcMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ARC_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ARC_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ARC_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ARC_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ARC_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ARC_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ARC_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ARC_MAINNET_CRE_FORWARDER", address(0))
         });
     }
 
