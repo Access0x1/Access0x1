@@ -14,7 +14,7 @@
 **The proof**
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
-![Tests](https://img.shields.io/badge/Tests-849%20passing-44CC11?style=for-the-badge)
+![Tests](https://img.shields.io/badge/Tests-859%20passing-44CC11?style=for-the-badge)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-100%25-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -395,8 +395,8 @@ deployer is a burner key.
 
 | | |
 | --- | --- |
-| Tests | **849 green** — unit · attack · invariant suites |
-| Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)) |
+| Tests | **859 green** — unit · attack · invariant suites |
+| Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **13 fuzz invariants** across 3 suites hold at 4,096 calls each, 0 reverts |
 | Static analysis | **slither: 31 results / 12 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
 
