@@ -8,16 +8,31 @@
  *
  *   200  { ok: true, result }            single call
  *   200  { ok: true, results: [...] }    nano-loop
+ *   200  { ok: true, rail: "private", depositTx, paymentTx }   private rail (UNLINK_PRIVATE_PAY=true)
  *   400  { error: "BadRequest", ... }    bad body / url not allowlisted / count too high
  *   402  { error: "BudgetExceeded", spent, cap }
  *   502  { error: "PaymentRequiredUnresolved" }
+ *   502  { error: "PrivatePayFailed", code, recoverable }      shield landed but payout failed (law #5)
  *   500  { error: "Internal" }           any other throw — no leak
+ *
+ * THE PRIVATE RAIL (this unit): by default a spend is a PUBLIC x402/EIP-3009 USDC
+ * transfer (the path above, unchanged). When the body carries `private: true` AND the
+ * env flag `UNLINK_PRIVATE_PAY=true` is set with the Unlink config present, the request
+ * instead takes an alternate rail that shields the agent funds and pays the merchant
+ * from a fresh EOA (edge-unlinkability, NOT a mixer — law #4). With the flag off, the
+ * rail unconfigured, or the SDK absent, the route FALLS BACK to the unchanged public
+ * path and NEVER drops the payment.
  */
 
 import { agentPay, agentNanoLoop, PaymentRequiredUnresolved } from "../../../../lib/agent/payPerCall.js";
 import { agentAddress } from "../../../../lib/agent/dynamicAgentWallet.js";
 import { BudgetExceeded } from "../../../../lib/agent/agentMeter.js";
 import { assertAgentTrialAllowed, HumanGateRequired } from "../../../../lib/worldid/agentGate.js";
+import {
+  attemptPrivateRail,
+  PrivatePayFailed,
+  type PrivateRailRequest,
+} from "./privateRail.js";
 
 /** Hard ceiling on a single nano-loop request — law #4: the demo fires real, bounded calls. */
 const MAX_DEMO_CALLS = 50;
@@ -71,6 +86,10 @@ interface PayRequest {
   url: string;
   count?: number;
   pricePerCallUsd?: number;
+  /** Opt into the private rail (shield + pay merchant from a fresh EOA). Default false. */
+  private?: boolean;
+  /** Merchant payee address for the private rail (required only when `private` is true). */
+  merchant?: string;
 }
 
 /**
@@ -99,10 +118,18 @@ function validate(body: unknown): PayRequest | string {
   ) {
     return "pricePerCallUsd must be a positive number";
   }
+  if (b.private !== undefined && typeof b.private !== "boolean") {
+    return "private must be a boolean";
+  }
+  if (b.merchant !== undefined && (typeof b.merchant !== "string" || b.merchant.length === 0)) {
+    return "merchant must be a non-empty string";
+  }
   return {
     url: b.url,
     count: b.count as number | undefined,
     pricePerCallUsd: b.pricePerCallUsd as number | undefined,
+    private: b.private as boolean | undefined,
+    merchant: b.merchant as string | undefined,
   };
 }
 
@@ -139,6 +166,34 @@ export async function POST(req: Request): Promise<Response> {
       return json({ error: "HumanGateRequired" }, 402);
     }
     return json({ error: "Internal" }, 500);
+  }
+
+  // Private rail (alternate, opt-in): only when the body asks for it. When the flag is
+  // off, the rail is unconfigured, or the SDK is absent, this returns null and we fall
+  // through to the unchanged public x402 path below — the payment is never dropped.
+  if (validated.private === true) {
+    try {
+      const price = validated.pricePerCallUsd ?? DEFAULT_PRICE_USD;
+      const railReq: PrivateRailRequest = { merchant: validated.merchant, amountUsd: price };
+      const railResult = await attemptPrivateRail(railReq);
+      if (railResult.handled) {
+        return json(
+          { ok: true, rail: "private", depositTx: railResult.depositTx, paymentTx: railResult.paymentTx, agent: await agentAddress() },
+          200,
+        );
+      }
+      if ("badRequest" in railResult) {
+        return json({ error: "BadRequest", reason: railResult.badRequest }, 400);
+      }
+      // railResult.fallback === true → drop through to the public path unchanged.
+    } catch (err) {
+      if (err instanceof PrivatePayFailed) {
+        // Shield landed but the payout leg failed — funds parked, recoverable (law #5).
+        return json({ error: "PrivatePayFailed", code: err.code, recoverable: err.recoverable }, 502);
+      }
+      // Any other throw on the private rail: no secret, no stack (guardrail #7).
+      return json({ error: "Internal" }, 500);
+    }
   }
 
   try {

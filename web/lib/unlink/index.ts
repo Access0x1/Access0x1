@@ -12,3 +12,15 @@ export {
   type WithdrawResult,
 } from "./privateWithdraw.js";
 export { usdToUsdcBaseUnits, toUsdcBigInt, USDC_DECIMALS } from "./amount.js";
+export {
+  payMerchantPrivately,
+  DEFAULT_SHIELD_MULTIPLE,
+  type PrivatePayOutcome,
+  type PrivatePayDeps,
+} from "./privatePay.js";
+export {
+  isPrivatePayFlagOn,
+  isPrivatePayConfigured,
+  privatePayStatus,
+  type PrivatePayStatus,
+} from "./privatePayConfig.js";
