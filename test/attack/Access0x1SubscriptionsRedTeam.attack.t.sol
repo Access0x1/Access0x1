@@ -18,10 +18,13 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
 
 /// @notice A settlement token whose `transferFrom` re-enters {Access0x1Subscriptions.setPlan} to
-///         mutate the plan's `periodSecs` MID-CHARGE. `setPlan` is NOT `nonReentrant`, so the
-///         re-entry is not blocked by the guard on {renew}; the attack probes whether a merchant who
+///         mutate the plan's `periodSecs` MID-CHARGE. The attack probes whether a merchant who
 ///         controls both the merchant AND the settlement token can corrupt the period accounting
-///         (drive a double-charge / a non-monotonic periodEnd) from inside the pull.
+///         (drive a double-charge / a shrunken periodEnd that leaves the sub re-chargeable to drain
+///         the session budget) from inside the pull. The defense is two-fold: `setPlan` is
+///         `nonReentrant`, so the re-entry reverts inside {renew}'s guard (caught below); and {renew}
+///         snapshots `periodSecs` at the top, so even an unguarded re-price could not shorten THIS
+///         advance — the period steps by exactly one full period either way.
 contract SetPlanReenterToken is ERC20 {
     Access0x1Subscriptions public subs;
     uint256 public merchantId;
@@ -346,10 +349,12 @@ contract Access0x1SubscriptionsRedTeamTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev A merchant who controls BOTH the merchant and the settlement token tries to re-enter
-    ///      {setPlan} during the renewal pull to corrupt period accounting. The price is snapshotted at
-    ///      the top of {renew}, so a mid-charge re-price cannot retroactively change THIS charge; and
-    ///      even if periodSecs is mutated, the budget meter still caps total spend and periodEnd stays
-    ///      monotonic. The money invariants must hold; at worst the attacker grieves only themselves.
+    ///      {setPlan} during the renewal pull to corrupt period accounting. Both price AND periodSecs
+    ///      are snapshotted at the top of {renew}, so a mid-charge re-price cannot change THIS charge or
+    ///      shorten the period advance; and `setPlan` is `nonReentrant`, so the re-entry reverts. The
+    ///      period advances by EXACTLY one full period — proving the budget-drain path is closed (a
+    ///      shrunken advance would leave the sub due again and re-chargeable). The money invariants
+    ///      hold; at worst the attacker grieves only themselves.
     function test_attack_setPlanReentryDuringRenew_cannotBreakMoneyInvariants() public {
         SetPlanReenterToken evil = new SetPlanReenterToken();
         MockV3Aggregator evilFeed = new MockV3Aggregator(8, 1e8);
@@ -396,8 +401,12 @@ contract Access0x1SubscriptionsRedTeamTest is Test {
         subsC.renew(atkSub);
         uint64 peAfter = subsC.subs(atkSub).periodEnd;
 
-        // periodEnd is monotonic and the charge consumed AT MOST one period of budget.
-        assertGe(peAfter, peBefore, "periodEnd not moved backwards by the re-entry");
+        // The drain is closed: the period advances by EXACTLY one full period, never a shrunken one.
+        // `setPlan` is now nonReentrant (the mid-charge re-price reverts and is caught), and {renew}
+        // snapshots periodSecs at the top, so a mid-charge mutation cannot shorten THIS advance. A
+        // shrunken advance would leave the sub due again next block and let the keeper re-charge to
+        // drain the session budget — asserting the exact one-period step proves that path is shut.
+        assertEq(peAfter, peBefore + PERIOD, "period advanced by exactly one full period");
         assertGe(remBefore - grant.remaining(s3), 0, "no negative spend");
         assertLe(remBefore - grant.remaining(s3), PRICE_USD8, "at most one period charged");
         // Zero custody preserved regardless of the re-entry.

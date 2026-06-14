@@ -211,7 +211,11 @@ contract DeployAll is Script {
             router.setTokenAllowed(cfg.usdc, true);
             console2.log("  USDC allowlisted    :", cfg.usdc);
         }
-        if (cfg.usdcUsdFeed != address(0)) {
+        // Guard on the USDC TOKEN too: with usdc == address(0), setPriceFeed(address(0), ...) would
+        // write the USDC/USD aggregator into the NATIVE feed slot (token address(0) IS the native slot,
+        // line above), mispricing native at ~$1 instead of its real ~$3000. Only wire the USDC feed when
+        // the USDC token itself is booth-confirmed. The native feed above is set on its own, independently.
+        if (cfg.usdc != address(0) && cfg.usdcUsdFeed != address(0)) {
             router.setPriceFeed(cfg.usdc, cfg.usdcUsdFeed);
             console2.log("  USDC/USD feed       :", cfg.usdcUsdFeed);
         }
