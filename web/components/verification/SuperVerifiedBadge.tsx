@@ -1,12 +1,27 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { TIER_INFO, type TrustTier } from '@/lib/verification/tiers'
+import { Check, Circle, Sparkles } from 'lucide-react'
+
+import { Badge } from '@/components/ui/badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { LEVEL_INFO, TIER_INFO, tierToLevel, type TrustTier } from '@/lib/verification/tiers'
 
 /**
- * SuperVerifiedBadge — the visual rung a user has earned (Standard / Verified /
- * Super Verified). Plain-English, non-coder copy; no jargon. Super Verified is
- * the celebratory state; Verified is a quieter green; Standard is neutral.
+ * SuperVerifiedBadge — the visual rung a user has earned, now on shadcn/ui.
+ *
+ * Kept on its existing legacy {tier, score} API so existing consumers
+ * (CheckoutCard, VerificationStack) don't change. Internally it maps the legacy
+ * TrustTier onto the 5-rung level ladder and renders the shadcn Badge:
+ *   - super-verified -> the distinct gold/gradient shimmer `super` Badge.
+ *   - verified       -> the green `success` Badge.
+ *   - standard       -> the neutral `outline` Badge.
+ * A Tooltip explains the rung. Plain-English copy; no jargon.
  */
 export function SuperVerifiedBadge({
   tier,
@@ -17,24 +32,35 @@ export function SuperVerifiedBadge({
   score?: number
 }): ReactNode {
   const label = TIER_INFO[tier].label
-  const styles: Record<TrustTier, string> = {
-    standard: 'border-neutral-300 bg-neutral-50 text-neutral-600',
-    verified: 'border-green-300 bg-green-50 text-green-700',
-    'super-verified': 'border-rail bg-rail/10 text-rail',
-  }
-  const mark = tier === 'super-verified' ? '★' : tier === 'verified' ? '✓' : '○'
+  const level = tierToLevel(tier)
+  const variant = tier === 'super-verified' ? 'super' : tier === 'verified' ? 'success' : 'outline'
+  const icon =
+    tier === 'super-verified' ? (
+      <Sparkles className="size-3" aria-hidden />
+    ) : tier === 'verified' ? (
+      <Check className="size-3" aria-hidden />
+    ) : (
+      <Circle className="size-3" aria-hidden />
+    )
 
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium ${styles[tier]}`}
-      data-tier={tier}
-      aria-label={`${label}${typeof score === 'number' ? `, trust score ${score} of 100` : ''}`}
-    >
-      <span aria-hidden>{mark}</span>
-      {label}
-      {typeof score === 'number' ? (
-        <span className="text-xs font-normal opacity-70">· {score}/100</span>
-      ) : null}
-    </span>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge
+            variant={variant}
+            data-tier={tier}
+            aria-label={`${label}${typeof score === 'number' ? `, trust score ${score} of 100` : ''}`}
+          >
+            {icon}
+            {label}
+            {typeof score === 'number' ? (
+              <span className="font-normal opacity-70">· {score}/100</span>
+            ) : null}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>{LEVEL_INFO[level].blurb}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

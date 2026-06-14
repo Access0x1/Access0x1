@@ -176,6 +176,171 @@ export function asVerificationMethod(v: unknown): VerificationMethod | null {
     : null
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * The 5-rung LEVEL ladder (verification-levels ADR). This sits ON TOP of the
+ * existing tier model: the same method weights + score feed a finer-grained
+ * 0..4 ladder the new shadcn UI renders. The legacy 3-tier model (Standard /
+ * Verified / Super Verified) is preserved above and maps cleanly onto these
+ * levels (see `tierToLevel` / `levelToTier`), so existing consumers keep working.
+ *
+ * Rungs (score 0..100; methods World ID 50 / ENS 25 / Sign-in 15 / On-chain 10):
+ *   L0 Guest          — score 0, no verification.
+ *   L1 Connected      — signed in OR a real wallet (score ~10–15). "Someone."
+ *   L2 Verified       — one strong proof: World ID, OR (ENS + a sign-in)
+ *                       (score ~25–50). A verified entity.
+ *   L3 Trusted        — World ID + one more method (score ~50–75).
+ *   L4 Super Verified — World ID + >=2 others, OR all four, OR score >= 75.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** A numeric level on the ladder, 0 (Guest) through 4 (Super Verified). */
+export type VerificationLevel = 0 | 1 | 2 | 3 | 4
+
+/** The named labels for each level, indexed by the numeric level. */
+export const LEVEL_LABELS: Readonly<Record<VerificationLevel, string>> = {
+  0: 'Guest',
+  1: 'Connected',
+  2: 'Verified',
+  3: 'Trusted',
+  4: 'Super Verified',
+}
+
+/** Per-level display metadata (UI source of truth: label + one-line blurb). */
+export const LEVEL_INFO: Readonly<
+  Record<VerificationLevel, { label: string; blurb: string }>
+> = {
+  0: { label: 'Guest', blurb: 'No verification yet — you can browse, but trust-gated actions are locked.' },
+  1: { label: 'Connected', blurb: 'Signed in or a real wallet — you’re someone, not yet proven.' },
+  2: { label: 'Verified', blurb: 'One strong proof in hand — a verified entity.' },
+  3: { label: 'Trusted', blurb: 'World ID plus another check — a trusted, real identity.' },
+  4: { label: 'Super Verified', blurb: 'The pinnacle: World ID plus two or more other checks.' },
+}
+
+/** The "sign-in" methods (an authenticated account — Dynamic OR OIDC). */
+const SIGN_IN_METHODS: readonly VerificationMethod[] = ['dynamic', 'oidc'] as const
+
+/** The result of {@link levelFor}: the rung, its name, and the next-step hint. */
+export interface LevelResult {
+  /** The numeric level, 0..4. */
+  level: VerificationLevel
+  /** The named rung ("Guest" | "Connected" | "Verified" | "Trusted" | "Super Verified"). */
+  name: string
+  /**
+   * Plain-English "what to add next" to climb a rung — or '' when already at L4
+   * Super Verified. Points at the single highest-value method still missing.
+   */
+  nextNeed: string
+}
+
+/**
+ * The level a (score, methods) pair earns — the finer 5-rung ladder.
+ *
+ * PURE: derives only from the methods (deduped) and the score. The `score`
+ * argument lets a caller pass an already-computed score; when omitted it is
+ * computed from the methods, so `levelFor(methods)` and
+ * `levelFor(score, methods)` both work.
+ *
+ * Rules (in descending order):
+ *   - L4 Super Verified: World ID + >=2 others, OR all four methods, OR score >= 75.
+ *   - L3 Trusted:        World ID + exactly one other (score ~50–75).
+ *   - L2 Verified:       one strong proof — World ID alone, OR ENS + a sign-in,
+ *                        OR score >= 25 from any composite.
+ *   - L1 Connected:      at least one method but below Verified (a lone sign-in /
+ *                        ENS / on-chain signal — "someone").
+ *   - L0 Guest:          no methods.
+ *
+ * @param a   Either the precomputed score, or the methods list.
+ * @param b   The methods list (when `a` is the score).
+ */
+export function levelFor(
+  a: number | readonly VerificationMethod[],
+  b?: readonly VerificationMethod[],
+): LevelResult {
+  // Overload handling: (methods) or (score, methods).
+  const rawMethods = typeof a === 'number' ? (b ?? []) : a
+  const methods = normalizeMethods(rawMethods)
+  const score =
+    typeof a === 'number' ? a : computeTrustScore({ methods })
+
+  const worldId = methods.includes('world-id')
+  const hasEns = methods.includes('ens')
+  const hasSignIn = methods.some((m) => SIGN_IN_METHODS.includes(m))
+  const others = methods.filter((m) => m !== 'world-id').length
+
+  let level: VerificationLevel
+  if (methods.length === 0) {
+    // L0 Guest — nothing proven.
+    level = 0
+  } else if (worldId) {
+    // World-ID-anchored ladder (the structural rungs take precedence over a
+    // bare score so World ID + exactly one other reads as Trusted, not Super):
+    //   +2 others (or all four) -> L4 Super Verified
+    //   +1 other                -> L3 Trusted
+    //   alone                   -> L2 Verified
+    level = others >= 2 ? 4 : others === 1 ? 3 : 2
+  } else if (methods.length >= 4 || score >= 75) {
+    // No World ID, but a strong composite (all four non-WID is impossible since
+    // WID is one of five; >=4 here means a deep stack) or score >= 75 — L4.
+    level = 4
+  } else if ((hasEns && hasSignIn) || score >= 25) {
+    // One strong proof without World ID: ENS + a sign-in, or any score >= 25.
+    level = 2
+  } else {
+    // At least one method but below Verified — "someone," L1 Connected.
+    level = 1
+  }
+
+  return { level, name: LEVEL_LABELS[level], nextNeed: nextNeedFor(level, methods) }
+}
+
+/**
+ * The single highest-value next step to climb from `level` given `methods`.
+ * Plain-English, non-coder copy (no jargon). Empty string at L4.
+ */
+function nextNeedFor(
+  level: VerificationLevel,
+  methods: readonly VerificationMethod[],
+): string {
+  if (level >= 4) return ''
+  const has = (m: VerificationMethod): boolean => methods.includes(m)
+  // World ID is the strongest single add — recommend it first whenever missing.
+  if (!has('world-id')) {
+    return `Add ${METHOD_INFO['world-id'].label} — the strongest check — to reach ${LEVEL_LABELS[nextLevel(level)]}.`
+  }
+  // Has World ID: recommend the next-highest-weight method still missing.
+  const next = VERIFICATION_METHODS.filter(
+    (m) => m !== 'world-id' && !has(m),
+  ).sort((x, y) => METHOD_WEIGHTS[y] - METHOD_WEIGHTS[x])[0]
+  if (next) {
+    return `Add ${METHOD_INFO[next].label} to reach ${LEVEL_LABELS[nextLevel(level)]}.`
+  }
+  return `Add another check to reach ${LEVEL_LABELS[nextLevel(level)]}.`
+}
+
+/** The next rung up (clamped at 4). */
+function nextLevel(level: VerificationLevel): VerificationLevel {
+  return Math.min(4, level + 1) as VerificationLevel
+}
+
+/**
+ * Map a legacy {@link TrustTier} onto the 5-rung ladder, so existing consumers
+ * (the merchant gate, the badge) can render a level. standard→L1, verified→L2,
+ * super-verified→L4 (the legacy model has no L0/L3 distinction).
+ */
+export function tierToLevel(tier: TrustTier): VerificationLevel {
+  return tier === 'super-verified' ? 4 : tier === 'verified' ? 2 : 1
+}
+
+/**
+ * Map a level back onto the legacy {@link TrustTier} for the merchant gate
+ * (which still threshold-compares tiers). L0/L1→standard, L2/L3→verified,
+ * L4→super-verified. The gate semantics are unchanged.
+ */
+export function levelToTier(level: VerificationLevel): TrustTier {
+  if (level >= 4) return 'super-verified'
+  if (level >= 2) return 'verified'
+  return 'standard'
+}
+
 /**
  * What the user still needs to reach Super Verified — the "verify more" hint the
  * UI shows. Returns a short, plain-English next step, or null when already there.
