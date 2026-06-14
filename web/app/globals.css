@@ -2,46 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Access0x1 brand chassis — "access0x1 across night water".
+ *
+ * The whole brand is a token swap: these are the shadcn/ui CSS variables in HSL
+ * channel-triple form so components compose `hsl(var(--token) / <alpha>)`. Dark
+ * is the DEFAULT theme (night water, ink #0B1020). A `.light` swap is provided
+ * for surfaces that opt into it.
+ *
+ * Source of truth: brand-assets/web-design/globals.css + BRAND.md.
+ *   --ink #0B1020 · --surface #11162A · --line #283153 · --text #F5F7FB
+ *   --accent (primary CTA) cyan #22D3EE · --accent-2 teal #2DD4BF
+ *   --eth periwinkle #627EEA (ETH nod, sparing — never the brand)
+ *
+ * The per-merchant WHITE-LABEL override is independent of this chassis: a
+ * merchant's `brandColor` is applied via inline style at render time
+ * (SlugCheckoutView, BrandPreview), so their checkout still themes to their own
+ * brand. Access0x1's ink/cyan/teal is just the default chassis underneath.
+ */
 :root {
-  --ax1-ink: #0a0a0a;
-  --ax1-rail: #6366f1;
+  /* Raw brand tokens (the named palette — handy for inline/SVG use). */
+  --ax1-ink: #0b1020; /* night water / base bg */
+  --ax1-rail: #22d3ee; /* the lit path — primary CTA (cyan) */
 
-  /*
-   * shadcn/ui design tokens (additive — these sit alongside the --ax1-* brand
-   * tokens above and never override the app's existing styles). HSL channel
-   * triples so shadcn components can compose `hsl(var(--token) / <alpha>)`.
-   * Mapped onto the app palette: foreground = ink (#0A0A0A), primary = rail
-   * (#6366F1, the indigo accent), background = white. Light theme only.
-   */
-  --background: 0 0% 100%;
-  --foreground: 0 0% 4%;
+  /* dark is the default Access0x1 theme — shadcn CSS variables */
+  --background: 225 47% 7%; /* #0B1020 ink / night water */
+  --foreground: 222 40% 97%; /* #F5F7FB */
+  --card: 228 42% 12%; /* #11162A surface */
+  --card-foreground: 222 40% 97%;
+  --popover: 228 42% 12%;
+  --popover-foreground: 222 40% 97%;
+  --primary: 187 84% 53%; /* #22D3EE cyan — the lit path */
+  --primary-foreground: 225 47% 8%; /* ink text on cyan */
+  --secondary: 226 30% 18%;
+  --secondary-foreground: 222 40% 97%;
+  --muted: 226 30% 18%;
+  --muted-foreground: 222 20% 70%; /* #9AA6C4 */
+  --accent: 173 64% 50%; /* #2DD4BF teal */
+  --accent-foreground: 225 47% 8%;
+  --destructive: 0 84% 71%; /* #F87171 */
+  --destructive-foreground: 222 40% 97%;
+  --success: 160 84% 39%; /* #34D399 */
+  --success-foreground: 225 47% 8%;
+  --border: 226 35% 24%; /* #283153 */
+  --input: 226 35% 24%;
+  --ring: 187 84% 53%;
+  --radius: 0.875rem; /* 14px */
+  --eth: 227 73% 65%; /* #627EEA — ETH nod, sparing */
+}
+
+.light {
+  /* optional light theme = token swap (web2-easy alternate) */
+  --background: 222 40% 98%;
+  --foreground: 225 47% 8%;
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 4%;
+  --card-foreground: 225 47% 8%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 4%;
-  --primary: 239 84% 67%; /* rail / indigo */
+  --popover-foreground: 225 47% 8%;
+  --primary: 187 84% 43%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-  --accent: 0 0% 96%;
-  --accent-foreground: 0 0% 9%;
+  --secondary: 222 24% 94%;
+  --secondary-foreground: 225 47% 8%;
+  --muted: 222 24% 94%;
+  --muted-foreground: 226 18% 40%;
+  --accent: 173 64% 42%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
   --success: 142 71% 45%;
   --success-foreground: 0 0% 100%;
-  --border: 0 0% 90%;
-  --input: 0 0% 90%;
-  --ring: 239 84% 67%;
-  --radius: 0.75rem;
+  --border: 222 24% 88%;
+  --input: 222 24% 88%;
+  --ring: 187 84% 43%;
 }
 
 html,
 body {
-  background: #ffffff;
-  color: var(--ax1-ink);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
+}
+
+* {
+  border-color: hsl(var(--border));
 }
 
 /*

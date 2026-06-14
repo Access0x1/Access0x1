@@ -7,6 +7,7 @@ import { getRouterAddress, getUsdcAddress, isGasFree, tokenDecimalsFor } from '@
 import { payToken, type Merchant, type PaymentReceivedEvent } from '@/lib/contracts'
 import { fetchQuote, usdToAmount8 } from '@/lib/quote'
 import { getWalletClient, getPublicClient } from '@/lib/wallet'
+import { BrandMark } from './BrandMark'
 import { ConnectButton } from './ConnectButton'
 import { MerchantIdentity } from './MerchantIdentity'
 import { FundButton } from './FundButton'
@@ -488,8 +489,9 @@ export function CheckoutCard({
 
       {payError ? <p className="text-sm text-red-600">{payError}</p> : null}
 
-      <p className="border-t border-neutral-100 pt-4 text-center text-xs text-neutral-400">
-        Powered by Access0x1
+      <p className="flex items-center justify-center gap-1.5 border-t border-neutral-100 pt-4 text-center text-xs text-neutral-400">
+        <span>Powered by</span>
+        <BrandMark size={14} />
       </p>
     </div>
   )
