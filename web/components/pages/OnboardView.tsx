@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { BrandMark } from '@/components/BrandMark'
 import { ConnectButton } from '@/components/ConnectButton'
 import { BrandingForm } from '@/components/branding/BrandingForm'
 import { CheckoutModeForm } from '@/components/branding/CheckoutModeForm'
@@ -22,9 +23,9 @@ export function OnboardView(): ReactNode {
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-rail">Access0x1</p>
-          <h1 className="text-2xl font-semibold text-ink">Make it yours</h1>
+        <div className="flex flex-col gap-1">
+          <BrandMark size={18} />
+          <h1 className="font-display text-2xl font-semibold text-foreground">Make it yours</h1>
         </div>
         <ConnectButton />
       </header>

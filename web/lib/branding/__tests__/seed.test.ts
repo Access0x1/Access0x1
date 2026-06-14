@@ -165,11 +165,15 @@ describe('root page redirect target', () => {
 })
 
 describe('Powered by Access0x1 footer is preserved', () => {
-  it('the slug checkout view still renders the footer text', () => {
+  it('the slug checkout view still renders the Powered-by attribution + brand mark', () => {
     const viewPath = fileURLToPath(
       new URL('../../../components/pages/SlugCheckoutView.tsx', import.meta.url),
     )
     const src = readFileSync(viewPath, 'utf8')
-    expect(src).toContain('Powered by Access0x1')
+    // The attribution is now the "Powered by" line paired with the real
+    // Access0x1 bridge mark + wordmark (BrandMark renders "Access0x1"), instead
+    // of a bare text string — but the credit is still there, by design.
+    expect(src).toContain('Powered by')
+    expect(src).toContain('<BrandMark')
   })
 })

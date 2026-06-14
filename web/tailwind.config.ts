@@ -16,6 +16,19 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        // Brand typography (BRAND.md): Inter for UI/body, Space Grotesk for the
+        // display/wordmark. The CSS variables are set by next/font in layout.tsx;
+        // a system stack follows as the fallback before the fonts load.
+        sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: [
+          'var(--font-display)',
+          'var(--font-sans)',
+          'ui-sans-serif',
+          'system-ui',
+          'sans-serif',
+        ],
+      },
       colors: {
         // The app's existing brand tokens (unchanged).
         ink: '#0A0A0A',
