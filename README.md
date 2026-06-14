@@ -309,19 +309,40 @@ make deploy-unichain-sepolia # Unichain Sepolia
 Filled at deploy time from the broadcast log (`broadcast/<chainId>/run-latest.json`) — **never**
 hand-entered (law #4: an address that isn't on-chain isn't claimed). Empty until the owner runs
 `make deploy-<chain>`; `Access0x1Router` is the address an integrator points at.
+See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full operator guide.
+
+> **Gas:** on Arc, no separate gas token — USDC is native, no gas coin to top up.
+> On Base (production), gas can be sponsored via the Base Paymaster so the buyer pays $0 in ETH.
+> Neither claim changes the contract code — the router is gas-model agnostic.
 
 | Chain | Contract | Address | Tx |
 | --- | --- | --- | --- |
 | Arc Testnet (5042002) | `Access0x1Router` | — | — |
 | Arc Testnet (5042002) | `SessionGrant` | — | — |
+| Arc Testnet (5042002) | `HouseTokenFactory` | — | — |
 | Arc Testnet (5042002) | `Access0x1Subscriptions` | — | — |
 | Arc Testnet (5042002) | `Access0x1Bookings` | — | — |
 | Arc Testnet (5042002) | `Access0x1Invoices` | — | — |
 | Arc Testnet (5042002) | `Access0x1GiftCards` | — | — |
-| Arc Testnet (5042002) | `HouseTokenFactory` | — | — |
+| Arc Testnet (5042002) | `PaymentLanes` | — | — |
+| Arc Testnet (5042002) | `Access0x1Receiver` | — | — |
 | Arc Testnet (5042002) | `ChainRegistry` | — | — |
 | Base Sepolia (84532) | `Access0x1Router` | — | — |
+| Base Sepolia (84532) | `SessionGrant` | — | — |
+| Base Sepolia (84532) | `HouseTokenFactory` | — | — |
+| Base Sepolia (84532) | `Access0x1Subscriptions` | — | — |
+| Base Sepolia (84532) | `Access0x1Bookings` | — | — |
+| Base Sepolia (84532) | `Access0x1Invoices` | — | — |
+| Base Sepolia (84532) | `Access0x1GiftCards` | — | — |
+| Base Sepolia (84532) | `ChainRegistry` | — | — |
 | zkSync Sepolia (300) | `Access0x1Router` | — | — |
+| zkSync Sepolia (300) | `SessionGrant` | — | — |
+| zkSync Sepolia (300) | `HouseTokenFactory` | — | — |
+| zkSync Sepolia (300) | `Access0x1Subscriptions` | — | — |
+| zkSync Sepolia (300) | `Access0x1Bookings` | — | — |
+| zkSync Sepolia (300) | `Access0x1Invoices` | — | — |
+| zkSync Sepolia (300) | `Access0x1GiftCards` | — | — |
+| zkSync Sepolia (300) | `ChainRegistry` | — | — |
 
 ---
 
