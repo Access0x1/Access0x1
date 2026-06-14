@@ -38,6 +38,8 @@ import {
   FEATURED_NAME_ENV,
   FEATURED_DESCRIPTION_ENV,
   FEATURED_BRAND_COLOR_ENV,
+  FEATURED_MERCHANT_ID_ENV,
+  FEATURED_CHECKOUT_MODE_ENV,
 } from '../seed.js'
 import {
   __resetBrandingStore,
@@ -96,6 +98,85 @@ describe('readFeaturedMerchantInput — env gating (pure)', () => {
     expect(input!.description).toBe('Single-origin coffee, roasted daily.')
     expect(input!.brandColor).toBe('#0A7E5C')
   })
+
+  it('sets merchantId when FEATURED_MERCHANT_MERCHANT_ID is a positive integer', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_MERCHANT_ID_ENV]: '1',
+    })
+    expect(input!.merchantId).toBe('1')
+  })
+
+  it('leaves merchantId null when FEATURED_MERCHANT_MERCHANT_ID is absent', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+    })
+    expect(input!.merchantId).toBeNull()
+  })
+
+  it('leaves merchantId null when FEATURED_MERCHANT_MERCHANT_ID is zero', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_MERCHANT_ID_ENV]: '0',
+    })
+    expect(input!.merchantId).toBeNull()
+  })
+
+  it('leaves merchantId null when FEATURED_MERCHANT_MERCHANT_ID is non-numeric', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_MERCHANT_ID_ENV]: 'abc',
+    })
+    expect(input!.merchantId).toBeNull()
+  })
+
+  it('leaves merchantId null when FEATURED_MERCHANT_MERCHANT_ID is negative', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_MERCHANT_ID_ENV]: '-5',
+    })
+    expect(input!.merchantId).toBeNull()
+  })
+
+  it('sets checkoutMode from FEATURED_MERCHANT_CHECKOUT_MODE when valid', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_CHECKOUT_MODE_ENV]: 'verified-human',
+    })
+    expect(input!.checkoutMode).toBe('verified-human')
+  })
+
+  it('defaults checkoutMode to standard when FEATURED_MERCHANT_CHECKOUT_MODE is absent', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+    })
+    expect(input!.checkoutMode).toBe('standard')
+  })
+
+  it('defaults checkoutMode to standard when FEATURED_MERCHANT_CHECKOUT_MODE is unrecognised', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_CHECKOUT_MODE_ENV]: 'bogus-value',
+    })
+    expect(input!.checkoutMode).toBe('standard')
+  })
+
+  it('honours private checkoutMode', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_CHECKOUT_MODE_ENV]: 'private',
+    })
+    expect(input!.checkoutMode).toBe('private')
+  })
 })
 
 describe('seedFeaturedMerchant — store seeding', () => {
@@ -138,6 +219,27 @@ describe('seedFeaturedMerchant — store seeding', () => {
     })
     expect(row).toBeNull()
     expect(getBySlug(SLUG)).toBeNull()
+  })
+
+  it('seeds merchantId when FEATURED_MERCHANT_MERCHANT_ID is set', () => {
+    const row = seedFeaturedMerchant(upsertBranding, {
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_MERCHANT_ID_ENV]: '1',
+    })
+    expect(row).not.toBeNull()
+    expect(row!.merchantId).toBe('1')
+    // The slug→tenant lookup also works.
+    expect(getBySlug(SLUG)!.merchantId).toBe('1')
+  })
+
+  it('seeds checkoutMode from env when valid', () => {
+    const row = seedFeaturedMerchant(upsertBranding, {
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_CHECKOUT_MODE_ENV]: 'private',
+    })
+    expect(row!.checkoutMode).toBe('private')
   })
 })
 

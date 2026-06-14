@@ -28,6 +28,7 @@
 
 import { monogramSvg, normalizeBrandColor, DEFAULT_BRAND_COLOR } from './logo.js';
 import type { BrandingInput, TenantBranding } from './store.js';
+import { asCheckoutMode } from './store.js';
 
 /**
  * The minimal env shape the seed reads — a plain string map. Wider than (and
@@ -44,6 +45,19 @@ export const FEATURED_NAME_ENV = 'FEATURED_MERCHANT_NAME';
 export const FEATURED_DESCRIPTION_ENV = 'FEATURED_MERCHANT_DESCRIPTION';
 /** Optional brand-color env var (hex; falls back to the Access0x1 default). */
 export const FEATURED_BRAND_COLOR_ENV = 'FEATURED_MERCHANT_BRAND_COLOR';
+/**
+ * Optional on-chain merchant id env var (positive integer string). When set and
+ * valid, the seeded row carries `merchantId` so the checkout Pay card renders
+ * immediately without a separate on-chain registration step. Ignored when
+ * absent or not a positive integer.
+ */
+export const FEATURED_MERCHANT_ID_ENV = 'FEATURED_MERCHANT_MERCHANT_ID';
+/**
+ * Optional checkout-mode env var (one of 'standard' | 'verified-human' |
+ * 'private'). Defaults to 'standard' when unset or unrecognised — which is
+ * always a safe, non-breaking fallback.
+ */
+export const FEATURED_CHECKOUT_MODE_ENV = 'FEATURED_MERCHANT_CHECKOUT_MODE';
 
 /** The stable tenant id we derive for the seeded featured merchant. */
 export function featuredTenantId(slug: string): string {
@@ -72,12 +86,25 @@ export function readFeaturedMerchantInput(
   const brandColor = normalizeBrandColor(env[FEATURED_BRAND_COLOR_ENV] ?? DEFAULT_BRAND_COLOR);
   const description = (env[FEATURED_DESCRIPTION_ENV] ?? '').trim();
 
+  // Parse FEATURED_MERCHANT_MERCHANT_ID: accept only positive integers.
+  const rawMerchantId = (env[FEATURED_MERCHANT_ID_ENV] ?? '').trim();
+  const parsedMerchantId = rawMerchantId ? parseInt(rawMerchantId, 10) : NaN;
+  const merchantId: string | null =
+    Number.isInteger(parsedMerchantId) && parsedMerchantId > 0
+      ? String(parsedMerchantId)
+      : null;
+
+  // Parse FEATURED_MERCHANT_CHECKOUT_MODE; asCheckoutMode defaults to 'standard'.
+  const checkoutMode = asCheckoutMode(env[FEATURED_CHECKOUT_MODE_ENV]);
+
   return {
     tenantId: featuredTenantId(slug),
     displayName: name,
     description: description || undefined,
     checkoutSlug: slug,
     brandColor,
+    merchantId,
+    checkoutMode,
     // The skip-logo default: a monogram from the name on the brand color. The
     // Snap/checkout always have something to render — no asset upload needed.
     logoSvgInline: monogramSvg(name, brandColor).svg,
