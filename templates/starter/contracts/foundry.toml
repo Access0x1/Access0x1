@@ -1,0 +1,61 @@
+# {{PROJECT_NAME}} contracts — Foundry config (vendored from Access0x1, unmodified pins).
+# One compiler, one EVM target, explicit remappings — ambiguity is what makes a multi-file build
+# drift. Run `npm install` (for @chainlink/contracts) and `forge install` (for OZ + forge-std) once
+# before `forge build`. See DEPLOY.md.
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+solc_version = "0.8.28"     # zksolc + cross-chain EVM safe; pinned, not chosen per-file
+evm_version = "cancun"      # TSTORE/TLOAD available; we still use storage ReentrancyGuard
+optimizer = true
+optimizer_runs = 200
+via_ir = true               # IR pipeline: handles the wide PaymentReceived event + multi-leg
+                            # settlement without stack-too-deep, and optimizes harder (gas = the pitch)
+bytecode_hash = "none"      # clean, reproducible bytecode for aderyn/slither + verify
+cbor_metadata = false
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@chainlink/contracts/=node_modules/@chainlink/contracts/",  # npm dep — chainlink-brownie is deprecated
+    "forge-std/=lib/forge-std/src/",
+]
+# DevOpsTools.get_most_recent_deployment() reads broadcast/out to resolve the latest router per chain
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./out" },
+]
+
+[profile.default.fuzz]
+runs = 256
+
+# The money invariants must hold WITHOUT swallowed reverts — a revert is a real failure.
+[profile.default.invariant]
+runs = 64
+depth = 64
+fail_on_revert = true
+
+[profile.ci.invariant]
+runs = 256
+depth = 128
+fail_on_revert = true
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+
+# Resolved from env at runtime — NEVER hardcode an RPC/address.
+[rpc_endpoints]
+arc_testnet = "${ARC_TESTNET_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+zksync_sepolia = "${ZKSYNC_SEPOLIA_RPC_URL}"
+
+# Fallback ONLY — not the default. If `forge script` bytecode is rejected on zkSync Era because a
+# Cancun opcode (e.g. PUSH0) is unsupported, broadcast with `--profile zksync` to drop to shanghai.
+# CONFIRM at the zkSync booth before the live run; never make this the default.
+[profile.zksync]
+evm_version = "shanghai"
