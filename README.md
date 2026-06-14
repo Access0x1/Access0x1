@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**An open-source, on-chain layer for payments + auth + agents that any developer integrates with one link and no contract code.**
+**A do-it-all center to get you and your business onchain** — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards · NFTs), and identity, white-label for non-coders and agent-native. One drop-in, no contract code.
 
 **The stack**
 
@@ -14,7 +14,7 @@
 **The proof**
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
-![Tests](https://img.shields.io/badge/Tests-550%20passing-44CC11?style=for-the-badge)
+![Tests](https://img.shields.io/badge/Tests-846%20passing-44CC11?style=for-the-badge)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-100%25-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -197,7 +197,7 @@ cd Access0x1
 forge install          # OpenZeppelin + forge-std (git submodules)
 npm install            # @chainlink/contracts (npm, pinned 1.5.0) — run BEFORE forge build
 forge build
-forge test             # 777 green
+forge test             # 846 green
 forge coverage         # 100% on the router
 forge snapshot         # regenerate .gas-snapshot (see docs/GAS.md)
 ```
@@ -318,7 +318,7 @@ deployer is a burner key.
 
 | | |
 | --- | --- |
-| Tests | **550 green** — unit · attack · invariant suites |
+| Tests | **846 green** — unit · attack · invariant suites |
 | Router coverage | **100%** lines · 100% statements · 100% branches · 100% functions |
 | Invariants | **13 fuzz invariants** across 3 suites hold at 4,096 calls each, 0 reverts |
 | Static analysis | **slither: 16 results, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
