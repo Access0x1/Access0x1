@@ -259,6 +259,14 @@ make deploy-zksync           # zkSync Sepolia (adds --zksync)
 make deploy-sepolia          # Ethereum Sepolia
 make deploy-arbitrum-sepolia # Arbitrum Sepolia
 make deploy-optimism-sepolia # Optimism Sepolia
+make deploy-polygon-amoy     # Polygon Amoy
+make deploy-avalanche-fuji   # Avalanche Fuji
+make deploy-bnb-testnet      # BNB Smart Chain testnet
+make deploy-scroll-sepolia   # Scroll Sepolia
+make deploy-linea-sepolia    # Linea Sepolia
+make deploy-mantle-sepolia   # Mantle Sepolia (Blockscout verify)
+make deploy-blast-sepolia    # Blast Sepolia
+make deploy-unichain-sepolia # Unichain Sepolia
 ```
 
 > Live deploys read **every** address from the environment (`PLATFORM_TREASURY`, `NATIVE_USD_FEED`,
