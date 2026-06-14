@@ -10,8 +10,11 @@
  *   2. `forge install` the Solidity submodules (forge-std + openzeppelin-contracts) into contracts/lib.
  *   3. `npm install` inside contracts/ so Foundry can resolve the `@chainlink/contracts` remapping
  *      (chainlink-brownie-contracts is deprecated — the npm package is the canonical source).
- *   4. `npm install` inside app/ so the Next.js checkout can build.
- *   5. `forge build` to prove the vendored contracts compile end to end.
+ *   4. Ensure `@access0x1/react` is available: first tries the npm registry; if not published yet,
+ *      packs it from the local Access0x1 repo checkout (via `npm pack`) and wires a `file:` reference
+ *      into app/package.json. A vendor/ directory at the project root holds the tarball.
+ *   5. `npm install` inside app/ so the Next.js checkout can build.
+ *   6. `forge build` to prove the vendored contracts compile end to end.
  *
  * Zero npm dependencies — only Node builtins (child_process / fs / path / os) so it runs the moment
  * you have Node, before anything else is installed.
@@ -23,8 +26,8 @@
  */
 
 import { execSync, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platform } from 'node:os';
 
@@ -32,17 +35,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const CONTRACTS = join(ROOT, 'contracts');
 const APP = join(ROOT, 'app');
+const VENDOR = join(ROOT, 'vendor');
 
 const isWin = platform() === 'win32';
 
 // ── tiny output helpers (no chalk dep) ───────────────────────────────────────
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
-const c = (code) => (s) => (useColor ? `[${code}m${s}[0m` : String(s));
+const c = (code) => (s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : String(s));
 const bold = c('1');
 const dim = c('2');
 const green = c('32');
 const yellow = c('33');
 const red = c('31');
+const cyan = c('36');
 
 let step = 0;
 function heading(msg) {
@@ -68,6 +73,16 @@ function run(cmd, args, cwd, label) {
   if (res.status !== 0) {
     throw new Error(`${label || cmd} failed (exit ${res.status ?? 'signal ' + res.signal}).`);
   }
+}
+
+/** Run a command silently; return { ok, stdout, stderr }. */
+function runQuiet(cmd, args, cwd) {
+  const res = spawnSync(cmd, args, { cwd: cwd || ROOT, stdio: 'pipe', shell: isWin });
+  return {
+    ok: res.status === 0,
+    stdout: res.stdout ? res.stdout.toString().trim() : '',
+    stderr: res.stderr ? res.stderr.toString().trim() : '',
+  };
 }
 
 function ensureForge() {
@@ -107,8 +122,16 @@ function installSubmodules() {
     console.log(`  ${green('✓')} lib/forge-std and lib/openzeppelin-contracts already present.`);
     return;
   }
-  // --no-commit so it works inside any repo state; the pins in foundry.lock are honored on build.
-  run('forge', ['install', 'foundry-rs/forge-std', 'OpenZeppelin/openzeppelin-contracts', '--no-commit'], CONTRACTS, 'forge install');
+  // `degit` copies the template without initializing a git repository, so `forge install` (which
+  // uses git submodules by default) would fail with "not a git repository". We use --no-git to
+  // clone the deps as plain directories instead. If this dir IS inside a git repo (e.g. a dev
+  // working on the monorepo), --no-git is still safe — it just skips registering submodules.
+  run(
+    'forge',
+    ['install', 'foundry-rs/forge-std', 'OpenZeppelin/openzeppelin-contracts', '--no-git'],
+    CONTRACTS,
+    'forge install',
+  );
 }
 
 function npmInstall(dir, label) {
@@ -120,9 +143,120 @@ function npmInstall(dir, label) {
   run('npm', ['install'], dir, `npm install (${label})`);
 }
 
+/**
+ * Check whether @access0x1/react is on the npm registry. If not, find the local
+ * Access0x1 repo (walks up from this file, then checks known sibling paths), packs a
+ * tarball with `npm pack`, stashes it in vendor/, and rewrites app/package.json to use
+ * a `file:` reference. This keeps `npm run setup` self-contained even before the
+ * package is published to npm.
+ */
+function ensureAccess0x1React() {
+  heading('@access0x1/react — locate or pack');
+
+  // Fast path: already wired as file: in app/package.json (idempotent re-run).
+  const appPkg = JSON.parse(readFileSync(join(APP, 'package.json'), 'utf8'));
+  const currentRef = appPkg.dependencies?.['@access0x1/react'] ?? '';
+  if (currentRef.startsWith('file:')) {
+    const tgzPath = resolve(APP, currentRef.slice('file:'.length));
+    if (existsSync(tgzPath)) {
+      console.log(`  ${green('✓')} @access0x1/react already wired as local tarball: ${cyan(currentRef)}`);
+      return;
+    }
+  }
+
+  // Check npm registry (silent).
+  console.log(dim('  checking npm registry for @access0x1/react…'));
+  const { ok: onNpm } = runQuiet('npm', ['view', '@access0x1/react', 'version']);
+  if (onNpm) {
+    console.log(`  ${green('✓')} @access0x1/react is on npm — standard npm install will handle it.`);
+    return;
+  }
+
+  console.log(
+    yellow('  @access0x1/react is not yet published to npm.') +
+      dim(' Locating the local Access0x1 repo to pack it…'),
+  );
+
+  // Candidate locations for the packages/react directory:
+  // 1. Walk up from __dirname (scripts/ → project root → sibling of the templates dir in the monorepo).
+  // 2. Common sibling layout: ~/Desktop/access0x1/Access0x1 or ~/dev/Access0x1.
+  const desktopAccess = join(process.env.HOME || '', 'Desktop', 'access0x1', 'Access0x1');
+  const desktopClaude = join(process.env.HOME || '', 'Desktop', 'claude', 'Access0x1');
+  const candidates = [
+    // From the templates/starter location in a git checkout:
+    resolve(__dirname, '..', '..', '..', '..', 'packages', 'react'), // templates/starter → repo root → packages/react
+    resolve(__dirname, '..', '..', '..', 'packages', 'react'),       // one level shallower
+    join(desktopAccess, 'packages', 'react'),
+    join(desktopClaude, 'packages', 'react'),
+  ];
+
+  const pkgDir = candidates.find(
+    (p) => existsSync(join(p, 'package.json')) && existsSync(join(p, 'src')),
+  );
+
+  if (!pkgDir) {
+    console.error(red('\n  Could not locate the @access0x1/react source directory.'));
+    console.error(dim('  The package is not yet on npm and the local Access0x1 repo was not found.'));
+    console.error(dim('  Options:'));
+    console.error(dim('    a) Clone https://github.com/Access0x1/Access0x1 to ~/Desktop/access0x1/Access0x1'));
+    console.error(dim('       then re-run `npm run setup`.'));
+    console.error(dim('    b) Or build the tarball manually:'));
+    console.error(dim('         cd <path-to-Access0x1>/packages/react && npm ci && npm run build && npm pack'));
+    console.error(dim('       Copy the resulting .tgz into vendor/ here, then run:'));
+    console.error(dim('         npm --prefix app install --save @access0x1/react@file:../vendor/<tarball>.tgz'));
+    throw new Error('@access0x1/react not on npm and local source not found — see instructions above.');
+  }
+
+  console.log(dim(`  Found source at: ${pkgDir}`));
+
+  // Build it if dist/ doesn't exist yet.
+  if (!existsSync(join(pkgDir, 'dist'))) {
+    console.log(dim('  dist/ missing — building @access0x1/react…'));
+    run('npm', ['ci'], pkgDir, 'npm ci (react SDK)');
+    run('npm', ['run', 'build'], pkgDir, 'npm run build (react SDK)');
+  } else {
+    console.log(dim('  dist/ present — skipping rebuild.'));
+  }
+
+  // Pack into vendor/.
+  mkdirSync(VENDOR, { recursive: true });
+  console.log(dim(`  packing @access0x1/react into vendor/…`));
+  const packResult = runQuiet('npm', ['pack', '--pack-destination', VENDOR], pkgDir);
+  if (!packResult.ok) {
+    throw new Error(`npm pack failed:\n${packResult.stderr}`);
+  }
+  // npm pack outputs the filename on stdout (e.g. "access0x1-react-0.1.0.tgz").
+  const tgzFilename = packResult.stdout.split('\n').pop().trim();
+  const tgzPath = join(VENDOR, tgzFilename);
+  console.log(`  ${green('✓')} packed → ${cyan('vendor/' + tgzFilename)}`);
+
+  // Rewrite app/package.json to use a file: reference (relative to the app/ dir).
+  const fileRef = `file:../vendor/${tgzFilename}`;
+  appPkg.dependencies['@access0x1/react'] = fileRef;
+  writeFileSync(join(APP, 'package.json'), JSON.stringify(appPkg, null, 2) + '\n', 'utf8');
+  console.log(`  ${green('✓')} app/package.json updated: @access0x1/react → ${cyan(fileRef)}`);
+}
+
 function forgeBuild() {
   heading('Compile the vendored contracts (forge build)');
   run('forge', ['build'], CONTRACTS, 'forge build');
+}
+
+/** Materialize app/.env.local from app/.env.example if not already present. Values stay blank. */
+function seedEnvLocal() {
+  heading('Seed app/.env.local');
+  const envExample = join(APP, '.env.example');
+  const envLocal = join(APP, '.env.local');
+  if (!existsSync(envExample)) {
+    console.log(yellow('  app/.env.example not found — skipping .env.local seed.'));
+    return;
+  }
+  if (existsSync(envLocal)) {
+    console.log(`  ${green('✓')} app/.env.local already exists — not overwriting.`);
+    return;
+  }
+  copyFileSync(envExample, envLocal);
+  console.log(`  ${green('✓')} Created app/.env.local from app/.env.example (values are blank — fill them in).`);
 }
 
 async function main() {
@@ -132,14 +266,16 @@ async function main() {
   ensureForge();
   installSubmodules();
   npmInstall(CONTRACTS, 'Contract deps (@chainlink/contracts)');
+  ensureAccess0x1React();
   npmInstall(APP, 'App deps (Next.js + @access0x1/react)');
   forgeBuild();
+  seedEnvLocal();
 
   console.log(green('\nSetup complete.\n'));
   console.log(bold('Next:'));
   console.log(`  ${dim('1.')} Fill ${bold('app/.env.local')} — set your router address (the no-deploy path) and the`);
   console.log(`     chain RPC / USDC slots. Every address slot is blank on purpose (LAW #4).`);
-  console.log(`  ${dim('2.')} ${bold('cd app && npm run dev')}  ${dim('→ http://localhost:3000')}`);
+  console.log(`  ${dim('2.')} ${bold('npm run dev')}  ${dim('→ http://localhost:3000')}`);
   console.log(`  ${dim('3.')} (optional) Deploy your OWN router: see ${bold('contracts/DEPLOY.md')}.\n`);
 }
 
