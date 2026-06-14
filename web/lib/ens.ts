@@ -4,9 +4,11 @@ import {
   type PublicClient,
   createPublicClient,
   encodeAbiParameters,
+  getAddress,
   http,
   isAddress,
   keccak256,
+  parseAbi,
 } from 'viem';
 import { mainnet } from 'viem/chains';
 import { getEnsAddress, namehash, normalize } from 'viem/ens';
@@ -237,4 +239,112 @@ export function nameHashIdenticon(node: Hex): string {
     `viewBox="0 0 ${size} ${size}" fill="${color}" role="img" ` +
     `aria-label="identicon">${rects.join('')}</svg>`
   );
+}
+
+// ── ENSIP-19: verified merchant primary name (reverse + forward check) ────────
+
+/**
+ * Default ENS Universal Resolver address.
+ *
+ * ⚠️ CONFIRM-ON-ETHERSCAN: this is the address documented by ENS for the
+ * Universal Resolver (the proxy that implements ENSIP-10 wildcard resolution,
+ * ENSIP-19 reverse, and CCIP-Read). It is NOT asserted here as audited fact —
+ * VERIFY it against the ENS docs / Etherscan for the network you point at, and
+ * OVERRIDE it via `NEXT_PUBLIC_ENS_UNIVERSAL_RESOLVER` rather than trusting this
+ * literal in production. Unlike the resolution path (which targets the resolver
+ * by ENS *name* via viem), the ENSIP-19 reverse call addresses the resolver
+ * directly, so the address must be supplied — hence this overridable default.
+ */
+export const DEFAULT_ENS_UNIVERSAL_RESOLVER =
+  '0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe' as const;
+
+/**
+ * Resolve the Universal Resolver address to call for ENSIP-19 reverse.
+ *
+ * Reads `NEXT_PUBLIC_ENS_UNIVERSAL_RESOLVER` first (the override an operator
+ * fills after confirming on Etherscan); falls back to
+ * {@link DEFAULT_ENS_UNIVERSAL_RESOLVER}. Returns null when the configured value
+ * is not a valid address so callers fail soft (no name) instead of throwing —
+ * the merchant-identity badge is OFF the money path and must never block a page.
+ */
+export function universalResolverAddress(): Address | null {
+  const raw = (process.env.NEXT_PUBLIC_ENS_UNIVERSAL_RESOLVER ?? '').trim();
+  const candidate = raw.length > 0 ? raw : DEFAULT_ENS_UNIVERSAL_RESOLVER;
+  return isAddress(candidate) ? (candidate as Address) : null;
+}
+
+/**
+ * ENSIP-19 reverse ABI on the Universal Resolver.
+ *
+ * `reverse(bytes lookupAddress, uint256 coinType)` returns the primary `name`
+ * for an address under the given coinType AND the addresses needed to verify it
+ * forward-resolves back — the resolver performs the reverse→forward round-trip
+ * internally and reverts when they disagree. We additionally re-check
+ * forward==reverse ourselves (belt-and-suspenders) before trusting a name.
+ */
+const UNIVERSAL_RESOLVER_REVERSE_ABI = parseAbi([
+  'function reverse(bytes lookupAddress, uint256 coinType) view returns (string name, address resolvedAddress, address reverseResolver, address resolver)',
+]);
+
+/**
+ * The ENSIP-19 verified PRIMARY name for an address on a given chain, or null.
+ *
+ * This is the READ seam behind the checkout "Paying acme.eth ✓" badge. It:
+ *   1. derives the chain's coinType via ENSIP-11 ({@link toCoinType}; mainnet
+ *      uses coinType 60, the ENS default);
+ *   2. calls the Universal Resolver's ENSIP-19 `reverse(address, coinType)`,
+ *      which returns the primary name AND the address it forward-resolves to;
+ *   3. returns the name ONLY when that forward address equals the input address
+ *      (checksum-insensitive) — i.e. forward == reverse. Any mismatch, empty
+ *      name, missing/!misconfigured resolver, or RPC error ⇒ null.
+ *
+ * It NEVER fabricates a name and NEVER throws (LAW #4): a badge is purely
+ * cosmetic and sits off the money path, so every failure mode degrades to "show
+ * the truncated address" rather than crashing checkout. No name is ever returned
+ * that does not provably round-trip back to `address` on `chainId`.
+ *
+ * @param address  The merchant payout address to look up a primary name for.
+ * @param chainId  The chain whose reverse namespace to read (ENSIP-11 coinType).
+ * @param rpcUrl   Optional Mainnet RPC URL for the resolution client.
+ * @returns The verified primary name (e.g. `acme.eth`) or null.
+ */
+export async function verifiedPrimaryName(
+  address: string,
+  chainId: number,
+  rpcUrl?: string,
+): Promise<string | null> {
+  // Guard inputs: a non-address in ⇒ no name (never guess, never throw).
+  if (!isAddress(address)) return null;
+
+  const resolver = universalResolverAddress();
+  if (!resolver) return null; // unconfigured / invalid resolver ⇒ fail soft.
+
+  // ENSIP-11 coinType: 60 for mainnet (chain id 1), else the derived L2 value.
+  const coinType =
+    chainId === MAINNET_CHAIN_ID ? 60n : BigInt(toCoinType(chainId));
+
+  try {
+    const client = mainnetClient(rpcUrl);
+    const [name, resolvedAddress] = await client.readContract({
+      address: resolver,
+      abi: UNIVERSAL_RESOLVER_REVERSE_ABI,
+      functionName: 'reverse',
+      args: [address as Address, coinType],
+    });
+
+    // No primary name set ⇒ nothing to show.
+    if (!name || name.trim().length === 0) return null;
+
+    // FORWARD == REVERSE: only trust a name that resolves back to this exact
+    // address. getAddress checksums both sides so the compare is case-correct;
+    // a non-address / zero resolvedAddress fails the guard and yields null.
+    if (!isAddress(resolvedAddress)) return null;
+    if (getAddress(resolvedAddress) !== getAddress(address)) return null;
+
+    return name;
+  } catch {
+    // Any RPC / decode / revert (incl. the resolver's own forward-check revert)
+    // ⇒ no verified name. Cosmetic badge, off the money path: never throw.
+    return null;
+  }
 }

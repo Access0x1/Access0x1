@@ -8,6 +8,7 @@ import { payToken, type Merchant, type PaymentReceivedEvent } from '@/lib/contra
 import { fetchQuote, usdToAmount8 } from '@/lib/quote'
 import { getWalletClient, getPublicClient } from '@/lib/wallet'
 import { ConnectButton } from './ConnectButton'
+import { MerchantIdentity } from './MerchantIdentity'
 import { ReceiptScreen } from './ReceiptScreen'
 import { TokenPicker } from './TokenPicker'
 import { WorldIdGate } from './WorldIdGate'
@@ -255,7 +256,11 @@ export function CheckoutCard({
     <div className="flex flex-col gap-5">
       <div>
         <h1 className="text-2xl font-semibold text-ink">{merchantName}</h1>
-        <p className="text-sm text-neutral-500">Pay with crypto</p>
+        {/* ENSIP-19 verified merchant identity (off the money path): shows
+            "Paying acme.eth ✓" ONLY when the payout address has a primary name
+            that forward-resolves back to it; otherwise the truncated address.
+            Never fabricates a name. */}
+        <MerchantIdentity payout={merchant.payout} chainId={chainId} />
       </div>
 
       <div className="rounded-xl border border-neutral-200 p-5">
