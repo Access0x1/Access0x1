@@ -7,6 +7,7 @@ import { getMerchant, type Merchant } from '@/lib/contracts'
 import { getPublicClient } from '@/lib/wallet'
 import type { PublicBranding } from '@/lib/branding/response'
 import { resolveGate } from '@/lib/worldid/gateConfig'
+import { BrandMark } from '@/components/BrandMark'
 import { CheckoutCard } from '@/components/CheckoutCard'
 import { BrandPreview } from '@/components/branding/BrandPreview'
 import { AskAssistant } from '@/components/AskAssistant'
@@ -125,8 +126,9 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
             </div>
           )}
 
-          <p className="mt-5 border-t border-neutral-100 pt-4 text-center text-xs text-neutral-400">
-            Powered by Access0x1
+          <p className="mt-5 flex items-center justify-center gap-1.5 border-t border-neutral-100 pt-4 text-center text-xs text-neutral-400">
+            <span>Powered by</span>
+            <BrandMark size={14} />
           </p>
         </section>
       ) : null}
