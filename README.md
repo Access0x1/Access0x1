@@ -14,7 +14,7 @@
 **The proof**
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
-![Tests](https://img.shields.io/badge/Tests-846%20passing-44CC11?style=for-the-badge)
+![Tests](https://img.shields.io/badge/Tests-849%20passing-44CC11?style=for-the-badge)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-100%25-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -142,7 +142,7 @@ src/
 └── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (550 tests)
+test/                        # unit · attack · invariant (849 tests)
 ```
 
 The full first-party surface is **12 contracts**: the money spine (`Access0x1Router`), the receipt
@@ -201,7 +201,7 @@ git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
 make install           # forge submodules + npm (@chainlink) + web + SDK — one command
 make build             # forge build
-make test              # 846 tests, all green
+make test              # 849 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
@@ -323,9 +323,11 @@ hand-entered (law #4: an address that isn't on-chain isn't claimed). Empty until
 `make deploy-<chain>`; `Access0x1Router` is the address an integrator points at.
 See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full operator guide.
 
-> **Gas:** on Arc, no separate gas token — USDC is native, no gas coin to top up.
-> On Base (production), gas can be sponsored via the Base Paymaster so the buyer pays $0 in ETH.
-> Neither claim changes the contract code — the router is gas-model agnostic.
+> **Gas:** on Arc, USDC is the native gas token, so checkout needs no separate gas coin — there is
+> nothing to top up. On other chains an optional, generic [ERC-7677](https://eips.ethereum.org/EIPS/eip-7677)
+> paymaster seam ([`web/lib/paymaster`](web/lib/paymaster)) can sponsor gas wherever a provider is
+> configured (env-gated; blank ⇒ off). Neither path changes the contract code — the router is
+> gas-model agnostic.
 
 | Chain | Contract | Address | Tx |
 | --- | --- | --- | --- |
