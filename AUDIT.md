@@ -11,9 +11,11 @@ _Last updated: 2026-06-14 (ETHGlobal NY)._
 
 ## 1. Deployed & verified — the hard proof
 
-**Base Sepolia (chain id 84532) is the only chain we have broadcast.** The full money + commerce
-surface is deployed and wired in a **single broadcast, 13 transactions, every receipt status `0x1`**,
-commit-pinned. Verified on Blockscout.
+**Deployed + verified on TWO chains: Base Sepolia (84532) and Arc Testnet (5042002, Circle).** On Base
+Sepolia the full money + commerce surface is deployed and wired in a **single broadcast, 13 transactions,
+every receipt status `0x1`**, commit-pinned, verified on Blockscout. On **Arc Testnet** all 8 contracts +
+the USD feed are deployed and **verified on arcscan**, with gas paid in **native USDC** — Router
+[`0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad`](https://testnet.arcscan.app/address/0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad).
 
 | Contract | Address |
 |---|---|
@@ -30,9 +32,8 @@ commit-pinned. Verified on Blockscout.
 - **A real merchant is registered + live** (NFTeria, merchant #1), tx `0x3e61932ae31dc04c188802d5a3acf203e83df5ae895ffe0fa0b4544bcccfa620` — the live checkout at `access0x1.nfteria.click` has taken a real on-chain USDC payment.
 - **Chainlink feeds wired in the broadcast:** native/USD `0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1`, USDC/USD `0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165`.
 
-**Not deployed (and we never say otherwise):** Arc Testnet (5042002) and zkSync Sepolia (300) are
-**one-command ready** (`make deploy-arc` / `make deploy-zksync`) but have **no broadcast and no tx hash**.
-`ChainRegistry` and `Access0x1Receiver` are config/audit sidecars (built; deploy is one call).
+**Still one-command ready (not broadcast):** zkSync Sepolia (300) — `make deploy-zksync`, no tx hash yet.
+`ChainRegistry` and `Access0x1Receiver` are config/audit sidecars (built; deploy is one call) on both deployed chains.
 
 ---
 
