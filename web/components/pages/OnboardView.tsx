@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { ConnectButton } from '@/components/ConnectButton'
 import { BrandingForm } from '@/components/branding/BrandingForm'
 import { CheckoutModeForm } from '@/components/branding/CheckoutModeForm'
+import { VerificationLevelsPanel } from '@/components/verification/VerificationLevelsPanel'
 import { AskAssistant } from '@/components/AskAssistant'
 
 /**
@@ -42,6 +43,13 @@ export function OnboardView(): ReactNode {
           Optional — you can skip this and decide later
         </p>
         <CheckoutModeForm mode="onboard" />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
+          Optional — raise your own trust level
+        </p>
+        <VerificationLevelsPanel />
       </section>
 
       <p className="text-center text-xs text-neutral-400">
