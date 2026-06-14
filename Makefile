@@ -16,6 +16,8 @@ ANVIL_SENDER ?= 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
         gate aderyn slither analyze mutation halmos audit anvil \
         deploy-dry deploy-local drive-local deploy-arc deploy-base deploy-zksync deploy-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
+        deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
+        deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet deploy-arc-mainnet \
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
         vyper-build vyper-test \
         cre-build cre-sim zksync-build all
@@ -260,3 +262,95 @@ deploy-blast-sepolia: ## Deploy to Blast Sepolia (blastscan verify)
 
 deploy-unichain-sepolia: ## Deploy to Unichain Sepolia (uniscan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(UNICHAIN_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(UNISCAN_API_KEY) -vvvv
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
+#  ⛔ MAINNET — AUDIT-GATED, REAL FUNDS. DO NOT RUN UNTIL A THIRD-PARTY AUDIT IS COMPLETE.            ⛔
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
+#  This repo is TESTNET-ONLY today and UNAUDITED. There is NO mainnet deployment and NO mainnet
+#  claim. The targets below exist ONLY so each chain has a mainnet PROFILE alongside its testnet one
+#  (config/readiness). They move REAL money on a LIVE chain — running one before a completed
+#  third-party security audit is forbidden (money paths, law #5 + #4). Each recipe deliberately STOPS
+#  with a confirm gate (`MAINNET_AUDITED=yes`) so an accidental `make deploy-<chain>-mainnet` is a
+#  no-op, never a broadcast. HelperConfig reads every address from `<CHAIN>_MAINNET_*` env (default
+#  address(0) ⇒ skipped); NOTHING is hardcoded. Verifier per chain mirrors the testnet target.
+#
+#  To actually deploy AFTER an audit: set MAINNET_AUDITED=yes on the command line, e.g.
+#    make deploy-base-mainnet MAINNET_AUDITED=yes
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
+
+# The audit gate. Every mainnet recipe runs this FIRST; it aborts unless MAINNET_AUDITED=yes is passed.
+MAINNET_AUDITED ?= no
+define MAINNET_GATE
+	@if [ "$(MAINNET_AUDITED)" != "yes" ]; then \
+		echo "⛔ MAINNET deploy BLOCKED — AUDIT-GATED."; \
+		echo "   This is testnet-only, unaudited software. No mainnet deployment exists or is claimed."; \
+		echo "   Do NOT run on mainnet until a third-party audit is complete (real funds, law #5)."; \
+		echo "   If (and only if) the audit is done, re-run with: MAINNET_AUDITED=yes"; \
+		exit 1; \
+	fi
+	@echo "⚠️  MAINNET deploy proceeding with MAINNET_AUDITED=yes — real funds on a live chain."
+endef
+
+deploy-ethereum-mainnet: ## ⛔ AUDIT-GATED: deploy to Ethereum mainnet (etherscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(ETHEREUM_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
+
+deploy-base-mainnet: ## ⛔ AUDIT-GATED: deploy to Base mainnet (basescan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(BASE_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(BASESCAN_API_KEY) -vvvv
+
+deploy-arbitrum-mainnet: ## ⛔ AUDIT-GATED: deploy to Arbitrum One (arbiscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(ARBITRUM_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(ARBISCAN_API_KEY) -vvvv
+
+deploy-optimism-mainnet: ## ⛔ AUDIT-GATED: deploy to OP Mainnet (etherscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(OPTIMISM_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(OPTIMISM_API_KEY) -vvvv
+
+deploy-polygon-mainnet: ## ⛔ AUDIT-GATED: deploy to Polygon mainnet (polygonscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(POLYGON_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(POLYGONSCAN_API_KEY) -vvvv
+
+deploy-avalanche-mainnet: ## ⛔ AUDIT-GATED: deploy to Avalanche C-Chain (snowtrace verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(AVALANCHE_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(SNOWTRACE_API_KEY) -vvvv
+
+deploy-bnb-mainnet: ## ⛔ AUDIT-GATED: deploy to BNB Smart Chain (bscscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(BNB_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(BSCSCAN_API_KEY) -vvvv
+
+deploy-scroll-mainnet: ## ⛔ AUDIT-GATED: deploy to Scroll mainnet (scrollscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(SCROLL_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(SCROLLSCAN_API_KEY) -vvvv
+
+deploy-linea-mainnet: ## ⛔ AUDIT-GATED: deploy to Linea mainnet (lineascan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(LINEA_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(LINEASCAN_API_KEY) -vvvv
+
+deploy-mantle-mainnet: ## ⛔ AUDIT-GATED: deploy to Mantle mainnet (blockscout verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(MANTLE_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(MANTLE_MAINNET_VERIFIER_URL) -vvvv
+
+deploy-blast-mainnet: ## ⛔ AUDIT-GATED: deploy to Blast mainnet (blastscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(BLAST_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(BLASTSCAN_API_KEY) -vvvv
+
+deploy-unichain-mainnet: ## ⛔ AUDIT-GATED: deploy to Unichain mainnet (uniscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(UNICHAIN_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(UNISCAN_API_KEY) -vvvv
+
+deploy-zksync-mainnet: ## ⛔ AUDIT-GATED: deploy to zkSync Era mainnet (zksync verify, --zksync) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --zksync --verify --verifier zksync --verifier-url $(ZKSYNC_MAINNET_VERIFIER_URL) -vvvv
+
+# Arc MAINNET is NOT launched (Arc is testnet-only today). Its chain id is TBD, so the HelperConfig
+# branch is selected only when ARC_MAINNET_CHAIN_ID is set to the real id at launch (never invented).
+# This target is doubly gated: AUDIT-GATED above, AND it errors if ARC_MAINNET_CHAIN_ID is unset.
+deploy-arc-mainnet: ## ⛔ AUDIT-GATED + NOT LAUNCHED: deploy to Arc mainnet (set ARC_MAINNET_CHAIN_ID first)
+	$(MAINNET_GATE)
+	@if [ -z "$(ARC_MAINNET_CHAIN_ID)" ]; then \
+		echo "⛔ Arc mainnet is NOT launched — ARC_MAINNET_CHAIN_ID is unset (the id is TBD, never invented)."; \
+		echo "   Set ARC_MAINNET_CHAIN_ID to the real id at launch before this target can run."; \
+		exit 1; \
+	fi
+	forge script script/DeployAll.s.sol --rpc-url $(ARC_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(ARC_MAINNET_VERIFIER_URL) -vvvv

@@ -304,6 +304,18 @@ make deploy-unichain-sepolia # Unichain Sepolia
 > (`--account`, never `--private-key`). Any feed/USDC address that is not yet confirmed resolves to
 > `address(0)` and is *skipped*, never wired. See [`.env.example`](.env.example) for the full key set.
 
+> **⛔ Mainnet is STAGED and AUDIT-GATED — there is NO mainnet deployment, and none is claimed.**
+> This repo is **testnet-only** today and **unaudited**; testnet is the only live target. Every chain
+> above now carries a *mainnet config profile* alongside its testnet one (Ethereum, Base, Arbitrum One,
+> Optimism, Polygon, Avalanche, BNB, Scroll, Linea, Mantle, Blast, Unichain, zkSync Era — plus a dormant
+> Arc-mainnet branch keyed on `ARC_MAINNET_CHAIN_ID`, since Arc mainnet is **not launched** and its id is
+> never invented). This is **config/readiness only**: each mainnet branch reads its addresses from
+> `<CHAIN>_MAINNET_*` env (default `address(0)` ⇒ skipped) — **no mainnet USDC/feed address is hardcoded**
+> anywhere (law #4: a guessed address would imply a deployment we have not made). The
+> `make deploy-<chain>-mainnet` targets that reach these branches are **blocked behind a `MAINNET_AUDITED=yes`
+> gate**: they refuse to broadcast until a **third-party security audit** is complete (real funds, law #5).
+> See the loud `⛔ MAINNET` banners in the [`Makefile`](Makefile) and [`.env.example`](.env.example).
+
 ### Deployments
 
 Filled at deploy time from the broadcast log (`broadcast/<chainId>/run-latest.json`) — **never**
