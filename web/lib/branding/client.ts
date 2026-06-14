@@ -8,7 +8,7 @@
  * UI can show a plain-English message (non-coder law: no raw errors).
  */
 
-import type { CheckoutMode, HumanVerifier, TenantBranding } from './store'
+import type { CheckoutMode, HumanVerifier, MerchantVertical, TenantBranding } from './store'
 import type { TrustTier } from '../verification/tiers'
 
 /** The tenant-facing branding row returned by GET/POST /api/branding. */
@@ -25,6 +25,12 @@ export async function saveCheckoutMode(input: {
   humanVerifier?: HumanVerifier
   /** Minimum buyer trust tier required to pay (Super Verification). */
   requiredTier?: TrustTier
+  /**
+   * The merchant's business category (Casino vertical). When 'casino', the
+   * server forces verified-human AND blocks the save until the operator is
+   * World ID-verified (surfaced as the `CASINO_NEEDS_OPERATOR` code below).
+   */
+  vertical?: MerchantVertical
 }): Promise<{ ok: true; branding: ClientBranding } | { ok: false; error: string; code?: string }> {
   try {
     const res = await fetch('/api/branding/checkout-mode', {
@@ -41,10 +47,29 @@ export async function saveCheckoutMode(input: {
         code: 'no_branding',
       }
     }
+    if (json.code === 'CASINO_NEEDS_OPERATOR') {
+      return {
+        ok: false,
+        error:
+          'Casinos must verify with World ID before going live. Complete the World ID step to prove a real person is running this casino.',
+        code: 'CASINO_NEEDS_OPERATOR',
+      }
+    }
     return { ok: false, error: json.error ?? 'Could not save. Please try again.', code: json.code }
   } catch {
     return { ok: false, error: 'Could not reach the server. Check your connection.' }
   }
+}
+
+/**
+ * Record the operator's World ID proof on their branding row (Casino vertical).
+ * The `WorldIdGate` is pointed at `/api/branding/operator-verify` with the
+ * operator action; on a 200 the row's `verifiedOperator` flips true so a casino
+ * can be saved. This helper is only the result reader — the gate does the POST.
+ */
+export async function loadOperatorVerified(tenantId: string): Promise<boolean> {
+  const row = await loadBranding(tenantId)
+  return row?.verifiedOperator === true
 }
 
 /** Save (or edit) the tenant's branding. */
