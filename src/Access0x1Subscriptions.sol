@@ -150,7 +150,7 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
         uint256 priceUsd8,
         uint32 periodSecs,
         bool active
-    ) external onlyMerchantOwner(merchantId) {
+    ) external nonReentrant onlyMerchantOwner(merchantId) {
         if (priceUsd8 == 0 || periodSecs == 0) revert Access0x1Subs__ZeroValue();
         _plans[merchantId][planKey] =
             Plan({ priceUsd8: priceUsd8, periodSecs: periodSecs, active: active });
@@ -297,8 +297,15 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
         bytes32 sessionId = s.sessionId;
         address token = s.token;
         uint8 planKey = s.planKey;
-        // Live plan price (a merchant re-price applies from this period on, never retroactively).
-        uint256 priceUsd8 = _plans[merchantId][planKey].priceUsd8;
+        // Snapshot the plan terms into stack locals BEFORE any external call. `chargeViaSelf` routes
+        // through a merchant-controlled ERC-20 (and the router's fee-split); a malicious token callback
+        // inside that call could shrink the plan (smaller periodSecs / different priceUsd8) mid-renew.
+        // Pinning both up front means the period advances by EXACTLY one period at the price charged,
+        // never a re-read post-call that a callback could have mutated to drain the session budget.
+        // (Live read here = a merchant re-price applies from this period on, never retroactively.)
+        Plan memory plan = _plans[merchantId][planKey];
+        uint256 priceUsd8 = plan.priceUsd8;
+        uint32 periodSecs = plan.periodSecs;
 
         // Charge behind a self-call boundary so a failed charge rolls back without reverting the
         // keeper — the only place dunning is applied. `chargeViaSelf` re-asserts caller == this.
@@ -306,9 +313,10 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
             uint256 tokenPulled
         ) {
             chargedToken = tokenPulled;
-            // Effects: advance the period, clear dunning, mark ACTIVE.
+            // Effects: advance the period by the snapshotted periodSecs (not a post-call re-read),
+            // clear dunning, mark ACTIVE.
             unchecked {
-                s.periodEnd = due + uint64(_plans[merchantId][planKey].periodSecs);
+                s.periodEnd = due + uint64(periodSecs);
             }
             s.failCount = 0;
             s.status = SubStatus.ACTIVE;
