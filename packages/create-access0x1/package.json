@@ -1,0 +1,35 @@
+{
+  "name": "create-access0x1",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal convenience CLI that scaffolds an Access0x1 starter from templates/starter. NOT published — only @access0x1/react is published to npm. End users fetch the template directly with `npx degit Access0x1/Access0x1/templates/starter`; this wrapper copies the same tree from a local checkout.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-access0x1": "./bin/index.mjs"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Access0x1/Access0x1.git",
+    "directory": "packages/create-access0x1"
+  },
+  "keywords": [
+    "access0x1",
+    "create",
+    "scaffold",
+    "initializer",
+    "payments",
+    "usdc",
+    "chainlink",
+    "non-custodial",
+    "viem",
+    "next"
+  ]
+}
