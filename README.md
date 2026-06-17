@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed + verified on two chains: Arc Testnet (5042002) and Base Sepolia (84532).** zkSync Sepolia is one-command ready (`make deploy-zksync-sepolia`) but not yet broadcast. **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed + verified on three chains: Arc Testnet (5042002), Base Sepolia (84532), and Ethereum Sepolia (11155111).** More Tier-1 testnets (Arbitrum/Optimism/zkSync Sepolia, Polygon Amoy, Avalanche Fuji) are one-command ready (`make deploy-all-testnets`) but not yet broadcast. **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -355,6 +355,14 @@ operator guide.
 | Base Sepolia (84532) | `Access0x1Invoices` | [`0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909`](https://base-sepolia.blockscout.com/address/0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909) | — |
 | Base Sepolia (84532) | `Access0x1GiftCards` | [`0x2ba5411803bc7734652afa292bc97f39ae409f76`](https://base-sepolia.blockscout.com/address/0x2ba5411803bc7734652afa292bc97f39ae409f76) | — |
 | Base Sepolia (84532) | `ChainRegistry` | — | — |
+| Ethereum Sepolia (11155111) | `Access0x1Router` | [`0x75aad7079f3e3b9f51b46529e5f235934af2e932`](https://sepolia.etherscan.io/address/0x75aad7079f3e3b9f51b46529e5f235934af2e932) | [`0xe2b32573…1ecc`](https://sepolia.etherscan.io/tx/0xe2b32573d1a8891b0b5238e7a36280bff9d9a5b859faf30676917c72a2721ecc) |
+| Ethereum Sepolia (11155111) | `SessionGrant` | [`0xdc2b6aeaca9824abbdd250947bedf16381f9d887`](https://sepolia.etherscan.io/address/0xdc2b6aeaca9824abbdd250947bedf16381f9d887) | — |
+| Ethereum Sepolia (11155111) | `PaymentLanes` | [`0x9d79a34438f1089be3402be687363e5615977c74`](https://sepolia.etherscan.io/address/0x9d79a34438f1089be3402be687363e5615977c74) | — |
+| Ethereum Sepolia (11155111) | `HouseTokenFactory` | [`0x16f61eef4642329739f2ff788fd580dae248b7ac`](https://sepolia.etherscan.io/address/0x16f61eef4642329739f2ff788fd580dae248b7ac) | — |
+| Ethereum Sepolia (11155111) | `Access0x1Subscriptions` | [`0xe3209e754b4b1fb423f421d28eeb422a7949c9bf`](https://sepolia.etherscan.io/address/0xe3209e754b4b1fb423f421d28eeb422a7949c9bf) | — |
+| Ethereum Sepolia (11155111) | `Access0x1Bookings` | [`0xb1dfa8fd2d55f6592562ed2a738fd9bf45df4023`](https://sepolia.etherscan.io/address/0xb1dfa8fd2d55f6592562ed2a738fd9bf45df4023) | — |
+| Ethereum Sepolia (11155111) | `Access0x1Invoices` | [`0x52dd1e0f44282be35991864375c88ae267b450fc`](https://sepolia.etherscan.io/address/0x52dd1e0f44282be35991864375c88ae267b450fc) | — |
+| Ethereum Sepolia (11155111) | `Access0x1GiftCards` | [`0x1ac9457a3436ea0864cad2ce8f4bbf8a1e853f51`](https://sepolia.etherscan.io/address/0x1ac9457a3436ea0864cad2ce8f4bbf8a1e853f51) | — |
 | zkSync Sepolia (300) | `Access0x1Router` | — | — |
 | zkSync Sepolia (300) | `SessionGrant` | — | — |
 | zkSync Sepolia (300) | `HouseTokenFactory` | — | — |
