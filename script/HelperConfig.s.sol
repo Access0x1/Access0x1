@@ -69,6 +69,33 @@ contract HelperConfig is Script {
     /// @notice Unichain Sepolia (OP-stack L2). Native = ETH (18 dec). USDC + feed addresses are confirms.
     uint256 internal constant UNICHAIN_SEPOLIA_CHAIN_ID = 1_301;
 
+    /// @notice Zora Sepolia (OP-stack L2). Native = ETH (18 dec). Blockscout verifier; USDC + feeds confirms.
+    uint256 internal constant ZORA_SEPOLIA_CHAIN_ID = 999_999_999;
+
+    /// @notice Filecoin Calibration (FEVM testnet). Native = tFIL (18 dec). Blockscout verifier; USDC + feeds confirms.
+    uint256 internal constant FILECOIN_CALIBRATION_CHAIN_ID = 314_159;
+
+    /// @notice Gnosis Chiado (testnet). Native = XDAI (18 dec, ≈ $1). Blockscout verifier; USDC + feeds confirms.
+    uint256 internal constant GNOSIS_CHIADO_CHAIN_ID = 10_200;
+
+    /// @notice ApeChain Curtis (Arbitrum-Orbit testnet). Native = APE (18 dec). Blockscout verifier; USDC + feeds confirms.
+    uint256 internal constant APECHAIN_CURTIS_CHAIN_ID = 33_111;
+
+    /// @notice World Chain Sepolia (OP-stack L2). Native = ETH (18 dec, NOT WLD as gas). Worldscan verifier; confirms.
+    uint256 internal constant WORLDCHAIN_SEPOLIA_CHAIN_ID = 4_801;
+
+    /// @notice Zircuit Garfield (testnet). Native = ETH (18 dec). Sourcify verifier; USDC + feeds confirms.
+    uint256 internal constant ZIRCUIT_GARFIELD_CHAIN_ID = 48_898;
+
+    /// @notice Citrea testnet (Bitcoin zk-rollup). Native = cBTC (18 dec). Blockscout verifier; USDC + feeds confirms.
+    uint256 internal constant CITREA_TESTNET_CHAIN_ID = 5_115;
+
+    /// @notice Flow EVM testnet. Native = FLOW (18 dec). Blockscout verifier; USDC + feeds confirms.
+    uint256 internal constant FLOW_EVM_TESTNET_CHAIN_ID = 545;
+
+    /// @notice Celo Sepolia (testnet). Native = CELO (18 dec). Celoscan (etherscan-v2) verifier; USDC + feeds confirms.
+    uint256 internal constant CELO_SEPOLIA_CHAIN_ID = 11_142_220;
+
     // ─────────────────────────────────────────────────────────────────────────────────────────────
     // MAINNET chain ids — AUDIT-GATED, NOT DEPLOYED.
     //
@@ -122,6 +149,33 @@ contract HelperConfig is Script {
     /// @notice zkSync Era mainnet (ZK Stack, chainId 324). Native = ETH (18 dec). AUDIT-GATED — not deployed.
     uint256 internal constant ZKSYNC_MAINNET_CHAIN_ID = 324;
 
+    /// @notice Zora mainnet (OP-stack L2, chainId 7777777). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant ZORA_MAINNET_CHAIN_ID = 7_777_777;
+
+    /// @notice Filecoin mainnet (FEVM, chainId 314). Native = FIL (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant FILECOIN_MAINNET_CHAIN_ID = 314;
+
+    /// @notice Gnosis Chain (chainId 100). Native = XDAI (18 dec, ≈ $1). AUDIT-GATED — not deployed.
+    uint256 internal constant GNOSIS_MAINNET_CHAIN_ID = 100;
+
+    /// @notice ApeChain (Arbitrum-Orbit, chainId 33139). Native = APE (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant APECHAIN_MAINNET_CHAIN_ID = 33_139;
+
+    /// @notice World Chain (OP-stack L2, chainId 480). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant WORLDCHAIN_MAINNET_CHAIN_ID = 480;
+
+    /// @notice Zircuit mainnet (chainId 48900). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant ZIRCUIT_MAINNET_CHAIN_ID = 48_900;
+
+    /// @notice Citrea mainnet (Bitcoin zk-rollup, chainId 4114). Native = cBTC (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant CITREA_MAINNET_CHAIN_ID = 4_114;
+
+    /// @notice Flow EVM mainnet (chainId 747). Native = FLOW (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant FLOW_EVM_MAINNET_CHAIN_ID = 747;
+
+    /// @notice Celo mainnet (chainId 42220). Native = CELO (18 dec). AUDIT-GATED — not deployed.
+    uint256 internal constant CELO_MAINNET_CHAIN_ID = 42_220;
+
     /// @notice Arc MAINNET is NOT launched (Arc is testnet-only today), so its chain id is UNKNOWN and
     ///         MUST NOT be invented. The Arc-mainnet branch is selected ONLY when the operator sets
     ///         `ARC_MAINNET_CHAIN_ID` to the real id at launch; until then this resolves to 0, which can
@@ -171,6 +225,24 @@ contract HelperConfig is Script {
             activeConfig = _blastSepoliaConfig();
         } else if (block.chainid == UNICHAIN_SEPOLIA_CHAIN_ID) {
             activeConfig = _unichainSepoliaConfig();
+        } else if (block.chainid == ZORA_SEPOLIA_CHAIN_ID) {
+            activeConfig = _zoraSepoliaConfig();
+        } else if (block.chainid == FILECOIN_CALIBRATION_CHAIN_ID) {
+            activeConfig = _filecoinCalibrationConfig();
+        } else if (block.chainid == GNOSIS_CHIADO_CHAIN_ID) {
+            activeConfig = _gnosisChiadoConfig();
+        } else if (block.chainid == APECHAIN_CURTIS_CHAIN_ID) {
+            activeConfig = _apechainCurtisConfig();
+        } else if (block.chainid == WORLDCHAIN_SEPOLIA_CHAIN_ID) {
+            activeConfig = _worldchainSepoliaConfig();
+        } else if (block.chainid == ZIRCUIT_GARFIELD_CHAIN_ID) {
+            activeConfig = _zircuitGarfieldConfig();
+        } else if (block.chainid == CITREA_TESTNET_CHAIN_ID) {
+            activeConfig = _citreaTestnetConfig();
+        } else if (block.chainid == FLOW_EVM_TESTNET_CHAIN_ID) {
+            activeConfig = _flowEvmTestnetConfig();
+        } else if (block.chainid == CELO_SEPOLIA_CHAIN_ID) {
+            activeConfig = _celoSepoliaConfig();
         } else if (block.chainid == ETHEREUM_MAINNET_CHAIN_ID) {
             // ── MAINNET arms (AUDIT-GATED, NOT DEPLOYED) — each reads only its own `<CHAIN>_MAINNET_*`
             //    env (default address(0)); selecting a branch never deploys. See the mainnet-id block.
@@ -199,6 +271,24 @@ contract HelperConfig is Script {
             activeConfig = _unichainMainnetConfig();
         } else if (block.chainid == ZKSYNC_MAINNET_CHAIN_ID) {
             activeConfig = _zkSyncMainnetConfig();
+        } else if (block.chainid == ZORA_MAINNET_CHAIN_ID) {
+            activeConfig = _zoraMainnetConfig();
+        } else if (block.chainid == FILECOIN_MAINNET_CHAIN_ID) {
+            activeConfig = _filecoinMainnetConfig();
+        } else if (block.chainid == GNOSIS_MAINNET_CHAIN_ID) {
+            activeConfig = _gnosisMainnetConfig();
+        } else if (block.chainid == APECHAIN_MAINNET_CHAIN_ID) {
+            activeConfig = _apechainMainnetConfig();
+        } else if (block.chainid == WORLDCHAIN_MAINNET_CHAIN_ID) {
+            activeConfig = _worldchainMainnetConfig();
+        } else if (block.chainid == ZIRCUIT_MAINNET_CHAIN_ID) {
+            activeConfig = _zircuitMainnetConfig();
+        } else if (block.chainid == CITREA_MAINNET_CHAIN_ID) {
+            activeConfig = _citreaMainnetConfig();
+        } else if (block.chainid == FLOW_EVM_MAINNET_CHAIN_ID) {
+            activeConfig = _flowEvmMainnetConfig();
+        } else if (block.chainid == CELO_MAINNET_CHAIN_ID) {
+            activeConfig = _celoMainnetConfig();
         } else if (_isArcMainnet()) {
             // Arc MAINNET — id is TBD (not launched), so this matches ONLY when the operator has set
             // `ARC_MAINNET_CHAIN_ID` to the real id AND the node reports it. Unreachable until then.
@@ -474,6 +564,186 @@ contract HelperConfig is Script {
         });
     }
 
+    /// @dev Zora Sepolia (chainId 999999999, OP-stack L2). Reads only `ZORA_SEPOLIA_`-prefixed env.
+    ///      Native = ETH (18 dec). Blockscout verifier. ETH/USD + USDC + USDC/USD feed availability are
+    ///      docs confirms — leave blank until verified; `treasury` required, the rest skipped if unset.
+    function _zoraSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ZORA_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ZORA_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ZORA_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ZORA_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ZORA_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ZORA_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ZORA_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ZORA_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Filecoin Calibration (chainId 314159, FEVM testnet). Reads only `FILECOIN_CALIBRATION_`-
+    ///      prefixed env. Native = tFIL (18 dec) — native/USD is a FIL/USD feed; confirm it exists.
+    ///      Blockscout verifier. `treasury` required; USDC + feeds skipped (address(0)) until confirmed.
+    function _filecoinCalibrationConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("FILECOIN_CALIBRATION_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("FILECOIN_CALIBRATION_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("FILECOIN_CALIBRATION_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("FILECOIN_CALIBRATION_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("FILECOIN_CALIBRATION_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("FILECOIN_CALIBRATION_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("FILECOIN_CALIBRATION_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("FILECOIN_CALIBRATION_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Gnosis Chiado (chainId 10200, testnet). Reads only `GNOSIS_CHIADO_`-prefixed env. Native =
+    ///      XDAI (18 dec, ≈ $1) — native/USD is an XDAI/USD feed; confirm. Blockscout verifier. `treasury`
+    ///      required; USDC + feeds skipped until confirmed, so a partial broadcast never wires a guess.
+    function _gnosisChiadoConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("GNOSIS_CHIADO_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("GNOSIS_CHIADO_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("GNOSIS_CHIADO_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("GNOSIS_CHIADO_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("GNOSIS_CHIADO_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("GNOSIS_CHIADO_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("GNOSIS_CHIADO_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("GNOSIS_CHIADO_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev ApeChain Curtis (chainId 33111, Arbitrum-Orbit testnet). Reads only `APECHAIN_CURTIS_`-
+    ///      prefixed env. Native = APE (18 dec) — native/USD is an APE/USD feed; confirm. Blockscout
+    ///      verifier. `treasury` required; USDC + feeds skipped (address(0)) until confirmed.
+    function _apechainCurtisConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("APECHAIN_CURTIS_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("APECHAIN_CURTIS_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("APECHAIN_CURTIS_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("APECHAIN_CURTIS_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("APECHAIN_CURTIS_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("APECHAIN_CURTIS_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("APECHAIN_CURTIS_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("APECHAIN_CURTIS_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev World Chain Sepolia (chainId 4801, OP-stack L2). Reads only `WORLDCHAIN_SEPOLIA_`-prefixed
+    ///      env. Native = ETH (18 dec) — NOT WLD as gas (CONFIRM 4801 + RPC at the World docs). Worldscan
+    ///      (etherscan-family) verifier. `treasury` required; USDC + feeds skipped until confirmed.
+    function _worldchainSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("WORLDCHAIN_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("WORLDCHAIN_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("WORLDCHAIN_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("WORLDCHAIN_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("WORLDCHAIN_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("WORLDCHAIN_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("WORLDCHAIN_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("WORLDCHAIN_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Zircuit Garfield (chainId 48898, testnet). Reads only `ZIRCUIT_GARFIELD_`-prefixed env.
+    ///      Native = ETH (18 dec). Sourcify verifier (no API key / URL). `treasury` required; USDC +
+    ///      ETH/USD + USDC/USD feeds are docs confirms, skipped (address(0)) until verified.
+    function _zircuitGarfieldConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ZIRCUIT_GARFIELD_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ZIRCUIT_GARFIELD_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ZIRCUIT_GARFIELD_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ZIRCUIT_GARFIELD_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ZIRCUIT_GARFIELD_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ZIRCUIT_GARFIELD_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ZIRCUIT_GARFIELD_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ZIRCUIT_GARFIELD_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Citrea testnet (chainId 5115, Bitcoin zk-rollup). Reads only `CITREA_TESTNET_`-prefixed env.
+    ///      Native = cBTC (18 dec, ≈ BTC) — native/USD is a BTC/USD feed; confirm. Blockscout verifier.
+    ///      `treasury` required; USDC + feeds skipped (address(0)) until confirmed.
+    function _citreaTestnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("CITREA_TESTNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("CITREA_TESTNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("CITREA_TESTNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("CITREA_TESTNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("CITREA_TESTNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("CITREA_TESTNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("CITREA_TESTNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("CITREA_TESTNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Flow EVM testnet (chainId 545). Reads only `FLOW_EVM_TESTNET_`-prefixed env. Native = FLOW
+    ///      (18 dec) — native/USD is a FLOW/USD feed; confirm. Blockscout verifier. `treasury` required;
+    ///      USDC + feeds skipped (address(0)) until confirmed.
+    function _flowEvmTestnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("FLOW_EVM_TESTNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("FLOW_EVM_TESTNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("FLOW_EVM_TESTNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("FLOW_EVM_TESTNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("FLOW_EVM_TESTNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("FLOW_EVM_TESTNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("FLOW_EVM_TESTNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("FLOW_EVM_TESTNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Celo Sepolia (chainId 11142220, testnet). Reads only `CELO_SEPOLIA_`-prefixed env. Native =
+    ///      CELO (18 dec) — native/USD is a CELO/USD feed; confirm. Celoscan (etherscan-v2) verifier.
+    ///      `treasury` required; USDC + feeds skipped (address(0)) until confirmed.
+    function _celoSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("CELO_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("CELO_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("CELO_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("CELO_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("CELO_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("CELO_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("CELO_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("CELO_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────────────────────
     // MAINNET config helpers — AUDIT-GATED, NOT DEPLOYED.
     //
@@ -734,6 +1004,177 @@ contract HelperConfig is Script {
                 vm.envOr("ZKSYNC_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
             ),
             creForwarder: vm.envOr("ZKSYNC_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Zora mainnet (OP-stack L2, chainId 7777777). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `ZORA_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _zoraMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ZORA_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ZORA_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ZORA_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ZORA_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ZORA_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ZORA_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ZORA_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ZORA_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Filecoin mainnet (FEVM, chainId 314). AUDIT-GATED, NOT DEPLOYED. Reads only `FILECOIN_MAINNET_`-
+    ///      prefixed env. Native = FIL (18 dec) — native/USD is a FIL/USD feed. Addresses post-audit only.
+    function _filecoinMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("FILECOIN_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("FILECOIN_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("FILECOIN_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("FILECOIN_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("FILECOIN_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("FILECOIN_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("FILECOIN_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("FILECOIN_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Gnosis Chain (chainId 100). AUDIT-GATED, NOT DEPLOYED. Reads only `GNOSIS_MAINNET_`-prefixed
+    ///      env. Native = XDAI (18 dec, ≈ $1) — native/USD is an XDAI/USD feed. Addresses post-audit only.
+    function _gnosisMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("GNOSIS_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("GNOSIS_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("GNOSIS_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("GNOSIS_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("GNOSIS_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("GNOSIS_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("GNOSIS_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("GNOSIS_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev ApeChain (Arbitrum-Orbit, chainId 33139). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `APECHAIN_MAINNET_`-prefixed env. Native = APE (18 dec) — native/USD is an APE/USD feed.
+    function _apechainMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("APECHAIN_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("APECHAIN_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("APECHAIN_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("APECHAIN_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("APECHAIN_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("APECHAIN_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("APECHAIN_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("APECHAIN_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev World Chain (OP-stack L2, chainId 480). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `WORLDCHAIN_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    function _worldchainMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("WORLDCHAIN_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("WORLDCHAIN_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("WORLDCHAIN_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("WORLDCHAIN_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("WORLDCHAIN_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("WORLDCHAIN_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("WORLDCHAIN_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("WORLDCHAIN_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Zircuit mainnet (chainId 48900). AUDIT-GATED, NOT DEPLOYED. Reads only `ZIRCUIT_MAINNET_`-
+    ///      prefixed env. Native = ETH (18 dec). Sourcify verifier. Addresses post-audit only; blank ⇒ skipped.
+    function _zircuitMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ZIRCUIT_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ZIRCUIT_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ZIRCUIT_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ZIRCUIT_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ZIRCUIT_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ZIRCUIT_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ZIRCUIT_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ZIRCUIT_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Citrea mainnet (Bitcoin zk-rollup, chainId 4114). AUDIT-GATED, NOT DEPLOYED. Reads only
+    ///      `CITREA_MAINNET_`-prefixed env. Native = cBTC (18 dec, ≈ BTC) — native/USD is a BTC/USD feed.
+    function _citreaMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("CITREA_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("CITREA_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("CITREA_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("CITREA_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("CITREA_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("CITREA_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("CITREA_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("CITREA_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Flow EVM mainnet (chainId 747). AUDIT-GATED, NOT DEPLOYED. Reads only `FLOW_EVM_MAINNET_`-
+    ///      prefixed env. Native = FLOW (18 dec) — native/USD is a FLOW/USD feed. Addresses post-audit only.
+    function _flowEvmMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("FLOW_EVM_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("FLOW_EVM_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("FLOW_EVM_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("FLOW_EVM_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("FLOW_EVM_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("FLOW_EVM_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("FLOW_EVM_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("FLOW_EVM_MAINNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Celo mainnet (chainId 42220). AUDIT-GATED, NOT DEPLOYED. Reads only `CELO_MAINNET_`-prefixed
+    ///      env. Native = CELO (18 dec) — native/USD is a CELO/USD feed. Addresses post-audit only.
+    function _celoMainnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("CELO_MAINNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("CELO_MAINNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("CELO_MAINNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("CELO_MAINNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("CELO_MAINNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("CELO_MAINNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("CELO_MAINNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("CELO_MAINNET_CRE_FORWARDER", address(0))
         });
     }
 
