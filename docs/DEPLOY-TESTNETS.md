@@ -13,6 +13,7 @@ private keys are ever passed on the command line — all signing goes through
 
 ## Contents
 
+0. [Fastest path — deploy to every funded chain](#0-fastest-path--deploy-to-every-funded-chain-at-once)
 1. [Prerequisites](#1-prerequisites)
 2. [Import your keystore (once)](#2-import-your-keystore-once)
 3. [Keyless local deploy (Anvil)](#3-keyless-local-deploy-anvil)
@@ -22,6 +23,38 @@ private keys are ever passed on the command line — all signing goes through
 7. [After any deploy: record from the broadcast log](#7-after-any-deploy-record-from-the-broadcast-log)
 8. [Gas notes](#8-gas-notes)
 9. [Troubleshooting](#9-troubleshooting)
+
+---
+
+## 0. Fastest path — deploy to every funded chain at once
+
+After Prerequisites (§1) + keystore import (§2), the whole fleet goes out in **one command**. The
+per-chain sections below (§4 Base, §5 Arc, …) remain the detailed single-chain reference + troubleshooting.
+
+1. **Verified addresses** — [`CHAIN-ADDRESSES.md`](CHAIN-ADDRESSES.md) lists, per testnet, the official
+   Circle USDC + Chainlink feeds (each re-checked on-chain) and a **paste-ready `.env` block**.
+2. **`.env`** — per chain set `<CHAIN>_RPC_URL` (prefer your **Alchemy/Tenderly** URL — public RPCs
+   rate-limit across 20+ chains; the URL embeds a key, so `.env` only, never commit),
+   `<CHAIN>_PLATFORM_TREASURY` (your wallet), the verified USDC/feed addresses, and the `*SCAN_API_KEY`
+   for verification.
+3. **Fund** the deployer on each chain you want (faucets are listed per chain in `CHAIN-ADDRESSES.md`).
+
+```sh
+make deploy-all-testnets
+# Balance-prechecks every configured testnet, deploys the full stack to the FUNDED ones (keystore
+# password per chain), skips unfunded with their faucet, continues past failures, prints a summary.
+# Arc + Base Sepolia are EXCLUDED — already live; re-deploying would mint new addresses + break the app.
+```
+
+Chains with real USDC but **no Chainlink USDC/USD feed** (Linea / Unichain / World Chain / Celo /
+Optimism Sepolia) deploy with USDC allowlisted-but-unpriced. To price it, deploy a `$1` stand-in feed
+and set `<CHAIN>_USDC_USD_FEED` to the printed address before deploying that chain:
+
+```sh
+make deploy-usd-mock-feed RPC=$LINEA_SEPOLIA_RPC_URL
+```
+
+After deploying, record the addresses from the broadcast log (§7).
 
 ---
 
