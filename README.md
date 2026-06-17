@@ -2,20 +2,20 @@
 
 <div align="center">
 
-**A do-it-all center to get you and your business onchain** — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards · NFTs), and identity, white-label for non-coders and agent-native. One drop-in, no contract code.
+**A do-it-all center to get you and your business onchain** — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), and identity, white-label for non-coders and agent-native. One drop-in, no contract code.
 
 **The stack**
 
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.28-363636?style=for-the-badge&logo=solidity&logoColor=white)
 ![Foundry](https://img.shields.io/badge/Foundry-Framework-161616?style=for-the-badge&labelColor=161616&color=FF6B2B)
-![Chainlink](https://img.shields.io/badge/Chainlink-Data%20Feeds%20%2B%20CRE-375BD2?style=for-the-badge&logo=chainlink&logoColor=white&labelColor=375BD2&color=2A46A8)
+![Chainlink](https://img.shields.io/badge/Chainlink-Data%20Feeds-375BD2?style=for-the-badge&logo=chainlink&logoColor=white&labelColor=375BD2&color=2A46A8)
 ![OpenZeppelin](https://img.shields.io/badge/OpenZeppelin-5.x-4E5EE4?style=for-the-badge&logo=OpenZeppelin&logoColor=fff)
 
 **The proof**
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 ![Tests](https://img.shields.io/badge/Tests-864%20passing-44CC11?style=for-the-badge)
-![Router coverage](https://img.shields.io/badge/router%20coverage-100%25-44CC11?style=for-the-badge)
+![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
 
@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed + verified on five chains: Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), and Avalanche Fuji (43113).** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are one-command ready (`make deploy-all-testnets`) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed on five chains: Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), and Avalanche Fuji (43113) — source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are one-command ready (`make deploy-all-testnets`) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -63,8 +63,8 @@ settlement — all off the money path by construction.
   out of the box (the app's default chain), where **Circle USDC is the native gas token**. A buyer
   pays in USDC and settles in USDC: there is **no separate gas coin to top up and no Paymaster to
   run** — the Arc + Circle stack does that work, so checkout is gas-free with zero extra contract
-  code on our side. The same `payToken(USDC)` path also runs on Base Sepolia and zkSync Sepolia as
-  bridge targets.
+  code on our side. The same `payToken(USDC)` path also runs on Base Sepolia (live); zkSync Sepolia is
+  one-command ready as a bridge target, not yet broadcast.
 - **Zero custody.** Settlement is atomic: pull → split → push, all in one tx. The router's
   steady-state balance is zero; the only native it can hold is value owed back through `claimRescue`
   when a payee contract rejects a push (the receipt still stands — funds are never stuck).
@@ -203,7 +203,7 @@ make test              # 864 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
-> More: `make coverage` (100% on the router) · `make snapshot` (gas) · `make gate` (the full pre-commit gate) · `make audit`.
+> More: `make coverage` (98% lines · 100% functions on the router) · `make snapshot` (gas) · `make gate` (the full pre-commit gate) · `make audit`.
 
 ### Run it locally — no keys, no keystore
 
@@ -343,7 +343,7 @@ operator guide.
 | Arc Testnet (5042002) | `Access0x1Bookings` | [`0x4e099b81a9A46A99378Ac70cAd195Bf8E25F0c82`](https://testnet.arcscan.app/address/0x4e099b81a9a46a99378ac70cad195bf8e25f0c82) | — |
 | Arc Testnet (5042002) | `Access0x1Invoices` | [`0x1001dc04da8706D53b24389c3348Ca512A5bA6b7`](https://testnet.arcscan.app/address/0x1001dc04da8706d53b24389c3348ca512a5ba6b7) | — |
 | Arc Testnet (5042002) | `Access0x1GiftCards` | [`0xBe1a9c1E8194928215045Cf186283d41470ABDcd`](https://testnet.arcscan.app/address/0xbe1a9c1e8194928215045cf186283d41470abdcd) | — |
-| Arc Testnet (5042002) | `USDC/USD feed` | [`0x60eb647D166b70662e0567551Af7E575f13e8008`](https://testnet.arcscan.app/address/0x60eb647d166b70662e0567551af7e575f13e8008) | — |
+| Arc Testnet (5042002) | `USDC/USD feed` _(MockV3Aggregator — no live Chainlink DON on Arc testnet)_ | [`0x60eb647D166b70662e0567551Af7E575f13e8008`](https://testnet.arcscan.app/address/0x60eb647d166b70662e0567551af7e575f13e8008) | — |
 | Arc Testnet (5042002) | `Access0x1Receiver` | — (sidecar, not deployed) | — |
 | Arc Testnet (5042002) | `ChainRegistry` | — (sidecar, not deployed) | — |
 | Base Sepolia (84532) | `Access0x1Router` | [`0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57`](https://base-sepolia.blockscout.com/address/0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57) | `0x099628a1…4611` |
@@ -469,9 +469,10 @@ integration let us *not* build, not a marketing wall.
 - **Dynamic — an email login became an invisible wallet.** [`web/lib/dynamic.ts`](web/lib/dynamic.ts)
   and the [providers](web/app/providers.tsx) turn a normal email sign-in into an embedded wallet, so a
   buyer who has never held crypto can still complete a USDC checkout — no seed phrase, no extension.
-- **Unlink — confidential payouts.** [`web/lib/unlink`](web/lib/unlink) adds a private withdrawal leg
-  so a merchant can shield and move their settled USDC without exposing the amount on a public ledger,
-  off the money path by construction.
+- **Unlink — confidential payouts (integration seam).** [`web/lib/unlink`](web/lib/unlink) is a private-
+  withdrawal seam: with the `@unlink-xyz/sdk` installed it lets a merchant shield and move their settled
+  USDC without exposing the amount on a public ledger; absent the SDK it degrades to a standard USDC
+  payout. Off the money path by construction.
 - **World ID — verified-human checkout.** [`web/components/WorldIdGate.tsx`](web/components/WorldIdGate.tsx)
   lets a merchant require a one-tap proof-of-personhood before pay. The gate sits *in front of*
   settlement and never touches the money path — a misconfigured gate degrades to standard checkout
