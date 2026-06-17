@@ -182,16 +182,18 @@ contract DeployAllTest is Test {
         assertEq(arb.platformFeeBps, 100); // default 1.00% when *_PLATFORM_FEE_BPS unset
         assertEq(arb.usdc, usdc);
 
-        // Optimism Sepolia — USDC + native feed set, NO USDC/USD feed (the real chain has none).
+        // Optimism Sepolia — full set: Chainlink DOES publish ETH/USD + USDC/USD on OP Sepolia
+        // (verified against the Chainlink RDD + on-chain 2026-06-17), so every field reads its prefix.
         vm.chainId(OPTIMISM_SEPOLIA);
         vm.setEnv("OPTIMISM_SEPOLIA_PLATFORM_TREASURY", vm.toString(treasury));
         vm.setEnv("OPTIMISM_SEPOLIA_USDC_ADDRESS", vm.toString(usdc));
         vm.setEnv("OPTIMISM_SEPOLIA_NATIVE_USD_FEED", vm.toString(nativeFeed));
+        vm.setEnv("OPTIMISM_SEPOLIA_USDC_USD_FEED", vm.toString(usdcFeed));
         HelperConfig.NetworkConfig memory op = new HelperConfig().getConfig();
         assertEq(op.treasury, treasury);
         assertEq(op.usdc, usdc);
         assertEq(op.nativeUsdFeed, nativeFeed);
-        assertEq(op.usdcUsdFeed, address(0)); // unset ⇒ skipped at deploy (USDC unpriced, never reverts wiring)
+        assertEq(op.usdcUsdFeed, usdcFeed); // OP Sepolia reads its own USDC/USD feed
     }
 
     /// @dev Owns every `ZIRCUIT_GARFIELD_*` key. Selection + the fail-loud missing-treasury revert

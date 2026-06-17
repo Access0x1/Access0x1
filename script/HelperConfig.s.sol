@@ -466,8 +466,8 @@ contract HelperConfig is Script {
     }
 
     /// @dev Optimism Sepolia (chainId 11155420, OP Stack L2 testnet). Reads only `OPTIMISM_SEPOLIA_`-prefixed
-    ///      env. Native = ETH (18 dec). Circle USDC (6 dec) + Chainlink ETH/USD live; OP Sepolia has NO
-    ///      USDC/USD feed (USDC allowlisted but unpriced until one is wired). `treasury` required.
+    ///      env. Native = ETH (18 dec). Circle USDC (6 dec) + Chainlink ETH/USD + USDC/USD are all live
+    ///      (verified against the Chainlink RDD + on-chain 2026-06-17). `treasury` required; rest skipped until set.
     function _optimismSepoliaConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("OPTIMISM_SEPOLIA_PLATFORM_TREASURY"),
