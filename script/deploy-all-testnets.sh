@@ -74,6 +74,17 @@ while IFS='|' read -r name rpcvar faucet; do
   echo; echo "================= $name ================="
   [ -z "$rpc" ] && { echo "  no \$$rpcvar in .env — skip"; skipped="$skipped $name"; continue; }
 
+  # zkSync (EraVM) is a documented special case, NOT a batch target. foundry-zksync only allows
+  # cheatcodes at the script root — not inside a CREATE/CALL dispatched to the zkEVM — so the standard
+  # DeployAll (which does `new HelperConfig()` whose constructor reads env via vm.envAddress) reverts
+  # under --zksync ("empty code / Not enough gas"). The zksolc BUILD is fine; deploying needs an
+  # env-at-root script. Skip here so it never stalls the batch. See docs/ZKSYNC-TESTING.md.
+  if [ "$name" = "zksync-sepolia" ]; then
+    echo "  ⚠ zkSync skipped by the batch — needs a dedicated EraVM deploy (foundry-zksync cheatcode-in-CREATE limit)."
+    echo "    The build compiles clean; see docs/ZKSYNC-TESTING.md. Not a stall, not our contract code."
+    skipped="$skipped zksync-sepolia(EraVM-special-case)"; continue
+  fi
+
   cid=$(cast chain-id --rpc-url "$rpc" 2>/dev/null || echo "")
   state=$(deploy_state "$cid" "$rpc")
   case "$state" in
