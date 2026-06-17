@@ -166,7 +166,7 @@ contract HouseTokenFactoryZkTest is Test, ZkSyncSkip {
 
 ---
 
-## The pre-zkSync-deploy checklist (run before `make deploy-zksync`)
+## The pre-zkSync-deploy checklist (run before `make deploy-zksync-sepolia`)
 
 1. `make zksync-build` — `forge build --zksync` is green (zksolc compiles + sizes are valid).
 2. `forge test --zksync` — the suite is green **in the zkEVM** (not just the EVM gate).
@@ -175,4 +175,4 @@ contract HouseTokenFactoryZkTest is Test, ZkSyncSkip {
 4. `foundry.toml` `[profile.zksync]` fallback (`evm_version = shanghai`) is available if a Cancun
    opcode (e.g. PUSH0) is rejected by the target — **confirm at the zkSync booth**, never make it the
    default.
-5. Deploy is keystore-only (`make deploy-zksync` uses `--account deployer`); never `--private-key`.
+5. Deploy is keystore-only (`make deploy-zksync-sepolia` uses `--account deployer`); never `--private-key`.

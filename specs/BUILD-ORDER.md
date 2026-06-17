@@ -34,7 +34,7 @@ judgeable product.
 `PaymentLanes`, `SessionGrant`, `Access0x1Receiver`, `HouseToken`,
 `HouseTokenFactory`, `NameMath`, `Access0x1Subscriptions`, `Access0x1Bookings`,
 `Access0x1Invoices`, `Access0x1GiftCards`, `Access0x1Nft` (+ the internal `OracleLib`
-and per-contract interfaces). One command — `make deploy-arc|deploy-base|deploy-zksync`
+and per-contract interfaces). One command — `make deploy-arc|deploy-base-sepolia|deploy-zksync-sepolia`
 → [`../script/DeployAll.s.sol`](../script) — deploys + wires the whole set in one
 broadcast.
 

@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed + verified on two chains: Arc Testnet (5042002) and Base Sepolia (84532).** zkSync Sepolia is one-command ready (`make deploy-zksync`) but not yet broadcast. **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed + verified on two chains: Arc Testnet (5042002) and Base Sepolia (84532).** zkSync Sepolia is one-command ready (`make deploy-zksync-sepolia`) but not yet broadcast. **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -147,7 +147,7 @@ The full first-party surface is **12 contracts**: the money spine (`Access0x1Rou
 ledger (`PaymentLanes`), the agent-auth ledger (`SessionGrant`), the per-chain reference
 (`ChainRegistry`), the CRE audit consumer (`Access0x1Receiver`), the house-token factory +
 its `HouseToken`, the four commerce primitives, and the internal `OracleLib`. `make deploy-arc`
-(or `deploy-base` / `deploy-zksync`) runs [`script/DeployAll.s.sol`](script/DeployAll.s.sol),
+(or `deploy-base-sepolia` / `deploy-zksync-sepolia`) runs [`script/DeployAll.s.sol`](script/DeployAll.s.sol),
 which deploys and wires the whole set in a single broadcast (`ChainRegistry` is the one sidecar
 deployed once per chain by `DeployChainRegistry` and carried in as config).
 
@@ -250,7 +250,7 @@ optional; the starter's `contracts/DEPLOY.md` is the runbook.
 ## Deploy · multi-chain
 
 `script/DeployAll.s.sol` is the chain-aware **one-command** entrypoint: a single `make deploy-arc`
-(or `deploy-base` / `deploy-zksync`) deploys the **whole first-party surface, wired together**, in
+(or `deploy-base-sepolia` / `deploy-zksync-sepolia`) deploys the **whole first-party surface, wired together**, in
 the same broadcast — the `Access0x1Router` money spine, the `SessionGrant` agent-auth ledger, the
 `HouseTokenFactory`, the four commerce primitives (`Subscriptions` / `Bookings` / `Invoices` /
 `GiftCards`, each constructed against the freshly deployed Router + SessionGrant so they compose the
@@ -285,9 +285,9 @@ forge script script/DeployAll.s.sol --zksync \
 
 ```sh
 make deploy-arc              # Arc Testnet — gas-free USDC, the lead chain
-make deploy-base             # Base Sepolia
-make deploy-zksync           # zkSync Sepolia (adds --zksync)
-make deploy-sepolia          # Ethereum Sepolia
+make deploy-base-sepolia             # Base Sepolia
+make deploy-zksync-sepolia           # zkSync Sepolia (adds --zksync)
+make deploy-ethereum-sepolia          # Ethereum Sepolia
 make deploy-arbitrum-sepolia # Arbitrum Sepolia
 make deploy-optimism-sepolia # Optimism Sepolia
 make deploy-polygon-amoy     # Polygon Amoy
@@ -323,7 +323,7 @@ Every address below is read straight from the committed broadcast log
 (`broadcast/DeployAll.s.sol/<chainId>/run-latest.json`) — **never** hand-entered (law #4: an address
 that isn't on-chain isn't claimed). The full first-party surface is **live and Blockscout-verified on
 two chains — Arc Testnet (5042002) and Base Sepolia (84532)**; zkSync Sepolia is one-command ready
-(`make deploy-zksync`) but not yet broadcast (its rows stay blank until it is). `Access0x1Router` is the
+(`make deploy-zksync-sepolia`) but not yet broadcast (its rows stay blank until it is). `Access0x1Router` is the
 address an integrator points at. See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full
 operator guide.
 

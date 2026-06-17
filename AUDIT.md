@@ -32,7 +32,7 @@ the USD feed are deployed and **verified on arcscan**, with gas paid in **native
 - **A real merchant is registered + live** (NFTeria, merchant #1), tx `0x3e61932ae31dc04c188802d5a3acf203e83df5ae895ffe0fa0b4544bcccfa620` — the live checkout at `access0x1.nfteria.click` has taken a real on-chain USDC payment.
 - **Chainlink feeds wired in the broadcast:** native/USD `0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1`, USDC/USD `0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165`.
 
-**Still one-command ready (not broadcast):** zkSync Sepolia (300) — `make deploy-zksync`, no tx hash yet.
+**Still one-command ready (not broadcast):** zkSync Sepolia (300) — `make deploy-zksync-sepolia`, no tx hash yet.
 `ChainRegistry` and `Access0x1Receiver` are config/audit sidecars (built; deploy is one call) on both deployed chains.
 
 ---
