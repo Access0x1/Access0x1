@@ -25,7 +25,9 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
   const [wagmiConfig] = useState(() =>
     createConfig({
       chains: SUPPORTED_CHAINS,
-      multiInjectedProviderDiscovery: false,
+      // EIP-6963 multi-injected-provider discovery ON (wagmi default) so every injected browser
+      // wallet (MetaMask, Rabby, Brave, Frame, …) is surfaced, not just the first one.
+      multiInjectedProviderDiscovery: true,
       transports: Object.fromEntries(SUPPORTED_CHAINS.map((c) => [c.id, http()])),
     }),
   )
