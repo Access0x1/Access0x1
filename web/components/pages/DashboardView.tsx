@@ -7,6 +7,7 @@ import { getPublicClient } from '@/lib/wallet'
 import { amount8ToUsd, formatTokenAmount } from '@/lib/quote'
 import { ConnectButton } from '@/components/ConnectButton'
 import { TxHashLink } from '@/components/TxHashLink'
+import { GatewayBalanceCard } from '@/components/GatewayBalanceCard'
 
 const PAYMENT_RECEIVED_EVENT = parseAbiItem(
   'event PaymentReceived(uint256 indexed merchantId, address indexed buyer, address indexed token, uint256 grossAmount, uint256 feeAmount, uint256 netAmount, uint256 usdAmount8, bytes32 orderId, uint64 srcChainSelector)',
@@ -105,6 +106,9 @@ export function DashboardView(): ReactNode {
         <h1 className="text-2xl font-semibold text-ink">Dashboard</h1>
         <ConnectButton />
       </header>
+
+      {/* Settled balance + withdraw (Circle Gateway). Self-hides if the deployment has no Gateway. */}
+      <GatewayBalanceCard />
 
       {merchantId !== null ? (
         <div className="flex items-center gap-3">
