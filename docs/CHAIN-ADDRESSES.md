@@ -61,6 +61,23 @@ ApeChain Curtis (33111), Zircuit Garfield (48898 — uses Redstone/API3, not Cha
 Citrea (5115), Flow EVM testnet (545 — uses Pyth). These deploy the full first-party surface
 (proving multi-chain reach); USD-priced payments turn on when a feed is wired.
 
+## Extra Chainlink-faucet testnets — bare, generic-fallback deploy (38)
+
+Every other testnet on Chainlink's faucet list, validated live + chainId-matched (2026-06-17) and
+wired into `script/deploy-all-testnets.sh` as bare deploys (generic fallback, `--legacy`, broadcast
+-only): WEMIX (1112), Metis Sepolia (59902), Polygon Cardona zkEVM (2442), Mode Sepolia (919), Cronos
+zkEVM (240), Cronos (338), Soneium Minato (1946), Hedera (296), Corn (21000001), Astar Shibuya (81),
+Sei atlantic-2 (1328), BOB Sepolia (808813), Bitlayer (200810), Plume (98867), Abstract (11124), Lisk
+Sepolia (4202), Metal L2 (1740), Superseed (53302), opBNB (5611), Neo X T4 (12227332), Kaia Kairos
+(1001), TAC (2391), Plasma (9746), Berachain Bepolia (80069), Jovay (2019775), AB (26888), Pharos
+Atlantic (688689), Morph Hoodi (2910), Ethereum Hoodi (560048), MegaETH (6343), Monad (10143), DogeOS
+(6281971), ADI (99999), Ronin Saigon (202601), Edge (33431), Robinhood (46630), Tempo Moderato (42431),
+Creditcoin (102031). Each carries USDC/feeds on its own chain in a few cases (Hedera, Monad, Sei, Plume,
+Pharos, Morph, Edge) — wire + on-chain-verify those before relying on pricing.
+
+**Dropped (5)** — re-add with a working RPC: Shibarium Puppynet (157), Core (1115), Mind Network
+(192940), XDC Apothem (51) — RPC dead at check time; X Layer (195) — its RPC reported chainId 1952.
+
 ## Paste-ready `.env` (verified public addresses — not secrets)
 
 ```sh
