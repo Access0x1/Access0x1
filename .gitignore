@@ -43,6 +43,15 @@ broadcast/*/31337/
 broadcast/**/dry-run/
 # NOTE: do NOT ignore lib/ — forge deps are git submodules (.gitmodules is tracked)
 
+# Local, owner-run deploy/register helpers — they hardcode the deployer wallet and are
+# never part of the published product (the reproducible path is `make deploy-<chain>`).
+/deploy-arc.sh
+/deploy-testnets.sh
+/register-merchant.sh
+/register-barbershop.sh
+# npm pack output — the publishable SDK tarball is a build artifact, not source.
+*.tgz
+
 # ── Vyper / Moccasin (the ISOLATED vyper/ conformance demonstrator) — Python build artifacts ──
 # `out/` and `cache/` above already cover mox/forge artifacts wherever they land. These add the
 # Python-side scratch the snake toolchain (boa/pytest/moccasin) writes under vyper/.
