@@ -54,7 +54,7 @@ import { HelperConfig } from "./HelperConfig.s.sol";
 ///             --broadcast --verify \
 ///             --verifier blockscout --verifier-url $ARC_SCAN_VERIFIER_URL -vvvv
 ///
-///         Base Sepolia (Basescan verify): `make deploy-base`. zkSync Sepolia: `make deploy-zksync`.
+///         Base Sepolia (Basescan verify): `make deploy-base-sepolia`. zkSync Sepolia: `make deploy-zksync-sepolia`.
 ///
 ///         FLAGS / ENV (all optional; safe defaults keep a bare local/dry run working):
 ///           - `ROUTER_OWNER`          — Ownable2Step admin for every owned contract; defaults to the

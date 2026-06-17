@@ -173,7 +173,7 @@ call rather than wiring a placeholder.
 ### 4b. Deploy
 
 ```sh
-make deploy-base
+make deploy-base-sepolia
 ```
 
 Explicit equivalent (what Make runs):

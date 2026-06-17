@@ -17,7 +17,7 @@ DEPLOYER_ACCOUNT ?= deployer
 .PHONY: help install build test test-gas test-scenario coverage coverage-lcov snapshot \
         fmt fmt-check clean sizes storage-layout \
         gate aderyn slither analyze mutation halmos audit anvil \
-        deploy-dry deploy-local drive-local deploy-arc deploy-base deploy-zksync deploy-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
+        deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
         deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
@@ -171,10 +171,10 @@ drive-local: ## Deploy + DRIVE the coffee-shop money flow on a local anvil (run 
 deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(ARC_SCAN_VERIFIER_URL) -vvvv
 
-deploy-base: ## Deploy to Base Sepolia (keystore `deployer`, verified)
+deploy-base-sepolia: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 	forge script script/DeployAll.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(BASESCAN_API_KEY) -vvvv
 
-deploy-zksync: ## Deploy to zkSync Sepolia (keystore `deployer`)
+deploy-zksync-sepolia: ## Deploy to zkSync Sepolia (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast --zksync --verify --verifier zksync --verifier-url $(ZKSYNC_VERIFIER_URL) -vvvv
 
 # Deploy a $1.00 USDC/USD mock feed to ANY chain that has real Circle USDC but no Chainlink USDC/USD
@@ -250,7 +250,7 @@ cre-sim: ## Simulate the CRE workflow (the demoable artifact; deploy is Early-Ac
 all: install gate ## Install everything, then run the full green gate
 
 # ── More test networks (keystore `deployer`; set each RPC + *SCAN_API_KEY in .env) ──
-deploy-sepolia: ## Deploy to Ethereum Sepolia (etherscan verify)
+deploy-ethereum-sepolia: ## Deploy to Ethereum Sepolia (etherscan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
 
 deploy-arbitrum-sepolia: ## Deploy to Arbitrum Sepolia (arbiscan verify)

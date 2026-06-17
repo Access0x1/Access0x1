@@ -145,7 +145,7 @@ export const FACT_SECTIONS: readonly FactSection[] = [
     body:
       'Arc (Circle) is the lead settlement chain, with Base Sepolia and zkSync Sepolia as ' +
       'bridge targets — all testnets. script/DeployAll.s.sol is a chain-aware ' +
-      'one-command entrypoint: a single make deploy-arc (or deploy-base / deploy-zksync, ' +
+      'one-command entrypoint: a single make deploy-arc (or deploy-base-sepolia / deploy-zksync-sepolia, ' +
       'plus Ethereum/Arbitrum/Optimism/Polygon/Avalanche/BNB/Scroll/Linea/Mantle/Blast/' +
       'Unichain testnets) deploys and wires the whole first-party surface in one ' +
       'broadcast. HelperConfig reads the right env block from a block.chainid ladder, so ' +

@@ -19,10 +19,10 @@ cd "$(dirname "$0")/.."
 : "${DEPLOYER:?set DEPLOYER in .env (the deployer wallet address) before running}"
 
 # make-target | RPC env-var | faucet hint  (one row per chain; arc + base excluded on purpose)
-CHAINS='sepolia|SEPOLIA_RPC_URL|sepoliafaucet.com / faucet via Alchemy
+CHAINS='ethereum-sepolia|SEPOLIA_RPC_URL|sepoliafaucet.com / faucet via Alchemy
 arbitrum-sepolia|ARBITRUM_SEPOLIA_RPC_URL|bridge Sepolia ETH or Alchemy faucet
 optimism-sepolia|OPTIMISM_SEPOLIA_RPC_URL|Superchain faucet / Alchemy
-zksync|ZKSYNC_SEPOLIA_RPC_URL|bridge Sepolia ETH at portal.zksync.io
+zksync-sepolia|ZKSYNC_SEPOLIA_RPC_URL|bridge Sepolia ETH at portal.zksync.io
 polygon-amoy|POLYGON_AMOY_RPC_URL|faucet.polygon.technology
 avalanche-fuji|AVALANCHE_FUJI_RPC_URL|faucet.avax.network
 bnb-testnet|BNB_TESTNET_RPC_URL|testnet.bnbchain.org/faucet-smart
