@@ -257,7 +257,7 @@ export function CheckoutCard({
       return
     }
     if (!merchant.active) {
-      setPayError('Access0x1__MerchantInactive')
+      setPayError('This merchant is not currently accepting payments.')
       return
     }
     if (checkoutMode === 'verified-human' && !humanVerified) {
@@ -505,16 +505,16 @@ export function CheckoutCard({
  */
 function humanizeRevert(err: unknown, tokenSymbol: string = USDC_SYMBOL): string {
   const message = err instanceof Error ? err.message : String(err)
-  const known = [
-    'Access0x1__MerchantInactive',
-    'Access0x1__MerchantNotFound',
-    'Access0x1__TokenNotAllowed',
-    'Access0x1__Underpaid',
-    'Access0x1__InvalidPrice',
-    'OracleLib__StalePrice',
-  ]
-  for (const name of known) {
-    if (message.includes(name)) return name
+  const known: Record<string, string> = {
+    Access0x1__MerchantInactive: 'This merchant is not currently accepting payments.',
+    Access0x1__MerchantNotFound: 'This checkout link is not registered yet.',
+    Access0x1__TokenNotAllowed: 'This token is not accepted for this payment.',
+    Access0x1__Underpaid: 'The payment came in under the amount due — please try again.',
+    Access0x1__InvalidPrice: 'The price feed returned an invalid value — please try again shortly.',
+    OracleLib__StalePrice: 'The price feed is briefly stale — please try again in a moment.',
+  }
+  for (const [name, friendly] of Object.entries(known)) {
+    if (message.includes(name)) return friendly
   }
   if (/insufficient/i.test(message)) return `Insufficient ${tokenSymbol} balance for this payment.`
   return 'Payment failed. Please try again.'
