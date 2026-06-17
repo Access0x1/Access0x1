@@ -11,6 +11,11 @@ feed exists; it is never wired to a placeholder.
 `make deploy-all-testnets` deploys to every **funded** chain; `script/deploy-all-testnets.sh`
 skips any chain with 0 gas and prints its faucet. Arc + Base Sepolia are excluded (already live).
 
+> **RPC:** the public endpoints in `.env.example` rate-limit across 20+ chains. For the broadcast,
+> set each `<CHAIN>_RPC_URL` to your **Alchemy** (`https://<net>.g.alchemy.com/v2/<KEY>`) or
+> **Tenderly** (`https://<net>.gateway.tenderly.co/<KEY>`) URL — more reliable, and Tenderly adds
+> simulation + a verifier. Those URLs embed an API key (secret) → `.env` only, never committed.
+
 ## Live (deployed + verified)
 
 | Chain | id | Router | USDC | native/USD | USDC/USD |
