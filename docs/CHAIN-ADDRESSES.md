@@ -78,13 +78,18 @@ Pharos, Morph, Edge) — wire + on-chain-verify those before relying on pricing.
 **Dropped (5)** — re-add with a working RPC: Shibarium Puppynet (157), Core (1115), Mind Network
 (192940), XDC Apothem (51) — RPC dead at check time; X Layer (195) — its RPC reported chainId 1952.
 
-**Cost-guard auto-skips** — Tempo Moderato (42431) quotes ~110 gwei, so the full-stack deploy estimates
-at ~1.5 native (test) tokens. The deploy script's cost ceiling (0.5 native, `MAX_DEPLOY_COST_ETH`) treats
-that as a mispricing signal and auto-skips it — a testnet's gas should be near-free. Its native token is
-valueless faucet test-ETH, so nothing was ever at stake; the skip just avoids an alarming estimate. To
-deploy it deliberately: `MAX_DEPLOY_COST_ETH=2 make deploy-tempo-moderato-testnet`. (Its explorer also
-uses a non-Etherscan, OpenAPI/Scalar verification API, so contract verification there is manual, not via
-the `--verify` flow.)
+**Tempo Moderato (42431) — special-cased, never auto-deployed.** Tempo has **no native gas token**:
+fees are **USD-denominated and paid in TIP-20 stablecoins** (per docs.tempo.xyz, confirmed on-chain
+2026-06-17 — `eth_getBalance` returns a placeholder sentinel and the `eth_gasPrice`→cost estimate is
+meaningless). The generic native-gas deploy can't pay fees there, so `deploy-all-testnets.sh` skips it
+with that reason (not a "cost ceiling" skip). Deploying to Tempo needs a dedicated **stablecoin
+fee-token** path (specify a TIP-20 as the fee currency) — a separate piece of work if we target it.
+Its explorer also uses a non-Etherscan OpenAPI/Scalar verification API, so verification there is manual.
+
+**Cost-guard auto-skips** — chains quoting anomalously high gas (e.g. Celo Sepolia ~52 gwei → ~0.8
+native) exceed the 0.5-native ceiling and auto-skip; override deliberately with
+`MAX_DEPLOY_COST_ETH=<n> make deploy-<chain>`. On testnet the native token is valueless, so this only
+guards against needing an awkwardly large faucet amount / flags unusual fee economics.
 
 ## Paste-ready `.env` (verified public addresses — not secrets)
 

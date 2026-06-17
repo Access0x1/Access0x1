@@ -264,6 +264,19 @@ creditcoin-testnet|102031|https://rpc.cc3-testnet.creditcoin.network'
 while IFS='|' read -r name cid rpc <&3; do
   [ -z "$name" ] && continue
   echo; echo "================= $name (extra · bare) ================="
+  # Tempo (42431) has NO native gas token — fees are USD-denominated and paid in TIP-20 stablecoins
+  # (docs.tempo.xyz, confirmed 2026-06-17). Its eth_getBalance + gas-price are placeholders (the
+  # "1.65 native" estimate is meaningless), and the generic native-gas deploy can't pay fees here at
+  # all — it needs a stablecoin fee-token path. Skip cleanly with the real reason, like zkSync's EraVM
+  # special case — never auto-attempt it (and don't show a bogus cost). Add any other no-native-gas
+  # chain to this guard.
+  case "$cid" in
+    42431)
+      echo "  ⚠ Tempo has no native gas token — fees are USD stablecoins (TIP-20), so balance/price here"
+      echo "    are placeholders and the generic native-gas deploy can't pay fees. Skipped; needs a"
+      echo "    dedicated stablecoin-fee deploy path. See docs.tempo.xyz."
+      skipped="$skipped $name(no-native-gas)"; continue ;;
+  esac
   deploy_state "$cid" "$rpc"; st="$DEPLOY_STATE"
   case "$st" in
     SAME) echo "  ✓ up to date — Router $ROUTER_ADDR identical. skip."; uptodate="$uptodate $name"; continue ;;
