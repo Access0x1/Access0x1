@@ -143,7 +143,7 @@ export function DashboardView(): ReactNode {
               <thead>
                 <tr className="border-b border-neutral-200 text-neutral-500">
                   <th className="py-2 font-medium">Block</th>
-                  <th className="py-2 font-medium">Amount</th>
+                  <th className="py-2 font-medium">Received (USDC)</th>
                   <th className="py-2 font-medium">USD</th>
                   <th className="py-2 font-medium">Buyer</th>
                   <th className="py-2 font-medium">Tx</th>
@@ -153,7 +153,7 @@ export function DashboardView(): ReactNode {
                 {rows.map((r) => (
                   <tr key={`${r.txHash}-${r.buyer}`} className="border-b border-neutral-100">
                     <td className="py-2 font-mono text-xs">{r.block.toString()}</td>
-                    <td className="py-2">{formatTokenAmount(r.gross, tokenDecimalsFor(chainId))} USDC</td>
+                    <td className="py-2">{formatTokenAmount(r.gross, tokenDecimalsFor(chainId))}</td>
                     <td className="py-2">${amount8ToUsd(r.usd8)}</td>
                     <td className="py-2 font-mono text-xs">{short(r.buyer)}</td>
                     <td className="py-2 font-mono text-xs">
