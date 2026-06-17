@@ -88,7 +88,7 @@ contract ChainRegistry is Ownable2Step {
     /// @notice Upsert a chain entry. Owner-only. Calling again for the same `chainId` overwrites the
     ///         stored config (so a single tx can correct any field) and emits a fresh `ChainAdded`.
     ///         A zero `cfg.usdc` is allowed — a chain may not have native USDC wired yet.
-    /// @dev    Law #4 (truth): CONFIRM every address and CCIP selector from the sponsor booth or the
+    /// @dev    Law #4 (truth): CONFIRM every address and CCIP selector from your chain's official
     ///         official docs (e.g. docs.chain.link/ccip/directory) before calling this on a LIVE
     ///         chain. Never pass a value invented from memory. Three storage slots are written.
     /// @param  chainId The chain id to key.

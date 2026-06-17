@@ -8,7 +8,7 @@
  *   - your own BYO Foundry contracts (the real `Access0x1Router` + deploy scripts) so you can
  *     `forge script DeployAll` and own a non-custodial instance with zero dependency on us,
  *   - a one-tag embed.js, and
- *   - a `.env.example` listing EVERY sponsor seam as a fill-in blank.
+ *   - a `.env.example` listing EVERY integration seam as a fill-in blank.
  *
  * Doctrine / LAW #4 (truth in copy): this CLI NEVER writes an invented router/feed/USDC/contract
  * address. Every address is an env placeholder with a "confirm at booth / fill from your deploy"

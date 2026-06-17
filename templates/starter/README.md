@@ -16,9 +16,9 @@ A non-custodial, USD-priced (Chainlink) crypto checkout, scaffolded from the
 ├── scripts/setup.mjs  detect/install Foundry → forge install → npm i → forge build
 ├── app/               Next.js checkout (uses @access0x1/react <PayButton>)
 │   ├── app/page.tsx            the working checkout
-│   ├── access0x1.config.ts     chain + router (from env) + sponsor seams
+│   ├── access0x1.config.ts     chain + router (from env) + integration seams
 │   ├── public/embed.js         the one-tag embed (paste into any HTML page)
-│   └── .env.example            EVERY sponsor seam, as fill-in blanks
+│   └── .env.example            EVERY integration seam, as fill-in blanks
 └── contracts/         Your own Foundry contracts (the real Access0x1Router + the commerce quartet:
     ├── src/ script/            Subscriptions / Bookings / Invoices / GiftCards)
     └── DEPLOY.md               deploy-your-own runbook (zero dependency on us)
@@ -75,7 +75,7 @@ You need a **router address** for checkout to work.
 
 The fastest way to a working checkout, and the path this app defaults to. If you trust an existing
 `Access0x1Router` on {{CHAIN_NAME}} (your own from a previous deploy, a teammate's, or one confirmed
-at a sponsor booth), just paste its address into `.env.local` — no Foundry run needed:
+from your chain's official docs), just paste its address into `.env.local` — no Foundry run needed:
 
 ```
 {{ROUTER_ENV}}=0xYourTrustedRouter
@@ -166,7 +166,7 @@ are `__PLACEHOLDER__` tokens replaced at build time from your `NEXT_PUBLIC_*` en
 - The "Pay with USDC — no gas fee" label is shown **only on Arc**, where USDC is the native gas
   token. On every other chain the button keeps the neutral "Pay with Crypto".
 - Every address slot in `.env.example` is **blank on purpose**. Fill it from your own deploy or a
-  sponsor booth — never a guess.
+  your chain's official docs — never a guess.
 
 ## License
 

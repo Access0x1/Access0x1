@@ -282,10 +282,10 @@ vyper-test: ## Run the Vyper==Solidity byte-for-byte conformance test; no-op if 
 
 # ── Chainlink CRE (Notified-Settlement workflow; deploy is Early-Access) ──────────
 cre-build: ## Build the CRE workflow (needs the CRE CLI)
-	cd cre && cre workflow build || echo "CRE CLI not installed — see sponsors/Chainlink.md"
+	cd cre && cre workflow build || echo "CRE CLI not installed — see docs/chainlink-cre.md"
 
 cre-sim: ## Simulate the CRE workflow (the demoable artifact; deploy is Early-Access)
-	cd cre && cre workflow simulate || echo "CRE CLI not installed — see sponsors/Chainlink.md"
+	cd cre && cre workflow simulate || echo "CRE CLI not installed — see docs/chainlink-cre.md"
 
 # ── Everything ──────────────────────────────────────────────────────────────────
 all: install gate ## Install everything, then run the full green gate

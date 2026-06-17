@@ -96,7 +96,7 @@ export function AskView(): ReactNode {
     >
       <header className="flex flex-col gap-2">
         <span className="text-xs font-mono uppercase tracking-widest text-[var(--ax1-rail)]">
-          Booth assistant
+          AI assistant
         </span>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           Ask Access0x1
