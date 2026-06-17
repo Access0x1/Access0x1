@@ -7,8 +7,8 @@
 # runs first per chain: a chain with 0 gas is SKIPPED (fund it from the printed faucet and
 # re-run). The loop continues past failures and prints a summary.
 #
-# ⛔ Arc + Base Sepolia are intentionally EXCLUDED: both are already LIVE, and re-deploying
-#    would mint NEW contract addresses and break the live app (access0x1.nfteria.click) + deck.
+# ⛔ Arc + Base Sepolia + Ethereum Sepolia are intentionally EXCLUDED: all already LIVE, and re-deploying
+#    would mint NEW contract addresses and break the recorded deployment + the live app + deck.
 # ℹ️ Each target broadcasts BEFORE it verifies, so a chain shown as "failed" may have actually
 #    deployed and only failed source-verification (missing *SCAN_API_KEY) — check
 #    broadcast/DeployAll.s.sol/<chainId>/run-latest.json before assuming it didn't land.
@@ -18,9 +18,8 @@ cd "$(dirname "$0")/.."
 [ -f .env ] && { set -a; . ./.env; set +a; }
 : "${DEPLOYER:?set DEPLOYER in .env (the deployer wallet address) before running}"
 
-# make-target | RPC env-var | faucet hint  (one row per chain; arc + base excluded on purpose)
-CHAINS='ethereum-sepolia|SEPOLIA_RPC_URL|sepoliafaucet.com / faucet via Alchemy
-arbitrum-sepolia|ARBITRUM_SEPOLIA_RPC_URL|bridge Sepolia ETH or Alchemy faucet
+# make-target | RPC env-var | faucet hint  (arc + base + ethereum-sepolia excluded — already live)
+CHAINS='arbitrum-sepolia|ARBITRUM_SEPOLIA_RPC_URL|bridge Sepolia ETH or Alchemy faucet
 optimism-sepolia|OPTIMISM_SEPOLIA_RPC_URL|Superchain faucet / Alchemy
 zksync-sepolia|ZKSYNC_SEPOLIA_RPC_URL|bridge Sepolia ETH at portal.zksync.io
 polygon-amoy|POLYGON_AMOY_RPC_URL|faucet.polygon.technology
@@ -62,5 +61,5 @@ echo; echo "===================== SUMMARY ====================="
 echo "  deployed:${deployed:- none}"
 echo "  skipped (unfunded / no RPC):${skipped:- none}"
 echo "  failed (or deployed-but-unverified — check broadcast/):${failed:- none}"
-echo "  (arc + base were excluded — already live; re-deploy would mint new addresses)"
+echo "  (arc + base + ethereum-sepolia excluded — already live; re-deploy would mint new addresses)"
 echo "  Record new addresses: they are in broadcast/DeployAll.s.sol/<chainId>/run-latest.json"
