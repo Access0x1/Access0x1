@@ -330,6 +330,9 @@ deploy-celo-sepolia: ## Deploy to Celo Sepolia (chainId 11142220, CELO; celoscan
 deploy-all-testnets: ## Git-style AUTO deploy: skip live/identical, auto-deploy funded new chains (no prompts)
 	bash script/deploy-all-testnets.sh
 
+deploy-preview: ## DRY RUN: print each chain's state + live gas price + est cost; deploy nothing (no password)
+	DRY_RUN=1 bash script/deploy-all-testnets.sh
+
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 #  ⛔ MAINNET — AUDIT-GATED, REAL FUNDS. DO NOT RUN UNTIL A THIRD-PARTY AUDIT IS COMPLETE.            ⛔
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
