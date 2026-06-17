@@ -44,9 +44,10 @@ skips any chain with 0 gas and prints its faucet. Arc + Base Sepolia are exclude
 | World Chain Sepolia | 4801 | `0x66145f38cBAC35Ca6F1Dfb4914dF98F1614aeA88` | — (Data Streams on mainnet only) | USDC allowlisted but unpriced |
 | Celo Sepolia | 11142220 | `0x01C5C0122039549AD1493B8220cABEdD739BC44E` | — | USDC allowlisted but unpriced |
 
-> For an "unpriced USDC" chain, add pricing without redeploying: deploy a `$1.00` USDC/USD mock
-> (the `script/DeployArcUsdFeed.s.sol` pattern) and call the owner-only `setPriceFeed(usdc, mock)`,
-> exactly as Arc does (USDC ≈ $1).
+> For an "unpriced USDC" chain (Linea/Unichain/World Chain/Celo/Optimism Sepolia), turn on pricing:
+> `make deploy-usd-mock-feed RPC=<that chain's RPC>` deploys a `$1.00` USDC/USD mock (the Arc pattern,
+> generalized in `script/DeployUsdMockFeed.s.sol`); set the printed address as `<CHAIN>_USDC_USD_FEED`
+> and deploy. Real USDC stays the token — only the missing *price feed* is stood in (USDC ≈ $1).
 
 ## Bare deploy — no official USDC or Chainlink feed (router + commerce stack only)
 
