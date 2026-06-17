@@ -95,7 +95,7 @@ describe('happy path (mocked SDK)', () => {
     }
     expect(params.model).toBe('claude-haiku-4-5')
     // System prompt is the grounded facts brief.
-    expect(params.system.toLowerCase()).toContain('access0x1 booth assistant')
+    expect(params.system.toLowerCase()).toContain('access0x1 assistant')
     expect(params.system).toContain('=== FACTS ===')
     expect(params.messages[0]).toEqual({ role: 'user', content: 'How does pricing work?' })
   })

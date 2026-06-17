@@ -16,7 +16,7 @@ pragma solidity 0.8.28;
 ///         every USD→token conversion is read in-tx via the Router's `quote` (OracleLib staleness
 ///         guard) at reserve AND at fee-application time, so price drift cannot be gamed. `slotKey`,
 ///         `slotTimestamp`, and `clientNonce` are opaque — a booking app, a rental, a ticketed seat,
-///         or a sponsor's vertical all reuse the SAME contract.
+///         or a partner's vertical all reuse the SAME contract.
 interface IAccess0x1Bookings {
     // ──────────────────────── types ────────────────────────
 

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { AskView } from '@/components/pages/AskView'
 
 export const metadata: Metadata = {
-  title: 'Ask Access0x1 — booth assistant',
+  title: 'Ask Access0x1 — AI assistant',
   description:
     'Ask anything about Access0x1: the open, zero-custody, USD-priced crypto payments, ' +
     'agents, and commerce layer. Answers are grounded in the repo (testnet build).',

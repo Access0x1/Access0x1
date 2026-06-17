@@ -33,7 +33,7 @@
 [Owned ERCs](#the-owned-ercs) •
 [Security](#security-posture) •
 [Gas](docs/GAS.md) •
-[Sponsors](#built-with-our-sponsors) •
+[Integrations](#built-on) •
 [License](#license)
 
 </div>
@@ -447,11 +447,11 @@ Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed + verified on Arc Testn
 
 ---
 
-## Built with our sponsors
+## Built on
 
-Access0x1 is a thin layer of our own code on top of sponsor infrastructure that did the hard parts.
+Access0x1 is a thin layer of our own code on top of partner infrastructure that did the hard parts.
 Each integration below is real and lives in this repo — this is an honest account of what each
-sponsor let us *not* build, not a sponsor wall.
+integration let us *not* build, not a marketing wall.
 
 - **Circle + Arc — gas-free USDC settlement, and the easiest win of the build.** On
   [Arc](web/lib/chains.ts), **USDC is the native gas token** (the `0x3600…0000` system contract in
@@ -459,7 +459,7 @@ sponsor let us *not* build, not a sponsor wall.
   gas in USDC, our gas-free checkout needed **zero Paymaster code** — Arc's Circle Nanopayments layer
   already makes the payer gas-free, so we just defaulted the app to Arc and called `payToken(USDC)`.
   The Circle Gateway / x402 seam ([`web/app/api/gateway/*`](web/app/api/gateway)) lets a seller read
-  and withdraw their settled USDC balance. The sponsor stack did the hard part; we wrote a chain
+  and withdraw their settled USDC balance. The Arc + Circle stack did the hard part; we wrote a chain
   config and a pay button.
 - **Chainlink — USD pricing in one in-tx call.** `quote()` reads a Chainlink `<token>/USD` Data Feed
   *inside the settlement transaction* (through [`OracleLib`](src/libraries/OracleLib.sol)'s staleness
@@ -507,7 +507,7 @@ sponsor let us *not* build, not a sponsor wall.
   content-addressed and served by any aggregator on the network, the checkout isn't pinned to one
   origin — there is no single host to take down.
 
-> Honest scope: this is a testnet build. Sponsor addresses and endpoints carry a "confirm at booth"
+> Honest scope: this is a testnet build. Partner addresses and endpoints carry a "confirm from official docs"
 > note and are read from env, never hardcoded ([law #4](#security-posture)) — see
 > [`.env.example`](.env.example).
 

@@ -103,10 +103,10 @@ export function getDynamicEnvId(): string | undefined {
 }
 
 /**
- * Sponsor seams (filled at the booth / from your own infra). These are intentionally NOT addresses
+ * Integration seams (filled from official docs / from your own infra). These are intentionally NOT addresses
  * baked into source — they are read from env where used. Documented here so you know every seam.
  */
-export const SPONSOR_SEAMS = {
+export const INTEGRATION_SEAMS = {
   /** Chainlink price feeds are configured ON-CHAIN at deploy time (HelperConfig), not in the app. */
   chainlinkFeeds: 'set via contracts/script/HelperConfig.s.sol at deploy',
   /** Circle USDC token address — NEXT_PUBLIC_USDC_ADDRESS_<chainId>. */

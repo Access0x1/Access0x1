@@ -9,7 +9,7 @@ import { ChainRegistry } from "../src/ChainRegistry.sol";
 /// @notice Deploys the `ChainRegistry` sidecar and seeds the three event chains (Arc testnet, Base
 ///         Sepolia, zkSync Sepolia). Every USDC address and CCIP selector is read from the
 ///         ENVIRONMENT, defaulting to `address(0)` / `0` when unset — so a value that has not been
-///         confirmed at the sponsor booth or in the official docs (law #4) ships as a zero
+///         confirmed from your chain's official docs (law #4) ships as a zero
 ///         placeholder, never a guess. The operator fills the env vars once confirmed and re-seeds.
 /// @dev    Keystore-only signing: `vm.startBroadcast()` uses the `--account`/`--sender` (or
 ///         `--private-key`) passed on the CLI — NO key is read from source (security.md). Run:

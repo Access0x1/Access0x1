@@ -35,9 +35,9 @@ my-checkout/
 ├── scripts/setup.mjs
 ├── app/            Minimal Next.js checkout using @access0x1/react <PayButton>
 │   ├── app/page.tsx            working quote → (approve) → pay → receipt flow
-│   ├── access0x1.config.ts     chain + router (from env) + sponsor seams
+│   ├── access0x1.config.ts     chain + router (from env) + integration seams
 │   ├── public/embed.js         the one-tag, no-build embed
-│   └── .env.example            EVERY sponsor seam as a fill-in blank
+│   └── .env.example            EVERY integration seam as a fill-in blank
 └── contracts/      Your OWN Foundry contracts (the real Access0x1Router + the commerce quartet:
     ├── src/  script/           Subscriptions / Bookings / Invoices / GiftCards)
     ├── foundry.toml remappings.txt package.json
