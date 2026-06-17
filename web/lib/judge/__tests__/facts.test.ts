@@ -81,7 +81,7 @@ describe('proof section accuracy', () => {
   it('exists and contains the current forge test count', () => {
     expect(proofSection).toBeDefined()
     // Forge contract tests — update this when the suite grows.
-    expect(proofSection!.body).toContain('849 contract tests')
+    expect(proofSection!.body).toContain('864 contract tests')
     expect(proofSection!.body).toContain('84 suites')
   })
 

@@ -224,7 +224,7 @@ export const FACT_SECTIONS: readonly FactSection[] = [
     id: 'proof',
     title: 'The test and audit proof',
     body:
-      'The proof is in the suites. forge test runs 849 contract tests green across 84 ' +
+      'The proof is in the suites. forge test runs 864 contract tests green across 84 ' +
       'suites (unit + adversarial/attack + invariant + integration + fuzz + fork), 0 ' +
       'failed, 0 skipped. The web vitest suite runs 768 tests green across 74 test files, ' +
       '0 failed. Combined: 1,617 tests green. The Access0x1Router has 100% line, ' +
