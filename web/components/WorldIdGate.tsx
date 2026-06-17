@@ -112,10 +112,13 @@ export function WorldIdGate({
     onVerified()
   }, [onVerified])
 
-  const onError = useCallback(() => {
+  const onError = useCallback((err: unknown) => {
     setStatus('error')
-    // handleVerify threw, or the user cancelled — keep it friendly and retryable.
-    setMessage('We could not verify you. You can try again.')
+    // handleVerify threw, or the user cancelled. Surface the "already used once" case specifically
+    // (IDKit reports it via the error code/detail); otherwise stay generic + retryable.
+    const e = err as { code?: string; detail?: string } | undefined
+    const blob = `${e?.code ?? ''} ${e?.detail ?? ''} ${err instanceof Error ? err.message : ''}`.toLowerCase()
+    setMessage(/already|max_verifications/.test(blob) ? 'already_verified' : 'We could not verify you. You can try again.')
   }, [])
 
   // Not configured (no public app id) — the gate degrades; the checkout should
