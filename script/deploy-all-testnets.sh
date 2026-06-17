@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Access0x1 — git-style multi-testnet deploy. For EACH chain it compares your locally-compiled
 # Access0x1Router bytecode (the "version fingerprint") to what is LIVE on-chain at the recorded
-# address, and decides like `git`:
+# address, and decides like `git` — FULLY AUTOMATIC, no per-chain prompt:
 #   • identical        → already up to date, SKIP (nothing to deploy)
-#   • different build  → asks you: re-deploy? (default NO — re-deploy mints new addrs + overwrites)
-#   • not deployed yet → asks you: deploy?   (default YES)
-# Nothing is hardcoded-excluded — the on-chain state decides, so already-live chains (Arc, Base,
-# Ethereum Sepolia, …) auto-skip without any manual list-tending.
+#   • not deployed yet → DEPLOY automatically (if the wallet is funded; unfunded chains skip)
+#   • different build  → auto-SKIP with a warning (auto-overwriting a live deploy would mint new
+#                        addresses, so that one stays a deliberate `make deploy-<chain>`)
+# Nothing is hardcoded-excluded and nothing is asked — the on-chain state + funding decide, so
+# already-live chains (Arc, Base, Ethereum Sepolia, …) auto-skip and funded new chains auto-deploy.
 #
 # Read-only checks (chain-id, code, balance) need NO password. Only a chain you choose to deploy
 # signs with your cast keystore ($DEPLOYER_ACCOUNT) and prompts you for the password then.
@@ -87,18 +88,19 @@ while IFS='|' read -r name rpcvar faucet; do
 
   cid=$(cast chain-id --rpc-url "$rpc" 2>/dev/null || echo "")
   state=$(deploy_state "$cid" "$rpc")
+  # Fully automatic (no per-chain prompt): SAME→skip, ABSENT→deploy if funded, OUTDATED→skip+warn
+  # (auto-overwriting a live deployment would mint new addresses, so that one stays a manual,
+  # deliberate `make deploy-<chain>`).
   case "$state" in
     SAME)
-      echo "  ✓ up to date — live Router $ROUTER_ADDR is byte-identical to your local build. Nothing to do."
+      echo "  ✓ up to date — live Router $ROUTER_ADDR is byte-identical to local. skip."
       uptodate="$uptodate $name"; continue ;;
     OUTDATED)
-      echo "  ⚠ a DIFFERENT Access0x1 build is live here (Router $ROUTER_ADDR)."
-      echo "    Re-deploying mints NEW addresses and OVERWRITES the recorded deployment + anything wired to it."
-      read -r -p "    Re-deploy $name anyway? [y/N] " ans </dev/tty || ans=""
-      [[ "${ans:-}" =~ ^[Yy] ]] || { echo "    kept the existing deployment."; skipped="$skipped $name"; continue; } ;;
+      echo "  ⚠ a DIFFERENT build is live ($ROUTER_ADDR) — auto-SKIP (re-deploy mints new addrs)."
+      echo "    To intentionally overwrite: make deploy-$name"
+      skipped="$skipped $name(outdated)"; continue ;;
     ABSENT)
-      read -r -p "  $name is NOT deployed (chainid ${cid:-unreachable}). Deploy the full stack? [Y/n] " ans </dev/tty || ans="Y"
-      [[ "${ans:-Y}" =~ ^[Nn] ]] && { echo "    skipped."; skipped="$skipped $name"; continue; } ;;
+      echo "  not deployed (chainid ${cid:-?}) — deploying if funded…" ;;
   esac
 
   # Only now (we're going to deploy) does gas matter.
@@ -130,8 +132,8 @@ done <<< "$CHAINS"
 # ── Extra Chainlink-faucet testnets (no dedicated HelperConfig branch) ────────────────────────────
 # Deployed via the GENERIC FALLBACK: export PLATFORM_TREASURY and HelperConfig reads it; feeds/USDC
 # default to address(0) ⇒ a BARE router + commerce stack (USD pricing added per-chain later). Broadcast
-# -only + --legacy (many of these RPCs lack eth_feeHistory). Same git-style skip + balance precheck +
-# prompt. Validated live + chainId-matched 2026-06-17; 5 with a dead/wrong RPC were dropped (Shibarium,
+# -only + --legacy (many of these RPCs lack eth_feeHistory). Same git-style skip + balance precheck,
+# fully automatic (no prompt). Validated live + chainId-matched 2026-06-17; 5 with a dead/wrong RPC were dropped (Shibarium,
 # Core, Mind, XDC Apothem, X Layer) — add them back when a working RPC is known.
 EXTRA='wemix3-0-testnet|1112|https://api.test.wemix.com/
 metis-sepolia|59902|https://sepolia.metisdevops.link
@@ -178,10 +180,8 @@ while IFS='|' read -r name cid rpc; do
   st=$(deploy_state "$cid" "$rpc")
   case "$st" in
     SAME) echo "  ✓ up to date — Router $ROUTER_ADDR identical. skip."; uptodate="$uptodate $name"; continue ;;
-    OUTDATED) read -r -p "  ⚠ a different build is live ($ROUTER_ADDR). re-deploy $name? [y/N] " a </dev/tty || a=""
-              [[ "${a:-}" =~ ^[Yy] ]] || { echo "    kept."; skipped="$skipped $name"; continue; } ;;
-    ABSENT) read -r -p "  $name not deployed (chainid $cid). Deploy bare? [Y/n] " a </dev/tty || a="Y"
-            [[ "${a:-Y}" =~ ^[Nn] ]] && { echo "    skipped."; skipped="$skipped $name"; continue; } ;;
+    OUTDATED) echo "  ⚠ a different build is live ($ROUTER_ADDR) — auto-SKIP (overwrite manually if intended)."; skipped="$skipped $name(outdated)"; continue ;;
+    ABSENT) echo "  not deployed (chainid $cid) — deploying bare if funded…" ;;
   esac
   bal=$(cast balance "$DEPLOYER" --rpc-url "$rpc" 2>/dev/null || echo 0)
   if [ -z "$bal" ] || [ "$bal" = "0" ]; then echo "  0 gas — skip. Fund at faucets.chain.link."; skipped="$skipped $name"; continue; fi
