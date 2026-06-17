@@ -371,9 +371,10 @@ function DoneScreen({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-lg font-semibold text-ink">{branding.displayName} is live.</h2>
+        <h2 className="text-lg font-semibold text-ink">{branding.displayName} is set up.</h2>
         <p className="text-sm text-neutral-500">
-          Share your link, paste the tag on your site, or scan to test it. No code, no gas.
+          Your branded checkout page is ready to share. To start accepting USDC, finish the quick
+          one-time on-chain setup from your dashboard.
         </p>
       </div>
 
