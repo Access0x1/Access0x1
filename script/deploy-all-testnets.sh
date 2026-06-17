@@ -1,25 +1,35 @@
 #!/usr/bin/env bash
-# Access0x1 — deploy the full first-party stack to EVERY funded testnet, in one command.
+# Access0x1 — git-style multi-testnet deploy. For EACH chain it compares your locally-compiled
+# Access0x1Router bytecode (the "version fingerprint") to what is LIVE on-chain at the recorded
+# address, and decides like `git`:
+#   • identical        → already up to date, SKIP (nothing to deploy)
+#   • different build  → asks you: re-deploy? (default NO — re-deploy mints new addrs + overwrites)
+#   • not deployed yet → asks you: deploy?   (default YES)
+# Nothing is hardcoded-excluded — the on-chain state decides, so already-live chains (Arc, Base,
+# Ethereum Sepolia, …) auto-skip without any manual list-tending.
 #
-# Reads each chain's RPC URL + the DEPLOYER address from .env; signs with the `deployer`
-# cast keystore (you are prompted for the password ONCE PER FUNDED CHAIN — keystore signing
-# cannot be cached, and an agent must never enter it). A read-only `cast balance` precheck
-# runs first per chain: a chain with 0 gas is SKIPPED (fund it from the printed faucet and
-# re-run). The loop continues past failures and prints a summary.
-#
-# ⛔ Arc + Base Sepolia + Ethereum Sepolia are intentionally EXCLUDED: all already LIVE, and re-deploying
-#    would mint NEW contract addresses and break the recorded deployment + the live app + deck.
-# ℹ️ Each target broadcasts BEFORE it verifies, so a chain shown as "failed" may have actually
-#    deployed and only failed source-verification (missing *SCAN_API_KEY) — check
-#    broadcast/DeployAll.s.sol/<chainId>/run-latest.json before assuming it didn't land.
+# Read-only checks (chain-id, code, balance) need NO password. Only a chain you choose to deploy
+# signs with your cast keystore ($DEPLOYER_ACCOUNT) and prompts you for the password then.
+# A target broadcasts BEFORE it verifies, so a "failed" line may have deployed + only failed verify
+# (missing key) — check broadcast/DeployAll.s.sol/<chainId>/run-latest.json.
 set -uo pipefail
 export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")/.."
 [ -f .env ] && { set -a; . ./.env; set +a; }
 : "${DEPLOYER:?set DEPLOYER in .env (the deployer wallet address) before running}"
 
-# make-target | RPC env-var | faucet hint  (arc + base + ethereum-sepolia excluded — already live)
-CHAINS='arbitrum-sepolia|ARBITRUM_SEPOLIA_RPC_URL|bridge Sepolia ETH or Alchemy faucet
+# Fingerprint the local build once. The Router has no immutables and foundry.toml sets
+# bytecode_hash="none", so a freshly-compiled deployedBytecode equals the on-chain runtime EXACTLY
+# when the same source+settings are deployed — a clean equality test, no normalisation needed.
+echo "==> fingerprinting the local build (forge inspect Access0x1Router)…"
+LOCAL_ROUTER=$(forge inspect Access0x1Router deployedBytecode 2>/dev/null | tr 'A-F' 'a-f' | sed 's/^0x//')
+[ -n "$LOCAL_ROUTER" ] || { echo "could not compile Access0x1Router — run 'forge build' first."; exit 1; }
+
+# name (make-target) | RPC env-var | faucet hint — the FULL set; live chains skip themselves.
+CHAINS='arc|ARC_TESTNET_RPC_URL|faucet.circle.com (Arc Testnet)
+base-sepolia|BASE_SEPOLIA_RPC_URL|Base Sepolia faucet / bridge
+ethereum-sepolia|SEPOLIA_RPC_URL|sepoliafaucet.com / Alchemy
+arbitrum-sepolia|ARBITRUM_SEPOLIA_RPC_URL|bridge Sepolia ETH or Alchemy
 optimism-sepolia|OPTIMISM_SEPOLIA_RPC_URL|Superchain faucet / Alchemy
 zksync-sepolia|ZKSYNC_SEPOLIA_RPC_URL|bridge Sepolia ETH at portal.zksync.io
 polygon-amoy|POLYGON_AMOY_RPC_URL|faucet.polygon.technology
@@ -40,26 +50,61 @@ citrea-testnet|CITREA_TESTNET_RPC_URL|citrea.xyz faucet
 flow-evm-testnet|FLOW_EVM_TESTNET_RPC_URL|faucet.flow.com
 celo-sepolia|CELO_SEPOLIA_RPC_URL|faucet.celo.org'
 
-deployed=""; skipped=""; failed=""
+# Print the deploy-state of a chain by diffing on-chain Router code vs LOCAL_ROUTER → SAME|OUTDATED|ABSENT.
+# Also sets the global ROUTER_ADDR for the message.
+ROUTER_ADDR=""
+deploy_state() {  # chainId rpc
+  local cid="$1" rpc="$2" bc addr onchain
+  ROUTER_ADDR=""
+  [ -z "$cid" ] && { echo ABSENT; return; }
+  bc="broadcast/DeployAll.s.sol/$cid/run-latest.json"
+  [ -f "$bc" ] || { echo ABSENT; return; }
+  addr=$(python3 -c "import json;d=json.load(open('$bc'));print(next((t['contractAddress'] for t in d['transactions'] if t.get('contractName')=='Access0x1Router'),''))" 2>/dev/null)
+  [ -z "$addr" ] && { echo ABSENT; return; }
+  ROUTER_ADDR="$addr"
+  onchain=$(cast code "$addr" --rpc-url "$rpc" 2>/dev/null | tr 'A-F' 'a-f' | sed 's/^0x//')
+  [ -z "$onchain" ] || [ "$onchain" = "0x" ] && { echo ABSENT; return; }   # recorded but gone (testnet reset)
+  [ "$onchain" = "$LOCAL_ROUTER" ] && echo SAME || echo OUTDATED
+}
+
+deployed=""; uptodate=""; skipped=""; failed=""
 while IFS='|' read -r name rpcvar faucet; do
   [ -z "$name" ] && continue
   rpc="${!rpcvar:-}"
   echo; echo "================= $name ================="
-  if [ -z "$rpc" ]; then echo "  no \$$rpcvar in .env — SKIP"; skipped="$skipped $name"; continue; fi
+  [ -z "$rpc" ] && { echo "  no \$$rpcvar in .env — skip"; skipped="$skipped $name"; continue; }
+
+  cid=$(cast chain-id --rpc-url "$rpc" 2>/dev/null || echo "")
+  state=$(deploy_state "$cid" "$rpc")
+  case "$state" in
+    SAME)
+      echo "  ✓ up to date — live Router $ROUTER_ADDR is byte-identical to your local build. Nothing to do."
+      uptodate="$uptodate $name"; continue ;;
+    OUTDATED)
+      echo "  ⚠ a DIFFERENT Access0x1 build is live here (Router $ROUTER_ADDR)."
+      echo "    Re-deploying mints NEW addresses and OVERWRITES the recorded deployment + anything wired to it."
+      read -r -p "    Re-deploy $name anyway? [y/N] " ans </dev/tty || ans=""
+      [[ "${ans:-}" =~ ^[Yy] ]] || { echo "    kept the existing deployment."; skipped="$skipped $name"; continue; } ;;
+    ABSENT)
+      read -r -p "  $name is NOT deployed (chainid ${cid:-unreachable}). Deploy the full stack? [Y/n] " ans </dev/tty || ans="Y"
+      [[ "${ans:-Y}" =~ ^[Nn] ]] && { echo "    skipped."; skipped="$skipped $name"; continue; } ;;
+  esac
+
+  # Only now (we're going to deploy) does gas matter.
   bal=$(cast balance "$DEPLOYER" --rpc-url "$rpc" 2>/dev/null || echo 0)
   if [ -z "$bal" ] || [ "$bal" = "0" ]; then
-    echo "  $DEPLOYER has 0 gas on $name — SKIP. Fund: $faucet"; skipped="$skipped $name"; continue
+    echo "  $DEPLOYER has 0 gas on $name — can't deploy. Fund: $faucet"; skipped="$skipped $name"; continue
   fi
-  echo "  funded ($bal wei native gas) — deploying the full stack…"
+  echo "  funded ($bal wei) — deploying… (keystore password prompt next)"
   if make "deploy-$name"; then deployed="$deployed $name"; else
-    echo "  !!! deploy-$name returned non-zero (gas? RPC? verify?) — continuing. Check broadcast/ for $name."
+    echo "  !!! deploy-$name returned non-zero (gas? RPC? verify?) — continuing. Check broadcast/."
     failed="$failed $name"
   fi
 done <<< "$CHAINS"
 
 echo; echo "===================== SUMMARY ====================="
-echo "  deployed:${deployed:- none}"
-echo "  skipped (unfunded / no RPC):${skipped:- none}"
+echo "  deployed (new / re-deployed):${deployed:- none}"
+echo "  up to date (identical, skipped):${uptodate:- none}"
+echo "  skipped (declined / unfunded / no RPC):${skipped:- none}"
 echo "  failed (or deployed-but-unverified — check broadcast/):${failed:- none}"
-echo "  (arc + base + ethereum-sepolia excluded — already live; re-deploy would mint new addresses)"
-echo "  Record new addresses: they are in broadcast/DeployAll.s.sol/<chainId>/run-latest.json"
+echo "  New addresses land in broadcast/DeployAll.s.sol/<chainId>/run-latest.json — paste them to record."
