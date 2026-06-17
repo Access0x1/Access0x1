@@ -42,6 +42,11 @@ contract DeployAllTest is Test {
     uint256 internal constant CELO_SEPOLIA = 11_142_220;
     uint256 internal constant ZIRCUIT_GARFIELD = 48_898;
 
+    // The three promoted-to-first-class EVM Sepolias (real Circle USDC + Chainlink feeds).
+    uint256 internal constant ETHEREUM_SEPOLIA = 11_155_111;
+    uint256 internal constant ARBITRUM_SEPOLIA = 421_614;
+    uint256 internal constant OPTIMISM_SEPOLIA = 11_155_420;
+
     /// @dev Foundry's broadcast default sender — the address `vm.startBroadcast()` (no arg) pranks as.
     address internal constant BROADCASTER = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38;
 
@@ -147,6 +152,46 @@ contract DeployAllTest is Test {
         HelperConfig.NetworkConfig memory celo = new HelperConfig().getConfig();
         assertEq(celo.treasury, treasury);
         assertEq(celo.platformFeeBps, 300);
+    }
+
+    /// @dev Owns every `SEPOLIA_*`, `ARBITRUM_SEPOLIA_*` and `OPTIMISM_SEPOLIA_*` key. Proves the three
+    ///      promoted-to-first-class EVM Sepolias each select their OWN branch and read their OWN prefix
+    ///      (never another chain's values). Optimism Sepolia is the no-USDC/USD-feed real-chain shape:
+    ///      USDC set, `usdcUsdFeed` left blank ⇒ address(0), allowlisted-but-unpriced (no revert).
+    function test_helperConfig_ethArbOpSepolia_branchesReadOwnPrefix() public {
+        // Ethereum Sepolia — full-field selection, custom fee proves it reads SEPOLIA_ not the default.
+        vm.chainId(ETHEREUM_SEPOLIA);
+        vm.setEnv("SEPOLIA_PLATFORM_TREASURY", vm.toString(treasury));
+        vm.setEnv("SEPOLIA_PLATFORM_FEE_BPS", "150");
+        vm.setEnv("SEPOLIA_NATIVE_USD_FEED", vm.toString(nativeFeed));
+        vm.setEnv("SEPOLIA_USDC_ADDRESS", vm.toString(usdc));
+        vm.setEnv("SEPOLIA_USDC_USD_FEED", vm.toString(usdcFeed));
+        HelperConfig.NetworkConfig memory eth = new HelperConfig().getConfig();
+        assertEq(eth.treasury, treasury);
+        assertEq(eth.platformFeeBps, 150);
+        assertEq(eth.nativeUsdFeed, nativeFeed);
+        assertEq(eth.usdc, usdc);
+        assertEq(eth.usdcUsdFeed, usdcFeed);
+
+        // Arbitrum Sepolia — reads ARBITRUM_SEPOLIA_, isolated from the Ethereum keys set above.
+        vm.chainId(ARBITRUM_SEPOLIA);
+        vm.setEnv("ARBITRUM_SEPOLIA_PLATFORM_TREASURY", vm.toString(treasury));
+        vm.setEnv("ARBITRUM_SEPOLIA_USDC_ADDRESS", vm.toString(usdc));
+        HelperConfig.NetworkConfig memory arb = new HelperConfig().getConfig();
+        assertEq(arb.treasury, treasury);
+        assertEq(arb.platformFeeBps, 100); // default 1.00% when *_PLATFORM_FEE_BPS unset
+        assertEq(arb.usdc, usdc);
+
+        // Optimism Sepolia — USDC + native feed set, NO USDC/USD feed (the real chain has none).
+        vm.chainId(OPTIMISM_SEPOLIA);
+        vm.setEnv("OPTIMISM_SEPOLIA_PLATFORM_TREASURY", vm.toString(treasury));
+        vm.setEnv("OPTIMISM_SEPOLIA_USDC_ADDRESS", vm.toString(usdc));
+        vm.setEnv("OPTIMISM_SEPOLIA_NATIVE_USD_FEED", vm.toString(nativeFeed));
+        HelperConfig.NetworkConfig memory op = new HelperConfig().getConfig();
+        assertEq(op.treasury, treasury);
+        assertEq(op.usdc, usdc);
+        assertEq(op.nativeUsdFeed, nativeFeed);
+        assertEq(op.usdcUsdFeed, address(0)); // unset ⇒ skipped at deploy (USDC unpriced, never reverts wiring)
     }
 
     /// @dev Owns every `ZIRCUIT_GARFIELD_*` key. Selection + the fail-loud missing-treasury revert
