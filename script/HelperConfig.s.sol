@@ -181,6 +181,13 @@ contract HelperConfig is Script {
     ///         `ARC_MAINNET_CHAIN_ID` to the real id at launch; until then this resolves to 0, which can
     ///         never equal a live `block.chainid`, so the branch is unreachable and claims nothing. This
     ///         is read at construction (not a compile-time constant) precisely because the id is TBD.
+    /// @dev    CANDIDATE (verified Jun 16, 2026, NOT yet operational): the canonical EVM registry
+    ///         `ethereum-lists/chains` pre-registers `eip155-5042.json` (shortName "arc-mainnet", native
+    ///         USDC) — so the likely id is **5042** — but that entry has EMPTY rpc[]/explorers[] and the
+    ///         network is still public testnet (Circle targets "mainnet beta, summer 2026"). It stays a
+    ///         hint, NOT a default: the env still defaults to 0 (dormant). Set `ARC_MAINNET_CHAIN_ID=5042`
+    ///         only once Circle publishes a live mainnet RPC (the registry entry will gain rpc/explorer
+    ///         URLs as the corroborating signal). Testnet id `5042002` is confirmed + live.
     function _arcMainnetChainId() internal view returns (uint256) {
         return vm.envOr("ARC_MAINNET_CHAIN_ID", uint256(0));
     }
