@@ -14,7 +14,7 @@
 **The proof**
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
-![Tests](https://img.shields.io/badge/Tests-859%20passing-44CC11?style=for-the-badge)
+![Tests](https://img.shields.io/badge/Tests-862%20passing-44CC11?style=for-the-badge)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-100%25-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -319,10 +319,13 @@ make deploy-unichain-sepolia # Unichain Sepolia
 
 ### Deployments
 
-Filled at deploy time from the broadcast log (`broadcast/<chainId>/run-latest.json`) — **never**
-hand-entered (law #4: an address that isn't on-chain isn't claimed). Empty until the owner runs
-`make deploy-<chain>`; `Access0x1Router` is the address an integrator points at.
-See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full operator guide.
+Every address below is read straight from the committed broadcast log
+(`broadcast/DeployAll.s.sol/<chainId>/run-latest.json`) — **never** hand-entered (law #4: an address
+that isn't on-chain isn't claimed). The full first-party surface is **live and Blockscout-verified on
+two chains — Arc Testnet (5042002) and Base Sepolia (84532)**; zkSync Sepolia is one-command ready
+(`make deploy-zksync`) but not yet broadcast (its rows stay blank until it is). `Access0x1Router` is the
+address an integrator points at. See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full
+operator guide.
 
 > **Gas:** on Arc, USDC is the native gas token, so checkout needs no separate gas coin — there is
 > nothing to top up. On other chains an optional, generic [ERC-7677](https://eips.ethereum.org/EIPS/eip-7677)
@@ -361,6 +364,12 @@ See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full operator g
 | zkSync Sepolia (300) | `Access0x1GiftCards` | — | — |
 | zkSync Sepolia (300) | `ChainRegistry` | — | — |
 
+> **Live multi-tenant demo.** The Base Sepolia router (`platformFeeBps = 100`, i.e. 1%) already carries
+> a registered merchant — **NFTeria, merchant `#1`** — and powers a hosted, USD-priced crypto checkout at
+> **[access0x1.nfteria.click](https://access0x1.nfteria.click)**. A second business joins the exact same
+> way: one permissionless `registerMerchant` call with its own payout wallet and surcharge — no contract
+> code, no redeploy. That self-serve, one-router-for-everyone path *is* the thesis, proven on-chain.
+
 ---
 
 ## The owned ERCs
@@ -394,7 +403,7 @@ deployer is a burner key.
 
 | | |
 | --- | --- |
-| Tests | **859 green** — unit · attack · invariant suites |
+| Tests | **862 green** — unit · attack · invariant suites |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **13 fuzz invariants** across 3 suites hold at 4,096 calls each, 0 reverts |
 | Static analysis | **slither: 31 results / 12 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
