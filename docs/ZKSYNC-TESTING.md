@@ -4,6 +4,29 @@
 > zkSync Sepolia — see `ChainRegistry` and `HelperConfig`). This doc records the gotchas that bite
 > when you test the same contracts on the zkEVM, grounded in `foundry-zksync` reality.
 
+## ⚠️ Deploy gotcha: `--zksync` can't run the env-reading HelperConfig (cheatcodes-in-CREATE)
+
+`make deploy-zksync-sepolia` (`forge script --zksync`) first does a slow zksolc compile of ~199 files
+(this is what looks "stuck" — it is not), then **reverts** inside `DeployAll`'s `new HelperConfig()`:
+
+```
+ERROR ...: call may fail ... due to empty code target=0x7109…12d   (the cheatcode address)
+vm error: Invalid opcode, Not enough gas
+```
+
+Root cause (foundry-zksync, confirmed against its docs): **cheatcodes only work at the script ROOT —
+never inside a CREATE/CALL dispatched to the zkEVM.** `HelperConfig`'s constructor calls
+`vm.envAddress("ZKSYNC_SEPOLIA_PLATFORM_TREASURY")`; under `--zksync` that constructor runs *in the
+zkEVM*, so the env cheatcode dies. This is a TOOLING limit, **not a contract bug** — `forge build
+--zksync` exits 0 (compiles + size-checks clean for EraVM), and the identical `DeployAll` deploys fine
+on every EVM chain (Arc, Base, Ethereum, Optimism Sepolia all live).
+
+**The fix when zkSync is deployed:** read env at the SCRIPT ROOT and pass values in, rather than inside
+a `new`'d helper — e.g. a dedicated `DeployAllZkSync` whose `run()` itself does the `vm.envAddress`
+reads, then `new Access0x1Router(...)` (product constructors hold no cheatcodes, so they dispatch to
+the zkEVM cleanly). Until then, `make deploy-all-testnets` SKIPS zkSync with a note (never stalls on
+it); deploy zkSync on its own once that env-at-root script exists.
+
 ## The one rule that matters most
 
 **`forge test` runs on the EVM, NOT the zkEVM. EVM-green does NOT mean zkSync-green.**
