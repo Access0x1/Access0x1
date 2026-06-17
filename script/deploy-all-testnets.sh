@@ -107,9 +107,23 @@ while IFS='|' read -r name rpcvar faucet; do
     echo "  $DEPLOYER has 0 gas on $name — can't deploy. Fund: $faucet"; skipped="$skipped $name"; continue
   fi
   echo "  funded ($bal wei) — deploying… (keystore password prompt next)"
-  if make "deploy-$name"; then deployed="$deployed $name"; else
-    echo "  !!! deploy-$name returned non-zero (gas? RPC? verify?) — continuing. Check broadcast/."
-    failed="$failed $name"
+  if make "deploy-$name"; then
+    deployed="$deployed $name"
+  else
+    # `make` returned non-zero — but a flaky explorer routinely 504s the VERIFY poll AFTER the
+    # broadcast already landed (forge then exits 1 on "not all contracts verified", even though the
+    # deploy succeeded). So re-check on-chain: if the Router is now live AND byte-identical, the
+    # deploy SUCCEEDED and only verification timed out → auto-retry verify with --resume (no re-deploy).
+    if [ "$(deploy_state "$cid" "$rpc")" = "SAME" ]; then
+      echo "  ↳ deploy LANDED (Router $ROUTER_ADDR live + identical) — the non-zero was the verify poll."
+      echo "    retrying verification with --resume (re-uses the broadcast, no new deploy)…"
+      if RESUME=1 make "deploy-$name"; then echo "  ✓ verified on --resume retry."; else
+        echo "  ⚠ verify still flaky (explorer down) — THE DEPLOY IS LIVE. Re-verify any time: RESUME=1 make deploy-$name"; fi
+      deployed="$deployed $name"
+    else
+      echo "  !!! deploy-$name did NOT land (no matching Router on-chain) — a real failure. Check broadcast/."
+      failed="$failed $name"
+    fi
   fi
 done <<< "$CHAINS"
 
