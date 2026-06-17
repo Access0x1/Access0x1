@@ -83,8 +83,16 @@ gate: build test fmt-check web-gate ## FULL GREEN GATE: contracts build+test+fmt
 	@echo "==> GATE GREEN"
 
 # ── Security / audit ─────────────────────────────────────────────────────────────
-aderyn: ## Static analysis (aderyn)
-	FOUNDRY_EVM_VERSION=cancun aderyn . --no-snippets
+aderyn: ## Static analysis (aderyn — auto-skips on the foundry-zksync fork, which aderyn 0.1.9 can't parse)
+	@if forge --version 2>/dev/null | grep -qi zksync; then \
+		echo "==> aderyn SKIPPED: the active forge is the foundry-zksync fork ('$$(forge --version | head -1)')."; \
+		echo "    aderyn 0.1.9 panics on it — both the non-semver version string and the fork's 'osaka'"; \
+		echo "    evm default (its bundled cyfrin-foundry-config predates osaka). For a FRESH aderyn report,"; \
+		echo "    switch to vanilla foundry (foundryup) and re-run. src/ is unchanged since the committed"; \
+		echo "    audit/ run, so the existing aderyn findings remain valid. Continuing the audit (slither + coverage)."; \
+	else \
+		FOUNDRY_EVM_VERSION=cancun aderyn . --no-snippets; \
+	fi
 
 slither: ## Static analysis (slither)
 	slither .
