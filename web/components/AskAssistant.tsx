@@ -110,7 +110,7 @@ export function AskAssistant(): ReactNode {
         href="/ask"
         className="text-xs text-neutral-400 underline-offset-2 hover:text-ink hover:underline"
       >
-        Open the full booth assistant →
+        Open the full assistant →
       </a>
     </div>
   )

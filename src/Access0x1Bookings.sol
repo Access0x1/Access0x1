@@ -42,7 +42,7 @@ import { IAccess0x1Bookings } from "./interfaces/IAccess0x1Bookings.sol";
 ///         TENANCY. `merchantId`, `payer`, `token`, `slotKey`, and `policy` are immutable per
 ///         reservation, and no path touches another reservation's or another merchant's storage —
 ///         preserving the Router's isolation invariant. `slotKey`, `slotTimestamp`, and `clientNonce`
-///         are opaque, so a booking app, a rental window, a ticketed seat, or a sponsor's vertical all
+///         are opaque, so a booking app, a rental window, a ticketed seat, or a partner's vertical all
 ///         reuse the SAME contract.
 contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
