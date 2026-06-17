@@ -35,6 +35,13 @@ contract DeployAllTest is Test {
     uint256 internal constant ZKSYNC_SEPOLIA = 300;
     uint256 internal constant LOCAL = 31_337;
 
+    // Added faucet-list testnet ids (mirrored from HelperConfig). WORLDCHAIN_SEPOLIA pins the corrected
+    // id 4801 (NOT Optimism's 11155420) so a regression to the wrong id is caught by selection.
+    uint256 internal constant ZORA_SEPOLIA = 999_999_999;
+    uint256 internal constant WORLDCHAIN_SEPOLIA = 4_801;
+    uint256 internal constant CELO_SEPOLIA = 11_142_220;
+    uint256 internal constant ZIRCUIT_GARFIELD = 48_898;
+
     /// @dev Foundry's broadcast default sender — the address `vm.startBroadcast()` (no arg) pranks as.
     address internal constant BROADCASTER = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38;
 
@@ -104,6 +111,60 @@ contract DeployAllTest is Test {
         assertEq(cfg.treasury, treasury); // catch-all reads PLATFORM_TREASURY, not a prefixed var
     }
 
+    /// @dev Owns every `ZORA_SEPOLIA_*`, `WORLDCHAIN_SEPOLIA_*` and `CELO_SEPOLIA_*` key. Proves each
+    ///      added faucet-list testnet selects its OWN branch and reads its OWN prefix (never another
+    ///      chain's values), with the zero-feeds-allowed case. WORLDCHAIN_SEPOLIA = 4801 specifically
+    ///      guards the earlier wrong-id (Optimism's 11155420) regression.
+    function test_helperConfig_addedTestnets_branchesReadOwnPrefix() public {
+        // Zora Sepolia — full-field selection.
+        vm.chainId(ZORA_SEPOLIA);
+        vm.setEnv("ZORA_SEPOLIA_PLATFORM_TREASURY", vm.toString(treasury));
+        vm.setEnv("ZORA_SEPOLIA_PLATFORM_FEE_BPS", "200");
+        vm.setEnv("ZORA_SEPOLIA_NATIVE_USD_FEED", vm.toString(nativeFeed));
+        vm.setEnv("ZORA_SEPOLIA_USDC_ADDRESS", vm.toString(usdc));
+        vm.setEnv("ZORA_SEPOLIA_USDC_USD_FEED", vm.toString(usdcFeed));
+        HelperConfig.NetworkConfig memory zora = new HelperConfig().getConfig();
+        assertEq(zora.treasury, treasury);
+        assertEq(zora.platformFeeBps, 200); // reads ZORA_SEPOLIA_, not the default
+        assertEq(zora.nativeUsdFeed, nativeFeed);
+        assertEq(zora.usdc, usdc);
+        assertEq(zora.usdcUsdFeed, usdcFeed);
+
+        // World Chain Sepolia — selection on the CORRECTED id 4801; fee falls back to the 100 default.
+        vm.chainId(WORLDCHAIN_SEPOLIA);
+        vm.setEnv("WORLDCHAIN_SEPOLIA_PLATFORM_TREASURY", vm.toString(treasury));
+        HelperConfig.NetworkConfig memory world = new HelperConfig().getConfig();
+        assertEq(world.treasury, treasury);
+        assertEq(world.platformFeeBps, 100); // default 1.00% when *_PLATFORM_FEE_BPS unset
+        // Blank optional addresses resolve to address(0) with no revert (skipped at deploy).
+        assertEq(world.nativeUsdFeed, address(0));
+        assertEq(world.usdc, address(0));
+
+        // Celo Sepolia — selection reads CELO_SEPOLIA_, isolated from the two chains above.
+        vm.chainId(CELO_SEPOLIA);
+        vm.setEnv("CELO_SEPOLIA_PLATFORM_TREASURY", vm.toString(treasury));
+        vm.setEnv("CELO_SEPOLIA_PLATFORM_FEE_BPS", "300");
+        HelperConfig.NetworkConfig memory celo = new HelperConfig().getConfig();
+        assertEq(celo.treasury, treasury);
+        assertEq(celo.platformFeeBps, 300);
+    }
+
+    /// @dev Owns every `ZIRCUIT_GARFIELD_*` key. Selection + the fail-loud missing-treasury revert
+    ///      (an added testnet requires its treasury exactly like the original branches).
+    function test_helperConfig_addedTestnet_failsLoudOnMissingTreasury() public {
+        vm.chainId(ZIRCUIT_GARFIELD);
+        vm.setEnv("ZIRCUIT_GARFIELD_PLATFORM_TREASURY", vm.toString(treasury));
+
+        HelperConfig.NetworkConfig memory cfg = new HelperConfig().getConfig();
+        assertEq(cfg.treasury, treasury);
+        assertEq(cfg.platformFeeBps, 100); // default 1.00% when *_PLATFORM_FEE_BPS unset
+
+        // Required treasury blank → vm.envAddress fails loud (no silent placeholder).
+        vm.setEnv("ZIRCUIT_GARFIELD_PLATFORM_TREASURY", "");
+        vm.expectRevert();
+        new HelperConfig();
+    }
+
     /*//////////////////////////////////////////////////////////////
         HELPERCONFIG — MAINNET branches (AUDIT-GATED, NOT DEPLOYED)
         Each mainnet branch reads its OWN `<CHAIN>_MAINNET_*` env and is
@@ -115,6 +176,9 @@ contract DeployAllTest is Test {
     // Mainnet ids mirrored from HelperConfig (the constants there are `internal`).
     uint256 internal constant BASE_MAINNET = 8_453;
     uint256 internal constant POLYGON_MAINNET = 137;
+    // Added faucet-list mainnet ids (AUDIT-GATED profiles, mirrored from HelperConfig).
+    uint256 internal constant ZORA_MAINNET = 7_777_777;
+    uint256 internal constant GNOSIS_MAINNET = 100;
 
     /// @dev Owns every `BASE_MAINNET_*` key. Selection reads BASE_MAINNET_* (not the testnet prefix),
     ///      and every unconfirmed/blank address resolves to address(0) — the DeployAll skip semantics —
@@ -150,6 +214,30 @@ contract DeployAllTest is Test {
         vm.setEnv("POLYGON_MAINNET_PLATFORM_TREASURY", "");
         vm.expectRevert();
         new HelperConfig();
+    }
+
+    /// @dev Owns every `ZORA_MAINNET_*` and `GNOSIS_MAINNET_*` key. Proves the added mainnet PROFILES
+    ///      select their own branch and stay env-driven with address(0) defaults — a pre-audit profile
+    ///      never carries a guessed USDC/feed address (law #4), exactly like the original mainnet twins.
+    function test_helperConfig_addedMainnets_branchesAreEnvDrivenAddressZeroDefault() public {
+        // Zora mainnet (chainId 7777777).
+        vm.chainId(ZORA_MAINNET);
+        vm.setEnv("ZORA_MAINNET_PLATFORM_TREASURY", vm.toString(treasury));
+        vm.setEnv("ZORA_MAINNET_PLATFORM_FEE_BPS", "175");
+        HelperConfig.NetworkConfig memory zora = new HelperConfig().getConfig();
+        assertEq(zora.treasury, treasury);
+        assertEq(zora.platformFeeBps, 175); // reads ZORA_MAINNET_, not the default
+        assertEq(zora.nativeUsdFeed, address(0)); // no hardcoded mainnet feed
+        assertEq(zora.usdc, address(0));
+        assertEq(zora.usdcUsdFeed, address(0));
+
+        // Gnosis mainnet (chainId 100) — fee falls back to the 100 default; addresses still address(0).
+        vm.chainId(GNOSIS_MAINNET);
+        vm.setEnv("GNOSIS_MAINNET_PLATFORM_TREASURY", vm.toString(treasury));
+        HelperConfig.NetworkConfig memory gnosis = new HelperConfig().getConfig();
+        assertEq(gnosis.treasury, treasury);
+        assertEq(gnosis.platformFeeBps, 100);
+        assertEq(gnosis.usdc, address(0));
     }
 
     /// @dev Owns `ARC_MAINNET_CHAIN_ID` + every `ARC_MAINNET_*` key. Arc mainnet id is TBD (not
