@@ -21,7 +21,7 @@ export type DynamicWallet = ReturnType<typeof useDynamicContext>['primaryWallet'
 export async function getWalletClient(wallet: DynamicWallet): Promise<WalletClient> {
   if (!wallet) throw new Error('Connect a wallet to continue')
   if (!isEthereumWallet(wallet)) {
-    throw new Error('Connected wallet is not an EVM wallet')
+    throw new Error('Only EVM wallets are supported — connect MetaMask, Coinbase Wallet, or any WalletConnect wallet.')
   }
   const client = await wallet.getWalletClient()
   if (!client) throw new Error('Could not obtain a wallet client')
