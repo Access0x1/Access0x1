@@ -13,6 +13,8 @@
 #
 # Read-only checks (chain-id, code, balance) need NO password. Only a chain you choose to deploy
 # signs with your cast keystore ($DEPLOYER_ACCOUNT) and prompts you for the password then.
+# PREVIEW first to choose by price: `make deploy-preview` (DRY_RUN=1) prints each chain's state +
+# live gas price + estimated cost and deploys NOTHING, so you set MAX_DEPLOY_COST_ETH from real quotes.
 # A target broadcasts BEFORE it verifies, so a "failed" line may have deployed + only failed verify
 # (missing key) — check broadcast/DeployAll.s.sol/<chainId>/run-latest.json.
 set -uo pipefail
@@ -78,18 +80,33 @@ deploy_state() {  # chainId rpc
 # stack's ~15M-gas budget; ceiling defaults to 0.5 native, override per run with MAX_DEPLOY_COST_ETH=…
 GAS_BUDGET=15000000
 MAX_DEPLOY_COST_WEI=$(cast to-wei "${MAX_DEPLOY_COST_ETH:-0.5}" ether 2>/dev/null || echo 500000000000000000)
-COST_ETH=""
-cost_over_ceiling() {  # rpc  → 0 (skip) when estimated cost exceeds the ceiling; sets COST_ETH for the message
+COST_ETH=""    # last estimate, native units (set by cost_over_ceiling for the message + preview)
+GAS_GWEI=""    # last live gas price, gwei (for the preview table)
+cost_over_ceiling() {  # rpc  → 0 (skip) when estimated cost exceeds the ceiling; sets COST_ETH/GAS_GWEI
   local rpc="$1" gp cost
   COST_ETH=""
+  GAS_GWEI=""
   gp=$(cast gas-price --rpc-url "$rpc" 2>/dev/null) || return 1   # can't price it → don't block
   case "$gp" in '' | *[!0-9]*) return 1 ;; esac                   # non-numeric → don't block
+  GAS_GWEI=$(echo "scale=2; $gp/1000000000" | bc 2>/dev/null)
   cost=$(echo "$gp * $GAS_BUDGET" | bc 2>/dev/null) || return 1
   COST_ETH=$(cast from-wei "$cost" 2>/dev/null)
   [ "$(echo "$cost > $MAX_DEPLOY_COST_WEI" | bc 2>/dev/null)" = "1" ]
 }
 
-deployed=""; uptodate=""; skipped=""; failed=""
+# PREVIEW mode: DRY_RUN=1 (or `make deploy-preview`) does every read-only check — deploy-state, balance,
+# live gas price, estimated cost — and prints a verdict per chain WITHOUT broadcasting anything (no
+# keystore password, no tx). Run it first to see what each chain quotes, then pick MAX_DEPLOY_COST_ETH
+# and run the real deploy. preview() prints one line at the deploy decision point and returns 0 in DRY_RUN.
+DRY_RUN="${DRY_RUN:-}"
+preview() {  # name bal  → in DRY_RUN: log "WOULD DEPLOY" with the quote and signal the caller to skip the tx
+  [ -z "$DRY_RUN" ] && return 1
+  echo "  ✓ WOULD DEPLOY — funded ($2 wei), est ~${COST_ETH:-?} native at ${GAS_GWEI:-?} gwei. DRY_RUN: nothing sent."
+  wouldeploy="$wouldeploy $1"
+  return 0
+}
+
+deployed=""; uptodate=""; skipped=""; failed=""; wouldeploy=""
 while IFS='|' read -r name rpcvar faucet; do
   [ -z "$name" ] && continue
   rpc="${!rpcvar:-}"
@@ -134,6 +151,7 @@ while IFS='|' read -r name rpcvar faucet; do
     echo "    A testnet quoting this much gas looks mispriced; deploy deliberately with MAX_DEPLOY_COST_ETH=<n> make deploy-$name"
     skipped="$skipped $name(cost)"; continue
   fi
+  preview "$name" "$bal" && continue   # DRY_RUN: report the quote, send nothing
   echo "  funded ($bal wei) — deploying… (keystore password prompt next)"
   if make "deploy-$name"; then
     deployed="$deployed $name"
@@ -216,6 +234,7 @@ while IFS='|' read -r name cid rpc; do
     echo "    Looks mispriced for a testnet; deploy deliberately with MAX_DEPLOY_COST_ETH=<n> make deploy-… if intended."
     skipped="$skipped $name(cost)"; continue
   fi
+  preview "$name" "$bal" && continue   # DRY_RUN: report the quote, send nothing
   echo "  funded ($bal) — deploying bare via generic fallback (--legacy, no verify)…"
   if PLATFORM_TREASURY="$DEPLOYER" forge script script/DeployAll.s.sol --rpc-url "$rpc" --account "$DEPLOYER_ACCOUNT" --sender "$DEPLOYER" --broadcast --legacy -vvvv; then
     deployed="$deployed $name"
@@ -227,8 +246,18 @@ while IFS='|' read -r name cid rpc; do
 done <<< "$EXTRA"
 
 echo; echo "===================== SUMMARY ====================="
-echo "  deployed (new / re-deployed):${deployed:- none}"
-echo "  up to date (identical, skipped):${uptodate:- none}"
-echo "  skipped (declined / unfunded / no RPC):${skipped:- none}"
-echo "  failed (or deployed-but-unverified — check broadcast/):${failed:- none}"
-echo "  New addresses land in broadcast/DeployAll.s.sol/<chainId>/run-latest.json — paste them to record."
+if [ -n "$DRY_RUN" ]; then
+  echo "  *** DRY RUN — nothing was deployed and no keystore password was needed. ***"
+  echo "  would deploy (funded, under the cost ceiling):${wouldeploy:- none}"
+  echo "  up to date (identical, would skip):${uptodate:- none}"
+  echo "  would skip (unfunded / no RPC / over cost ceiling / outdated):${skipped:- none}"
+  echo "  Pick your gas threshold from the quotes above, then run for real:"
+  echo "     make deploy-all-testnets            # default 0.5-native cost ceiling"
+  echo "     MAX_DEPLOY_COST_ETH=2 make deploy-all-testnets   # raise the ceiling"
+else
+  echo "  deployed (new / re-deployed):${deployed:- none}"
+  echo "  up to date (identical, skipped):${uptodate:- none}"
+  echo "  skipped (declined / unfunded / no RPC / over cost ceiling):${skipped:- none}"
+  echo "  failed (or deployed-but-unverified — check broadcast/):${failed:- none}"
+  echo "  New addresses land in broadcast/DeployAll.s.sol/<chainId>/run-latest.json — paste them to record."
+fi
