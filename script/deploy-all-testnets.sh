@@ -22,6 +22,20 @@ export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")/.."
 [ -f .env ] && { set -a; . ./.env; set +a; }
 : "${DEPLOYER:?set DEPLOYER in .env (the deployer wallet address) before running}"
+# Keystore name the deploys sign with. Default it so the EXTRA loop's bare --account "$DEPLOYER_ACCOUNT"
+# can never trip `set -u` and abort mid-batch when .env omits it.
+DEPLOYER_ACCOUNT="${DEPLOYER_ACCOUNT:-deployer}"
+
+# RPCs: single source of truth is the Makefile's `<VAR> ?= <url>` defaults. Inherit each here, applying
+# it ONLY when the var isn't already set — so a value from .env still wins, and every chain's read-only
+# probes (chain-id / code / balance / gas-price) work with ZERO .env setup. (cd above put us at the repo
+# root, next to the Makefile.)
+while IFS= read -r _line; do
+  _var="${_line%% *}"
+  _url="${_line#*?= }"
+  [ -n "${!_var:-}" ] || printf -v "$_var" '%s' "$_url"
+done < <(grep -E '^[A-Z_]+_RPC_URL[[:space:]]*\?=' Makefile 2>/dev/null)
+unset _line _var _url
 
 # Fingerprint the local build once. The Router has no immutables and foundry.toml sets
 # bytecode_hash="none", so a freshly-compiled deployedBytecode equals the on-chain runtime EXACTLY
@@ -29,6 +43,10 @@ cd "$(dirname "$0")/.."
 echo "==> fingerprinting the local build (forge inspect Access0x1Router)…"
 LOCAL_ROUTER=$(forge inspect Access0x1Router deployedBytecode 2>/dev/null | tr 'A-F' 'a-f' | sed 's/^0x//')
 [ -n "$LOCAL_ROUTER" ] || { echo "could not compile Access0x1Router — run 'forge build' first."; exit 1; }
+# deploy_state reads the recorded Router address from the broadcast JSON with python3. If python3 were
+# missing the parse would silently yield "", every live chain would read as ABSENT, and they'd be
+# RE-DEPLOYED (new addresses). Fail fast instead — this safety net must never be silently disabled.
+command -v python3 >/dev/null 2>&1 || { echo "python3 is required (deploy-state reads broadcast JSON) — install it and re-run."; exit 1; }
 
 # name (make-target) | RPC env-var | faucet hint — the FULL set; live chains skip themselves.
 CHAINS='arc|ARC_TESTNET_RPC_URL|faucet.circle.com (Arc Testnet)
@@ -72,7 +90,7 @@ deploy_state() {  # chainId rpc
   [ -z "$addr" ] && return 0
   ROUTER_ADDR="$addr"
   onchain=$(cast code "$addr" --rpc-url "$rpc" 2>/dev/null | tr 'A-F' 'a-f' | sed 's/^0x//')
-  { [ -z "$onchain" ] || [ "$onchain" = "0x" ]; } && return 0   # recorded but gone (testnet reset) → ABSENT
+  [ -z "$onchain" ] && return 0   # recorded but no code on-chain (testnet reset) → ABSENT
   [ "$onchain" = "$LOCAL_ROUTER" ] && DEPLOY_STATE=SAME || DEPLOY_STATE=OUTDATED
   return 0
 }
@@ -85,18 +103,20 @@ deploy_state() {  # chainId rpc
 # stack's ~15M-gas budget; ceiling defaults to 0.5 native, override per run with MAX_DEPLOY_COST_ETH=…
 GAS_BUDGET=15000000
 MAX_DEPLOY_COST_WEI=$(cast to-wei "${MAX_DEPLOY_COST_ETH:-0.5}" ether 2>/dev/null || echo 500000000000000000)
-COST_ETH=""    # last estimate, native units (set by cost_over_ceiling for the message + preview)
-GAS_GWEI=""    # last live gas price, gwei (for the preview table)
-cost_over_ceiling() {  # rpc  → 0 (skip) when estimated cost exceeds the ceiling; sets COST_ETH/GAS_GWEI
+MAX_DEPLOY_COST_DISP=$(awk "BEGIN{printf \"%g\", $MAX_DEPLOY_COST_WEI/1000000000000000000}")  # "0.5", for messages
+COST_ETH="n/a"   # DISPLAY only (a few sig-figs); the ceiling COMPARISON below always uses raw wei, never this
+GAS_GWEI="n/a"
+cost_over_ceiling() {  # rpc  → 0 (skip) when estimated cost exceeds the ceiling; sets COST_ETH/GAS_GWEI for display
   local rpc="$1" gp cost
-  COST_ETH=""
-  GAS_GWEI=""
-  gp=$(cast gas-price --rpc-url "$rpc" 2>/dev/null) || return 1   # can't price it → don't block
-  case "$gp" in '' | *[!0-9]*) return 1 ;; esac                   # non-numeric → don't block
-  GAS_GWEI=$(echo "scale=2; $gp/1000000000" | bc 2>/dev/null)
+  COST_ETH="n/a"
+  GAS_GWEI="n/a"
+  gp=$(cast gas-price --rpc-url "$rpc" 2>/dev/null) || return 1   # can't reach RPC → don't block
+  case "$gp" in 0x*) gp=$(cast to-dec "$gp" 2>/dev/null) ;; esac  # some cast versions/RPCs return hex
+  case "$gp" in '' | *[!0-9]*) return 1 ;; esac                   # genuinely non-numeric → don't block
+  GAS_GWEI=$(awk "BEGIN{printf \"%.4g\", $gp/1000000000}")        # leading-zero safe: "0.02", "110", "1.09"
   cost=$(echo "$gp * $GAS_BUDGET" | bc 2>/dev/null) || return 1
-  COST_ETH=$(cast from-wei "$cost" 2>/dev/null)
-  [ "$(echo "$cost > $MAX_DEPLOY_COST_WEI" | bc 2>/dev/null)" = "1" ]
+  COST_ETH=$(awk "BEGIN{printf \"%.6g\", $cost/1000000000000000000}")  # a few sig-figs: "0.000307", "1.65"
+  [ "$(echo "$cost > $MAX_DEPLOY_COST_WEI" | bc 2>/dev/null)" = "1" ]  # COMPARE on raw wei (exact), not display
 }
 
 # PREVIEW mode: DRY_RUN=1 (or `make deploy-preview`) does every read-only check — deploy-state, balance,
@@ -112,11 +132,14 @@ preview() {  # name bal  → in DRY_RUN: log "WOULD DEPLOY" with the quote and s
 }
 
 deployed=""; uptodate=""; skipped=""; failed=""; wouldeploy=""
-while IFS='|' read -r name rpcvar faucet; do
+# Read the chain table on FD 3, NOT stdin. Otherwise the herestring is the loop body's stdin too, and a
+# child that reads stdin (a keystore-password prompt falling back off a non-TTY) would eat the remaining
+# chain records and silently skip them. FD 3 isolates the data; the body keeps the real stdin (the tty).
+while IFS='|' read -r name rpcvar faucet <&3; do
   [ -z "$name" ] && continue
   rpc="${!rpcvar:-}"
   echo; echo "================= $name ================="
-  [ -z "$rpc" ] && { echo "  no \$$rpcvar in .env — skip"; skipped="$skipped $name"; continue; }
+  [ -z "$rpc" ] && { echo "  no RPC for \$$rpcvar (absent from .env and the Makefile defaults) — skip"; skipped="$skipped $name"; continue; }
 
   # zkSync (EraVM) is a documented special case, NOT a batch target. foundry-zksync only allows
   # cheatcodes at the script root — not inside a CREATE/CALL dispatched to the zkEVM — so the standard
@@ -130,6 +153,9 @@ while IFS='|' read -r name rpcvar faucet; do
   fi
 
   cid=$(cast chain-id --rpc-url "$rpc" 2>/dev/null || echo "")
+  # An empty chain-id means the RPC is unreachable. Skip — never treat it as ABSENT, or an already-live
+  # chain would be mis-read as not-deployed and RE-DEPLOYED (minting a new address).
+  [ -z "$cid" ] && { echo "  ⚠ RPC unreachable ($rpc) — can't read chain-id; skip (set a reliable \$$rpcvar)."; skipped="$skipped $name(rpc)"; continue; }
   deploy_state "$cid" "$rpc"; state="$DEPLOY_STATE"
   # Fully automatic (no per-chain prompt): SAME→skip, ABSENT→deploy if funded, OUTDATED→skip+warn
   # (auto-overwriting a live deployment would mint new addresses, so that one stays a manual,
@@ -152,7 +178,7 @@ while IFS='|' read -r name rpcvar faucet; do
     echo "  $DEPLOYER has 0 gas on $name — can't deploy. Fund: $faucet"; skipped="$skipped $name"; continue
   fi
   if cost_over_ceiling "$rpc"; then
-    echo "  ⚠ estimated deploy cost ~$COST_ETH native exceeds the $(cast from-wei "$MAX_DEPLOY_COST_WEI") ceiling — auto-SKIP."
+    echo "  ⚠ estimated deploy cost ~$COST_ETH native (at $GAS_GWEI gwei) exceeds the $MAX_DEPLOY_COST_DISP ceiling — auto-SKIP."
     echo "    A testnet quoting this much gas looks mispriced; deploy deliberately with MAX_DEPLOY_COST_ETH=<n> make deploy-$name"
     skipped="$skipped $name(cost)"; continue
   fi
@@ -176,7 +202,7 @@ while IFS='|' read -r name rpcvar faucet; do
       failed="$failed $name"
     fi
   fi
-done <<< "$CHAINS"
+done 3<<< "$CHAINS"
 
 # ── Extra Chainlink-faucet testnets (no dedicated HelperConfig branch) ────────────────────────────
 # Deployed via the GENERIC FALLBACK: export PLATFORM_TREASURY and HelperConfig reads it; feeds/USDC
@@ -223,7 +249,7 @@ robinhood-chain-testnet|46630|https://rpc.testnet.chain.robinhood.com
 tempo-moderato-testnet|42431|https://rpc.moderato.tempo.xyz
 creditcoin-testnet|102031|https://rpc.cc3-testnet.creditcoin.network'
 
-while IFS='|' read -r name cid rpc; do
+while IFS='|' read -r name cid rpc <&3; do
   [ -z "$name" ] && continue
   echo; echo "================= $name (extra · bare) ================="
   deploy_state "$cid" "$rpc"; st="$DEPLOY_STATE"
@@ -235,7 +261,7 @@ while IFS='|' read -r name cid rpc; do
   bal=$(cast balance "$DEPLOYER" --rpc-url "$rpc" 2>/dev/null || echo 0)
   if [ -z "$bal" ] || [ "$bal" = "0" ]; then echo "  0 gas — skip. Fund at faucets.chain.link."; skipped="$skipped $name"; continue; fi
   if cost_over_ceiling "$rpc"; then
-    echo "  ⚠ estimated deploy cost ~$COST_ETH native exceeds the $(cast from-wei "$MAX_DEPLOY_COST_WEI") ceiling — auto-SKIP (e.g. Tempo Moderato at 110 gwei)."
+    echo "  ⚠ estimated deploy cost ~$COST_ETH native (at $GAS_GWEI gwei) exceeds the $MAX_DEPLOY_COST_DISP ceiling — auto-SKIP (e.g. Tempo Moderato at 110 gwei)."
     echo "    Looks mispriced for a testnet; deploy deliberately with MAX_DEPLOY_COST_ETH=<n> make deploy-… if intended."
     skipped="$skipped $name(cost)"; continue
   fi
@@ -248,7 +274,7 @@ while IFS='|' read -r name cid rpc; do
   else
     echo "  !!! $name did not land — check broadcast/ (RPC? legacy gas? funds?)."; failed="$failed $name"
   fi
-done <<< "$EXTRA"
+done 3<<< "$EXTRA"
 
 echo; echo "===================== SUMMARY ====================="
 if [ -n "$DRY_RUN" ]; then
