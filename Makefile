@@ -293,6 +293,14 @@ deploy-flow-evm-testnet: ## Deploy to Flow EVM testnet (chainId 545, FLOW; block
 deploy-celo-sepolia: ## Deploy to Celo Sepolia (chainId 11142220, CELO; celoscan/etherscan-v2 verify)
 	forge script script/DeployAll.s.sol --rpc-url $(CELO_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(CELOSCAN_API_KEY) -vvvv
 
+# ── The whole fan-out in ONE command ────────────────────────────────────────────────
+# Loops every testnet above EXCEPT arc + base (both already live — re-deploy mints new
+# addresses and breaks the live app). Read-only balance precheck per chain: unfunded chains
+# are skipped with their faucet; funded chains deploy (keystore prompt each). See the script
+# header for the verify caveat (broadcast lands before verify).
+deploy-all-testnets: ## Deploy the full stack to every FUNDED testnet (skips arc+base + any 0-gas chain)
+	bash script/deploy-all-testnets.sh
+
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 #  ⛔ MAINNET — AUDIT-GATED, REAL FUNDS. DO NOT RUN UNTIL A THIRD-PARTY AUDIT IS COMPLETE.            ⛔
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
