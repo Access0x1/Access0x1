@@ -55,21 +55,26 @@ citrea-testnet|CITREA_TESTNET_RPC_URL|citrea.xyz faucet
 flow-evm-testnet|FLOW_EVM_TESTNET_RPC_URL|faucet.flow.com
 celo-sepolia|CELO_SEPOLIA_RPC_URL|faucet.celo.org'
 
-# Print the deploy-state of a chain by diffing on-chain Router code vs LOCAL_ROUTER → SAME|OUTDATED|ABSENT.
-# Also sets the global ROUTER_ADDR for the message.
+# Resolve the deploy-state of a chain by diffing on-chain Router code vs LOCAL_ROUTER.
+# Sets two GLOBALS: DEPLOY_STATE (SAME|OUTDATED|ABSENT) and ROUTER_ADDR (the recorded address, for the
+# message). IMPORTANT: call this DIRECTLY, never via $(...) — command substitution runs in a subshell,
+# so the global assignments would be lost in the parent (that was the blank-Router-address bug).
 ROUTER_ADDR=""
+DEPLOY_STATE=""
 deploy_state() {  # chainId rpc
   local cid="$1" rpc="$2" bc addr onchain
   ROUTER_ADDR=""
-  [ -z "$cid" ] && { echo ABSENT; return; }
+  DEPLOY_STATE=ABSENT
+  [ -z "$cid" ] && return 0
   bc="broadcast/DeployAll.s.sol/$cid/run-latest.json"
-  [ -f "$bc" ] || { echo ABSENT; return; }
+  [ -f "$bc" ] || return 0
   addr=$(python3 -c "import json;d=json.load(open('$bc'));print(next((t['contractAddress'] for t in d['transactions'] if t.get('contractName')=='Access0x1Router'),''))" 2>/dev/null)
-  [ -z "$addr" ] && { echo ABSENT; return; }
+  [ -z "$addr" ] && return 0
   ROUTER_ADDR="$addr"
   onchain=$(cast code "$addr" --rpc-url "$rpc" 2>/dev/null | tr 'A-F' 'a-f' | sed 's/^0x//')
-  [ -z "$onchain" ] || [ "$onchain" = "0x" ] && { echo ABSENT; return; }   # recorded but gone (testnet reset)
-  [ "$onchain" = "$LOCAL_ROUTER" ] && echo SAME || echo OUTDATED
+  { [ -z "$onchain" ] || [ "$onchain" = "0x" ]; } && return 0   # recorded but gone (testnet reset) → ABSENT
+  [ "$onchain" = "$LOCAL_ROUTER" ] && DEPLOY_STATE=SAME || DEPLOY_STATE=OUTDATED
+  return 0
 }
 
 # Cost sanity guard. A testnet's gas is meant to be valueless faucet tokens, so a deploy estimate of a
@@ -125,7 +130,7 @@ while IFS='|' read -r name rpcvar faucet; do
   fi
 
   cid=$(cast chain-id --rpc-url "$rpc" 2>/dev/null || echo "")
-  state=$(deploy_state "$cid" "$rpc")
+  deploy_state "$cid" "$rpc"; state="$DEPLOY_STATE"
   # Fully automatic (no per-chain prompt): SAME→skip, ABSENT→deploy if funded, OUTDATED→skip+warn
   # (auto-overwriting a live deployment would mint new addresses, so that one stays a manual,
   # deliberate `make deploy-<chain>`).
@@ -160,7 +165,7 @@ while IFS='|' read -r name rpcvar faucet; do
     # broadcast already landed (forge then exits 1 on "not all contracts verified", even though the
     # deploy succeeded). So re-check on-chain: if the Router is now live AND byte-identical, the
     # deploy SUCCEEDED and only verification timed out → auto-retry verify with --resume (no re-deploy).
-    if [ "$(deploy_state "$cid" "$rpc")" = "SAME" ]; then
+    if { deploy_state "$cid" "$rpc"; [ "$DEPLOY_STATE" = "SAME" ]; }; then
       echo "  ↳ deploy LANDED (Router $ROUTER_ADDR live + identical) — the non-zero was the verify poll."
       echo "    retrying verification with --resume (re-uses the broadcast, no new deploy)…"
       if RESUME=1 make "deploy-$name"; then echo "  ✓ verified on --resume retry."; else
@@ -221,7 +226,7 @@ creditcoin-testnet|102031|https://rpc.cc3-testnet.creditcoin.network'
 while IFS='|' read -r name cid rpc; do
   [ -z "$name" ] && continue
   echo; echo "================= $name (extra · bare) ================="
-  st=$(deploy_state "$cid" "$rpc")
+  deploy_state "$cid" "$rpc"; st="$DEPLOY_STATE"
   case "$st" in
     SAME) echo "  ✓ up to date — Router $ROUTER_ADDR identical. skip."; uptodate="$uptodate $name"; continue ;;
     OUTDATED) echo "  ⚠ a different build is live ($ROUTER_ADDR) — auto-SKIP (overwrite manually if intended)."; skipped="$skipped $name(outdated)"; continue ;;
@@ -238,8 +243,8 @@ while IFS='|' read -r name cid rpc; do
   echo "  funded ($bal) — deploying bare via generic fallback (--legacy, no verify)…"
   if PLATFORM_TREASURY="$DEPLOYER" forge script script/DeployAll.s.sol --rpc-url "$rpc" --account "$DEPLOYER_ACCOUNT" --sender "$DEPLOYER" --broadcast --legacy -vvvv; then
     deployed="$deployed $name"
-  elif [ "$(deploy_state "$cid" "$rpc")" = "SAME" ]; then
-    echo "  ↳ landed (Router live) despite non-zero — counting deployed."; deployed="$deployed $name"
+  elif { deploy_state "$cid" "$rpc"; [ "$DEPLOY_STATE" = "SAME" ]; }; then
+    echo "  ↳ landed (Router $ROUTER_ADDR live) despite non-zero — counting deployed."; deployed="$deployed $name"
   else
     echo "  !!! $name did not land — check broadcast/ (RPC? legacy gas? funds?)."; failed="$failed $name"
   fi
