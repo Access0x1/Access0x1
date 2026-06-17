@@ -31,8 +31,9 @@ export function OnboardView(): ReactNode {
       </header>
 
       <p className="text-sm text-neutral-500">
-        Set your name, a one-line description, and a logo. You&apos;ll get a branded checkout link
-        and an embed tag — live in under two minutes, no code and no gas.
+        Access0x1 turns your business into a crypto-friendly storefront — a branded checkout link that
+        accepts USDC, with no code, no contract, and no gas to manage. Set your name, a one-line
+        description, and a logo below to get yours, live in under two minutes.
       </p>
 
       <section className="rounded-2xl border border-neutral-200 p-6">
