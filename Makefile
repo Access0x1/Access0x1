@@ -411,6 +411,9 @@ deploy-celo-mainnet: ## ⛔ AUDIT-GATED: deploy to Celo mainnet (chainId 42220, 
 
 # Arc MAINNET is NOT launched (Arc is testnet-only today). Its chain id is TBD, so the HelperConfig
 # branch is selected only when ARC_MAINNET_CHAIN_ID is set to the real id at launch (never invented).
+# CANDIDATE (verified Jun 16, 2026, NOT live): ethereum-lists/chains pre-registers chain 5042
+# ("arc-mainnet", native USDC) — the likely id — but with empty rpc/explorer; Arc is still public
+# testnet ("mainnet beta, summer 2026"). Set ARC_MAINNET_CHAIN_ID=5042 only once Circle ships a live RPC.
 # This target is doubly gated: AUDIT-GATED above, AND it errors if ARC_MAINNET_CHAIN_ID is unset.
 deploy-arc-mainnet: ## ⛔ AUDIT-GATED + NOT LAUNCHED: deploy to Arc mainnet (set ARC_MAINNET_CHAIN_ID first)
 	$(MAINNET_GATE)
