@@ -127,6 +127,74 @@ while IFS='|' read -r name rpcvar faucet; do
   fi
 done <<< "$CHAINS"
 
+# ── Extra Chainlink-faucet testnets (no dedicated HelperConfig branch) ────────────────────────────
+# Deployed via the GENERIC FALLBACK: export PLATFORM_TREASURY and HelperConfig reads it; feeds/USDC
+# default to address(0) ⇒ a BARE router + commerce stack (USD pricing added per-chain later). Broadcast
+# -only + --legacy (many of these RPCs lack eth_feeHistory). Same git-style skip + balance precheck +
+# prompt. Validated live + chainId-matched 2026-06-17; 5 with a dead/wrong RPC were dropped (Shibarium,
+# Core, Mind, XDC Apothem, X Layer) — add them back when a working RPC is known.
+EXTRA='wemix3-0-testnet|1112|https://api.test.wemix.com/
+metis-sepolia|59902|https://sepolia.metisdevops.link
+polygon-zkevm-cardona-testnet|2442|https://rpc.cardona.zkevm-rpc.com
+mode-sepolia|919|https://sepolia.mode.network
+cronos-zkevm-testnet|240|https://testnet.zkevm.cronos.org
+cronos-testnet|338|https://evm-t3.cronos.org
+soneium-minato|1946|https://rpc.minato.soneium.org
+hedera-testnet|296|https://testnet.hashio.io/api
+corn-testnet|21000001|https://testnet-rpc.usecorn.com
+astar-shibuya|81|https://evm.shibuya.astar.network
+sei-testnet-atlantic-2|1328|https://evm-rpc-testnet.sei-apis.com
+bob-sepolia|808813|https://bob-sepolia.rpc.gobob.xyz
+bitlayer-testnet|200810|https://testnet-rpc.bitlayer.org
+plume-testnet|98867|https://testnet-rpc.plume.org
+abstract-testnet|11124|https://api.testnet.abs.xyz
+lisk-sepolia-testnet|4202|https://rpc.sepolia-api.lisk.com
+metal-l2-testnet|1740|https://testnet.rpc.metall2.com/
+superseed-sepolia-testnet|53302|https://sepolia.superseed.xyz
+opbnb-testnet|5611|https://opbnb-testnet-rpc.bnbchain.org
+neo-x-testnet-t4|12227332|https://testnet.rpc.banelabs.org/
+kaia-kairos-testnet|1001|https://public-en-kairos.node.kaia.io
+tac-saint-petersburg-testnet|2391|https://spb.rpc.tac.build
+plasma-testnet|9746|https://testnet-rpc.plasma.to
+berachain-bepolia-testnet|80069|https://bepolia.rpc.berachain.com
+jovay-testnet|2019775|https://api.zan.top/public/jovay-testnet
+ab-core-testnet|26888|https://rpc.core.testnet.ab.org
+pharos-atlantic-testnet|688689|https://atlantic.dplabs-internal.com
+morph-hoodi-testnet|2910|https://rpc-hoodi.morph.network
+ethereum-hoodi-testnet|560048|https://rpc.hoodi.ethpandaops.io
+megaeth-testnet|6343|https://carrot.megaeth.com/rpc
+monad-testnet|10143|https://testnet-rpc.monad.xyz
+dogeos-chiky-testnet|6281971|https://rpc.testnet.dogeos.com/
+adi-testnet|99999|https://rpc.ab.testnet.adifoundation.ai/
+ronin-saigon-testnet|202601|https://saigon-testnet.roninchain.com/rpc
+edge-testnet|33431|https://edge-testnet.g.alchemy.com/public
+robinhood-chain-testnet|46630|https://rpc.testnet.chain.robinhood.com
+tempo-moderato-testnet|42431|https://rpc.moderato.tempo.xyz
+creditcoin-testnet|102031|https://rpc.cc3-testnet.creditcoin.network'
+
+while IFS='|' read -r name cid rpc; do
+  [ -z "$name" ] && continue
+  echo; echo "================= $name (extra · bare) ================="
+  st=$(deploy_state "$cid" "$rpc")
+  case "$st" in
+    SAME) echo "  ✓ up to date — Router $ROUTER_ADDR identical. skip."; uptodate="$uptodate $name"; continue ;;
+    OUTDATED) read -r -p "  ⚠ a different build is live ($ROUTER_ADDR). re-deploy $name? [y/N] " a </dev/tty || a=""
+              [[ "${a:-}" =~ ^[Yy] ]] || { echo "    kept."; skipped="$skipped $name"; continue; } ;;
+    ABSENT) read -r -p "  $name not deployed (chainid $cid). Deploy bare? [Y/n] " a </dev/tty || a="Y"
+            [[ "${a:-Y}" =~ ^[Nn] ]] && { echo "    skipped."; skipped="$skipped $name"; continue; } ;;
+  esac
+  bal=$(cast balance "$DEPLOYER" --rpc-url "$rpc" 2>/dev/null || echo 0)
+  if [ -z "$bal" ] || [ "$bal" = "0" ]; then echo "  0 gas — skip. Fund at faucets.chain.link."; skipped="$skipped $name"; continue; fi
+  echo "  funded ($bal) — deploying bare via generic fallback (--legacy, no verify)…"
+  if PLATFORM_TREASURY="$DEPLOYER" forge script script/DeployAll.s.sol --rpc-url "$rpc" --account "$DEPLOYER_ACCOUNT" --sender "$DEPLOYER" --broadcast --legacy -vvvv; then
+    deployed="$deployed $name"
+  elif [ "$(deploy_state "$cid" "$rpc")" = "SAME" ]; then
+    echo "  ↳ landed (Router live) despite non-zero — counting deployed."; deployed="$deployed $name"
+  else
+    echo "  !!! $name did not land — check broadcast/ (RPC? legacy gas? funds?)."; failed="$failed $name"
+  fi
+done <<< "$EXTRA"
+
 echo; echo "===================== SUMMARY ====================="
 echo "  deployed (new / re-deployed):${deployed:- none}"
 echo "  up to date (identical, skipped):${uptodate:- none}"
