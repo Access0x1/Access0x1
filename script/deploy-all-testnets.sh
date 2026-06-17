@@ -6,6 +6,8 @@
 #   • not deployed yet → DEPLOY automatically (if the wallet is funded; unfunded chains skip)
 #   • different build  → auto-SKIP with a warning (auto-overwriting a live deploy would mint new
 #                        addresses, so that one stays a deliberate `make deploy-<chain>`)
+#   • absurd gas cost  → auto-SKIP (a testnet quoting mainnet-like gas is a mispricing signal; the
+#                        ceiling is 0.5 native, override per run with MAX_DEPLOY_COST_ETH=<n>)
 # Nothing is hardcoded-excluded and nothing is asked — the on-chain state + funding decide, so
 # already-live chains (Arc, Base, Ethereum Sepolia, …) auto-skip and funded new chains auto-deploy.
 #
@@ -68,6 +70,25 @@ deploy_state() {  # chainId rpc
   [ "$onchain" = "$LOCAL_ROUTER" ] && echo SAME || echo OUTDATED
 }
 
+# Cost sanity guard. A testnet's gas is meant to be valueless faucet tokens, so a deploy estimate of a
+# fraction of a token is normal; a chain that quotes mainnet-like gas (e.g. Tempo Moderato at 110 gwei
+# ⇒ ~1.5 native for the full stack) is the SIGNAL — either it's mispriced or its native token isn't
+# free test gas. We auto-skip those instead of letting a scary "1.5 ETH required" estimate run, since
+# we never want to burn a chain whose token might have value. Estimate = live gas price × the full
+# stack's ~15M-gas budget; ceiling defaults to 0.5 native, override per run with MAX_DEPLOY_COST_ETH=…
+GAS_BUDGET=15000000
+MAX_DEPLOY_COST_WEI=$(cast to-wei "${MAX_DEPLOY_COST_ETH:-0.5}" ether 2>/dev/null || echo 500000000000000000)
+COST_ETH=""
+cost_over_ceiling() {  # rpc  → 0 (skip) when estimated cost exceeds the ceiling; sets COST_ETH for the message
+  local rpc="$1" gp cost
+  COST_ETH=""
+  gp=$(cast gas-price --rpc-url "$rpc" 2>/dev/null) || return 1   # can't price it → don't block
+  case "$gp" in '' | *[!0-9]*) return 1 ;; esac                   # non-numeric → don't block
+  cost=$(echo "$gp * $GAS_BUDGET" | bc 2>/dev/null) || return 1
+  COST_ETH=$(cast from-wei "$cost" 2>/dev/null)
+  [ "$(echo "$cost > $MAX_DEPLOY_COST_WEI" | bc 2>/dev/null)" = "1" ]
+}
+
 deployed=""; uptodate=""; skipped=""; failed=""
 while IFS='|' read -r name rpcvar faucet; do
   [ -z "$name" ] && continue
@@ -107,6 +128,11 @@ while IFS='|' read -r name rpcvar faucet; do
   bal=$(cast balance "$DEPLOYER" --rpc-url "$rpc" 2>/dev/null || echo 0)
   if [ -z "$bal" ] || [ "$bal" = "0" ]; then
     echo "  $DEPLOYER has 0 gas on $name — can't deploy. Fund: $faucet"; skipped="$skipped $name"; continue
+  fi
+  if cost_over_ceiling "$rpc"; then
+    echo "  ⚠ estimated deploy cost ~$COST_ETH native exceeds the $(cast from-wei "$MAX_DEPLOY_COST_WEI") ceiling — auto-SKIP."
+    echo "    A testnet quoting this much gas looks mispriced; deploy deliberately with MAX_DEPLOY_COST_ETH=<n> make deploy-$name"
+    skipped="$skipped $name(cost)"; continue
   fi
   echo "  funded ($bal wei) — deploying… (keystore password prompt next)"
   if make "deploy-$name"; then
@@ -185,6 +211,11 @@ while IFS='|' read -r name cid rpc; do
   esac
   bal=$(cast balance "$DEPLOYER" --rpc-url "$rpc" 2>/dev/null || echo 0)
   if [ -z "$bal" ] || [ "$bal" = "0" ]; then echo "  0 gas — skip. Fund at faucets.chain.link."; skipped="$skipped $name"; continue; fi
+  if cost_over_ceiling "$rpc"; then
+    echo "  ⚠ estimated deploy cost ~$COST_ETH native exceeds the $(cast from-wei "$MAX_DEPLOY_COST_WEI") ceiling — auto-SKIP (e.g. Tempo Moderato at 110 gwei)."
+    echo "    Looks mispriced for a testnet; deploy deliberately with MAX_DEPLOY_COST_ETH=<n> make deploy-… if intended."
+    skipped="$skipped $name(cost)"; continue
+  fi
   echo "  funded ($bal) — deploying bare via generic fallback (--legacy, no verify)…"
   if PLATFORM_TREASURY="$DEPLOYER" forge script script/DeployAll.s.sol --rpc-url "$rpc" --account "$DEPLOYER_ACCOUNT" --sender "$DEPLOYER" --broadcast --legacy -vvvv; then
     deployed="$deployed $name"
