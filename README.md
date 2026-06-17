@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed + verified on three chains: Arc Testnet (5042002), Base Sepolia (84532), and Ethereum Sepolia (11155111).** More Tier-1 testnets (Arbitrum/Optimism/zkSync Sepolia, Polygon Amoy, Avalanche Fuji) are one-command ready (`make deploy-all-testnets`) but not yet broadcast. **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed + verified on four chains: Arc Testnet (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), and Optimism Sepolia (11155420).** More Tier-1 testnets (Arbitrum/Optimism/zkSync Sepolia, Polygon Amoy, Avalanche Fuji) are one-command ready (`make deploy-all-testnets`) but not yet broadcast. **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -363,6 +363,14 @@ operator guide.
 | Ethereum Sepolia (11155111) | `Access0x1Bookings` | [`0xb1dfa8fd2d55f6592562ed2a738fd9bf45df4023`](https://sepolia.etherscan.io/address/0xb1dfa8fd2d55f6592562ed2a738fd9bf45df4023) | — |
 | Ethereum Sepolia (11155111) | `Access0x1Invoices` | [`0x52dd1e0f44282be35991864375c88ae267b450fc`](https://sepolia.etherscan.io/address/0x52dd1e0f44282be35991864375c88ae267b450fc) | — |
 | Ethereum Sepolia (11155111) | `Access0x1GiftCards` | [`0x1ac9457a3436ea0864cad2ce8f4bbf8a1e853f51`](https://sepolia.etherscan.io/address/0x1ac9457a3436ea0864cad2ce8f4bbf8a1e853f51) | — |
+| Optimism Sepolia (11155420) | `Access0x1Router` | [`0xc7ed3886ec8995531531cb2659d6b4bc4519c231`](https://sepolia-optimism.etherscan.io/address/0xc7ed3886ec8995531531cb2659d6b4bc4519c231) | — |
+| Optimism Sepolia (11155420) | `SessionGrant` | [`0xd37634efeee3bc5ba16790345e7d5e15f06da69f`](https://sepolia-optimism.etherscan.io/address/0xd37634efeee3bc5ba16790345e7d5e15f06da69f) | — |
+| Optimism Sepolia (11155420) | `PaymentLanes` | [`0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e`](https://sepolia-optimism.etherscan.io/address/0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e) | — |
+| Optimism Sepolia (11155420) | `HouseTokenFactory` | [`0x9ec3984b224057e495175aa0a6e21c1a38a7da92`](https://sepolia-optimism.etherscan.io/address/0x9ec3984b224057e495175aa0a6e21c1a38a7da92) | — |
+| Optimism Sepolia (11155420) | `Access0x1Subscriptions` | [`0x1fecfe4781e9a38b4291b681751e048cc6d1eac5`](https://sepolia-optimism.etherscan.io/address/0x1fecfe4781e9a38b4291b681751e048cc6d1eac5) | — |
+| Optimism Sepolia (11155420) | `Access0x1Bookings` | [`0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb`](https://sepolia-optimism.etherscan.io/address/0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb) | — |
+| Optimism Sepolia (11155420) | `Access0x1Invoices` | [`0xb90f34e22683d24b622a8ca32fb8cceb8ab1d505`](https://sepolia-optimism.etherscan.io/address/0xb90f34e22683d24b622a8ca32fb8cceb8ab1d505) | — |
+| Optimism Sepolia (11155420) | `Access0x1GiftCards` | [`0x8e933669a24fa6bf05206a1c17e67d5822231c6a`](https://sepolia-optimism.etherscan.io/address/0x8e933669a24fa6bf05206a1c17e67d5822231c6a) | — |
 | zkSync Sepolia (300) | `Access0x1Router` | — | — |
 | zkSync Sepolia (300) | `SessionGrant` | — | — |
 | zkSync Sepolia (300) | `HouseTokenFactory` | — | — |
