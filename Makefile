@@ -322,11 +322,12 @@ deploy-celo-sepolia: ## Deploy to Celo Sepolia (chainId 11142220, CELO; celoscan
 	forge script script/DeployAll.s.sol --rpc-url $(CELO_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 
 # ── The whole fan-out in ONE command ────────────────────────────────────────────────
-# Git-style: per chain it diffs the on-chain Router bytecode against your local build —
-# identical chains SKIP themselves (no hardcoded exclusions), and it asks (default-safe) before
-# deploying a not-yet-deployed or changed chain. Funded-only; keystore password per chain you deploy.
+# Git-style + FULLY AUTOMATIC (no per-chain prompt): per chain it diffs the on-chain Router against
+# your local build — identical chains skip, funded not-yet-deployed chains auto-deploy, a changed
+# build auto-skips with a warning (overwrite deliberately via `make deploy-<chain>`). Funded-only;
+# only the keystore password is asked, per chain actually deployed.
 # See the script header for the verify caveat (broadcast lands before verify).
-deploy-all-testnets: ## Git-style deploy: skip chains already live with the current code, prompt to deploy the rest
+deploy-all-testnets: ## Git-style AUTO deploy: skip live/identical, auto-deploy funded new chains (no prompts)
 	bash script/deploy-all-testnets.sh
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
