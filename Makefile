@@ -16,8 +16,10 @@ ANVIL_SENDER ?= 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
         gate aderyn slither analyze mutation halmos audit anvil \
         deploy-dry deploy-local drive-local deploy-arc deploy-base deploy-zksync deploy-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
+        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
-        deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet deploy-arc-mainnet \
+        deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
+        deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
         vyper-build vyper-test \
         cre-build cre-sim zksync-build all
@@ -263,6 +265,34 @@ deploy-blast-sepolia: ## Deploy to Blast Sepolia (blastscan verify)
 deploy-unichain-sepolia: ## Deploy to Unichain Sepolia (uniscan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(UNICHAIN_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(UNISCAN_API_KEY) -vvvv
 
+# ── Even more test networks (the faucet list: blockscout/sourcify/etherscan-family verify per chain) ──
+deploy-zora-sepolia: ## Deploy to Zora Sepolia (chainId 999999999, ETH; blockscout verify)
+	forge script script/DeployAll.s.sol --rpc-url $(ZORA_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(ZORA_SEPOLIA_VERIFIER_URL) -vvvv
+
+deploy-filecoin-calibration: ## Deploy to Filecoin Calibration (chainId 314159, tFIL; blockscout verify)
+	forge script script/DeployAll.s.sol --rpc-url $(FILECOIN_CALIBRATION_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(FILECOIN_CALIBRATION_VERIFIER_URL) -vvvv
+
+deploy-gnosis-chiado: ## Deploy to Gnosis Chiado (chainId 10200, XDAI; blockscout verify)
+	forge script script/DeployAll.s.sol --rpc-url $(GNOSIS_CHIADO_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(GNOSIS_CHIADO_VERIFIER_URL) -vvvv
+
+deploy-apechain-curtis: ## Deploy to ApeChain Curtis (chainId 33111, APE; blockscout verify)
+	forge script script/DeployAll.s.sol --rpc-url $(APECHAIN_CURTIS_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(APECHAIN_CURTIS_VERIFIER_URL) -vvvv
+
+deploy-worldchain-sepolia: ## Deploy to World Chain Sepolia (chainId 4801, ETH; worldscan/etherscan verify)
+	forge script script/DeployAll.s.sol --rpc-url $(WORLDCHAIN_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(WORLDSCAN_API_KEY) -vvvv
+
+deploy-zircuit-garfield: ## Deploy to Zircuit Garfield testnet (chainId 48898, ETH; sourcify verify)
+	forge script script/DeployAll.s.sol --rpc-url $(ZIRCUIT_GARFIELD_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier sourcify -vvvv
+
+deploy-citrea-testnet: ## Deploy to Citrea testnet (chainId 5115, cBTC; blockscout verify)
+	forge script script/DeployAll.s.sol --rpc-url $(CITREA_TESTNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(CITREA_TESTNET_VERIFIER_URL) -vvvv
+
+deploy-flow-evm-testnet: ## Deploy to Flow EVM testnet (chainId 545, FLOW; blockscout verify)
+	forge script script/DeployAll.s.sol --rpc-url $(FLOW_EVM_TESTNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(FLOW_EVM_TESTNET_VERIFIER_URL) -vvvv
+
+deploy-celo-sepolia: ## Deploy to Celo Sepolia (chainId 11142220, CELO; celoscan/etherscan-v2 verify)
+	forge script script/DeployAll.s.sol --rpc-url $(CELO_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(CELOSCAN_API_KEY) -vvvv
+
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 #  ⛔ MAINNET — AUDIT-GATED, REAL FUNDS. DO NOT RUN UNTIL A THIRD-PARTY AUDIT IS COMPLETE.            ⛔
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -342,6 +372,42 @@ deploy-unichain-mainnet: ## ⛔ AUDIT-GATED: deploy to Unichain mainnet (uniscan
 deploy-zksync-mainnet: ## ⛔ AUDIT-GATED: deploy to zkSync Era mainnet (zksync verify, --zksync) — real funds
 	$(MAINNET_GATE)
 	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --zksync --verify --verifier zksync --verifier-url $(ZKSYNC_MAINNET_VERIFIER_URL) -vvvv
+
+deploy-zora-mainnet: ## ⛔ AUDIT-GATED: deploy to Zora mainnet (chainId 7777777, ETH; blockscout verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(ZORA_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(ZORA_MAINNET_VERIFIER_URL) -vvvv
+
+deploy-filecoin-mainnet: ## ⛔ AUDIT-GATED: deploy to Filecoin mainnet (chainId 314, FIL; blockscout verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(FILECOIN_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(FILECOIN_MAINNET_VERIFIER_URL) -vvvv
+
+deploy-gnosis-mainnet: ## ⛔ AUDIT-GATED: deploy to Gnosis Chain (chainId 100, XDAI; gnosisscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(GNOSIS_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(GNOSISSCAN_API_KEY) -vvvv
+
+deploy-apechain-mainnet: ## ⛔ AUDIT-GATED: deploy to ApeChain (chainId 33139, APE; apescan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(APECHAIN_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(APESCAN_API_KEY) -vvvv
+
+deploy-worldchain-mainnet: ## ⛔ AUDIT-GATED: deploy to World Chain (chainId 480, ETH; worldscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(WORLDCHAIN_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(WORLDSCAN_API_KEY) -vvvv
+
+deploy-zircuit-mainnet: ## ⛔ AUDIT-GATED: deploy to Zircuit mainnet (chainId 48900, ETH; sourcify verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(ZIRCUIT_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier sourcify -vvvv
+
+deploy-citrea-mainnet: ## ⛔ AUDIT-GATED: deploy to Citrea mainnet (chainId 4114, cBTC; blockscout verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(CITREA_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(CITREA_MAINNET_VERIFIER_URL) -vvvv
+
+deploy-flow-evm-mainnet: ## ⛔ AUDIT-GATED: deploy to Flow EVM mainnet (chainId 747, FLOW; blockscout verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(FLOW_EVM_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --verifier blockscout --verifier-url $(FLOW_EVM_MAINNET_VERIFIER_URL) -vvvv
+
+deploy-celo-mainnet: ## ⛔ AUDIT-GATED: deploy to Celo mainnet (chainId 42220, CELO; celoscan verify) — real funds
+	$(MAINNET_GATE)
+	forge script script/DeployAll.s.sol --rpc-url $(CELO_MAINNET_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --verify --etherscan-api-key $(CELOSCAN_API_KEY) -vvvv
 
 # Arc MAINNET is NOT launched (Arc is testnet-only today). Its chain id is TBD, so the HelperConfig
 # branch is selected only when ARC_MAINNET_CHAIN_ID is set to the real id at launch (never invented).
