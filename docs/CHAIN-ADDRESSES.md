@@ -22,12 +22,12 @@ skips any chain with 0 gas and prints its faucet. Arc + Base Sepolia are exclude
 |---|---|---|---|---|---|
 | Arc Testnet | 5042002 | `0xa598…9aad` | `0x3600…0000` (native) | `0x60eb…8008` ($1 mock) | `0x60eb…8008` ($1 mock) |
 | Base Sepolia | 84532 | `0xec89…E8E57` | `0x036CbD…dCF7e` | `0x4aDC67…7cb1` (ETH/USD) | `0xd30e21…5165` |
+| Ethereum Sepolia | 11155111 | `0x75aad7079f3e3b9f51b46529e5f235934af2e932` | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` | `0x694AA1769357215DE4FAC081bf1f309aDC325306` (ETH/USD) | `0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E` |
 
 ## Ready to deploy — fully priced (USDC + USDC/USD feed)
 
 | Chain | id | USDC | native/USD feed | USDC/USD feed |
 |---|---|---|---|---|
-| Ethereum Sepolia | 11155111 | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` | `0x694AA1769357215DE4FAC081bf1f309aDC325306` (ETH/USD) | `0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E` |
 | Arbitrum Sepolia | 421614 | `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d` | `0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165` (ETH/USD) | `0x0153002d20B96532C639313c2d54c3dA09109309` |
 | zkSync Sepolia | 300 | `0xAe045DE5638162fa134807Cb558E15A3F5A7F853` | `0xfEefF7c3fB57d18C5C6Cdd71e45D2D0b4F9377bF` (ETH/USD) | `0x1844478CA634f3a762a2E71E3386837Bd50C947F` |
 | Polygon Amoy | 80002 | `0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582` | — (no POL/USD on Chainlink Amoy) | `0x1b8739bB4CdF0089d07097A9Ae5Bd274b29C6F16` |
