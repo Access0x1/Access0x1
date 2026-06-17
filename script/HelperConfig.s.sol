@@ -42,6 +42,15 @@ contract HelperConfig is Script {
     /// @notice Base Sepolia (Coinbase L2). Standard 6-dec Circle USDC + Chainlink feeds available.
     uint256 internal constant BASE_SEPOLIA_CHAIN_ID = 84_532;
 
+    /// @notice Ethereum Sepolia (L1 testnet). Native = ETH (18 dec). Circle USDC + Chainlink ETH/USD + USDC/USD all live.
+    uint256 internal constant SEPOLIA_CHAIN_ID = 11_155_111;
+
+    /// @notice Arbitrum Sepolia (Arbitrum L2 testnet). Native = ETH (18 dec). Circle USDC + Chainlink ETH/USD + USDC/USD all live.
+    uint256 internal constant ARBITRUM_SEPOLIA_CHAIN_ID = 421_614;
+
+    /// @notice Optimism Sepolia (OP Stack L2 testnet). Native = ETH (18 dec). Circle USDC + Chainlink ETH/USD live; no USDC/USD feed.
+    uint256 internal constant OPTIMISM_SEPOLIA_CHAIN_ID = 11_155_420;
+
     /// @notice zkSync Sepolia (Era, ZK Stack). Native = ETH (18 dec); USDC + feed addresses are booth confirms.
     uint256 internal constant ZKSYNC_SEPOLIA_CHAIN_ID = 300;
 
@@ -214,6 +223,12 @@ contract HelperConfig is Script {
             activeConfig = _arcTestnetConfig();
         } else if (block.chainid == BASE_SEPOLIA_CHAIN_ID) {
             activeConfig = _baseSepoliaConfig();
+        } else if (block.chainid == SEPOLIA_CHAIN_ID) {
+            activeConfig = _ethereumSepoliaConfig();
+        } else if (block.chainid == ARBITRUM_SEPOLIA_CHAIN_ID) {
+            activeConfig = _arbitrumSepoliaConfig();
+        } else if (block.chainid == OPTIMISM_SEPOLIA_CHAIN_ID) {
+            activeConfig = _optimismSepoliaConfig();
         } else if (block.chainid == ZKSYNC_SEPOLIA_CHAIN_ID) {
             activeConfig = _zkSyncSepoliaConfig();
         } else if (block.chainid == POLYGON_AMOY_CHAIN_ID) {
@@ -407,6 +422,66 @@ contract HelperConfig is Script {
                 vm.envOr("ZKSYNC_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
             ),
             creForwarder: vm.envOr("ZKSYNC_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Ethereum Sepolia (chainId 11155111, L1 testnet). Reads only `SEPOLIA_`-prefixed env. Native
+    ///      = ETH (18 dec). Circle USDC (6 dec) + Chainlink ETH/USD + USDC/USD feeds are all live on
+    ///      Sepolia (see docs/CHAIN-ADDRESSES.md). `treasury` required; addresses skipped until set.
+    function _ethereumSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Arbitrum Sepolia (chainId 421614, Arbitrum L2 testnet). Reads only `ARBITRUM_SEPOLIA_`-prefixed
+    ///      env. Native = ETH (18 dec). Circle USDC (6 dec) + Chainlink ETH/USD + USDC/USD feeds all live.
+    ///      `treasury` required; feed/USDC addresses optional and skipped until set.
+    function _arbitrumSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ARBITRUM_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ARBITRUM_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ARBITRUM_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ARBITRUM_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ARBITRUM_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ARBITRUM_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ARBITRUM_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ARBITRUM_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Optimism Sepolia (chainId 11155420, OP Stack L2 testnet). Reads only `OPTIMISM_SEPOLIA_`-prefixed
+    ///      env. Native = ETH (18 dec). Circle USDC (6 dec) + Chainlink ETH/USD live; OP Sepolia has NO
+    ///      USDC/USD feed (USDC allowlisted but unpriced until one is wired). `treasury` required.
+    function _optimismSepoliaConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("OPTIMISM_SEPOLIA_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("OPTIMISM_SEPOLIA_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("OPTIMISM_SEPOLIA_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("OPTIMISM_SEPOLIA_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("OPTIMISM_SEPOLIA_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("OPTIMISM_SEPOLIA_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("OPTIMISM_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("OPTIMISM_SEPOLIA_CRE_FORWARDER", address(0))
         });
     }
 
