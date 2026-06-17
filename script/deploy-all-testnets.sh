@@ -121,14 +121,22 @@ cost_over_ceiling() {  # rpc  → 0 (skip) when estimated cost exceeds the ceili
 
 # PREVIEW mode: DRY_RUN=1 (or `make deploy-preview`) does every read-only check — deploy-state, balance,
 # live gas price, estimated cost — and prints a verdict per chain WITHOUT broadcasting anything (no
-# keystore password, no tx). Run it first to see what each chain quotes, then pick MAX_DEPLOY_COST_ETH
-# and run the real deploy. preview() prints one line at the deploy decision point and returns 0 in DRY_RUN.
+# keystore password, no tx). The whole point is to SEE THE REAL PRICE, so it quotes EVERY chain whether
+# or not the wallet is funded; funding only changes the verdict (would-deploy vs would-skip), never
+# whether the price is shown. Run it first, read the quotes, then pick MAX_DEPLOY_COST_ETH for the real run.
 DRY_RUN="${DRY_RUN:-}"
-preview() {  # name bal  → in DRY_RUN: log "WOULD DEPLOY" with the quote and signal the caller to skip the tx
-  [ -z "$DRY_RUN" ] && return 1
-  echo "  ✓ WOULD DEPLOY — funded ($2 wei), est ~${COST_ETH:-?} native at ${GAS_GWEI:-?} gwei. DRY_RUN: nothing sent."
-  wouldeploy="$wouldeploy $1"
-  return 0
+quote_preview() {  # name bal over faucet  → print the live quote + a verdict; categorize for the SUMMARY
+  local nm="$1" bal="$2" over="$3" fc="$4" verdict
+  if [ "$GAS_GWEI" = "n/a" ]; then
+    verdict="price unavailable (RPC returned no gas price)"; skipped="$skipped $nm(no-price)"
+  elif [ -z "$bal" ] || [ "$bal" = "0" ]; then
+    verdict="would SKIP — unfunded (fund: $fc)"; skipped="$skipped $nm(unfunded)"
+  elif [ "$over" = "1" ]; then
+    verdict="would SKIP — over the $MAX_DEPLOY_COST_DISP native ceiling"; skipped="$skipped $nm(cost)"
+  else
+    verdict="✓ WOULD DEPLOY (funded)"; wouldeploy="$wouldeploy $nm"
+  fi
+  echo "  gas $GAS_GWEI gwei · est ~$COST_ETH native · $verdict"
 }
 
 deployed=""; uptodate=""; skipped=""; failed=""; wouldeploy=""
@@ -172,17 +180,21 @@ while IFS='|' read -r name rpcvar faucet <&3; do
       echo "  not deployed (chainid ${cid:-?}) — deploying if funded…" ;;
   esac
 
-  # Only now (we're going to deploy) does gas matter.
+  # Price + balance for the deploy decision. cost_over_ceiling always sets GAS_GWEI/COST_ETH (the quote);
+  # over=1 means it's above the ceiling.
   bal=$(cast balance "$DEPLOYER" --rpc-url "$rpc" 2>/dev/null || echo 0)
+  cost_over_ceiling "$rpc" && over=1 || over=0
+  # PREVIEW: show the real quote for EVERY chain (funded or not) and send nothing.
+  [ -n "$DRY_RUN" ] && { quote_preview "$name" "$bal" "$over" "$faucet"; continue; }
+  # Real run: funding + ceiling gate the deploy.
   if [ -z "$bal" ] || [ "$bal" = "0" ]; then
     echo "  $DEPLOYER has 0 gas on $name — can't deploy. Fund: $faucet"; skipped="$skipped $name"; continue
   fi
-  if cost_over_ceiling "$rpc"; then
+  if [ "$over" = "1" ]; then
     echo "  ⚠ estimated deploy cost ~$COST_ETH native (at $GAS_GWEI gwei) exceeds the $MAX_DEPLOY_COST_DISP ceiling — auto-SKIP."
     echo "    A testnet quoting this much gas looks mispriced; deploy deliberately with MAX_DEPLOY_COST_ETH=<n> make deploy-$name"
     skipped="$skipped $name(cost)"; continue
   fi
-  preview "$name" "$bal" && continue   # DRY_RUN: report the quote, send nothing
   echo "  funded ($bal wei) — deploying… (keystore password prompt next)"
   if make "deploy-$name"; then
     deployed="$deployed $name"
@@ -259,13 +271,14 @@ while IFS='|' read -r name cid rpc <&3; do
     ABSENT) echo "  not deployed (chainid $cid) — deploying bare if funded…" ;;
   esac
   bal=$(cast balance "$DEPLOYER" --rpc-url "$rpc" 2>/dev/null || echo 0)
+  cost_over_ceiling "$rpc" && over=1 || over=0
+  [ -n "$DRY_RUN" ] && { quote_preview "$name" "$bal" "$over" "faucets.chain.link"; continue; }
   if [ -z "$bal" ] || [ "$bal" = "0" ]; then echo "  0 gas — skip. Fund at faucets.chain.link."; skipped="$skipped $name"; continue; fi
-  if cost_over_ceiling "$rpc"; then
+  if [ "$over" = "1" ]; then
     echo "  ⚠ estimated deploy cost ~$COST_ETH native (at $GAS_GWEI gwei) exceeds the $MAX_DEPLOY_COST_DISP ceiling — auto-SKIP (e.g. Tempo Moderato at 110 gwei)."
     echo "    Looks mispriced for a testnet; deploy deliberately with MAX_DEPLOY_COST_ETH=<n> make deploy-… if intended."
     skipped="$skipped $name(cost)"; continue
   fi
-  preview "$name" "$bal" && continue   # DRY_RUN: report the quote, send nothing
   echo "  funded ($bal) — deploying bare via generic fallback (--legacy, no verify)…"
   if PLATFORM_TREASURY="$DEPLOYER" forge script script/DeployAll.s.sol --rpc-url "$rpc" --account "$DEPLOYER_ACCOUNT" --sender "$DEPLOYER" --broadcast --legacy -vvvv; then
     deployed="$deployed $name"
