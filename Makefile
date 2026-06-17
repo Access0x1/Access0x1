@@ -166,6 +166,13 @@ deploy-base: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 deploy-zksync: ## Deploy to zkSync Sepolia (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account deployer --sender $(DEPLOYER) --broadcast --zksync --verify --verifier zksync --verifier-url $(ZKSYNC_VERIFIER_URL) -vvvv
 
+# Deploy a $1.00 USDC/USD mock feed to ANY chain that has real Circle USDC but no Chainlink USDC/USD
+# feed (Linea/Unichain/World Chain/Celo/Optimism Sepolia). Real USDC stays the token; this is the
+# missing PRICE feed only (the Arc pattern). Set <CHAIN>_USDC_USD_FEED to the printed address, then
+# run that chain's deploy. See script/DeployUsdMockFeed.s.sol + docs/CHAIN-ADDRESSES.md.
+deploy-usd-mock-feed: ## Deploy a $1 USDC/USD mock feed to a chain that lacks one — make deploy-usd-mock-feed RPC=<url>
+	forge script script/DeployUsdMockFeed.s.sol --rpc-url $(RPC) --account deployer --sender $(DEPLOYER) --broadcast -vvvv
+
 # Compile against the zkEVM (zksolc) — the ONLY way to catch zkSync-specific build/size/opcode issues.
 # `forge test` runs the EVM, not the zkEVM (see docs/ZKSYNC-TESTING.md): EVM-green != zkSync-green.
 # Requires the foundry-zksync fork (foundryup-zksync); no-ops with a clear message if --zksync is
