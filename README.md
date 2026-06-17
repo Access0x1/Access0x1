@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed + verified on four chains: Arc Testnet (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), and Optimism Sepolia (11155420).** More Tier-1 testnets (Arbitrum/Optimism/zkSync Sepolia, Polygon Amoy, Avalanche Fuji) are one-command ready (`make deploy-all-testnets`) but not yet broadcast. **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed + verified on five chains: Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), and Avalanche Fuji (43113).** More Tier-1 testnets (Arbitrum/Optimism/zkSync Sepolia, Polygon Amoy, Avalanche Fuji) are one-command ready (`make deploy-all-testnets`) but not yet broadcast. **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -371,6 +371,14 @@ operator guide.
 | Optimism Sepolia (11155420) | `Access0x1Bookings` | [`0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb`](https://sepolia-optimism.etherscan.io/address/0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb) | — |
 | Optimism Sepolia (11155420) | `Access0x1Invoices` | [`0xb90f34e22683d24b622a8ca32fb8cceb8ab1d505`](https://sepolia-optimism.etherscan.io/address/0xb90f34e22683d24b622a8ca32fb8cceb8ab1d505) | — |
 | Optimism Sepolia (11155420) | `Access0x1GiftCards` | [`0x8e933669a24fa6bf05206a1c17e67d5822231c6a`](https://sepolia-optimism.etherscan.io/address/0x8e933669a24fa6bf05206a1c17e67d5822231c6a) | — |
+| Avalanche Fuji (43113) | `Access0x1Router` | [`0x60eb647d166b70662e0567551af7e575f13e8008`](https://testnet.snowtrace.io/address/0x60eb647d166b70662e0567551af7e575f13e8008) | — |
+| Avalanche Fuji (43113) | `SessionGrant` | [`0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad`](https://testnet.snowtrace.io/address/0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad) | — |
+| Avalanche Fuji (43113) | `PaymentLanes` | [`0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b`](https://testnet.snowtrace.io/address/0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b) | — |
+| Avalanche Fuji (43113) | `HouseTokenFactory` | [`0x3d5247b4d5d1947c7b9c82b27f20246da9923238`](https://testnet.snowtrace.io/address/0x3d5247b4d5d1947c7b9c82b27f20246da9923238) | — |
+| Avalanche Fuji (43113) | `Access0x1Subscriptions` | [`0x3a43171f6d503ab314366d19b7ddc7aa861125f2`](https://testnet.snowtrace.io/address/0x3a43171f6d503ab314366d19b7ddc7aa861125f2) | — |
+| Avalanche Fuji (43113) | `Access0x1Bookings` | [`0x1db513ec23bc7de46afd6dae5133de14d8a62bf8`](https://testnet.snowtrace.io/address/0x1db513ec23bc7de46afd6dae5133de14d8a62bf8) | — |
+| Avalanche Fuji (43113) | `Access0x1Invoices` | [`0x4e099b81a9a46a99378ac70cad195bf8e25f0c82`](https://testnet.snowtrace.io/address/0x4e099b81a9a46a99378ac70cad195bf8e25f0c82) | — |
+| Avalanche Fuji (43113) | `Access0x1GiftCards` | [`0x1001dc04da8706d53b24389c3348ca512a5ba6b7`](https://testnet.snowtrace.io/address/0x1001dc04da8706d53b24389c3348ca512a5ba6b7) | — |
 | zkSync Sepolia (300) | `Access0x1Router` | — | — |
 | zkSync Sepolia (300) | `SessionGrant` | — | — |
 | zkSync Sepolia (300) | `HouseTokenFactory` | — | — |
