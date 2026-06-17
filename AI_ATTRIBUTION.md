@@ -37,7 +37,7 @@ across the build:
 | Tier | Role | Touched |
 | --- | --- | --- |
 | **Opus** | Authored / edited all production code | `src/**.sol`, `web/**`, the SDK, `embed.js`, deploy scripts, config, standard tests |
-| **Sonnet** | Research, pseudocode, planning, prose, review, running the gate | docs, sponsor research, reviews — **never final code** |
+| **Sonnet** | Research, pseudocode, planning, prose, review, running the gate | docs, integration research, reviews — **never final code** |
 | **Fable** (orchestrator) | Held the whole build in context, decided, and **red-teamed the money path** | adversarial exploit tests under `test/attack/**` — **never `src/`** |
 
 The rule, verbatim from the policy: *only Opus authors production code; Sonnet does
@@ -82,7 +82,7 @@ them (see the "decide vs ask" rule in [`CLAUDE.md`](./CLAUDE.md) §6 and
 [`.claude/rules/accounts.md`](./.claude/rules/accounts.md)):
 
 - **Scope and architecture** — the product idea (one shared no-custody router, the
-  O(1) hash-map chain registry, ERC-6909 PaymentLanes), the chains, and the sponsor
+  O(1) hash-map chain registry, ERC-6909 PaymentLanes), the chains, and the integration
   targets were the owner's calls.
 - **The merge gate** — the owner reviews and merges PRs to `main`; every one of the
   84 merged PRs is the owner's decision. Main is only ever merged on a green gate.

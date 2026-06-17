@@ -5,7 +5,7 @@ private keys are ever passed on the command line — all signing goes through
 `cast wallet` keystores (law: signing is keystore-only).
 
 > **Scope.** This is a testnet build. No mainnet deployments exist. Every address
-> listed here must be confirmed at the sponsor booth or from the official docs
+> listed here must be confirmed from your chain's official docs
 > before being set in `.env` — an unconfirmed address left blank is
 > **skipped** by the script, never wired (address(0) is safe here).
 

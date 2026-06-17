@@ -5,7 +5,7 @@ dependency on us** — buyers pay you directly (buyer → router → your payout
 on-chain tx). The router never holds keys or funds.
 
 > **LAW #4 — truth in copy / guardrail #5:** never wire an invented address. Every feed / USDC /
-> treasury address comes from a sponsor booth or the official docs. A value that resolves to
+> treasury address comes from your chain's official docs. A value that resolves to
 > `address(0)` (not yet confirmed) is **skipped** by the deploy script, never wired as a guess.
 
 ## 0. Prerequisites
