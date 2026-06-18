@@ -16,10 +16,17 @@
 #
 set -uo pipefail
 
+# Shared resolver — resolves each contract's real source path from its build artifact (universal across
+# layouts: src/, src/libraries/, test/mocks/, nested, external), instead of assuming src/<Name>.sol.
+# shellcheck source=verify-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify-lib.sh"
+
 CHAIN_ID="${1:?usage: verify-blockscout.sh <chainId> <rpcUrl> <verifierUrl>}"
 RPC="${2:?missing rpc URL}"
 VERIFIER_URL="${3:-}"
-BCAST="broadcast/DeployAll.s.sol/${CHAIN_ID}/run-latest.json"
+# Which deploy script's broadcast to read. Defaults to the consolidated DeployAll.s.sol; override with
+# BROADCAST_SCRIPT to verify a standalone deploy (e.g. DeployUsdMockFeed.s.sol) or an external project.
+BCAST="broadcast/${BROADCAST_SCRIPT:-DeployAll.s.sol}/${CHAIN_ID}/run-latest.json"
 THROTTLE="${VERIFY_THROTTLE:-2}"   # seconds between contracts — stay under explorer rate limits
 
 # Record a chain-level SKIP to the results file (so a chain that can't even start STILL shows in the
@@ -37,7 +44,8 @@ fail=0
 while read -r NAME ADDR; do
   [ -n "$NAME" ] && [ "$NAME" != "null" ] || { echo "skip (unnamed CREATE) $ADDR"; continue; }
   echo "==> verifying ${NAME} @ ${ADDR}"
-  if forge verify-contract "$ADDR" "src/${NAME}.sol:${NAME}" \
+  TARGET=$(resolve_target "$NAME")
+  if forge verify-contract "$ADDR" "$TARGET" \
       --verifier blockscout --verifier-url "$VERIFIER_URL" --skip-is-verified-check \
       --rpc-url "$RPC" --guess-constructor-args --watch --retries 15 --delay 6; then
     echo "    OK ${NAME}"
