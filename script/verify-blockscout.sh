@@ -18,7 +18,7 @@ set -uo pipefail
 
 CHAIN_ID="${1:?usage: verify-blockscout.sh <chainId> <rpcUrl> <verifierUrl>}"
 RPC="${2:?missing rpc URL}"
-VERIFIER_URL="${3:?missing verifier URL (e.g. https://<blockscout-host>/api/ — set the chain's *_VERIFIER_URL in .env)}"
+VERIFIER_URL="${3:?missing verifier URL — set the chain VERIFIER_URL in .env, e.g. https://HOST/api/}"
 BCAST="broadcast/DeployAll.s.sol/${CHAIN_ID}/run-latest.json"
 THROTTLE="${VERIFY_THROTTLE:-2}"   # seconds between contracts — stay under explorer rate limits
 
