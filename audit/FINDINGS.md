@@ -134,6 +134,36 @@ payer refund can never go negative even if the price spikes. Proven across the
 Bookings unit + attack suites (stale/dead-feed cancel and no-show still refund;
 reserve still reverts on a stale feed).
 
+### Access0x1Router — missing L2 sequencer-uptime check (added M-1)
+
+**Severity: Medium (oracle integrity on L2).** `quote()` reads a Chainlink price
+feed in the settlement tx (the OracleLib staleness guard). On an Arbitrum/Optimism/
+Base-style L2 the feed is only as trustworthy as the sequencer that posts it: during a
+sequencer outage the feed stops updating, and on restart the first prices can be stale
+or manipulable. The staleness guard alone does not cover this — a feed can be "fresh"
+by `updatedAt` yet sit behind a sequencer that just came back. The classic L2 oracle
+pitfall (Chainlink's own guidance, and the Sherlock/Code4rena house rule) is to gate
+the read on the **L2 Sequencer Uptime feed** before trusting any L2 price.
+
+**Fix** (`feat(router): L2 sequencer-uptime guard on quote()`): `OracleLib` gains
+`checkSequencerUp` — Chainlink's L2 Sequencer Uptime pattern: `answer == 0` ⇒ up,
+`== 1` ⇒ `OracleLib__SequencerDown`; `startedAt == 0` (the uptime feed has posted no
+round) ⇒ down; and the sequencer must have been continuously up past a 1-hour grace
+window or the quote reverts `OracleLib__SequencerGracePeriodNotOver`. The router holds
+an optional `sequencerUptimeFeed` (owner `setSequencerUptimeFeed` + event) and runs
+the check in `quote()` **only when the feed is set**. With no feed configured — the
+default, and L1 / Arc (no sequencer) — the check is skipped and behaviour is
+byte-for-byte unchanged, so the router's existing money invariants and the full
+pre-existing suite carry over untouched. The owner wires the per-L2 Chainlink uptime
+feed at deploy time (addresses from docs.chain.link); L1 / Arc leave it unset. Proven
+by `test/unit/SequencerGuard.t.sol` (9 tests: up-past-grace, explicit-up, down→revert,
+within-grace→revert, exact-grace-boundary→revert, uninitialized `startedAt==0`→revert,
+unset-feed-skips, owner-gated setter, set/clear). The guard adds no value path and no
+custody surface — it can only *reject* a quote, never alter settlement math. (The
+per-contract coverage table above is the last full `/audit` snapshot and predates this
+guard; it refreshes — `OracleLib` gaining its second function, the router its storage/
+event/setter — on the next coverage run.)
+
 ### The commerce quartet — composition review (no new findings)
 
 `Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`, and
