@@ -49,6 +49,13 @@ VERIFY_ZK := $(if $(strip $(ZKSYNC_VERIFIER_URL)),--verify --verifier zksync --v
 # broadcasts, so we pass the clause only when the URL is set — else the deploy lands and you re-verify
 # later (RESUME=1). Usage in a recipe: $(call bs_verify,$(<CHAIN>_VERIFIER_URL))
 bs_verify = $(if $(strip $(1)),--verify --verifier blockscout --verifier-url $(1),)
+
+# Where the verify-* scripts log one PASS/FAIL line per contract. The verify-all-* targets truncate it
+# at the start and print a compact one-line-per-contract digest at the end (copy just that block — no
+# verbose forge output). Exported so sub-makes + the scripts share the same path; override with
+# VERIFY_RESULTS=/path.
+VERIFY_RESULTS ?= /tmp/access0x1-verify-results.tsv
+export VERIFY_RESULTS
 # RESUME=1 re-uses the existing broadcast (no re-deploy) and just re-attempts verification — the safe
 # retry when a flaky explorer 504'd the verify poll AFTER the deploy already landed.
 RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
@@ -61,6 +68,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
         deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet \
+        verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-all-testnets verify-all-sourcify \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
         deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
         deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
@@ -319,6 +327,58 @@ deploy-scroll-sepolia: ## Deploy to Scroll Sepolia (scrollscan verify)
 # ROBINHOOD_TESTNET_PLATFORM_TREASURY in .env first; the deployer keystore signs.
 deploy-robinhood-testnet: ## Deploy to Robinhood Chain testnet (CCIP-lane endpoint; no price feed yet)
 	forge script script/DeployAll.s.sol --rpc-url $(ROBINHOOD_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
+
+# Verify the ALREADY-DEPLOYED Robinhood Chain contracts on Blockscout — standalone + deploy-path-
+# INDEPENDENT (no --broadcast, no keystore: it only uploads source). --resume re-reads the last
+# broadcast (broadcast/DeployAll.s.sol/46630/run-latest.json) so forge has each contract's address +
+# the exact constructor args, then submits source to the Blockscout verifier. Use this when the deploy
+# itself ran WITHOUT --verify — e.g. a private / direct-to-sequencer submission that bypasses forge's
+# inline auto-verify. RH Blockscout is flaky (503s); just re-run until it sticks. No Etherscan key.
+verify-robinhood-testnet: ## Verify deployed RH Chain contracts on Blockscout (standalone; no keystore)
+	./script/verify-blockscout.sh 46630 $(ROBINHOOD_TESTNET_RPC_URL) https://explorer.testnet.chain.robinhood.com/api/
+
+# Post-hoc verification for the OTHER deployed testnets. Same standalone, no-keystore, no-tx model —
+# reads each chain's recorded broadcast and uploads source. Etherscan-family chains use the one
+# Etherscan V2 key (passed via env with `@` so it never echoes); Blockscout chains use their verifier
+# URL. All idempotent: already-verified ⇒ no-op, so re-run freely.
+verify-ethereum-sepolia: ## Verify deployed Ethereum Sepolia contracts (Etherscan V2)
+	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 11155111 $(SEPOLIA_RPC_URL)
+
+verify-base-sepolia: ## Verify deployed Base Sepolia contracts (Etherscan V2 / Basescan)
+	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 84532 $(BASE_SEPOLIA_RPC_URL)
+
+verify-optimism-sepolia: ## Verify deployed Optimism Sepolia contracts (Etherscan V2)
+	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 11155420 $(OPTIMISM_SEPOLIA_RPC_URL)
+
+verify-avalanche-fuji: ## Verify deployed Avalanche Fuji contracts (Routescan / Snowtrace; keyless)
+	./script/verify-etherscan.sh 43113 $(AVALANCHE_FUJI_RPC_URL) https://api.routescan.io/v2/network/testnet/evm/43113/etherscan verifyContract
+
+verify-arc: ## Verify deployed Arc testnet contracts (Blockscout / arcscan; set ARC_SCAN_VERIFIER_URL)
+	./script/verify-blockscout.sh 5042002 $(ARC_TESTNET_RPC_URL) $(ARC_SCAN_VERIFIER_URL)
+
+# One-shot: verify EVERY deployed testnet best-effort (the leading `-` keeps going past a chain whose
+# explorer is down / rate-limited). The per-chain targets above give granular control + clearer errors.
+verify-all-testnets: ## Verify all deployed testnet contracts (best-effort) + a one-line-per-contract digest
+	@: > $(VERIFY_RESULTS)
+	-@$(MAKE) verify-ethereum-sepolia
+	-@$(MAKE) verify-base-sepolia
+	-@$(MAKE) verify-optimism-sepolia
+	-@$(MAKE) verify-avalanche-fuji
+	-@$(MAKE) verify-arc
+	-@$(MAKE) verify-robinhood-testnet
+	@echo ""; ./script/verify-summary.sh
+
+# Additionally verify on Sourcify — the decentralized, KEYLESS registry (sourcify.dev) that wallets +
+# tooling read. "Verify to the fullest extent": a second, chain-agnostic source-of-truth on top of the
+# explorer verifiers. Best-effort (leading `-`) over the Sourcify-supported chains; Arc/Robinhood (Orbit
+# testnets) are typically not in Sourcify's chain list and are intentionally omitted.
+verify-all-sourcify: ## Also verify on Sourcify (keyless, decentralized) — supported chains + digest
+	@: > $(VERIFY_RESULTS)
+	-./script/verify-sourcify.sh 11155111 $(SEPOLIA_RPC_URL)
+	-./script/verify-sourcify.sh 84532 $(BASE_SEPOLIA_RPC_URL)
+	-./script/verify-sourcify.sh 11155420 $(OPTIMISM_SEPOLIA_RPC_URL)
+	-./script/verify-sourcify.sh 43113 $(AVALANCHE_FUJI_RPC_URL)
+	@echo ""; ./script/verify-summary.sh
 
 deploy-linea-sepolia: ## Deploy to Linea Sepolia (lineascan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(LINEA_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
