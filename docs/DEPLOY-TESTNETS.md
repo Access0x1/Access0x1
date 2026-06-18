@@ -13,7 +13,7 @@ private keys are ever passed on the command line — all signing goes through
 
 ## Contents
 
-0. [Fastest path — deploy to every funded chain](#0-fastest-path--deploy-to-every-funded-chain-at-once)
+0. [Quick deploy (per chain)](#0-quick-deploy-per-chain)
 1. [Prerequisites](#1-prerequisites)
 2. [Import your keystore (once)](#2-import-your-keystore-once)
 3. [Keyless local deploy (Anvil)](#3-keyless-local-deploy-anvil)
@@ -26,10 +26,10 @@ private keys are ever passed on the command line — all signing goes through
 
 ---
 
-## 0. Fastest path — deploy to every funded chain at once
+## 0. Quick deploy (per chain)
 
-After Prerequisites (§1) + keystore import (§2), the whole fleet goes out in **one command**. The
-per-chain sections below (§4 Base, §5 Arc, …) remain the detailed single-chain reference + troubleshooting.
+After Prerequisites (§1) + keystore import (§2), deploy **one chain at a time** with `make deploy-<chain>`.
+The per-chain sections below (§4 Base, §5 Arc, …) are the detailed single-chain reference + troubleshooting.
 
 1. **Verified addresses** — [`CHAIN-ADDRESSES.md`](CHAIN-ADDRESSES.md) lists, per testnet, the official
    Circle USDC + Chainlink feeds (each re-checked on-chain) and a **paste-ready `.env` block**.
@@ -40,10 +40,10 @@ per-chain sections below (§4 Base, §5 Arc, …) remain the detailed single-cha
 3. **Fund** the deployer on each chain you want (faucets are listed per chain in `CHAIN-ADDRESSES.md`).
 
 ```sh
-make deploy-all-testnets
-# Balance-prechecks every configured testnet, deploys the full stack to the FUNDED ones (keystore
-# password per chain), skips unfunded with their faucet, continues past failures, prints a summary.
-# Arc + Base Sepolia are EXCLUDED — already live; re-deploying would mint new addresses + break the app.
+make deploy-base-sepolia        # deploy the full stack to one chain (keystore password per deploy)
+make deploy-arbitrum-sepolia    # fund the deployer first — faucets are per chain in CHAIN-ADDRESSES.md
+# Each target runs the same DeployAll stack on that chain. Do NOT re-deploy Arc or Base Sepolia —
+# they're already live, and a re-deploy mints new addresses and breaks the app.
 ```
 
 Chains with real USDC but **no Chainlink USDC/USD feed** (Linea / Unichain / World Chain / Celo /
