@@ -6,13 +6,15 @@
 #   • Etherscan V2 (default): ONE ETHERSCAN_API_KEY covers every Etherscan-family chain
 #     (Ethereum / Base / Optimism / Arbitrum / Polygon / …) — keyed by `--chain <id>`. The legacy
 #     per-explorer keys (Basescan/Arbiscan/Polygonscan/…) were deprecated 2025-08-15; there is no
-#     per-chain key to get, and the rate limit is per ACCOUNT (raise it with a paid Etherscan tier).
+#     per-chain key to get, and the rate limit is per ACCOUNT (free tier = 3 calls/sec — raise it with
+#     a paid Etherscan tier, not more keys).
 #   • Custom Etherscan-compatible (e.g. Routescan / Snowtrace for Avalanche): pass a verifier URL as
 #     $3 and an (often placeholder) key as $4. Routescan needs no real key — use `verifyContract`.
 #
-# Deploy-path-INDEPENDENT: reads the RECORDED broadcast (broadcast/DeployAll.s.sol/<chainId>/
-# run-latest.json), needs NO keystore, sends NO transaction. Constructor args recovered via
-# --guess-constructor-args. Idempotent (already-verified ⇒ no-op).
+# Deploy-path-INDEPENDENT: reads the RECORDED broadcast, needs NO keystore, sends NO transaction.
+# Constructor args recovered via --guess-constructor-args. Idempotent (already-verified ⇒ no-op).
+# Rate-limit-aware: forge backs off via --retries/--delay, and a throttle gap sits between contracts so
+# the 3-calls/sec free tier is respected.
 #
 # The V2 key is read from the ENV (ETHERSCAN_API_KEY) so it never lands in argv/logs — the Makefile
 # passes it via an env assignment with `@` (echo suppressed). A custom-verifier placeholder key is not
@@ -29,6 +31,7 @@ RPC="${2:?missing rpc URL}"
 VERIFIER_URL="${3:-}"
 API_KEY="${4:-${ETHERSCAN_API_KEY:-}}"
 BCAST="broadcast/DeployAll.s.sol/${CHAIN_ID}/run-latest.json"
+THROTTLE="${VERIFY_THROTTLE:-2}"   # seconds between contracts — stay under the 3-calls/sec free tier
 
 [ -f "$BCAST" ] || {
   echo "No broadcast at $BCAST — deploy to chain ${CHAIN_ID} first." >&2
@@ -50,12 +53,13 @@ while read -r NAME ADDR; do
   [ -n "$NAME" ] && [ "$NAME" != "null" ] || { echo "skip (unnamed CREATE) $ADDR"; continue; }
   echo "==> verifying ${NAME} @ ${ADDR}"
   if forge verify-contract "$ADDR" "src/${NAME}.sol:${NAME}" \
-      "${VERIFIER_ARGS[@]}" --rpc-url "$RPC" --guess-constructor-args --watch; then
+      "${VERIFIER_ARGS[@]}" --rpc-url "$RPC" --guess-constructor-args --watch --retries 15 --delay 6; then
     echo "    OK ${NAME}"
   else
     echo "    FAILED ${NAME} — re-run when the explorer is reachable / not rate-limited"
     fail=1
   fi
+  sleep "$THROTTLE"
 done < <(jq -r '.transactions[] | select(.transactionType=="CREATE" and .contractName != null) | "\(.contractName) \(.contractAddress)"' "$BCAST")
 
 exit $fail
