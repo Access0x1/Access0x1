@@ -31,8 +31,10 @@ while read -r NAME ADDR; do
       --verifier sourcify --chain "$CHAIN_ID" \
       --rpc-url "$RPC" --guess-constructor-args --watch --retries 12 --delay 5; then
     echo "    OK ${NAME}"
+    [ -n "${VERIFY_RESULTS:-}" ] && printf 'PASS\t%s\t%s\n' "$CHAIN_ID" "$NAME" >> "$VERIFY_RESULTS"
   else
     echo "    FAILED ${NAME} — Sourcify may not support chain ${CHAIN_ID}, or re-run later"
+    [ -n "${VERIFY_RESULTS:-}" ] && printf 'FAIL\t%s\t%s\n' "$CHAIN_ID" "$NAME" >> "$VERIFY_RESULTS"
     fail=1
   fi
   sleep "$THROTTLE"

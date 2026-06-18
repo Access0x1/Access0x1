@@ -35,8 +35,10 @@ while read -r NAME ADDR; do
       --verifier blockscout --verifier-url "$VERIFIER_URL" \
       --rpc-url "$RPC" --guess-constructor-args --watch --retries 15 --delay 6; then
     echo "    OK ${NAME}"
+    [ -n "${VERIFY_RESULTS:-}" ] && printf 'PASS\t%s\t%s\n' "$CHAIN_ID" "$NAME" >> "$VERIFY_RESULTS"
   else
     echo "    FAILED ${NAME} — re-run when Blockscout is healthy (testnet 503s are common)"
+    [ -n "${VERIFY_RESULTS:-}" ] && printf 'FAIL\t%s\t%s\n' "$CHAIN_ID" "$NAME" >> "$VERIFY_RESULTS"
     fail=1
   fi
   sleep "$THROTTLE"
