@@ -55,8 +55,10 @@ while read -r NAME ADDR; do
   if forge verify-contract "$ADDR" "src/${NAME}.sol:${NAME}" \
       "${VERIFIER_ARGS[@]}" --rpc-url "$RPC" --guess-constructor-args --watch --retries 15 --delay 6; then
     echo "    OK ${NAME}"
+    [ -n "${VERIFY_RESULTS:-}" ] && printf 'PASS\t%s\t%s\n' "$CHAIN_ID" "$NAME" >> "$VERIFY_RESULTS"
   else
     echo "    FAILED ${NAME} — re-run when the explorer is reachable / not rate-limited"
+    [ -n "${VERIFY_RESULTS:-}" ] && printf 'FAIL\t%s\t%s\n' "$CHAIN_ID" "$NAME" >> "$VERIFY_RESULTS"
     fail=1
   fi
   sleep "$THROTTLE"
