@@ -352,18 +352,6 @@ deploy-flow-evm-testnet: ## Deploy to Flow EVM testnet (chainId 545, FLOW; block
 deploy-celo-sepolia: ## Deploy to Celo Sepolia (chainId 11142220, CELO; celoscan/etherscan-v2 verify)
 	forge script script/DeployAll.s.sol --rpc-url $(CELO_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 
-# ── The whole fan-out in ONE command ────────────────────────────────────────────────
-# Git-style + FULLY AUTOMATIC (no per-chain prompt): per chain it diffs the on-chain Router against
-# your local build — identical chains skip, funded not-yet-deployed chains auto-deploy, a changed
-# build auto-skips with a warning (overwrite deliberately via `make deploy-<chain>`). Funded-only;
-# only the keystore password is asked, per chain actually deployed.
-# See the script header for the verify caveat (broadcast lands before verify).
-deploy-all-testnets: ## Git-style AUTO deploy: skip live/identical, auto-deploy funded new chains (no prompts)
-	bash script/deploy-all-testnets.sh
-
-deploy-preview: ## DRY RUN: print each chain's state + live gas price + est cost; deploy nothing (no password)
-	DRY_RUN=1 bash script/deploy-all-testnets.sh
-
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 #  ⛔ MAINNET — AUDIT-GATED, REAL FUNDS. DO NOT RUN UNTIL A THIRD-PARTY AUDIT IS COMPLETE.            ⛔
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
