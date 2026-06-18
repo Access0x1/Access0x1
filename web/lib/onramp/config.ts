@@ -30,6 +30,7 @@ export const KNOWN_ONRAMP_PROVIDERS = [
   'stripe',
   'circle',
   'blink',
+  'transak',
 ] as const
 
 export type OnrampProvider = (typeof KNOWN_ONRAMP_PROVIDERS)[number]
@@ -119,6 +120,37 @@ export function isOnrampConfigured(): boolean {
  */
 export function isOnrampPublicConfigured(): boolean {
   return onrampBaseUrl().length > 0 && onrampAppId().length > 0
+}
+
+/**
+ * The DEFAULT ramp partner-fee percentage the OPEN protocol ships — the "Access0x1
+ * sets the percentage" baseline. It is `0`: the public, open-source SDK imposes NO
+ * fee of its own (a hidden fee baked into shared code would be a footgun for every
+ * integrator that drops the SDK in). A specific DEPLOYMENT sets its OWN cut via
+ * `NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT` — that is the "then example the app sets
+ * it" layer. The fee is collected by whichever ramp the deployment's API key
+ * belongs to (configured in that provider's partner dashboard, and passed to the
+ * provider's session where it accepts one); open-source cannot route a third
+ * party's ramp fee to us, so this value is a single source of truth + a
+ * recommendation, NOT an on-chain charge. The protocol's OWN enforced fee lives
+ * on-chain as the router's `platformFeeBps` — a different surface from this
+ * off-chain ramp margin.
+ */
+export const RAMP_DEFAULT_PARTNER_FEE_PERCENT = 0
+
+/**
+ * The partner-fee percentage for THIS deployment: `NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT`
+ * parsed as a finite number in [0, 100], else the protocol default. PUBLIC (it may
+ * accompany a provider session). Two layers, one knob: the constant is the
+ * Access0x1 default ("access sets it"), the env is the app's override ("example
+ * sets it"). A blank, malformed, or out-of-range value falls back to the default
+ * rather than charging a guessed rate (law #4 — never invent a money number).
+ */
+export function rampPartnerFeePercent(): number {
+  const raw = (process.env.NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT ?? '').trim()
+  if (raw.length === 0) return RAMP_DEFAULT_PARTNER_FEE_PERCENT
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : RAMP_DEFAULT_PARTNER_FEE_PERCENT
 }
 
 /**

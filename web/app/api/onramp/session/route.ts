@@ -68,5 +68,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: result.code, reason: result.reason }, { status })
   }
 
-  return NextResponse.json({ provider: result.provider, url: result.url }, { status: 200 })
+  return NextResponse.json(
+    { provider: result.provider, url: result.url, partnerFeePercent: result.partnerFeePercent },
+    { status: 200 },
+  )
 }
