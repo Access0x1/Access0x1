@@ -24,8 +24,8 @@ judgeable product.
 8. **`checkout-web`** — hosted checkout + dashboard (Next.js).
 9. **`ens-resolve`** — ENS resolve + name-math (coinType per chain).
 10. **Stretches** — `session-grant` (ERC-7702 / ERC-6492), `cre-notify`,
-    `walrus-host`, `metamask-snap`, plus the commerce quartet
-    (`subscriptions` / `bookings` / `invoices` / `giftcards`) and `house-token` /
+    `walrus-host`, `metamask-snap`, plus the commerce quintet
+    (`subscriptions` / `bookings` / `invoices` / `giftcards` / `nft`) and `house-token` /
     `name-math`, all composing the router + SessionGrant spine.
 
 ## The first-party surface that resulted

@@ -11,6 +11,7 @@ import { Access0x1Subscriptions } from "../src/Access0x1Subscriptions.sol";
 import { Access0x1Bookings } from "../src/Access0x1Bookings.sol";
 import { Access0x1Invoices } from "../src/Access0x1Invoices.sol";
 import { Access0x1GiftCards } from "../src/Access0x1GiftCards.sol";
+import { Access0x1Nft } from "../src/Access0x1Nft.sol";
 import { IAccess0x1Router } from "../src/interfaces/IAccess0x1Subscriptions.sol";
 import { ISessionGrant } from "../src/interfaces/ISessionGrant.sol";
 import { HelperConfig } from "./HelperConfig.s.sol";
@@ -94,6 +95,7 @@ contract DeployAll is Script {
     Access0x1Bookings public bookings;
     Access0x1Invoices public invoices;
     Access0x1GiftCards public giftCards;
+    Access0x1Nft public nft;
 
     /// @notice Deploy + wire the full first-party surface (and optionally the lanes ledger + the CRE
     ///         consumer) on the current chain. The commerce quartet, the SessionGrant, the house-token
@@ -164,7 +166,7 @@ contract DeployAll is Script {
         houseFactory = new HouseTokenFactory();
         console2.log("HouseTokenFactory     :", address(houseFactory));
 
-        // 6-9. The commerce quartet — each COMPOSES the spine above. They take the freshly deployed
+        // 6-10. The commerce quintet — each COMPOSES the spine above. They take the freshly deployed
         //      Router (and, for Subscriptions/Bookings, the SessionGrant) so the fee-split, the in-tx
         //      USD quote (OracleLib staleness guard), the never-negative budget, and tenant isolation
         //      are all inherited, never re-derived. No router-side registration is needed: the Router's
@@ -193,8 +195,12 @@ contract DeployAll is Script {
         console2.log("Access0x1GiftCards    :", address(giftCards));
         console2.log("  router (spine)      :", address(router));
 
+        nft = new Access0x1Nft(owner, router);
+        console2.log("Access0x1Nft          :", address(nft));
+        console2.log("  router (spine)      :", address(router));
+
         // ChainRegistry is deployed once per chain by DeployChainRegistry; log its carried address so
-        // the full 12-contract surface appears in one place (re-deploying it here would fork the SDK's
+        // the full first-party surface appears in one place (re-deploying it here would fork the SDK's
         // reference). address(0) ⇒ not deployed/seeded yet on this chain.
         console2.log("ChainRegistry (carried):", cfg.chainRegistry);
 
