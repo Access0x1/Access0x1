@@ -41,6 +41,8 @@ contract DeployAllTest is Test {
     uint256 internal constant WORLDCHAIN_SEPOLIA = 4_801;
     uint256 internal constant CELO_SEPOLIA = 11_142_220;
     uint256 internal constant ZIRCUIT_GARFIELD = 48_898;
+    // Robinhood Chain testnet (Arbitrum Orbit L2). CCIP-lane endpoint; no Chainlink Data Feed live yet.
+    uint256 internal constant ROBINHOOD_TESTNET = 46_630;
 
     // The three promoted-to-first-class EVM Sepolias (real Circle USDC + Chainlink feeds).
     uint256 internal constant ETHEREUM_SEPOLIA = 11_155_111;
@@ -152,6 +154,24 @@ contract DeployAllTest is Test {
         HelperConfig.NetworkConfig memory celo = new HelperConfig().getConfig();
         assertEq(celo.treasury, treasury);
         assertEq(celo.platformFeeBps, 300);
+    }
+
+    /// @dev Owns every `ROBINHOOD_TESTNET_*` key. Robinhood Chain (46630) is the CCIP-LANE-ENDPOINT
+    ///      shape: it selects its OWN branch and reads its OWN prefix, but because Chainlink Data Feeds
+    ///      are NOT live there yet, the feeds + USDC resolve to address(0) with NO revert — DeployAll
+    ///      skips wiring them, and same-chain USD quote() is intentionally unavailable until a feed
+    ///      lands. This pins the honest no-feed default so a future "RH feed exists" change is deliberate.
+    function test_helperConfig_robinhoodTestnet_branch_isLaneEndpointNoFeed() public {
+        vm.chainId(ROBINHOOD_TESTNET);
+        vm.setEnv("ROBINHOOD_TESTNET_PLATFORM_TREASURY", vm.toString(treasury));
+
+        HelperConfig.NetworkConfig memory cfg = new HelperConfig().getConfig();
+        assertEq(cfg.treasury, treasury); // reads ROBINHOOD_TESTNET_, isolated from other prefixes
+        assertEq(cfg.platformFeeBps, 100); // default 1.00% when *_PLATFORM_FEE_BPS unset
+        // No Chainlink feed / ERC-20 USDC on RH Chain yet: optional addresses resolve to address(0).
+        assertEq(cfg.nativeUsdFeed, address(0));
+        assertEq(cfg.usdc, address(0));
+        assertEq(cfg.usdcUsdFeed, address(0));
     }
 
     /// @dev Owns every `SEPOLIA_*`, `ARBITRUM_SEPOLIA_*` and `OPTIMISM_SEPOLIA_*` key. Proves the three
