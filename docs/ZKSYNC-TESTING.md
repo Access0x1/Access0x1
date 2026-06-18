@@ -24,8 +24,8 @@ on every EVM chain (Arc, Base, Ethereum, Optimism Sepolia all live).
 **The fix when zkSync is deployed:** read env at the SCRIPT ROOT and pass values in, rather than inside
 a `new`'d helper — e.g. a dedicated `DeployAllZkSync` whose `run()` itself does the `vm.envAddress`
 reads, then `new Access0x1Router(...)` (product constructors hold no cheatcodes, so they dispatch to
-the zkEVM cleanly). Until then, `make deploy-all-testnets` SKIPS zkSync with a note (never stalls on
-it); deploy zkSync on its own once that env-at-root script exists.
+the zkEVM cleanly). Until then, deploy zkSync on its own once that env-at-root script exists; every
+other chain deploys fine via its per-chain `make deploy-<chain>` target.
 
 ## The one rule that matters most
 

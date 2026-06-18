@@ -8,8 +8,9 @@ guessed (law #4). Where no official source publishes a USDC or a Chainlink feed 
 row is left blank on purpose — that chain deploys a **bare** router + stack (no USD pricing) until a
 feed exists; it is never wired to a placeholder.
 
-`make deploy-all-testnets` deploys to every **funded** chain; `script/deploy-all-testnets.sh`
-skips any chain with 0 gas and prints its faucet. Arc + Base Sepolia are excluded (already live).
+Deploy one chain at a time with `make deploy-<chain>` (e.g. `make deploy-base-sepolia`); fund the
+deployer first — faucets are listed per chain below. Arc + Base Sepolia are already live — don't
+re-deploy them (it mints new addresses).
 
 > **RPC:** the public endpoints in `.env.example` rate-limit across 20+ chains. For the broadcast,
 > set each `<CHAIN>_RPC_URL` to your **Alchemy** (`https://<net>.g.alchemy.com/v2/<KEY>`) or
@@ -63,8 +64,8 @@ Citrea (5115), Flow EVM testnet (545 — uses Pyth). These deploy the full first
 
 ## Extra Chainlink-faucet testnets — bare, generic-fallback deploy (38)
 
-Every other testnet on Chainlink's faucet list, validated live + chainId-matched (2026-06-17) and
-wired into `script/deploy-all-testnets.sh` as bare deploys (generic fallback, `--legacy`, broadcast
+Every other testnet on Chainlink's faucet list, validated live + chainId-matched (2026-06-17) — each
+deployable as a bare router + stack (the generic `DeployAll` script, `--legacy`, broadcast
 -only): WEMIX (1112), Metis Sepolia (59902), Polygon Cardona zkEVM (2442), Mode Sepolia (919), Cronos
 zkEVM (240), Cronos (338), Soneium Minato (1946), Hedera (296), Corn (21000001), Astar Shibuya (81),
 Sei atlantic-2 (1328), BOB Sepolia (808813), Bitlayer (200810), Plume (98867), Abstract (11124), Lisk
@@ -78,18 +79,18 @@ Pharos, Morph, Edge) — wire + on-chain-verify those before relying on pricing.
 **Dropped (5)** — re-add with a working RPC: Shibarium Puppynet (157), Core (1115), Mind Network
 (192940), XDC Apothem (51) — RPC dead at check time; X Layer (195) — its RPC reported chainId 1952.
 
-**Tempo Moderato (42431) — special-cased, never auto-deployed.** Tempo has **no native gas token**:
-fees are **USD-denominated and paid in TIP-20 stablecoins** (per docs.tempo.xyz, confirmed on-chain
-2026-06-17 — `eth_getBalance` returns a placeholder sentinel and the `eth_gasPrice`→cost estimate is
-meaningless). The generic native-gas deploy can't pay fees there, so `deploy-all-testnets.sh` skips it
-with that reason (not a "cost ceiling" skip). Deploying to Tempo needs a dedicated **stablecoin
-fee-token** path (specify a TIP-20 as the fee currency) — a separate piece of work if we target it.
+**Tempo Moderato (42431) — special-cased, do not deploy with the generic flow.** Tempo has **no
+native gas token**: fees are **USD-denominated and paid in TIP-20 stablecoins** (per docs.tempo.xyz,
+confirmed on-chain 2026-06-17 — `eth_getBalance` returns a placeholder sentinel and the
+`eth_gasPrice`→cost estimate is meaningless). The generic native-gas deploy can't pay fees there, so
+Tempo is excluded from bare deploys (not a cost-ceiling issue). Deploying to Tempo needs a dedicated
+**stablecoin fee-token** path (specify a TIP-20 as the fee currency) — a separate piece of work if we target it.
 Its explorer also uses a non-Etherscan OpenAPI/Scalar verification API, so verification there is manual.
 
-**Cost-guard auto-skips** — chains quoting anomalously high gas (e.g. Celo Sepolia ~52 gwei → ~0.8
-native) exceed the 0.5-native ceiling and auto-skip; override deliberately with
-`MAX_DEPLOY_COST_ETH=<n> make deploy-<chain>`. On testnet the native token is valueless, so this only
-guards against needing an awkwardly large faucet amount / flags unusual fee economics.
+**High-gas chains** — some testnets quote anomalously high gas (e.g. Celo Sepolia ~52 gwei → ~0.8
+native per deploy). On testnet the native token is valueless, so this just means you need an
+awkwardly large faucet amount; it can also flag unusual fee economics worth checking before
+relying on that chain.
 
 ## Paste-ready `.env` (verified public addresses — not secrets)
 
