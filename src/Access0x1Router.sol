@@ -72,6 +72,11 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice token ⇒ its Chainlink <token>/USD feed. `priceFeedOf[NATIVE]` is the native/USD feed.
     mapping(address => address) public priceFeedOf;
 
+    /// @notice Optional Chainlink L2 Sequencer Uptime feed. When set (the L2 deployments), `quote()`
+    ///         rejects pricing while the sequencer is down or freshly restarted; `address(0)` — the
+    ///         default, and L1/Arc — skips the check, leaving behaviour unchanged.
+    address public sequencerUptimeFeed;
+
     /// @notice Pull-map for native pushes that failed (e.g. a contract payee that reverts on receive).
     ///         Credited instead of reverting a settled payment; the owed party calls `claimRescue`.
     mapping(address => uint256) public rescue;
@@ -123,6 +128,9 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
 
     /// @notice A token's price feed was set or cleared.
     event PriceFeedSet(address indexed token, address feed);
+
+    /// @notice The Chainlink L2 Sequencer Uptime feed used by `quote()` was set or cleared.
+    event SequencerUptimeFeedSet(address indexed feed);
 
     /// @notice A queued native push was claimed.
     event Rescued(address indexed to, uint256 amount);
@@ -270,6 +278,15 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         emit PriceFeedSet(token, feed);
     }
 
+    /// @notice Set (or clear) the Chainlink L2 Sequencer Uptime feed checked by `quote()`. Set it on
+    ///         L2 deployments (Arbitrum / Optimism / Base); pass `address(0)` to clear it (L1 / Arc),
+    ///         which skips the sequencer check entirely.
+    /// @param feed The Chainlink L2 Sequencer Uptime aggregator, or address(0) to clear.
+    function setSequencerUptimeFeed(address feed) external onlyOwner {
+        sequencerUptimeFeed = feed;
+        emit SequencerUptimeFeedSet(feed);
+    }
+
     /*//////////////////////////////////////////////////////////////
                             PLATFORM ADMIN
     //////////////////////////////////////////////////////////////*/
@@ -345,6 +362,11 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     {
         if (usdAmount8 == 0) revert Access0x1__ZeroAmount();
         if (token != NATIVE && !tokenAllowed[token]) revert Access0x1__TokenNotAllowed(token);
+
+        // L2 sequencer guard: when an L2 Sequencer Uptime feed is configured, reject pricing while the
+        // sequencer is down or within its post-restart grace window. address(0) (L1 / Arc) skips this.
+        address seqFeed = sequencerUptimeFeed;
+        if (seqFeed != address(0)) AggregatorV3Interface(seqFeed).checkSequencerUp();
 
         address feedAddr = priceFeedOf[token];
         if (feedAddr == address(0)) revert Access0x1__TokenNotAllowed(token);
