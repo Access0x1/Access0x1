@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed on five chains: Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), and Avalanche Fuji (43113) — source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed on seven testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), and Ethereum Hoodi (560048); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). Source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -478,9 +478,12 @@ make deploy-unichain-sepolia # Unichain Sepolia
 
 Every address below is read straight from the committed broadcast log
 (`broadcast/DeployAll.s.sol/<chainId>/run-latest.json`) — **never** hand-entered (law #4: an address
-that isn't on-chain isn't claimed). The full first-party surface is **live and Blockscout-verified on
-two chains — Arc Testnet (5042002) and Base Sepolia (84532)**; zkSync Sepolia is one-command ready
-(`make deploy-zksync-sepolia`) but not yet broadcast (its rows stay blank until it is). `Access0x1Router` is the
+that isn't on-chain isn't claimed). The full first-party surface is **live on the six chains detailed
+below — Arc Testnet (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia
+(11155420), Avalanche Fuji (43113), and Robinhood Chain (46630)** (Ethereum Hoodi (560048) is also
+confirmed on-chain — addresses in its `broadcast/` record), and **source-verified on Arc and Base
+Sepolia**; zkSync Sepolia is one-command ready (`make deploy-zksync-sepolia`) but not yet broadcast (its
+rows stay blank until it is). `Access0x1Router` is the
 address an integrator points at. See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full
 operator guide.
 
@@ -536,6 +539,15 @@ operator guide.
 | Avalanche Fuji (43113) | `Access0x1Bookings` | [`0x1db513ec23bc7de46afd6dae5133de14d8a62bf8`](https://testnet.snowtrace.io/address/0x1db513ec23bc7de46afd6dae5133de14d8a62bf8) | — |
 | Avalanche Fuji (43113) | `Access0x1Invoices` | [`0x4e099b81a9a46a99378ac70cad195bf8e25f0c82`](https://testnet.snowtrace.io/address/0x4e099b81a9a46a99378ac70cad195bf8e25f0c82) | — |
 | Avalanche Fuji (43113) | `Access0x1GiftCards` | [`0x1001dc04da8706d53b24389c3348ca512a5ba6b7`](https://testnet.snowtrace.io/address/0x1001dc04da8706d53b24389c3348ca512a5ba6b7) | — |
+| Robinhood Chain (46630) | `Access0x1Router` | [`0x60eb647d166b70662e0567551af7e575f13e8008`](https://explorer.testnet.chain.robinhood.com/address/0x60eb647d166b70662e0567551af7e575f13e8008) | — |
+| Robinhood Chain (46630) | `SessionGrant` | [`0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad`](https://explorer.testnet.chain.robinhood.com/address/0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad) | — |
+| Robinhood Chain (46630) | `PaymentLanes` | [`0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b`](https://explorer.testnet.chain.robinhood.com/address/0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b) | — |
+| Robinhood Chain (46630) | `HouseTokenFactory` | [`0x3d5247b4d5d1947c7b9c82b27f20246da9923238`](https://explorer.testnet.chain.robinhood.com/address/0x3d5247b4d5d1947c7b9c82b27f20246da9923238) | — |
+| Robinhood Chain (46630) | `Access0x1Subscriptions` | [`0x3a43171f6d503ab314366d19b7ddc7aa861125f2`](https://explorer.testnet.chain.robinhood.com/address/0x3a43171f6d503ab314366d19b7ddc7aa861125f2) | — |
+| Robinhood Chain (46630) | `Access0x1Bookings` | [`0x1db513ec23bc7de46afd6dae5133de14d8a62bf8`](https://explorer.testnet.chain.robinhood.com/address/0x1db513ec23bc7de46afd6dae5133de14d8a62bf8) | — |
+| Robinhood Chain (46630) | `Access0x1Invoices` | [`0x4e099b81a9a46a99378ac70cad195bf8e25f0c82`](https://explorer.testnet.chain.robinhood.com/address/0x4e099b81a9a46a99378ac70cad195bf8e25f0c82) | — |
+| Robinhood Chain (46630) | `Access0x1GiftCards` | [`0x1001dc04da8706d53b24389c3348ca512a5ba6b7`](https://explorer.testnet.chain.robinhood.com/address/0x1001dc04da8706d53b24389c3348ca512a5ba6b7) | — |
+| Robinhood Chain (46630) | `Access0x1Nft` | [`0xbe1a9c1e8194928215045cf186283d41470abdcd`](https://explorer.testnet.chain.robinhood.com/address/0xbe1a9c1e8194928215045cf186283d41470abdcd) | — |
 | zkSync Sepolia (300) | `Access0x1Router` | — | — |
 | zkSync Sepolia (300) | `SessionGrant` | — | — |
 | zkSync Sepolia (300) | `HouseTokenFactory` | — | — |
