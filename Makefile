@@ -60,7 +60,8 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         gate aderyn slither analyze mutation halmos audit anvil \
         deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
-        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet verify-robinhood-testnet \
+        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet \
+        verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-all-testnets \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
         deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
         deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
@@ -328,6 +329,35 @@ deploy-robinhood-testnet: ## Deploy to Robinhood Chain testnet (CCIP-lane endpoi
 # inline auto-verify. RH Blockscout is flaky (503s); just re-run until it sticks. No Etherscan key.
 verify-robinhood-testnet: ## Verify deployed RH Chain contracts on Blockscout (standalone; no keystore)
 	./script/verify-blockscout.sh 46630 https://explorer.testnet.chain.robinhood.com/api/ $(ROBINHOOD_TESTNET_RPC_URL)
+
+# Post-hoc verification for the OTHER deployed testnets. Same standalone, no-keystore, no-tx model —
+# reads each chain's recorded broadcast and uploads source. Etherscan-family chains use the one
+# Etherscan V2 key (passed via env with `@` so it never echoes); Blockscout chains use their verifier
+# URL. All idempotent: already-verified ⇒ no-op, so re-run freely.
+verify-ethereum-sepolia: ## Verify deployed Ethereum Sepolia contracts (Etherscan V2)
+	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 11155111 $(SEPOLIA_RPC_URL)
+
+verify-base-sepolia: ## Verify deployed Base Sepolia contracts (Etherscan V2 / Basescan)
+	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 84532 $(BASE_SEPOLIA_RPC_URL)
+
+verify-optimism-sepolia: ## Verify deployed Optimism Sepolia contracts (Etherscan V2)
+	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 11155420 $(OPTIMISM_SEPOLIA_RPC_URL)
+
+verify-avalanche-fuji: ## Verify deployed Avalanche Fuji contracts (Etherscan V2 / Snowtrace)
+	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 43113 $(AVALANCHE_FUJI_RPC_URL)
+
+verify-arc: ## Verify deployed Arc testnet contracts (Blockscout / arcscan)
+	./script/verify-blockscout.sh 5042002 $(ARC_SCAN_VERIFIER_URL) $(ARC_TESTNET_RPC_URL)
+
+# One-shot: verify EVERY deployed testnet best-effort (the leading `-` keeps going past a chain whose
+# explorer is down / rate-limited). The per-chain targets above give granular control + clearer errors.
+verify-all-testnets: ## Verify all deployed testnet contracts (best-effort across explorers)
+	-@$(MAKE) verify-ethereum-sepolia
+	-@$(MAKE) verify-base-sepolia
+	-@$(MAKE) verify-optimism-sepolia
+	-@$(MAKE) verify-avalanche-fuji
+	-@$(MAKE) verify-arc
+	-@$(MAKE) verify-robinhood-testnet
 
 deploy-linea-sepolia: ## Deploy to Linea Sepolia (lineascan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(LINEA_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
