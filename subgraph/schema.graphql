@@ -1,0 +1,42 @@
+# Access0x1 payment-history schema — indexed from the PUBLIC Access0x1Router
+# `PaymentReceived` event. Read-only analytics, OFF the money path: this never
+# affects settlement, and if The Graph is unavailable the money path is unchanged
+# (the dashboard simply falls back to direct on-chain reads).
+
+"A single settled payment — one immutable row per PaymentReceived event."
+type Payment @entity(immutable: true) {
+  "txHash + log index."
+  id: Bytes!
+  "The merchant aggregate this payment rolls into."
+  merchant: Merchant!
+  "Router merchant id (also on the merchant aggregate)."
+  merchantId: BigInt!
+  buyer: Bytes!
+  "Settlement token (address(0) = native)."
+  token: Bytes!
+  grossAmount: BigInt!
+  feeAmount: BigInt!
+  netAmount: BigInt!
+  "USD amount, 8 decimals (the quoted price)."
+  usdAmount8: BigInt!
+  orderId: Bytes!
+  "CCIP source-chain selector; 0 for a same-chain payment."
+  srcChainSelector: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+"Per-merchant running totals — what a dashboard reads in one query."
+type Merchant @entity(immutable: false) {
+  "merchantId, UTF-8 encoded."
+  id: Bytes!
+  merchantId: BigInt!
+  paymentCount: BigInt!
+  totalGross: BigInt!
+  totalFees: BigInt!
+  totalNet: BigInt!
+  totalUsd8: BigInt!
+  lastPaymentAt: BigInt!
+  payments: [Payment!]! @derivedFrom(field: "merchant")
+}

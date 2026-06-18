@@ -1,0 +1,33 @@
+specVersion: 1.0.0
+description: >-
+  Access0x1 — payment history indexed from the public Access0x1Router
+  PaymentReceived event. Read-only analytics, off the money path.
+repository: https://github.com/Access0x1/Access0x1
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: Access0x1Router
+    # Base Sepolia is a Graph-supported network; Arc (5042002) is not indexed by
+    # The Graph today, so the open analytics layer targets the Base Sepolia router.
+    network: base-sepolia
+    source:
+      address: "0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57"
+      abi: Access0x1Router
+      # The router's CREATE block on Base Sepolia (broadcast/DeployAll.s.sol/84532),
+      # so indexing starts at deploy, not genesis.
+      startBlock: 42820891
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Payment
+        - Merchant
+      abis:
+        - name: Access0x1Router
+          file: ./abis/Access0x1Router.json
+      eventHandlers:
+        - event: PaymentReceived(indexed uint256,indexed address,indexed address,uint256,uint256,uint256,uint256,bytes32,uint64)
+          handler: handlePaymentReceived
+      file: ./src/mapping.ts
