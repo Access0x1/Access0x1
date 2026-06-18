@@ -105,6 +105,15 @@ contract HelperConfig is Script {
     /// @notice Celo Sepolia (testnet). Native = CELO (18 dec). Celoscan (etherscan-v2) verifier; USDC + feeds confirms.
     uint256 internal constant CELO_SEPOLIA_CHAIN_ID = 11_142_220;
 
+    /// @notice Robinhood Chain testnet (Arbitrum Orbit L2, chainId 46630). Native = ETH (18 dec).
+    ///         Chainlink CCIP selector 2032988798112970440 IS registered (official chain-selectors) and a
+    ///         LINK faucet is live, but Chainlink Data Feeds are NOT yet deployed here — so `nativeUsdFeed`
+    ///         stays address(0), DeployAll skips wiring it, and same-chain USD `quote()` is unavailable
+    ///         until a feed lands (verify on docs.chain.link first; NEVER invent one). Role today: a CCIP
+    ///         cross-chain LANE endpoint (a payment quotes on its SOURCE chain). No confirmed ERC-20 USDC
+    ///         on the testnet yet either — `usdc` stays blank. Blockscout explorer.
+    uint256 internal constant ROBINHOOD_TESTNET_CHAIN_ID = 46_630;
+
     // ─────────────────────────────────────────────────────────────────────────────────────────────
     // MAINNET chain ids — AUDIT-GATED, NOT DEPLOYED.
     //
@@ -265,6 +274,8 @@ contract HelperConfig is Script {
             activeConfig = _flowEvmTestnetConfig();
         } else if (block.chainid == CELO_SEPOLIA_CHAIN_ID) {
             activeConfig = _celoSepoliaConfig();
+        } else if (block.chainid == ROBINHOOD_TESTNET_CHAIN_ID) {
+            activeConfig = _robinhoodTestnetConfig();
         } else if (block.chainid == ETHEREUM_MAINNET_CHAIN_ID) {
             // ── MAINNET arms (AUDIT-GATED, NOT DEPLOYED) — each reads only its own `<CHAIN>_MAINNET_*`
             //    env (default address(0)); selecting a branch never deploys. See the mainnet-id block.
@@ -643,6 +654,29 @@ contract HelperConfig is Script {
                 vm.envOr("UNICHAIN_SEPOLIA_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
             ),
             creForwarder: vm.envOr("UNICHAIN_SEPOLIA_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Robinhood Chain testnet (chainId 46630, Arbitrum Orbit L2). Reads only `ROBINHOOD_TESTNET_`-
+    ///      prefixed env. Native = ETH (18 dec). Chainlink Data Feeds are NOT live here yet, so
+    ///      `nativeUsdFeed`/`usdcUsdFeed` stay address(0) — DeployAll skips wiring them and same-chain USD
+    ///      `quote()` is unavailable until a feed lands (NEVER invent a feed address). The CCIP selector
+    ///      2032988798112970440 is registered, so the router deploys as a cross-chain LANE endpoint. No
+    ///      confirmed ERC-20 USDC on the testnet yet — `usdc` stays blank. `treasury` required.
+    function _robinhoodTestnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("ROBINHOOD_TESTNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("ROBINHOOD_TESTNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("ROBINHOOD_TESTNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("ROBINHOOD_TESTNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("ROBINHOOD_TESTNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("ROBINHOOD_TESTNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("ROBINHOOD_TESTNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("ROBINHOOD_TESTNET_CRE_FORWARDER", address(0))
         });
     }
 

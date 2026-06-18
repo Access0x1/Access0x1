@@ -60,7 +60,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         gate aderyn slither analyze mutation halmos audit anvil \
         deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
-        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia \
+        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
         deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
         deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
@@ -311,6 +311,14 @@ deploy-bnb-testnet: ## Deploy to BNB Smart Chain testnet (bscscan verify)
 
 deploy-scroll-sepolia: ## Deploy to Scroll Sepolia (scrollscan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(SCROLL_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+# Robinhood Chain testnet (Arbitrum Orbit L2, chainId 46630). Native = ETH; Blockscout explorer (no
+# Etherscan key, so no verify flag here). NOTE: Chainlink Data Feeds are NOT live on RH Chain yet, so
+# the router deploys but same-chain USD quote() is unavailable until a feed lands — its role today is a
+# CCIP cross-chain LANE endpoint (selector 2032988798112970440). Set ROBINHOOD_TESTNET_RPC_URL +
+# ROBINHOOD_TESTNET_PLATFORM_TREASURY in .env first; the deployer keystore signs.
+deploy-robinhood-testnet: ## Deploy to Robinhood Chain testnet (CCIP-lane endpoint; no price feed yet)
+	forge script script/DeployAll.s.sol --rpc-url $(ROBINHOOD_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
 
 deploy-linea-sepolia: ## Deploy to Linea Sepolia (lineascan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(LINEA_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
