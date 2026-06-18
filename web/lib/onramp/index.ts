@@ -28,6 +28,7 @@ import {
   onrampBaseUrl,
   onrampNetwork,
   onrampProvider,
+  rampPartnerFeePercent,
   type OnrampProvider,
 } from './config'
 
@@ -47,7 +48,17 @@ export interface OnrampSessionInput {
 
 /** The discriminated result of building an on-ramp session. NEVER throws. */
 export type OnrampSessionResult =
-  | { ok: true; provider: OnrampProvider; url: string }
+  | {
+      ok: true
+      provider: OnrampProvider
+      url: string
+      /**
+       * The partner-fee % to apply to this funding (the two-layer knob: Access0x1
+       * default, deployment override). Surfaced so the caller's server can attach
+       * it when minting a provider session — the ramp collects it, not the chain.
+       */
+      partnerFeePercent: number
+    }
   | {
       ok: false
       code: 'not_configured' | 'invalid_input'
@@ -113,6 +124,16 @@ const PROVIDER_PARAMS: Record<
     asset: 'token',
     network: 'chain',
     redirect: 'redirectUrl',
+  },
+  // Transak hosted widget params (on+off ramp, self-serve partner fee). Confirm
+  // against docs.transak.com/query-parameters at the booth.
+  transak: {
+    appId: 'apiKey',
+    address: 'walletAddress',
+    amount: 'fiatAmount',
+    asset: 'cryptoCurrencyCode',
+    network: 'network',
+    redirect: 'redirectURL',
   },
 }
 
@@ -184,13 +205,15 @@ export function buildOnrampSession(input: OnrampSessionInput): OnrampSessionResu
     url.searchParams.set(p.redirect, input.redirectUrl.trim())
   }
 
-  return { ok: true, provider, url: url.toString() }
+  return { ok: true, provider, url: url.toString(), partnerFeePercent: rampPartnerFeePercent() }
 }
 
 export {
   isOnrampConfigured,
   isOnrampPublicConfigured,
   onrampProvider,
+  rampPartnerFeePercent,
+  RAMP_DEFAULT_PARTNER_FEE_PERCENT,
   ONRAMP_CONFIGURE_NOTE,
   KNOWN_ONRAMP_PROVIDERS,
   type OnrampProvider,

@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { buildOnrampSession } from '../index'
-import { KNOWN_ONRAMP_PROVIDERS } from '../config'
+import { KNOWN_ONRAMP_PROVIDERS, RAMP_DEFAULT_PARTNER_FEE_PERCENT } from '../config'
 
 const ONRAMP_ENV = [
   'ONRAMP_PROVIDER',
@@ -19,6 +19,7 @@ const ONRAMP_ENV = [
   'NEXT_PUBLIC_ONRAMP_ASSET',
   'NEXT_PUBLIC_ONRAMP_NETWORK',
   'ONRAMP_SERVER_KEY',
+  'NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT',
 ] as const
 
 function clearOnrampEnv(): void {
@@ -126,5 +127,42 @@ describe('invalid input (never a guessed address)', () => {
     const r = buildOnrampSession({ address: ADDR })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.code).toBe('not_configured')
+  })
+})
+
+describe('partner-fee % seam (access default, deployment override)', () => {
+  beforeEach(() => {
+    process.env.ONRAMP_PROVIDER = 'transak'
+    process.env.NEXT_PUBLIC_ONRAMP_BASE_URL = 'https://example.test/buy'
+    process.env.NEXT_PUBLIC_ONRAMP_APP_ID = 'pub-app-1'
+  })
+
+  it('defaults to the protocol baseline when no override is set', () => {
+    const r = buildOnrampSession({ address: ADDR })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.partnerFeePercent).toBe(RAMP_DEFAULT_PARTNER_FEE_PERCENT)
+  })
+
+  it('honours a deployment override (the nfteria-sets-it layer)', () => {
+    process.env.NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT = '1.5'
+    const r = buildOnrampSession({ address: ADDR })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.partnerFeePercent).toBe(1.5)
+  })
+
+  it('falls back to the default for a malformed or out-of-range override (no guessed rate)', () => {
+    for (const bad of ['abc', '-1', '250', '']) {
+      process.env.NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT = bad
+      const r = buildOnrampSession({ address: ADDR })
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.partnerFeePercent).toBe(RAMP_DEFAULT_PARTNER_FEE_PERCENT)
+    }
+  })
+
+  it('never leaks the fee as a secret — it is a public, returned number', () => {
+    process.env.NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT = '2'
+    const r = buildOnrampSession({ address: ADDR })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(typeof r.partnerFeePercent).toBe('number')
   })
 })
