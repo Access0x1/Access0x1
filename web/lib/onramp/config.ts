@@ -30,6 +30,7 @@ export const KNOWN_ONRAMP_PROVIDERS = [
   'stripe',
   'circle',
   'blink',
+  'transak',
 ] as const
 
 export type OnrampProvider = (typeof KNOWN_ONRAMP_PROVIDERS)[number]

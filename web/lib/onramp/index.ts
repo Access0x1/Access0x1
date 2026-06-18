@@ -114,6 +114,16 @@ const PROVIDER_PARAMS: Record<
     network: 'chain',
     redirect: 'redirectUrl',
   },
+  // Transak hosted widget params (on+off ramp, self-serve partner fee). Confirm
+  // against docs.transak.com/query-parameters at the booth.
+  transak: {
+    appId: 'apiKey',
+    address: 'walletAddress',
+    amount: 'fiatAmount',
+    asset: 'cryptoCurrencyCode',
+    network: 'network',
+    redirect: 'redirectURL',
+  },
 }
 
 /**
