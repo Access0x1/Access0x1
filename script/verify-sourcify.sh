@@ -18,10 +18,14 @@ RPC="${2:?missing rpc URL}"
 BCAST="broadcast/DeployAll.s.sol/${CHAIN_ID}/run-latest.json"
 THROTTLE="${VERIFY_THROTTLE:-2}"
 
-[ -f "$BCAST" ] || {
-  echo "No broadcast at $BCAST — deploy to chain ${CHAIN_ID} first." >&2
+# Record a chain-level SKIP to the results file (so it STILL shows in the one-paste digest) and exit.
+log_skip() {
+  [ -n "${VERIFY_RESULTS:-}" ] && printf 'SKIP\t%s\t%s\n' "$CHAIN_ID" "$1" >> "$VERIFY_RESULTS"
+  echo "skip: chain ${CHAIN_ID} — $1" >&2
   exit 1
 }
+
+[ -f "$BCAST" ] || log_skip "no broadcast (deploy to chain ${CHAIN_ID} first)"
 
 fail=0
 while read -r NAME ADDR; do
