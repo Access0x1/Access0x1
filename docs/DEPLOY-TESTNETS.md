@@ -284,7 +284,7 @@ make deploy-arc
 
 The consumer sits off the money path by construction — a revert in it can never
 touch a payment. If the forwarder address is not yet confirmed, leave it blank:
-the router, SessionGrant, and commerce quartet deploy unchanged.
+the router, SessionGrant, and commerce quintet deploy unchanged.
 
 The CRE workflow itself (the offchain automation) lives in `cre/`:
 

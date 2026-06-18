@@ -119,9 +119,9 @@ What this does (`script/DeployAll.s.sol`, the one-command multi-chain deploy):
   mock USDC (6-decimal, like Base/Arc), a mock USDC/USD Chainlink feed pinned at
   `$1.00`, a mock native/USD feed at `$2000`, and a `ChainRegistry`.
 - Then it deploys, in one broadcast, the **money spine** (`Access0x1Router` +
-  `SessionGrant`), the house-token factory, and the **commerce quartet**
+  `SessionGrant`), the house-token factory, and the **commerce quintet**
   (`Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`,
-  `Access0x1GiftCards`), and allowlists + prices the mock USDC on the Router.
+  `Access0x1GiftCards`, `Access0x1Nft`), and allowlists + prices the mock USDC on the Router.
 
 It runs **`--unlocked --sender 0xf39…2266`** — Anvil's first account, unlocked,
 **no keystore and no private key**. That is the verified keyless local path; the
