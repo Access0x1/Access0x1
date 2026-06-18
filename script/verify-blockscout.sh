@@ -18,14 +18,20 @@ set -uo pipefail
 
 CHAIN_ID="${1:?usage: verify-blockscout.sh <chainId> <rpcUrl> <verifierUrl>}"
 RPC="${2:?missing rpc URL}"
-VERIFIER_URL="${3:?missing verifier URL — set the chain VERIFIER_URL in .env, e.g. https://HOST/api/}"
+VERIFIER_URL="${3:-}"
 BCAST="broadcast/DeployAll.s.sol/${CHAIN_ID}/run-latest.json"
 THROTTLE="${VERIFY_THROTTLE:-2}"   # seconds between contracts — stay under explorer rate limits
 
-[ -f "$BCAST" ] || {
-  echo "No broadcast at $BCAST — deploy to chain ${CHAIN_ID} first (e.g. make deploy-robinhood-testnet)." >&2
+# Record a chain-level SKIP to the results file (so a chain that can't even start STILL shows in the
+# one-paste digest, instead of silently vanishing) and exit non-zero.
+log_skip() {
+  [ -n "${VERIFY_RESULTS:-}" ] && printf 'SKIP\t%s\t%s\n' "$CHAIN_ID" "$1" >> "$VERIFY_RESULTS"
+  echo "skip: chain ${CHAIN_ID} — $1" >&2
   exit 1
 }
+
+[ -n "$VERIFIER_URL" ] || log_skip "missing verifier URL (set this chain *_VERIFIER_URL in .env)"
+[ -f "$BCAST" ] || log_skip "no broadcast (deploy to chain ${CHAIN_ID} first)"
 
 fail=0
 while read -r NAME ADDR; do
