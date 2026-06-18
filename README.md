@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed on five chains: Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), and Avalanche Fuji (43113) — source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are one-command ready (`make deploy-all-testnets`) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed on five chains: Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), and Avalanche Fuji (43113) — source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
 
 ---
 
