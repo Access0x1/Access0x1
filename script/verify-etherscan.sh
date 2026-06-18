@@ -26,6 +26,11 @@
 #
 set -uo pipefail
 
+# Shared resolver — resolves each contract's real source path from its build artifact (universal across
+# layouts: src/, src/libraries/, test/mocks/, nested, external), instead of assuming src/<Name>.sol.
+# shellcheck source=verify-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify-lib.sh"
+
 CHAIN_ID="${1:?usage: verify-etherscan.sh <chainId> <rpcUrl> [verifierUrl] [apiKey]}"
 RPC="${2:?missing rpc URL}"
 VERIFIER_URL="${3:-}"
@@ -57,7 +62,8 @@ fail=0
 while read -r NAME ADDR; do
   [ -n "$NAME" ] && [ "$NAME" != "null" ] || { echo "skip (unnamed CREATE) $ADDR"; continue; }
   echo "==> verifying ${NAME} @ ${ADDR}"
-  if forge verify-contract "$ADDR" "src/${NAME}.sol:${NAME}" \
+  TARGET=$(resolve_target "$NAME")
+  if forge verify-contract "$ADDR" "$TARGET" \
       "${VERIFIER_ARGS[@]}" --rpc-url "$RPC" --guess-constructor-args --watch --retries 15 --delay 6; then
     echo "    OK ${NAME}"
     [ -n "${VERIFY_RESULTS:-}" ] && printf 'PASS\t%s\t%s\n' "$CHAIN_ID" "$NAME" >> "$VERIFY_RESULTS"
