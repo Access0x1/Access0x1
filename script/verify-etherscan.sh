@@ -35,7 +35,9 @@ CHAIN_ID="${1:?usage: verify-etherscan.sh <chainId> <rpcUrl> [verifierUrl] [apiK
 RPC="${2:?missing rpc URL}"
 VERIFIER_URL="${3:-}"
 API_KEY="${4:-${ETHERSCAN_API_KEY:-}}"
-BCAST="broadcast/DeployAll.s.sol/${CHAIN_ID}/run-latest.json"
+# Which deploy script's broadcast to read. Defaults to the consolidated DeployAll.s.sol; override with
+# BROADCAST_SCRIPT to verify a standalone deploy (e.g. DeployUsdMockFeed.s.sol) or an external project.
+BCAST="broadcast/${BROADCAST_SCRIPT:-DeployAll.s.sol}/${CHAIN_ID}/run-latest.json"
 THROTTLE="${VERIFY_THROTTLE:-2}"   # seconds between contracts — stay under the 3-calls/sec free tier
 
 # Record a chain-level SKIP to the results file (so a chain that can't even start STILL shows in the
