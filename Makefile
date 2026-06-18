@@ -343,8 +343,8 @@ verify-base-sepolia: ## Verify deployed Base Sepolia contracts (Etherscan V2 / B
 verify-optimism-sepolia: ## Verify deployed Optimism Sepolia contracts (Etherscan V2)
 	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 11155420 $(OPTIMISM_SEPOLIA_RPC_URL)
 
-verify-avalanche-fuji: ## Verify deployed Avalanche Fuji contracts (Etherscan V2 / Snowtrace)
-	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 43113 $(AVALANCHE_FUJI_RPC_URL)
+verify-avalanche-fuji: ## Verify deployed Avalanche Fuji contracts (Routescan / Snowtrace; keyless)
+	./script/verify-etherscan.sh 43113 $(AVALANCHE_FUJI_RPC_URL) https://api.routescan.io/v2/network/testnet/evm/43113/etherscan verifyContract
 
 verify-arc: ## Verify deployed Arc testnet contracts (Blockscout / arcscan)
 	./script/verify-blockscout.sh 5042002 $(ARC_SCAN_VERIFIER_URL) $(ARC_TESTNET_RPC_URL)
