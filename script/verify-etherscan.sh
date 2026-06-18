@@ -33,10 +33,15 @@ API_KEY="${4:-${ETHERSCAN_API_KEY:-}}"
 BCAST="broadcast/DeployAll.s.sol/${CHAIN_ID}/run-latest.json"
 THROTTLE="${VERIFY_THROTTLE:-2}"   # seconds between contracts — stay under the 3-calls/sec free tier
 
-[ -f "$BCAST" ] || {
-  echo "No broadcast at $BCAST — deploy to chain ${CHAIN_ID} first." >&2
+# Record a chain-level SKIP to the results file (so a chain that can't even start STILL shows in the
+# one-paste digest, instead of silently vanishing) and exit non-zero.
+log_skip() {
+  [ -n "${VERIFY_RESULTS:-}" ] && printf 'SKIP\t%s\t%s\n' "$CHAIN_ID" "$1" >> "$VERIFY_RESULTS"
+  echo "skip: chain ${CHAIN_ID} — $1" >&2
   exit 1
 }
+
+[ -f "$BCAST" ] || log_skip "no broadcast (deploy to chain ${CHAIN_ID} first)"
 
 # Build the verifier flags for the chosen mode.
 if [ -n "$VERIFIER_URL" ]; then
@@ -44,7 +49,7 @@ if [ -n "$VERIFIER_URL" ]; then
   VERIFIER_ARGS=(--verifier custom --verifier-url "$VERIFIER_URL" --etherscan-api-key "${API_KEY:-verifyContract}")
 else
   # Etherscan V2 multichain — one key, routed by chain id.
-  [ -n "$API_KEY" ] || { echo "Set ETHERSCAN_API_KEY in .env (one Etherscan V2 key covers all Etherscan-family chains)." >&2; exit 1; }
+  [ -n "$API_KEY" ] || log_skip "set ETHERSCAN_API_KEY in .env (one V2 key covers all Etherscan-family chains)"
   VERIFIER_ARGS=(--chain "$CHAIN_ID" --etherscan-api-key "$API_KEY")
 fi
 
