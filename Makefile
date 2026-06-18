@@ -60,7 +60,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         gate aderyn slither analyze mutation halmos audit anvil \
         deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
-        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet \
+        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet verify-robinhood-testnet \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
         deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
         deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
@@ -319,6 +319,15 @@ deploy-scroll-sepolia: ## Deploy to Scroll Sepolia (scrollscan verify)
 # ROBINHOOD_TESTNET_PLATFORM_TREASURY in .env first; the deployer keystore signs.
 deploy-robinhood-testnet: ## Deploy to Robinhood Chain testnet (CCIP-lane endpoint; no price feed yet)
 	forge script script/DeployAll.s.sol --rpc-url $(ROBINHOOD_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
+
+# Verify the ALREADY-DEPLOYED Robinhood Chain contracts on Blockscout — standalone + deploy-path-
+# INDEPENDENT (no --broadcast, no keystore: it only uploads source). --resume re-reads the last
+# broadcast (broadcast/DeployAll.s.sol/46630/run-latest.json) so forge has each contract's address +
+# the exact constructor args, then submits source to the Blockscout verifier. Use this when the deploy
+# itself ran WITHOUT --verify — e.g. a private / direct-to-sequencer submission that bypasses forge's
+# inline auto-verify. RH Blockscout is flaky (503s); just re-run until it sticks. No Etherscan key.
+verify-robinhood-testnet: ## Verify deployed RH Chain contracts on Blockscout (standalone; no keystore)
+	./script/verify-blockscout.sh 46630 https://explorer.testnet.chain.robinhood.com/api/ $(ROBINHOOD_TESTNET_RPC_URL)
 
 deploy-linea-sepolia: ## Deploy to Linea Sepolia (lineascan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(LINEA_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
