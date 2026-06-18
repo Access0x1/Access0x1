@@ -38,7 +38,7 @@ while read -r NAME ADDR; do
   [ -n "$NAME" ] && [ "$NAME" != "null" ] || { echo "skip (unnamed CREATE) $ADDR"; continue; }
   echo "==> verifying ${NAME} @ ${ADDR}"
   if forge verify-contract "$ADDR" "src/${NAME}.sol:${NAME}" \
-      --verifier blockscout --verifier-url "$VERIFIER_URL" \
+      --verifier blockscout --verifier-url "$VERIFIER_URL" --skip-is-verified-check \
       --rpc-url "$RPC" --guess-constructor-args --watch --retries 15 --delay 6; then
     echo "    OK ${NAME}"
     [ -n "${VERIFY_RESULTS:-}" ] && printf 'PASS\t%s\t%s\n' "$CHAIN_ID" "$NAME" >> "$VERIFY_RESULTS"
