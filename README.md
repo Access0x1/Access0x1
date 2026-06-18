@@ -254,6 +254,156 @@ optional; the starter's `contracts/DEPLOY.md` is the runbook.
 
 ---
 
+## 🛠 Make commands
+
+Every workflow is a single `make` target, each documented with a trailing `##` comment in the
+[`Makefile`](Makefile) — run `make help` to print this list at the terminal. Below is the full
+reference, grouped by what you're doing.
+
+### Setup & build
+
+| Command | What it does |
+| --- | --- |
+| `make install` | Install all deps: forge submodules + npm (`@chainlink`) + web + sdk. |
+| `make build` | Compile the contracts (`forge build`). |
+| `make fmt` | Format the Solidity (`forge fmt`). |
+| `make fmt-check` | Check formatting without writing (CI). |
+| `make clean` | Remove build artifacts (`forge clean`). |
+| `make sizes` | `forge build --sizes` — EIP-170 24KB runtime-size check (fails if any contract is over). |
+| `make snapshot` | Regenerate the gas snapshot (`.gas-snapshot`). |
+| `make storage-layout` | Regenerate `docs/STORAGE-LAYOUT.md` from `forge inspect <C> storage-layout`. |
+| `make sdk-build` | Typecheck the `@access0x1/react` SDK. |
+| `make all` | Install everything, then run the full green gate. |
+
+### Green gate, test & audit
+
+| Command | What it does |
+| --- | --- |
+| `make gate` | FULL GREEN GATE: contracts build+test+fmt AND web typecheck+test. |
+| `make test` | Run all tests: unit + invariant + attack + integration + scenario. |
+| `make test-gas` | Run tests with the per-function gas report. |
+| `make test-scenario` | Run ONLY the human-style end-to-end scenario suite (`test/scenario/**`). |
+| `make coverage` | Test coverage over `src/`. |
+| `make coverage-lcov` | Coverage as `lcov.info` (gitignored) + summary — documented floor: 90% lines on money paths. |
+| `make aderyn` | Static analysis (aderyn — auto-skips on the foundry-zksync fork, which aderyn 0.1.9 can't parse). |
+| `make slither` | Static analysis (slither). |
+| `make analyze` | Umbrella static pass: 4naly3er (npx, best-effort) + aderyn + slither. |
+| `make mutation` | Mutation testing (gambit or vertigo-rs); no-op with install hint if neither installed. |
+| `make halmos` | Symbolic execution (Halmos) over `test/symbolic/`; installs via uv/pip if absent. |
+| `make audit` | Full audit pass — then see `audit/REPORT.md` + `FINDINGS.md` + `CHECKLIST.md`. |
+| `make web-typecheck` | Web typecheck (`tsc --noEmit`). |
+| `make web-test` | Web unit tests (vitest, integration excluded). |
+| `make web-gate` | Web gate: embed check + typecheck + unit tests. |
+
+### Local development
+
+| Command | What it does |
+| --- | --- |
+| `make anvil` | Run a local anvil node. |
+| `make deploy-dry` | Deploy DRY-RUN — simulation only, no broadcast, no keys. |
+| `make deploy-local` | Deploy to a local anvil (anvil's default unlocked account[0]; no keystore needed). |
+| `make drive-local` | Deploy + DRIVE the coffee-shop money flow on a local anvil (run `make anvil` first). |
+
+### Web app & SDK · CRE / Vyper / zkSync
+
+| Command | What it does |
+| --- | --- |
+| `make web-install` | Install the web app deps. |
+| `make web-dev` | Run the web app locally (`next dev`). |
+| `make web-build` | Production build of the web app (`next build`). |
+| `make cre-build` | Build the CRE workflow (needs the CRE CLI). |
+| `make cre-sim` | Simulate the CRE workflow (the demoable artifact; deploy is Early-Access). |
+| `make vyper-build` | Compile the Vyper `NameMath` demonstrator (cancun); no-op if vyper not installed. |
+| `make vyper-test` | Run the Vyper==Solidity byte-for-byte conformance test; no-op if mox not installed. |
+| `make zksync-build` | `forge build --zksync` (zksolc) — zkEVM build check; see `docs/ZKSYNC-TESTING.md`. |
+| `make deploy-usd-mock-feed` | Deploy a $1 USDC/USD mock feed to a chain that lacks one — `make deploy-usd-mock-feed RPC=<url>`. |
+
+### Deploy — testnets
+
+One chain-aware `script/DeployAll.s.sol` behind every target; signing is keystore-only (`--account`),
+addresses read from `.env`. These are deploy *capabilities* — see [Deployments](#deployments) for which
+chains are actually broadcast.
+
+| Command | What it does |
+| --- | --- |
+| `make deploy-arc` | Deploy to Arc testnet (keystore `deployer`). |
+| `make deploy-base-sepolia` | Deploy to Base Sepolia (keystore `deployer`, verified). |
+| `make deploy-zksync-sepolia` | Deploy to zkSync Sepolia (keystore `deployer`). |
+| `make deploy-ethereum-sepolia` | Deploy to Ethereum Sepolia (etherscan verify). |
+| `make deploy-arbitrum-sepolia` | Deploy to Arbitrum Sepolia (arbiscan verify). |
+| `make deploy-optimism-sepolia` | Deploy to Optimism Sepolia (etherscan verify). |
+| `make deploy-polygon-amoy` | Deploy to Polygon Amoy (polygonscan verify). |
+| `make deploy-avalanche-fuji` | Deploy to Avalanche Fuji (snowtrace verify). |
+| `make deploy-bnb-testnet` | Deploy to BNB Smart Chain testnet (bscscan verify). |
+| `make deploy-scroll-sepolia` | Deploy to Scroll Sepolia (scrollscan verify). |
+| `make deploy-robinhood-testnet` | Deploy to Robinhood Chain testnet (CCIP-lane endpoint; no price feed yet). |
+| `make deploy-linea-sepolia` | Deploy to Linea Sepolia (lineascan verify). |
+| `make deploy-mantle-sepolia` | Deploy to Mantle Sepolia (blockscout verify). |
+| `make deploy-blast-sepolia` | Deploy to Blast Sepolia (blastscan verify). |
+| `make deploy-unichain-sepolia` | Deploy to Unichain Sepolia (uniscan verify). |
+| `make deploy-zora-sepolia` | Deploy to Zora Sepolia (chainId 999999999, ETH; blockscout verify). |
+| `make deploy-filecoin-calibration` | Deploy to Filecoin Calibration (chainId 314159, tFIL; blockscout verify). |
+| `make deploy-gnosis-chiado` | Deploy to Gnosis Chiado (chainId 10200, XDAI; blockscout verify). |
+| `make deploy-apechain-curtis` | Deploy to ApeChain Curtis (chainId 33111, APE; blockscout verify). |
+| `make deploy-worldchain-sepolia` | Deploy to World Chain Sepolia (chainId 4801, ETH; worldscan/etherscan verify). |
+| `make deploy-zircuit-garfield` | Deploy to Zircuit Garfield testnet (chainId 48898, ETH; sourcify verify). |
+| `make deploy-citrea-testnet` | Deploy to Citrea testnet (chainId 5115, cBTC; blockscout verify). |
+| `make deploy-flow-evm-testnet` | Deploy to Flow EVM testnet (chainId 545, FLOW; blockscout verify). |
+| `make deploy-celo-sepolia` | Deploy to Celo Sepolia (chainId 11142220, CELO; celoscan/etherscan-v2 verify). |
+
+### Verify deployed contracts
+
+Standalone source-verification targets — they upload the already-deployed source to each explorer,
+need **no keystore** (read-only against the committed broadcast log), and are idempotent (re-running a
+verified chain is a clean no-op).
+
+| Command | What it does |
+| --- | --- |
+| `make verify-arc` | Verify deployed Arc testnet contracts (Blockscout / arcscan). |
+| `make verify-ethereum-sepolia` | Verify deployed Ethereum Sepolia contracts (Etherscan V2). |
+| `make verify-base-sepolia` | Verify deployed Base Sepolia contracts (Etherscan V2 / Basescan). |
+| `make verify-optimism-sepolia` | Verify deployed Optimism Sepolia contracts (Etherscan V2). |
+| `make verify-avalanche-fuji` | Verify deployed Avalanche Fuji contracts (Etherscan V2 / Snowtrace). |
+| `make verify-robinhood-testnet` | Verify deployed RH Chain contracts on Blockscout (standalone; no keystore). |
+| `make verify-all-testnets` | Verify all deployed testnet contracts (best-effort across explorers). |
+
+### Deploy — mainnet (⛔ audit-gated · not deployed)
+
+> **There is NO mainnet deployment, and none is claimed.** Every target below is **config/readiness
+> only** — blocked behind a `MAINNET_AUDITED=yes` gate that refuses to broadcast until a third-party
+> security audit is complete (real funds, law #5). Each reads its addresses from `<CHAIN>_MAINNET_*`
+> env (default `address(0)` ⇒ skipped); no mainnet USDC/feed address is hardcoded. `deploy-arc-mainnet`
+> is additionally gated as **NOT LAUNCHED** — Arc mainnet does not exist yet, so its chain id is never
+> invented.
+
+| Command | What it does |
+| --- | --- |
+| `make deploy-ethereum-mainnet` | ⛔ AUDIT-GATED: deploy to Ethereum mainnet (etherscan verify) — real funds. |
+| `make deploy-base-mainnet` | ⛔ AUDIT-GATED: deploy to Base mainnet (basescan verify) — real funds. |
+| `make deploy-arbitrum-mainnet` | ⛔ AUDIT-GATED: deploy to Arbitrum One (arbiscan verify) — real funds. |
+| `make deploy-optimism-mainnet` | ⛔ AUDIT-GATED: deploy to OP Mainnet (etherscan verify) — real funds. |
+| `make deploy-polygon-mainnet` | ⛔ AUDIT-GATED: deploy to Polygon mainnet (polygonscan verify) — real funds. |
+| `make deploy-avalanche-mainnet` | ⛔ AUDIT-GATED: deploy to Avalanche C-Chain (snowtrace verify) — real funds. |
+| `make deploy-bnb-mainnet` | ⛔ AUDIT-GATED: deploy to BNB Smart Chain (bscscan verify) — real funds. |
+| `make deploy-scroll-mainnet` | ⛔ AUDIT-GATED: deploy to Scroll mainnet (scrollscan verify) — real funds. |
+| `make deploy-linea-mainnet` | ⛔ AUDIT-GATED: deploy to Linea mainnet (lineascan verify) — real funds. |
+| `make deploy-mantle-mainnet` | ⛔ AUDIT-GATED: deploy to Mantle mainnet (blockscout verify) — real funds. |
+| `make deploy-blast-mainnet` | ⛔ AUDIT-GATED: deploy to Blast mainnet (blastscan verify) — real funds. |
+| `make deploy-unichain-mainnet` | ⛔ AUDIT-GATED: deploy to Unichain mainnet (uniscan verify) — real funds. |
+| `make deploy-zksync-mainnet` | ⛔ AUDIT-GATED: deploy to zkSync Era mainnet (zksync verify, `--zksync`) — real funds. |
+| `make deploy-zora-mainnet` | ⛔ AUDIT-GATED: deploy to Zora mainnet (chainId 7777777, ETH; blockscout verify) — real funds. |
+| `make deploy-filecoin-mainnet` | ⛔ AUDIT-GATED: deploy to Filecoin mainnet (chainId 314, FIL; blockscout verify) — real funds. |
+| `make deploy-gnosis-mainnet` | ⛔ AUDIT-GATED: deploy to Gnosis Chain (chainId 100, XDAI; gnosisscan verify) — real funds. |
+| `make deploy-apechain-mainnet` | ⛔ AUDIT-GATED: deploy to ApeChain (chainId 33139, APE; apescan verify) — real funds. |
+| `make deploy-worldchain-mainnet` | ⛔ AUDIT-GATED: deploy to World Chain (chainId 480, ETH; worldscan verify) — real funds. |
+| `make deploy-zircuit-mainnet` | ⛔ AUDIT-GATED: deploy to Zircuit mainnet (chainId 48900, ETH; sourcify verify) — real funds. |
+| `make deploy-citrea-mainnet` | ⛔ AUDIT-GATED: deploy to Citrea mainnet (chainId 4114, cBTC; blockscout verify) — real funds. |
+| `make deploy-flow-evm-mainnet` | ⛔ AUDIT-GATED: deploy to Flow EVM mainnet (chainId 747, FLOW; blockscout verify) — real funds. |
+| `make deploy-celo-mainnet` | ⛔ AUDIT-GATED: deploy to Celo mainnet (chainId 42220, CELO; celoscan verify) — real funds. |
+| `make deploy-arc-mainnet` | ⛔ AUDIT-GATED + NOT LAUNCHED: deploy to Arc mainnet (set `ARC_MAINNET_CHAIN_ID` first). |
+
+---
+
 ## Deploy · multi-chain
 
 `script/DeployAll.s.sol` is the chain-aware **one-command** entrypoint: a single `make deploy-arc`
