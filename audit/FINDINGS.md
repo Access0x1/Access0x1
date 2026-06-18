@@ -7,20 +7,21 @@ set, not just the router core.
 
 | Layer | Result |
 | --- | --- |
-| `forge test` | **864 tests green, 0 failed, 0 skipped** (77 suites: unit + attack + invariant + integration + fuzz + fork) |
-| `forge coverage` | lines **98.35%**, statements **97.57%**, branches **89.23%**, functions **99.30%** overall (`--ir-minimum`; per-contract table below, raw in [`COVERAGE.md`](COVERAGE.md)) |
+| `forge test` | **871 tests green, 0 failed, 0 skipped** (86 suites: unit + attack + invariant + integration + fuzz; **fork-excluded** — the 3 Chainlink fork tests pass in isolation, flaky only under live-RPC rate-limit) |
+| `forge coverage` | lines **98.58%**, statements **97.65%**, branches **89.90%**, functions **100%** overall (`--ir-minimum`; per-contract table below, raw in [`COVERAGE.md`](COVERAGE.md)) |
 | Invariants | **31 total** hold under `fail_on_revert`, 0 reverts: 6 router + 3 PaymentLanes + 6 Bookings + 6 Invoices + 6 Subscriptions + 4 GiftCards |
-| `slither .` (v0.11.5) | **31 results across 12 detectors**, all triaged (false-positive / by-design / justified-with-runtime-guard); router native-send rows suppressed by inline `slither-disable` |
+| `slither .` (v0.11.5) | **34 results across 13 detectors**, all triaged (false-positive / by-design / justified-with-runtime-guard); router native-send rows suppressed by inline `slither-disable` |
 | `aderyn` (v0.1.9) | **4 High + 11 Low**, all triaged (false-positive / by-design / style) |
 
 Scope: the full first-party surface — the money spine (`Access0x1Router`), the receipt/auth
 ledgers (`PaymentLanes`, `SessionGrant`), the sidecars (`ChainRegistry`, `Access0x1Receiver`),
-the house-token factory + token, and the **commerce quartet** (`Access0x1Subscriptions`,
-`Access0x1Bookings`, `Access0x1Invoices`, `Access0x1GiftCards`). The quartet COMPOSES the audited
-spine rather than re-deriving it: every money leg routes through `Access0x1Router.payToken` /
+the house-token factory + token, and the **commerce quintet** (`Access0x1Subscriptions`,
+`Access0x1Bookings`, `Access0x1Invoices`, `Access0x1GiftCards`, `Access0x1Nft`). The quintet COMPOSES
+the audited spine rather than re-deriving it: every money leg routes through `Access0x1Router.payToken` /
 `payNative` and every USD→token price is read in-tx through `Access0x1Router.quote` (the OracleLib
 staleness guard), so the router's own fuzz invariants (`net + fee == gross`, zero-custody residual,
-tenant isolation, effective fee ≤ `MAX_FEE_BPS`) carry to them unchanged.
+tenant isolation, effective fee ≤ `MAX_FEE_BPS`) carry to them unchanged. `Access0x1Nft` is the
+USD-priced, zero-custody NFT-commerce member (ERC-721 escrow + atomic settle-through-Router on `buy`).
 
 Tooling config: [`slither.config.json`](../slither.config.json) filters
 `lib/ node_modules/ test/ script/` so analysis focuses on `src/`. Aderyn is run
@@ -29,37 +30,38 @@ toolchain's newer default evm version) and `--no-snippets`; its generated
 `report.md` is gitignored — this file is the curated record.
 
 **Tool-honesty note (this re-run).** Both static analysers actually executed over
-the full 12-contract surface. **Slither ran clean** (31 / 12). **Aderyn** requires a
+the full 13-contract surface. **Slither ran clean** (34 / 13). **Aderyn** requires a
 checkout whose `node_modules`/`lib` resolve *inside* the project root — run from a
 worktree with those paths symlinked out of the tree it panics with `StripPrefixError`
 before emitting a report, so the Aderyn numbers here were produced from a checkout
 with a local (non-symlinked) `node_modules`; Aderyn also prints a cosmetic
 version-parse panic *after* writing the report (it cannot parse the `foundry-zksync`
 version string) — the report itself is complete. `forge coverage` uses `--ir-minimum`
-because the commerce quartet trips `Stack too deep` under the default coverage
+because the commerce quintet trips `Stack too deep` under the default coverage
 pipeline.
 
 ## Coverage by contract
 
-Measured under `forge coverage --ir-minimum` (the quartet trips `Stack too deep`
+Measured under `forge coverage --ir-minimum` (the quintet trips `Stack too deep`
 under the default coverage pipeline). Raw snapshot: [`COVERAGE.md`](COVERAGE.md).
 
 | Contract | Lines | Statements | Branches | Functions |
 | --- | --- | --- | --- | --- |
-| `Access0x1Bookings.sol` | 97.69% (169/173) | 95.00% (190/200) | 76.32% (29/38) | 96.43% (27/28) |
+| `Access0x1Bookings.sol` | 99.42% (172/173) | 96.00% (192/200) | 78.95% (30/38) | 100% (28/28) |
 | `Access0x1GiftCards.sol` | 96.43% (81/84) | 96.51% (83/86) | 80.95% (17/21) | 100% (15/15) |
 | `Access0x1Invoices.sol` | 100% (69/69) | 100% (85/85) | 100% (15/15) | 100% (10/10) |
+| `Access0x1Nft.sol` | 96.30% (52/54) | 94.83% (55/58) | 90.00% (9/10) | 100% (8/8) |
 | `Access0x1Receiver.sol` | 92.00% (23/25) | 92.59% (25/27) | 66.67% (4/6) | 100% (6/6) |
-| `Access0x1Router.sol` | 97.79% (133/136) | 98.08% (153/156) | 97.44% (38/39) | 100% (18/18) |
-| `Access0x1Subscriptions.sol` | 100% (122/122) | 99.29% (140/141) | 96.00% (24/25) | 100% (16/16) |
+| `Access0x1Router.sol` | 97.87% (138/141) | 98.14% (158/161) | 97.50% (39/40) | 100% (19/19) |
+| `Access0x1Subscriptions.sol` | 100% (124/124) | 99.30% (142/143) | 96.00% (24/25) | 100% (16/16) |
 | `ChainRegistry.sol` | 100% (17/17) | 100% (22/22) | 100% (4/4) | 100% (5/5) |
 | `HouseToken.sol` | 100% (10/10) | 87.50% (7/8) | 50% (1/2) | 100% (3/3) |
 | `HouseTokenFactory.sol` | 100% (11/11) | 100% (13/13) | 100% (2/2) | 100% (2/2) |
 | `NameMath.sol` | 100% (40/40) | 100% (49/49) | 100% (3/3) | 100% (7/7) |
 | `PaymentLanes.sol` | 100% (68/68) | 97.10% (67/69) | 85.71% (12/14) | 100% (16/16) |
 | `SessionGrant.sol` | 97.80% (89/91) | 98.39% (122/124) | 95.83% (23/24) | 100% (16/16) |
-| `libraries/OracleLib.sol` | 100% (4/4) | 100% (8/8) | 100% (2/2) | 100% (1/1) |
-| **Total** | **98.35% (836/850)** | **97.57% (964/988)** | **89.23% (174/195)** | **99.30% (142/143)** |
+| `libraries/OracleLib.sol` | 100% (9/9) | 100% (17/17) | 100% (4/4) | 100% (2/2) |
+| **Total** | **98.58% (903/916)** | **97.65% (1037/1062)** | **89.90% (187/208)** | **100% (153/153)** |
 
 The sub-100% rows are **unreachable defense-in-depth guards** (documented,
 intentionally kept — covering them would require weakening the contract): the
@@ -68,8 +70,8 @@ legs (`_trySafeQuote`/`_payoutOrQueue` — the refund-never-blocked fallback), t
 Router `_pushNativeOrQueue` rescue arm, the Receiver assembly-length pre-guard, the
 `HouseToken.decimals()` override (both arms return the same value), and the
 zero-owner / `SessionExists` clobber guards below. Every external entrypoint is
-exercised by the unit + attack + invariant suites; the single 142/143 function gap
-is an IR-minimum view/getter split-count, not an untested path.
+exercised by the unit + attack + invariant suites; **function coverage is now 100%
+(153/153)** — the earlier 142/143 split-count gap closed as the suite grew.
 
 The earlier sub-100% rows are **unreachable defense-in-depth guards** (documented,
 intentionally kept — covering them would require weakening the contract):
@@ -164,11 +166,11 @@ per-contract coverage table above is the last full `/audit` snapshot and predate
 guard; it refreshes — `OracleLib` gaining its second function, the router its storage/
 event/setter — on the next coverage run.)
 
-### The commerce quartet — composition review (no new findings)
+### The commerce quintet — composition review (no new findings)
 
-`Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`, and
-`Access0x1GiftCards` were added as primitives that **compose** the audited spine, and
-each was reviewed against the estate money laws plus the static tools:
+`Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`,
+`Access0x1GiftCards`, and `Access0x1Nft` were added as primitives that **compose** the
+audited spine, and each was reviewed against the estate money laws plus the static tools:
 
 - **No re-derived fee math.** Every money leg routes through
   `Access0x1Router.payToken` / `payNative`, so `net + platformFee + merchantFee ==
@@ -178,29 +180,49 @@ each was reviewed against the estate money laws plus the static tools:
   escrow). Bookings keeps a fully-backed escrow ledger where the contract's ERC-20
   balance always equals `escrowedOf` (conservation). GiftCards holds **no** ERC-20 at
   all — a card balance is a pure USD receipt; the chargeable remainder settles through
-  the router separately.
+  the router separately. `Access0x1Nft` holds **no** payment token — `buy` pulls the
+  quoted gross from the buyer and forwards it to the Router in the same call, then resets
+  the approval to 0; the only thing it escrows is the listed ERC-721, between `list` and
+  `buy`/`cancelListing`.
 - **Never-negative.** Subscriptions debits a `SessionGrant` budget that HARD-reverts
   past the cap (the on-chain spend meter); GiftCards' `redeem` reverts unless `balance
   >= applied`; Bookings clamps every fee to the held escrow.
 - **Idempotency / single-settlement.** Invoices' `OPEN → {PAID|VOID}` is one-way and
-  absorbing; Bookings guards a `clientNonce`; GiftCards records each redemption id once.
+  absorbing; Bookings guards a `clientNonce`; GiftCards records each redemption id once;
+  `Access0x1Nft` flips a listing's `active` to false (effect) BEFORE the settle/transfer
+  interactions, so a re-entrant `buy`/`cancelListing` finds it inactive — one-shot sale.
+- **CEI + `nonReentrant` on every mutating path.** `Access0x1Nft.{list,buy,cancelListing}`
+  are each `nonReentrant` with checks→effects→interactions; the NFT legs use
+  `safeTransferFrom` (a contract buyer that cannot receive ERC-721 reverts the whole
+  atomic purchase, rolling the payment back), and `list` verifies `ownerOf == this` after
+  escrow so a non-standard 721 cannot back a phantom listing.
+- **Refund-never-blocked, asset side.** `Access0x1Nft.cancelListing` is **not** gated by
+  `pause` — a seller can always retrieve an unsold NFT, the ERC-721 analogue of estate law
+  #5 (no hostage assets).
+- **Front-run / price-bump guard.** `Access0x1Nft.buy(listingId, maxPriceUsd8)` reverts
+  unless the buyer-supplied USD price equals the listing's — explicit buyer consent to the
+  exact price, defeating a seller bump or a swapped listing between quote and submit.
 - **Tenant isolation inherited.** Owner-authorization is read live from
-  `Access0x1Router.merchants(id).owner` (the single registry); no quartet path mutates
+  `Access0x1Router.merchants(id).owner` (the single registry); no quintet path mutates
   another merchant's or another record's storage.
 
 These map onto the existing slither/aderyn dispositions below (the same
-native-send / low-level-call / timestamp / centralization rows apply — by design,
-documented) and add no new untriaged finding.
+native-send / low-level-call / timestamp / centralization / unused-return rows apply — by
+design, documented) and add no new untriaged finding. `Access0x1Nft` is exercised at
+**96.30% lines (52/54), 90% branches, 100% functions** by its 12 unit + 4 attack tests.
 
 ---
 
-## Slither — 31 results across 12 detectors, all triaged
+## Slither — 34 results across 13 detectors, all triaged
 
-Slither v0.11.5 found **31 results across 12 detectors** over the 12-contract
+Slither v0.11.5 found **34 results across 13 detectors** over the 13-contract
 surface. The router's `arbitrary-send-eth` and `reentrancy-eth` rows are NOT among
-the 31 — they are suppressed at source by 17 inline `slither-disable` directives
+the 34 — they are suppressed at source by 17 inline `slither-disable` directives
 (the by-design native-send paths); that suppression is disclosed in the first row
-below rather than hidden.
+below rather than hidden. The three rows added since the previous (31-result) snapshot
+are the two `Access0x1Nft` `unused-return` rows and the `missing-zero-check` on the
+router's new `setSequencerUptimeFeed` (the audit M-1 L2-sequencer guard) — all by design,
+disposed below.
 
 | Detector | Where | Disposition |
 | --- | --- | --- |
@@ -208,7 +230,8 @@ below rather than hidden.
 | `incorrect-equality` | `Access0x1Bookings._payoutOrQueue` (`amount == 0`) | **False positive.** A strict `== 0` early-return on an exact internal value, not a balance/timestamp comparison; nothing external influences `amount`. |
 | `reentrancy-no-eth`, `reentrancy-benign`, `reentrancy-events` | `SessionGrant.openSessionFor` (the 6492 `factory.call` before the nonce write); `Access0x1Bookings._payoutOrQueue` (rescue credit after the best-effort `transfer`) | **Justified — non-exploitable, guarded at runtime.** For SessionGrant the reentrancy is real (the ERC-6492 prepare call), but the `NonceMismatch` guard pins each authorisation to its validated nonce, so a re-entrant open can never double-open or advance the nonce twice (proven by the reentrancy attack test below). For Bookings the post-call write is the fail-soft rescue credit on a rejecting payee; the function is `nonReentrant` and the credit only grows a per-(payee,token) escrowed balance. Slither cannot see the runtime guards. |
 | `uninitialized-local` | Router `quote` (`feedDecimals`/`tokenDecimals`); `Access0x1Bookings._cancel` (`feeTarget`) | **False positive.** Each is assigned on every reachable path before use — the decimals are read from the feed/token, `feeTarget` is set from the `_trySafeQuote` result (defaulting to zero on a fault, intentionally). |
-| `unused-return` | `Access0x1Bookings/Invoices/GiftCards._merchantOwner` (`router.merchants(...)`); `SessionGrant._validate1271OrEOA{,Calldata}` (`ECDSA.tryRecover`) | **False positive.** The quartet helpers read only the merchant struct's `owner` field for an authorization check; the validators use the recovered address + the `RecoverError`, dropping only the unused tuple slot via the `,` placeholder — canonical `tryRecover` usage. |
+| `unused-return` | `Access0x1Bookings/Invoices/GiftCards._merchantOwner` + `Access0x1Nft._requireMerchantOwner` (`router.merchants(...)`); `Access0x1Nft.list` (the `router.quote` allowlist/price probe); `SessionGrant._validate1271OrEOA{,Calldata}` (`ECDSA.tryRecover`) | **False positive.** The quintet helpers read only the merchant struct's `owner` field for an authorization check; `Access0x1Nft.list` calls `router.quote` purely to fail-fast on an unpriceable/disallowed token (the returned gross is re-quoted at `buy` time, never needed at list time); the validators use the recovered address + the `RecoverError`, dropping only the unused tuple slot via the `,` placeholder — canonical `tryRecover` usage. |
+| `missing-zero-check` | Router `setSequencerUptimeFeed(feed)` | **By design.** `feed == address(0)` is the deliberate "no L2 sequencer feed — skip the check" sentinel (L1 / Arc, and the default), exactly mirroring `setPaymentLanes`' `address(0)`-disables sentinel; documented inline. |
 | `shadowing-local` | `IAccess0x1GiftCards` params `cardId` vs the `cardId(...)` view; `ISessionGrant.remaining(bytes32)` return name | **False positive / cosmetic.** A parameter or named return matching an interface function name shadows no state or parent symbol — an interface-declaration artifact. |
 | `timestamp` | `OracleLib.staleCheckLatestRoundData`; `SessionGrant.remaining/_open/spend`; `Access0x1Bookings.expireHold/cancelWithSession/_cancel` | **By design.** Comparing `block.timestamp` against a staleness window (oracle) / session expiry / booking cancel-window IS the intended guard; minute-scale validator drift cannot defeat the hour-plus / slot-scale bounds. |
 | `assembly` | `Access0x1Receiver._decodeMetadata` | **By design.** Fixed-offset calldata slicing of the Keystone metadata layout (name at [32..42), owner at [42..62)); guarded by `require(metadata.length >= 62)`. No memory writes, no dynamic offsets. |
@@ -218,22 +241,23 @@ below rather than hidden.
 
 ## Aderyn — 4 High + 11 Low, all triaged
 
-Aderyn v0.1.9 ran clean over all 21 `src/` files (2157 nSLOC). Counts grew from the
-previous 3H/9L as the commerce quartet was brought into scope (H-4, L-2, and more
-instances of the existing rows); dispositions are unchanged in kind.
+Aderyn v0.1.9 ran clean over all 22 `src/` files (2293 nSLOC). The **category counts
+are unchanged (4H / 11L)**; bringing `Access0x1Nft` and the router's M-1 sequencer
+guard into scope only added *instances* of existing rows (H-4 +1, L-1 +4, L-3 +1,
+L-6 +1) — dispositions are unchanged in kind.
 
 | ID | Title | Inst. | Disposition |
 | --- | --- | --- | --- |
 | **H-1** | Arbitrary `from` in `transferFrom`/`safeTransferFrom` (Router `_pullExact`, Invoices `_pullExact`, Subscriptions charge) | 3 | **False positive.** In each case `from`/`subscriber` is the payer threaded from the pay entrypoint (the address the contract pulls the pay-in from), not an attacker-chosen third party with a standing approval. Each pull is followed by a balance-delta check that rejects fee-on-transfer skims. |
 | **H-2** | Uninitialized state variable (`HouseTokenFactory.deployedCount`) | 1 | **False positive (style).** `deployedCount` is a deploy counter; Solidity zero-initialises it. Off the money path; an explicit `= 0` adds nothing. |
 | **H-3** | Unprotected native-ETH send (Router `payNative` refund, `claimRescue`) | 2 | **False positive / by design.** Same as the slither native-send rows: recipients are caller-configured (zero-checked) merchant/treasury/fee/buyer addresses or `msg.sender`; the contract is `nonReentrant` + CEI. A payments router sending native value is its purpose. |
-| **H-4** | Unused return value (`Access0x1Subscriptions._charge` return; `sessionGrant.spend` return) | 2 | **False positive / benign.** `_charge` returns `gross` for the caller that needs it; the trial-skip path and the budget-meter call deliberately ignore the informational return. The state effect (the spend) is never dropped. |
-| **L-1** | Centralization risk (owner setters + pause across all contracts) | 22 | **By design, documented trust assumption.** Owner controls fees/treasury/allowlists/pause and the workflow + router + chain config — a burner key at the event, a multisig in prod. No owner path reaches merchant funds (router settlement is atomic, zero-custody; PaymentLanes admin holds no lane balance; SessionGrant holds no funds at all; Receiver is off the money path). |
+| **H-4** | Unused return value (`Access0x1Subscriptions._charge` return; `sessionGrant.spend` return; `Access0x1Nft.list`'s `router.quote` probe) | 3 | **False positive / benign.** `_charge` returns `gross` for the caller that needs it; the trial-skip path and the budget-meter call deliberately ignore the informational return; `Access0x1Nft.list` calls `router.quote` only to fail-fast on an unpriceable token (re-quoted at `buy`). The state effect (the spend) is never dropped. |
+| **L-1** | Centralization risk (owner setters + pause across all contracts, incl. `Access0x1Nft` owner+pause/unpause and the router's `setSequencerUptimeFeed`) | 26 | **By design, documented trust assumption.** Owner controls fees/treasury/allowlists/pause and the workflow + router + chain config (now including the L2 sequencer-feed setter and the Nft pause) — a burner key at the event, a multisig in prod. No owner path reaches merchant funds (router settlement is atomic, zero-custody; `Access0x1Nft` never holds the payment token and its `cancelListing` is un-pausable so an unsold NFT is never hostage; PaymentLanes admin holds no lane balance; SessionGrant holds no funds at all; Receiver is off the money path). |
 | **L-2** | Unsafe ERC20 operation (`Access0x1Bookings._payoutOrQueue` raw `.transfer`) | 1 | **By design — the refund-never-blocked mechanism.** The raw `.transfer` is wrapped in `try/catch`: a rejecting payee credits `_refundRescue` instead of bubbling. SafeERC20 would *revert* on a hostile token and brick the refund — the opposite of estate law #5. Inline-disabled. |
-| **L-3** | Missing `address(0)` check (Router `setPaymentLanes`) | 1 | **By design.** `address(0)` is the deliberate "disable lanes" sentinel; documented inline with a `slither-disable` directive. |
+| **L-3** | Missing `address(0)` check (Router `setPaymentLanes`, `setSequencerUptimeFeed`) | 2 | **By design.** In both, `address(0)` is a deliberate "disable" sentinel — no payment lanes, and no L2 sequencer feed (L1 / Arc) — documented inline with a `slither-disable` directive. |
 | **L-4** | `public` could be `external` (`Access0x1Receiver.supportsInterface`, `HouseToken.decimals`) | 2 | **False positive.** Both are `override`s of base interfaces (`IERC165.supportsInterface`, `ERC20.decimals`) that must remain `public`. |
 | **L-5** | Literals could be constants (Router scaling, NameMath SVG math, SessionGrant 6492 slicing, Bookings scaling) | 15 | **Idiomatic.** The remaining literals are decimal-scaling bases, SVG geometry constants and signature byte offsets, not magic numbers; constant-extraction would reduce clarity. |
-| **L-6** | Events missing `indexed` fields | 25 | **By design.** Indexing targets the fields indexers actually filter on (ids/owners/orders); over-indexing wide settlement/audit events costs gas for fields nobody filters. |
+| **L-6** | Events missing `indexed` fields (incl. `Access0x1Nft.Cancelled`) | 26 | **By design.** Indexing targets the fields indexers actually filter on (ids/owners/orders); over-indexing wide settlement/audit events costs gas for fields nobody filters. |
 | **L-7** | Modifier invoked only once (`Access0x1Subscriptions`) | 1 | **By design.** The named modifier documents the merchant-owner authorization gate; inlining hurts readability with no gas/behaviour impact. |
 | **L-8** | Large literal `FEE_DENOMINATOR = 10_000` | 1 | **Intentional.** `10_000` reads as a basis-point denominator far more clearly than `1e4`; underscore-grouped and named. |
 | **L-9** | Internal functions called once could be inlined (3×: `NameMath` SVG helpers) | 3 | **By design.** Named helpers keep the pure on-chain SVG math (color + identicon) readable; via-IR inlines them anyway, so there is no gas or behaviour impact. |
@@ -290,3 +314,10 @@ under `test/attack/**`:
   blocked, reversal cannot double-credit, coupon cap cannot be exceeded, coupon
   namespace isolation, cannot issue/coupon for a foreign merchant, cannot forge a
   victim card id, transfer cannot underflow, dust round-trips exactly.
+- **Access0x1Nft** (`Access0x1Nft.attack.t.sol`): a re-entrant `buy` on NFT delivery is
+  blocked (one-shot listing + `nonReentrant`), a contract buyer that cannot receive the
+  ERC-721 rolls the whole payment back (atomic), the buyer's `maxPriceUsd8` consent blocks
+  a seller price-bump, and a fuzzed `buy` conserves value with zero payment-token custody.
+  Plus the 12 unit tests: escrow-on-list, settle-and-deliver, price-mismatch revert,
+  seller-only cancel, merchant-owner-only / merchant-not-found / disallowed-token list
+  guards, pause blocks trade but never cancel, and the zero-router constructor guard.
