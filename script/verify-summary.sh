@@ -28,13 +28,15 @@ name_for() {
 echo "════════ VERIFY SUMMARY ════════"
 pass=0
 fail=0
+skip=0
 while IFS=$'\t' read -r STATUS CID NAME; do
   [ -n "${STATUS:-}" ] || continue
   label=$(name_for "$CID")
   case "$STATUS" in
     PASS) printf 'PASS  %-18s %s\n' "$label" "$NAME"; pass=$((pass + 1)) ;;
+    SKIP) printf 'SKIP  %-18s %s\n' "$label" "$NAME"; skip=$((skip + 1)) ;;
     *)    printf 'FAIL  %-18s %s\n' "$label" "$NAME"; fail=$((fail + 1)) ;;
   esac
 done < "$FILE"
 echo "────────────────────────────────"
-echo "${pass} passed · ${fail} failed"
+echo "${pass} passed · ${fail} failed · ${skip} skipped"
