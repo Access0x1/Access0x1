@@ -93,11 +93,12 @@ flowchart TB
         Session["SessionGrant<br/>ERC-7702 + ERC-6492"]
         Registry["ChainRegistry<br/>multi-chain reference"]
         Receiver["Access0x1Receiver<br/>CRE audit consumer"]
-        subgraph commerce["Commerce quartet (compose the spine)"]
+        subgraph commerce["Commerce quintet (compose the spine)"]
             Subs["Subscriptions"]
             Book["Bookings"]
             Inv["Invoices"]
             Gift["GiftCards"]
+            Nft["NFT marketplace"]
         end
     end
 
@@ -132,9 +133,11 @@ src/
 ├── HouseTokenFactory.sol         # non-custodial business-owned ERC-20 factory …
 ├── HouseToken.sol                #   … and the token it deploys (owner gets supply + key)
 ├── Access0x1Subscriptions.sol    # recurring USD billing  ┐
-├── Access0x1Bookings.sol         # deposit-escrow + refund │ the commerce quartet —
+├── Access0x1Bookings.sol         # deposit-escrow + refund │ the commerce quintet —
 ├── Access0x1Invoices.sol         # pay-once payment request │ each COMPOSES the spine
-├── Access0x1GiftCards.sol        # prepaid balance + coupons┘ (Router + SessionGrant)
+├── Access0x1GiftCards.sol        # prepaid balance + coupons│ (Router + SessionGrant)
+├── Access0x1Nft.sol              # USD-priced NFT marketplace┘
+├── NameMath.sol                  # ENS namehash → brand color + SVG (internal library)
 ├── libraries/
 │   └── OracleLib.sol             # Chainlink staleness + completed-round guard (internal)
 └── interfaces/                   # one per contract above (consumed surfaces)
@@ -143,10 +146,13 @@ script/                      # DeployAccess0x1Router · DeployAll · DeployChain
 test/                        # unit · attack · invariant (864 tests)
 ```
 
-The full first-party surface is **12 contracts**: the money spine (`Access0x1Router`), the receipt
+The full first-party surface is **12 production contracts + 2 libraries** (14 `.sol` files in
+`src/`, plus 8 interfaces): the money spine (`Access0x1Router`), the receipt
 ledger (`PaymentLanes`), the agent-auth ledger (`SessionGrant`), the per-chain reference
 (`ChainRegistry`), the CRE audit consumer (`Access0x1Receiver`), the house-token factory +
-its `HouseToken`, the four commerce primitives, and the internal `OracleLib`. `make deploy-arc`
+its `HouseToken`, the five commerce primitives (subscriptions · bookings · invoices · gift cards ·
+the `Access0x1Nft` marketplace), and two inlined libraries — the `OracleLib` staleness guard and the
+`NameMath` ENS-brand helper. `make deploy-arc`
 (or `deploy-base-sepolia` / `deploy-zksync-sepolia`) runs [`script/DeployAll.s.sol`](script/DeployAll.s.sol),
 which deploys and wires the whole set in a single broadcast (`ChainRegistry` is the one sidecar
 deployed once per chain by `DeployChainRegistry` and carried in as config).
@@ -164,7 +170,7 @@ deployed once per chain by `DeployChainRegistry` and carried in as config).
 | [`Access0x1Receiver`](src/Access0x1Receiver.sol) | The on-chain half of **Chainlink CRE** "Notified Settlement": a Forwarder-gated consumer that writes an immutable audit entry per settlement. Off the money path by construction — a revert here can never touch a payment. |
 | [`HouseTokenFactory`](src/HouseTokenFactory.sol) / [`HouseToken`](src/HouseToken.sol) | A **non-custodial** factory: a business deploys its OWN ERC-20 (loyalty / credit / closed-loop, settleable through the router) and owns it in its own wallet — ownership AND the full supply are assigned to the business in the same tx, so the factory never holds a key or a balance. It only records provenance. |
 
-**The commerce quartet** — vertical-agnostic primitives that **compose** the spine above (Router + SessionGrant) rather than re-implementing it. Each owns lifecycle/eligibility ONLY; every money leg routes through `Access0x1Router.payToken`/`payNative` (so `net + fee == gross` is the router's audited invariant, never re-derived) and every USD→token price is read in-tx through `Access0x1Router.quote` (the OracleLib staleness guard). They need NO router-side registration — the router's merchant registry is their single source of truth for owner-authorization.
+**The commerce quintet** — vertical-agnostic primitives that **compose** the spine above (Router + SessionGrant) rather than re-implementing it. Each owns lifecycle/eligibility ONLY; every money leg routes through `Access0x1Router.payToken`/`payNative` (so `net + fee == gross` is the router's audited invariant, never re-derived) and every USD→token price is read in-tx through `Access0x1Router.quote` (the OracleLib staleness guard). They need NO router-side registration — the router's merchant registry is their single source of truth for owner-authorization. (`Access0x1Nft`, the newest of the five, is built and tested and wired into `DeployAll`; the formal audit pass in [`audit/`](audit/) currently scopes the original four — it is reviewed there before any mainnet claim.)
 
 | Contract | One-liner |
 | --- | --- |
@@ -172,6 +178,7 @@ deployed once per chain by `DeployChainRegistry` and carried in as config).
 | [`Access0x1Bookings`](src/Access0x1Bookings.sol) | A deposit-escrow primitive with a **never-blockable refund**. A payer escrows a USD-priced deposit against an opaque `slotKey`; the booking resolves through one lifecycle transition (confirm / expire / cancel / no-show) under an IMMUTABLE policy snapshot. A failed refund push lands in a per-token pull-map; a stale/dead oracle on a resolution leg yields a zero fee and refunds everything — the refund is unconditional (estate law #5). |
 | [`Access0x1Invoices`](src/Access0x1Invoices.sol) | The simplest commerce primitive: a USD-priced, **pay-once** payment request. An operator issues a request for `amountUsd8` (optionally locked to one payer / stamped with a `dueBy`); it is priced USD→token in-tx and settled through the router fee-split. `OPEN → {PAID \| VOID}` is one-way and absorbing, so a replayed `pay` reverts — the on-chain unique-index. |
 | [`Access0x1GiftCards`](src/Access0x1GiftCards.sol) | A USD-priced **prepaid-balance** primitive (gift cards / credit packs) plus a merchant-scoped coupon registry. A card balance is a non-custodial USD receipt the holder controls; a debit can NEVER drive it negative (`balance >= applied`, a hard revert). No ERC-20 ever enters the contract — the chargeable remainder is settled by the caller straight through the router in the same tx. |
+| [`Access0x1Nft`](src/Access0x1Nft.sol) | A USD-priced **zero-custody NFT marketplace** primitive: a seller lists an ERC-721 at a USD price; a buyer pays an allowlisted token and the NFT transfers **atomically** in the same tx. The payment is priced + fee-split by the router (`payToken`); the contract never holds a payment token — it only escrows the listed NFT between `list` and `buy` / `cancelListing`. |
 
 ### Router functions
 
@@ -252,8 +259,8 @@ optional; the starter's `contracts/DEPLOY.md` is the runbook.
 `script/DeployAll.s.sol` is the chain-aware **one-command** entrypoint: a single `make deploy-arc`
 (or `deploy-base-sepolia` / `deploy-zksync-sepolia`) deploys the **whole first-party surface, wired together**, in
 the same broadcast — the `Access0x1Router` money spine, the `SessionGrant` agent-auth ledger, the
-`HouseTokenFactory`, the four commerce primitives (`Subscriptions` / `Bookings` / `Invoices` /
-`GiftCards`, each constructed against the freshly deployed Router + SessionGrant so they compose the
+`HouseTokenFactory`, the five commerce primitives (`Subscriptions` / `Bookings` / `Invoices` /
+`GiftCards` / `Access0x1Nft`, each constructed against the freshly deployed Router + SessionGrant so they compose the
 audited spine), and the price-feed + USDC allowlist wiring — plus, when configured,
 the optional `PaymentLanes` ledger (`DEPLOY_PAYMENT_LANES=true`) and the off-money-path
 `Access0x1Receiver` CRE consumer (`<chain>_CRE_FORWARDER`). `HelperConfig` reads the right env block
@@ -429,7 +436,7 @@ deployer is a burner key.
 | --- | --- |
 | Tests | **864 green** — unit · attack · invariant suites |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
-| Invariants | **13 fuzz invariants** across 3 suites hold at 4,096 calls each, 0 reverts |
+| Invariants | **13 headline money-safety invariants** (45 total properties) across 3 suites hold at 4,096 calls each, 0 reverts |
 | Static analysis | **slither: 31 results / 12 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
 
 The 13 invariants: **6 router money invariants** — native conservation · token conservation ·
