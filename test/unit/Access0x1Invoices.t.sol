@@ -455,9 +455,35 @@ contract Access0x1InvoicesTest is Test {
     function test_voidRevertsWhenNotMerchantOwner() public {
         uint256 id = _createToken(address(0));
         vm.prank(stranger);
+        // First field is the MERCHANT id (matching {createInvoice}'s convention), not the invoice id.
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccess0x1Invoices.Access0x1Invoices__NotMerchantOwner.selector, id, stranger
+                IAccess0x1Invoices.Access0x1Invoices__NotMerchantOwner.selector,
+                merchantId,
+                stranger
+            )
+        );
+        invoices.void(id);
+    }
+
+    /// @notice Regression (audit I-2): `void`'s `NotMerchantOwner` carries the MERCHANT id in field one,
+    ///         matching {createInvoice}. Pin it on an invoice whose id differs from its merchant id, so a
+    ///         decoder following the "first field = merchant id" convention cannot mis-attribute the void.
+    function test_voidRevertsWithMerchantIdNotInvoiceId() public {
+        // Register a SECOND merchant so the next invoice's id (2) differs from its merchant id.
+        vm.prank(merchantOwner);
+        uint256 otherMerchant =
+            router.registerMerchant(payout, feeRecipient, MERCHANT_FEE_BPS, NAME_HASH);
+        vm.prank(merchantOwner);
+        uint256 id = invoices.createInvoice(otherMerchant, address(0), address(usdc), 20e8, 0, MEMO);
+        assertTrue(id != otherMerchant, "id and merchant id must differ for this regression");
+
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Invoices.Access0x1Invoices__NotMerchantOwner.selector,
+                otherMerchant,
+                stranger
             )
         );
         invoices.void(id);

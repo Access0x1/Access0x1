@@ -276,9 +276,12 @@ contract Access0x1InvoicesRedTeam is Test {
         uint256 id = invoices.createInvoice(merchantId, address(0), address(usdc), 20e8, 0, MEMO);
 
         vm.prank(attacker);
+        // First field is the MERCHANT id (matching {createInvoice}'s convention), not the invoice id.
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccess0x1Invoices.Access0x1Invoices__NotMerchantOwner.selector, id, attacker
+                IAccess0x1Invoices.Access0x1Invoices__NotMerchantOwner.selector,
+                merchantId,
+                attacker
             )
         );
         invoices.void(id);
