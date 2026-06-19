@@ -11,7 +11,11 @@ _Last updated: 2026-06-14 (ETHGlobal NY)._
 
 ## 1. Deployed & verified — the hard proof
 
-**Deployed + verified on TWO chains: Base Sepolia (84532) and Arc Testnet (5042002, Circle).** On Base
+**Deployed on SEVEN testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111),
+Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), and Ethereum Hoodi
+(560048) — and source-verified on TWO of them: Base Sepolia (84532) and Arc Testnet (5042002, Circle).**
+Every address is read from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address
+that isn't on-chain isn't claimed); the full table is in the [README](README.md#deployments). On Base
 Sepolia the full money + commerce surface is deployed and wired in a **single broadcast, 13 transactions,
 every receipt status `0x1`**, commit-pinned, verified on Blockscout. On **Arc Testnet** all 8 contracts +
 the USD feed are deployed and **verified on arcscan**, with gas paid in **native USDC** — Router
@@ -33,19 +37,22 @@ the USD feed are deployed and **verified on arcscan**, with gas paid in **native
 - **Chainlink feeds wired in the broadcast:** native/USD `0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1`, USDC/USD `0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165`.
 
 **Still one-command ready (not broadcast):** zkSync Sepolia (300) — `make deploy-zksync-sepolia`, no tx hash yet.
-`ChainRegistry` and `Access0x1Receiver` are config/audit sidecars (built; deploy is one call) on both deployed chains.
+`ChainRegistry` and `Access0x1Receiver` are config/audit sidecars (built; deploy is one call) alongside the core surface on the source-verified chains (Arc + Base Sepolia).
 
 ---
 
 ## 2. Tested
 
-- **849 contract tests, 0 failed** (`make test`). Reproduce: `forge test`.
+- **920 contract tests, 0 failed** (`make test`). Reproduce: `forge test`. (The 3 `test/fork/**`
+  Chainlink-feed tests are counted in the 920 and short-circuit to a green no-op when no fork RPC is
+  set, so a fresh clone and CI both run 920/920 green; set `BASE_SEPOLIA_RPC_URL` to exercise them live.)
 - **~784 web tests** (Vitest).
 - **13 headline money-safety invariants** (45 total invariant properties): native conservation, token
   conservation, platform cut always to treasury, zero-custody residual, merchant isolation, effective
   fee ≤ `MAX_FEE_BPS`, the PaymentLanes conservation set, and a 4-property cross-asset firewall.
   Fuzzed with **`fail_on_revert = true`** (a swallowed error counts as a failure) — 4,096 calls each
-  locally, 32,768 in CI.
+  per target locally (default `runs=64 × depth=64`), 32,768 in CI, which runs under `FOUNDRY_PROFILE=ci`
+  (`runs=256 × depth=128` from `foundry.toml`; set in `.github/workflows/*.yml`).
 - **Coverage (run `forge coverage --ir-minimum`):** 100% functions on the router; ~98–99% lines, ~97%
   branches (see `audit/FINDINGS.md`). The number in the README badge is whatever `forge coverage`
   actually prints — never inflated.
@@ -115,7 +122,7 @@ the USD feed are deployed and **verified on arcscan**, with gas paid in **native
 
 ```bash
 git clone https://github.com/Access0x1/Access0x1 && cd Access0x1
-make test                       # 849 contract tests
+make test                       # 920 contract tests
 forge coverage --ir-minimum     # the real coverage number
 make anvil && make deploy-local && make drive-local   # real local payment, no keys
 ```

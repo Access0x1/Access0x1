@@ -57,6 +57,13 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice merchantId ⇒ the merchant record. Public getter for the frontend/SDK.
     mapping(uint256 => Merchant) public merchants;
 
+    /// @notice merchantId ⇒ the address the current owner has PROPOSED as the next owner (0 = none).
+    ///         The handshake half of the 2-step merchant-ownership transfer: `proposeMerchantOwner`
+    ///         writes it, `acceptMerchantOwner` (called by exactly this address) consumes it. A 2-step
+    ///         flow (mirroring `Ownable2Step` for the platform admin) prevents transferring control to a
+    ///         typo'd or unreachable address — the new owner must actively claim it.
+    mapping(uint256 => address) public pendingMerchantOwner;
+
     /// @notice The id assigned to the next `registerMerchant`. Starts at 1, so 0 is an unset sentinel.
     uint256 public nextMerchantId;
 
@@ -104,9 +111,23 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         bytes32 nameHash
     );
 
-    /// @notice A merchant's mutable config changed (owner + nameHash are immutable post-registration).
+    /// @notice A merchant's mutable config changed. `owner` is NOT changed here — it transfers only
+    ///         through the 2-step {proposeMerchantOwner}/{acceptMerchantOwner} flow; `nameHash` is
+    ///         immutable post-registration.
     event MerchantUpdated(
         uint256 indexed id, address payout, address feeRecipient, uint16 feeBps, bool active
+    );
+
+    /// @notice The current owner of merchant `id` proposed `pendingOwner` as the next owner (step 1 of
+    ///         the 2-step transfer). `pendingOwner == address(0)` cancels a pending proposal.
+    event MerchantOwnerProposed(
+        uint256 indexed id, address indexed currentOwner, address indexed pendingOwner
+    );
+
+    /// @notice The proposed owner accepted ownership of merchant `id` (step 2). `previousOwner` lost all
+    ///         control of the merchant; `newOwner` now holds it.
+    event MerchantOwnerTransferred(
+        uint256 indexed id, address indexed previousOwner, address indexed newOwner
     );
 
     /// @notice A payment settled. `srcChainSelector == 0` for a same-chain payment. This is the
@@ -156,6 +177,10 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
 
     /// @notice Caller is not the owner of merchant `id`.
     error Access0x1__NotMerchantOwner(uint256 id, address caller);
+
+    /// @notice Caller is not the pending (proposed) owner of merchant `id`, so it cannot accept the
+    ///         ownership transfer.
+    error Access0x1__NotPendingMerchantOwner(uint256 id, address caller);
 
     /// @notice Merchant `id` exists but is not accepting payments.
     error Access0x1__MerchantInactive(uint256 id);
@@ -237,8 +262,11 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     /// @notice Update a merchant's mutable config. Only the merchant `owner` may call.
-    /// @dev    `owner` and `nameHash` are deliberately immutable post-registration — this is what
-    ///         lets the fuzzer prove a payment to merchant A never mutates merchant B.
+    /// @dev    `owner` is NOT changeable here — it transfers ONLY through the 2-step
+    ///         {proposeMerchantOwner}/{acceptMerchantOwner} handshake, so a config update can never
+    ///         hand control to another address (and a compromised key cannot be made permanent via a
+    ///         one-step owner swap). `nameHash` is likewise immutable post-registration — together that
+    ///         is what lets the fuzzer prove a payment to merchant A never mutates merchant B.
     /// @param id           The merchant to update (must exist).
     /// @param payout       New payout address (must be non-zero).
     /// @param feeRecipient New fee recipient (`address(0)` ⇒ falls back to `payout` at pay time).
@@ -265,6 +293,44 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         m.feeBps = feeBps;
         m.active = active;
         emit MerchantUpdated(id, payout, feeRecipient, feeBps, active);
+    }
+
+    /// @notice Step 1 of a 2-step merchant-ownership transfer: the current owner PROPOSES a new owner.
+    ///         The proposal does NOT change control — `newOwner` must call {acceptMerchantOwner} to take
+    ///         it. Re-calling overwrites the prior proposal; passing `address(0)` cancels it. This
+    ///         handshake (mirroring `Ownable2Step` for the platform admin) prevents a fat-fingered or
+    ///         unreachable address from being handed permanent control of a merchant, and gives a
+    ///         compromised-but-recoverable merchant a path to migrate to a fresh key under owner intent.
+    /// @param id       The merchant whose ownership is being transferred (must exist; only its owner may call).
+    /// @param newOwner The address proposed as the next owner (`address(0)` cancels a pending proposal).
+    function proposeMerchantOwner(uint256 id, address newOwner) external {
+        Merchant storage m = merchants[id];
+        if (m.owner == address(0)) revert Access0x1__MerchantNotFound(id);
+        if (msg.sender != m.owner) revert Access0x1__NotMerchantOwner(id, msg.sender);
+
+        pendingMerchantOwner[id] = newOwner;
+        emit MerchantOwnerProposed(id, m.owner, newOwner);
+    }
+
+    /// @notice Step 2 of a 2-step merchant-ownership transfer: the PROPOSED owner accepts and takes
+    ///         control. Only the exact `pendingMerchantOwner[id]` may call; on success it becomes the
+    ///         merchant `owner`, the pending slot is cleared, and the previous owner loses all authority
+    ///         over the merchant (payout/listing/subscription/booking control). A never-proposed merchant
+    ///         has a zero pending owner, so this can never be called against it (the zero-caller guard).
+    /// @param id The merchant to take ownership of.
+    function acceptMerchantOwner(uint256 id) external {
+        address pending = pendingMerchantOwner[id];
+        // A zero pending owner (never proposed, or already accepted/cancelled) is unclaimable: reject
+        // any caller, including address(0), so an unset proposal can never transfer control.
+        if (pending == address(0) || msg.sender != pending) {
+            revert Access0x1__NotPendingMerchantOwner(id, msg.sender);
+        }
+
+        Merchant storage m = merchants[id];
+        address previousOwner = m.owner;
+        m.owner = pending;
+        delete pendingMerchantOwner[id];
+        emit MerchantOwnerTransferred(id, previousOwner, pending);
     }
 
     /*//////////////////////////////////////////////////////////////

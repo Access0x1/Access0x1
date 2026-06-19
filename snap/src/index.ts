@@ -4,8 +4,8 @@
  * Exports the two Snap lifecycle handlers:
  *  - `onTransaction`: renders the readable payment insight panel before signing.
  *  - `onRpcRequest`: a small dispatch table for dapp-invoked methods
- *    (`configure`, `getRouterConfig`, `getPaymentHistory`, `getLastPaymentReceipt`,
- *    and the WILL-TRY `initiatePrivatePayout`).
+ *    (`configure`, `setMerchantBranding`, `getRouterConfig`, `getPaymentHistory`,
+ *    `getLastPaymentReceipt`).
  *
  * The Snap holds NO keys and NO funds (doctrine #1). The router address is never
  * hardcoded — it is set by the dapp's `configure` call and persisted in encrypted
@@ -34,10 +34,6 @@ import {
   sanitizeText,
 } from './branding/sanitize';
 import { putBranding } from './branding/store';
-import {
-  initiatePrivatePayout,
-  type InitiatePrivatePayoutParams,
-} from './payout/privatePayout';
 import { parseRouterCall } from './router/decode';
 import { fetchMerchantName, type EthProvider } from './router/merchant';
 import {
@@ -132,11 +128,10 @@ export const onTransaction: OnTransactionHandler = async ({
  *  - `configure({ routerAddress, chainIds, brandingApiBaseUrl? })` → persists config.
  *  - `getRouterConfig()` → `{ routerAddress, chainIds }`.
  *  - `getPaymentHistory({ limit })` → recent serialized receipts (max 50).
- *  - `getLastPaymentReceipt({ txHash })` → decoded `PaymentReceived`, or `null`.
+ *  - `getLastPaymentReceipt()` → the most-recent serialized receipt, or `null`.
  *  - `setMerchantBranding({ merchantId, name, description, logoSvg, brandColor, confirm?, amountLabel? })`
  *    → caches sanitized white-label branding (ADR unit 6); optionally shows a
  *    branded pre-sign confirmation dialog. Display-only — never gates a money path.
- *  - `initiatePrivatePayout(...)` [WILL-TRY] → `PayoutResult`.
  *
  * @param args - The RPC payload.
  * @param args.request - The JSON-RPC request (`method` + `params`).
@@ -189,20 +184,12 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
       return (state?.receipts ?? []).slice(0, limit) as unknown as Json;
     }
 
-    case 'initiatePrivatePayout': {
+    case 'getLastPaymentReceipt': {
       const state = await getState(snapProvider);
-      if (!state?.routerAddress) {
-        throw new SnapError('not_configured');
-      }
-      const payoutParams = params as unknown as InitiatePrivatePayoutParams;
-      const chainId = state.chainIds[0] ?? 5042002;
-      const result = await initiatePrivatePayout(payoutParams, {
-        apiBaseUrl: (params.apiBaseUrl as string) ?? '',
-        chainId,
-        deriveAddress: deriveDailyAddress,
-        fetchImpl: fetch,
-      });
-      return { ...result } as unknown as Json;
+      // The receipt log is stored most-recent-first (see `recordReceipt`), so
+      // the head is the latest payment; `null` when nothing has been recorded.
+      const last = state?.receipts?.[0] ?? null;
+      return last as unknown as Json;
     }
 
     default:
@@ -307,23 +294,6 @@ async function handleSetMerchantBranding(
   }
 
   return { ok: true, merchantId: branding.merchantId, cached: true, accepted };
-}
-
-/**
- * Derive the fresh daily destination EOA address from MetaMask's own BIP-44
- * entropy (path `m/44'/60'/0'/0/<index>`). The seed never leaves the wallet;
- * the Snap only ever sees the derived public address (zero custody).
- *
- * @param index - The daily address index.
- * @returns The derived address.
- * @warn BOOTH-CONFIRM — wire `snap_getBip44Entropy` + `@metamask/key-tree`'s
- *   `getBIP44AddressKeyDeriver` here; until then this throws so the payout
- *   surface fails closed rather than using a placeholder address.
- */
-async function deriveDailyAddress(index: number): Promise<`0x${string}`> {
-  throw new SnapError(
-    `bip44_deriver_unconfigured (index ${index}) — wire snap_getBip44Entropy at booth`,
-  );
 }
 
 // Re-export the receipt recorder so dapp-side polling can persist a confirmed

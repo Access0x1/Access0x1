@@ -93,6 +93,7 @@ contract Access0x1BookingsAttackTest is Test {
         );
         bt.setBlocked(payer, true);
         vm.warp(block.timestamp + HOLD_SECS + 1);
+        vm.prank(payer); // payer is authorized to expire their own hold
         bookings.expireHold(id); // refund queued
 
         bt.setBlocked(payer, false);
@@ -237,6 +238,7 @@ contract Access0x1BookingsAttackTest is Test {
         );
 
         vm.warp(block.timestamp + HOLD_SECS + 1);
+        vm.prank(payer); // payer is authorized to expire their own hold
         bookings.expireHold(id);
         usdcFeed.updateAnswer(1e8); // fresh round for the in-tx re-quote of the new reserve
         // Now free.

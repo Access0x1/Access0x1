@@ -97,6 +97,39 @@ function dynamicJwksUrl(): URL {
   return new URL(`https://app.dynamic.xyz/api/v0/sdk/${env}/.well-known/jwks`)
 }
 
+/**
+ * The issuer (`iss`) a Dynamic JWT for THIS environment must carry (C-3). Dynamic
+ * scopes every token to its environment id, so a token minted for a DIFFERENT
+ * Dynamic environment/app has a different `iss` and must be rejected — pinning
+ * this is what stops cross-environment forgery. The value is environment-derived
+ * (Dynamic's documented `app.dynamicauth.com/{environmentId}` token issuer) with a
+ * `DYNAMIC_JWT_ISSUER` override so a deployment can point at the exact issuer its
+ * Dynamic dashboard reports without a code change. We never guess: when the env id
+ * is unset there is nothing to pin (and JWT verification is unavailable anyway).
+ *
+ * @returns the expected issuer, or '' when no environment id is configured.
+ */
+function dynamicJwtIssuer(): string {
+  const override = (process.env.DYNAMIC_JWT_ISSUER ?? '').trim()
+  if (override.length > 0) return override
+  const env = dynamicEnvironmentId()
+  return env.length > 0 ? `app.dynamicauth.com/${env}` : ''
+}
+
+/**
+ * The audience (`aud`) a Dynamic JWT must be issued FOR (C-3). Defaults to the
+ * environment id (the app a Dynamic token is audienced to) with a
+ * `DYNAMIC_JWT_AUDIENCE` override for deployments whose token format differs.
+ * Pinning the audience rejects a token minted for some OTHER Dynamic app.
+ *
+ * @returns the expected audience, or '' when no environment id is configured.
+ */
+function dynamicJwtAudience(): string {
+  const override = (process.env.DYNAMIC_JWT_AUDIENCE ?? '').trim()
+  if (override.length > 0) return override
+  return dynamicEnvironmentId()
+}
+
 // One remote JWKS per process (cached; jose handles key rotation + caching).
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null
 function getJwks(): ReturnType<typeof createRemoteJWKSet> {
@@ -159,9 +192,13 @@ export async function resolveVerifiedTenant(
     let payload: JWTPayload
     try {
       const result = await jwtVerify(token, getJwks(), {
-        // Dynamic tokens are issued for the environment; we verify signature +
-        // standard claims (exp/nbf). The audience/issuer can be pinned later via
-        // booth-confirmed values without changing call sites.
+        // C-3: pin the issuer + audience to THIS Dynamic environment/app so a
+        // token minted for a DIFFERENT environment (a valid RS256 token whose
+        // key is in some Dynamic JWKS) is rejected — not just any signed token.
+        // `exp`/`nbf` are enforced by jwtVerify; `issuer`/`audience` are
+        // environment-derived (with env overrides) so this stays config-driven.
+        issuer: dynamicJwtIssuer(),
+        audience: dynamicJwtAudience(),
       })
       payload = result.payload
     } catch {

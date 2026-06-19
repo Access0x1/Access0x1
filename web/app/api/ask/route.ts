@@ -21,8 +21,14 @@ export const dynamic = 'force-dynamic'
  *    serverExternalPackages).
  *  - Env-gated + fail-soft: with no key configured the route returns a clear
  *    not_configured 503 instead of crashing.
- *  - Rate-limited to 10 requests/min per IP (in-memory; swap for a shared store
- *    in prod) and a never-negative daily request cap (429 when spent).
+ *  - Rate-limited to 10 requests/min per IP and a never-negative daily request
+ *    cap (429 when spent), PLUS a hard daily TOKEN cap (R-6) that bounds server
+ *    cost even if request-shaped abuse slips through. The meters are pinned on
+ *    `globalThis` so they are shared across route-module instances (and survive
+ *    dev hot-reload) instead of one-per-instance.
+ *  - The limiter keys on a TRUSTED proxy-set IP, never the raw first
+ *    `x-forwarded-for` value (R-6): the first XFF entry is client-spoofable, so a
+ *    naive key gives zero real protection. See {@link clientIp}.
  *
  * Model: Haiku (claude-haiku-4-5) — set deliberately; this route keeps it.
  */
@@ -32,21 +38,70 @@ const MAX_TOKENS = 1024
 const RATE_LIMIT = 10 // requests per window
 const RATE_WINDOW_MS = 60_000 // 1 minute
 const DAILY_REQUEST_CAP = 500 // never-negative meter: hard ceiling per UTC day
+const DAILY_TOKEN_CAP = DAILY_REQUEST_CAP * MAX_TOKENS // hard server-side spend cap (R-6)
 const MAX_QUESTION_LEN = 2000
 
 // The grounded system prompt is stable for the life of the process — build once.
 const SYSTEM_PROMPT = buildSystemPrompt()
 
-// --- in-memory meters (per server instance; fine for a hackathon / single node) ---
-const ipHits = new Map<string, { count: number; resetAt: number }>()
-let dayBudget = { day: utcDay(), remaining: DAILY_REQUEST_CAP }
+// --- meters, pinned on globalThis so N route-module instances share ONE budget (R-6) ---
+const GLOBAL_KEY = '__ax1_ask_meters__'
+
+interface AskMeters {
+  ipHits: Map<string, { count: number; resetAt: number }>
+  dayBudget: { day: string; remaining: number; tokensRemaining: number }
+}
+
+function meters(): AskMeters {
+  const g = globalThis as unknown as Record<string, AskMeters | undefined>
+  if (!g[GLOBAL_KEY]) {
+    g[GLOBAL_KEY] = {
+      ipHits: new Map(),
+      dayBudget: { day: utcDay(), remaining: DAILY_REQUEST_CAP, tokensRemaining: DAILY_TOKEN_CAP },
+    }
+  }
+  return g[GLOBAL_KEY] as AskMeters
+}
 
 function utcDay(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+/**
+ * Derive the client IP from a TRUSTED, proxy-set source — never the raw FIRST
+ * `x-forwarded-for` value, which the client controls (R-6).
+ *
+ * When `ASK_TRUST_PROXY=true` (the app is deployed behind a single trusted
+ * reverse proxy / CDN that appends the real client IP), we read the proxy-set
+ * `x-real-ip`, then fall back to the LAST hop of `x-forwarded-for` — the entry
+ * the trusted proxy appended, which a client cannot forge past that proxy. When
+ * the flag is OFF (no trusted proxy in front — e.g. local dev), we DO NOT trust
+ * forwarding headers at all and bucket everyone under a single key, so the
+ * per-IP limiter degrades to a shared global limiter rather than a spoofable one.
+ *
+ * @param request - the incoming request.
+ * @returns a stable, non-spoofable rate-limit key.
+ */
+function clientIp(request: Request): string {
+  const trustProxy = (process.env.ASK_TRUST_PROXY ?? '').trim().toLowerCase() === 'true'
+  if (!trustProxy) {
+    // No trusted proxy ⇒ forwarding headers are attacker-controlled; ignore them.
+    return 'shared'
+  }
+  const realIp = request.headers.get('x-real-ip')?.trim()
+  if (realIp) return realIp
+  // Trust the LAST XFF hop (proxy-appended), not the first (client-supplied).
+  const xff = request.headers.get('x-forwarded-for')
+  if (xff) {
+    const hops = xff.split(',').map((s) => s.trim()).filter(Boolean)
+    if (hops.length > 0) return hops[hops.length - 1]
+  }
+  return 'unknown'
+}
+
 /** Sliding fixed-window per-IP limiter. Returns true if the request is allowed. */
 function allowIp(ip: string): boolean {
+  const { ipHits } = meters()
   const now = Date.now()
   const entry = ipHits.get(ip)
   if (!entry || now >= entry.resetAt) {
@@ -58,15 +113,34 @@ function allowIp(ip: string): boolean {
   return true
 }
 
-/** Never-negative daily meter: decrement only if budget remains; resets at UTC midnight. */
+/**
+ * Never-negative daily meter: charges BOTH a request and a token budget, and
+ * resets at UTC midnight. Returns true only when BOTH budgets have headroom, so
+ * the hard token cap (R-6) bounds server-side Claude spend even if request-shaped
+ * abuse slips past the per-IP limiter. Decrements only on success (CEI).
+ */
 function spendDailyBudget(): boolean {
+  const m = meters()
   const today = utcDay()
-  if (dayBudget.day !== today) {
-    dayBudget = { day: today, remaining: DAILY_REQUEST_CAP }
+  if (m.dayBudget.day !== today) {
+    m.dayBudget = { day: today, remaining: DAILY_REQUEST_CAP, tokensRemaining: DAILY_TOKEN_CAP }
   }
-  if (dayBudget.remaining <= 0) return false
-  dayBudget.remaining -= 1
+  if (m.dayBudget.remaining <= 0 || m.dayBudget.tokensRemaining < MAX_TOKENS) return false
+  m.dayBudget.remaining -= 1
+  m.dayBudget.tokensRemaining -= MAX_TOKENS
   return true
+}
+
+/**
+ * Test-only: reset the globalThis-pinned meters so each test starts from a clean
+ * per-IP limiter + full daily request/token budget. Production never calls this.
+ */
+export function __resetAskMetersForTests(): void {
+  const g = globalThis as unknown as Record<string, AskMeters | undefined>
+  g[GLOBAL_KEY] = {
+    ipHits: new Map(),
+    dayBudget: { day: utcDay(), remaining: DAILY_REQUEST_CAP, tokensRemaining: DAILY_TOKEN_CAP },
+  }
 }
 
 /** Small JSON error helper that never leaks internals. */
@@ -85,10 +159,8 @@ export async function POST(request: Request): Promise<Response> {
     return jsonError('Assistant is not configured on this deployment.', 503, 'not_configured')
   }
 
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown'
+  // R-6: key on a TRUSTED proxy-set IP, never the raw first x-forwarded-for value.
+  const ip = clientIp(request)
 
   if (!allowIp(ip)) {
     return jsonError('Rate limit exceeded. Try again shortly.', 429, 'rate_limited')

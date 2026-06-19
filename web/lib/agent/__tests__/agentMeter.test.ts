@@ -98,4 +98,17 @@ describe("agentMeter", () => {
     delete process.env.AGENT_DAILY_USD_CAP;
     expect(() => meterSpendOrThrow(0.000001)).toThrowError(BudgetExceeded);
   });
+
+  it("pins the ledger on globalThis so N module instances share ONE daily cap (O-9)", () => {
+    // A second route-module copy would re-read the SAME globalThis-keyed ledger, not its own.
+    // Asserting the spend is observable on the shared global key proves the cap can't be
+    // multiplied by spinning up another instance.
+    meterSpendOrThrow(2);
+    const g = globalThis as unknown as Record<string, { dayKey: string; spent: number } | undefined>;
+    const shared = g["__ax1_agent_meter__"];
+    expect(shared).toBeDefined();
+    expect(shared?.spent).toBe(2);
+    // And the public reader reflects exactly that shared value (one source of truth).
+    expect(meterSpent()).toBe(shared?.spent);
+  });
 });

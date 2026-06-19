@@ -41,7 +41,21 @@ interface Ledger {
   spent: number;
 }
 
-const ledger: Ledger = { dayKey: "", spent: 0 };
+/**
+ * The ledger is pinned on `globalThis` (O-9) so EVERY route-module instance in the same process
+ * shares ONE daily cap. A plain module-level binding gives each Next.js route-module copy (and
+ * dev hot-reload) its own ledger, which silently multiplies the intended ceiling by N instances.
+ * This mirrors `lib/worldid/nullifierStore.ts`, `lib/oidc/subjectStore.ts`, and the branding
+ * store. The seam still swaps for a durable/shared store (KV/Postgres) later with no call-site
+ * changes; persistence across process restarts is the next step (acknowledged hackathon scope).
+ */
+const GLOBAL_KEY = "__ax1_agent_meter__";
+
+function ledgerStore(): Ledger {
+  const g = globalThis as unknown as Record<string, Ledger | undefined>;
+  if (!g[GLOBAL_KEY]) g[GLOBAL_KEY] = { dayKey: "", spent: 0 };
+  return g[GLOBAL_KEY] as Ledger;
+}
 
 /** `YYYY-MM-DD` in UTC — the meter's reset boundary. */
 function utcDayKey(now: Date = new Date()): string {
@@ -62,6 +76,7 @@ function dailyCapUsd(): number {
 
 /** Roll the ledger forward to the current UTC day, resetting spend on a new day. */
 function rollToToday(): void {
+  const ledger = ledgerStore();
   const today = utcDayKey();
   if (ledger.dayKey !== today) {
     ledger.dayKey = today;
@@ -86,6 +101,7 @@ export function meterSpendOrThrow(usd: number): void {
     throw new RangeError(`meterSpendOrThrow: usd must be a non-negative finite number, got ${usd}`);
   }
   rollToToday();
+  const ledger = ledgerStore();
   const cap = dailyCapUsd();
   if (ledger.spent + usd > cap) {
     throw new BudgetExceeded(ledger.spent, cap);
@@ -107,6 +123,7 @@ export function meterRefund(usd: number): void {
     return;
   }
   rollToToday();
+  const ledger = ledgerStore();
   ledger.spent = Math.max(0, ledger.spent - usd);
 }
 
@@ -118,7 +135,7 @@ export function meterRefund(usd: number): void {
  */
 export function meterSpent(): number {
   rollToToday();
-  return ledger.spent;
+  return ledgerStore().spent;
 }
 
 /**
@@ -128,6 +145,7 @@ export function meterSpent(): number {
  * @returns void
  */
 export function __resetMeterForTests(): void {
+  const ledger = ledgerStore();
   ledger.dayKey = "";
   ledger.spent = 0;
 }

@@ -13,6 +13,7 @@ import { BrandPreview } from '@/components/branding/BrandPreview'
 import { CasinoVerifiedBadge } from '@/components/CasinoVerifiedBadge'
 import { isWorldIdConfigured } from '@/lib/worldid/config'
 import { AskAssistant } from '@/components/AskAssistant'
+import { safeReturnUrl } from '@/lib/safeUrl'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -77,7 +78,9 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
 
   const amount = searchParams.get('amount') ?? '29.00'
   const orderParam = searchParams.get('order') ?? undefined
-  const returnUrl = searchParams.get('return_url') ?? undefined
+  // Validate at the source: only an https: URL survives; a javascript:/data:/http:
+  // /evil-origin value is dropped to undefined (no link rendered) — red-report C-1.
+  const returnUrl = safeReturnUrl(searchParams.get('return_url'))
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-6 px-6 py-16">

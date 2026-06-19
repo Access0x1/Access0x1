@@ -134,6 +134,27 @@ describe('POST world-id', () => {
     const res = await POST(post({ user: USER, method: 'world-id' }))
     expect(res.status).toBe(400)
   })
+
+  it('C-2: ignores a body `action`, verifying against the SERVER buyer action', async () => {
+    verifyWorldProof.mockResolvedValue({ ok: true, nullifier: '321', action: 'ax1-buyer' })
+    // Attacker presents a proof but injects a different action in the body.
+    const res = await POST(
+      post({ user: USER, method: 'world-id', proof: { merkle_root: '0x' }, action: 'attacker-action' }),
+    )
+    expect(res.status).toBe(200)
+    // verifyWorldProof MUST be called with the trusted server action, never the body's,
+    // and the proof forwarded carries that same server action (no body override).
+    expect(verifyWorldProof).toHaveBeenCalledTimes(1)
+    const [forwardedProof, forwardedAction] = verifyWorldProof.mock.calls[0] as [
+      Record<string, unknown>,
+      string,
+    ]
+    expect(forwardedAction).toBe('ax1-buyer')
+    expect(forwardedAction).not.toBe('attacker-action')
+    expect(forwardedProof.action).toBe('ax1-buyer')
+    // The nullifier is claimed under the server action, not the body action.
+    expect(claimNullifier).toHaveBeenCalledWith('ax1-buyer', '321')
+  })
 })
 
 describe('POST ens (resolveENS first call-site)', () => {

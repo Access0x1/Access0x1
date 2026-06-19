@@ -68,6 +68,10 @@ describe("POST /api/agent/pay — private rail dispatch", () => {
     process.env.WALLET_PASSWORD = "pw";
     process.env.AGENT_DAILY_USD_CAP = "5.00";
     process.env.AGENT_URL_ALLOWLIST = "http://localhost:3000";
+    // These tests exercise the private-rail dispatch, NOT the R-5 caller-auth gate; open it via
+    // the explicit local-dev escape hatch (the route fails CLOSED without it).
+    process.env.AGENT_ALLOW_INSECURE = "true";
+    delete process.env.AGENT_INTERNAL_SECRET;
     delete process.env.AGENT_WALLET_ID;
     delete process.env.UNLINK_PRIVATE_PAY;
     delete process.env.UNLINK_API_KEY;
@@ -84,6 +88,8 @@ describe("POST /api/agent/pay — private rail dispatch", () => {
     setDynamicClientFactory(null);
     __resetMeterForTests();
     __resetWalletForTests();
+    delete process.env.AGENT_ALLOW_INSECURE;
+    delete process.env.AGENT_INTERNAL_SECRET;
     delete process.env.UNLINK_PRIVATE_PAY;
     delete process.env.UNLINK_API_KEY;
     delete process.env.ARC_TESTNET_USDC;
