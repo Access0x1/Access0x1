@@ -119,6 +119,14 @@ interface ISessionGrant {
     /// @return The full {Session} record (zeroed if it never existed).
     function sessionOf(bytes32 sessionId) external view returns (Session memory);
 
+    /// @notice The account that opened a session (its owner). Zero for an unknown session.
+    /// @dev    Lets a consuming contract bind an action to the session's authorizing owner — e.g. a
+    ///         subscriptions layer keying a subscriber to `ownerOf(sessionId)` so a stranger cannot
+    ///         spend against a victim's session budget.
+    /// @param sessionId The session id.
+    /// @return The owner that opened the session (address(0) if it never existed).
+    function ownerOf(bytes32 sessionId) external view returns (address);
+
     /// @notice The amount still spendable on a session right now (0 if dead for any reason).
     /// @param sessionId The session id.
     /// @return remaining The live remaining budget, or 0 if expired / revoked / unknown / exhausted.
