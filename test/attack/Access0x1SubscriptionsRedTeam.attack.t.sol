@@ -12,6 +12,7 @@ import {
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { SessionGrant } from "../../src/SessionGrant.sol";
 import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
+import { OracleLib } from "../../src/libraries/OracleLib.sol";
 
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
@@ -228,9 +229,11 @@ contract Access0x1SubscriptionsRedTeamTest is Test {
         ATTACK 2: ORACLE — stale / zero / negative price during renew
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev A stale feed at renew time must NOT pull funds. The quote reverts inside the charge, which
-    ///      rolls back (no budget spent), and the renewal duns — the keeper tx itself never reverts.
-    function test_attack_staleOracleAtRenew_dunsNoPull() public {
+    /// @dev A stale feed at renew time must NOT pull funds AND must NOT dun a blameless subscriber
+    ///      (audit L-1). Staleness is a SYSTEM-side fault, not the subscriber's: {renew} re-reverts the
+    ///      stale-price error so the keeper simply retries once the feed recovers, the subscription
+    ///      stays ACTIVE, the budget is untouched, and no value moves.
+    function test_attack_staleOracleAtRenew_revertsNoDun() public {
         bytes32 sessionId = _openSession(PRICE_USD8 * 10);
         vm.prank(subscriber);
         uint256 subId = subsC.subscribe(merchantId, PLAN_KEY, address(usdc), sessionId, false);
@@ -240,17 +243,35 @@ contract Access0x1SubscriptionsRedTeamTest is Test {
         vm.warp(block.timestamp + PERIOD);
         // Feed last updated at subscribe time -> now far older than TIMEOUT.
 
-        uint256 charged = subsC.renew(subId);
-        assertEq(charged, 0, "stale oracle pulls nothing");
-        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.PAST_DUE));
+        // System-side: the stale-price revert bubbles up through renew (the keeper retries later) —
+        // it is NOT swallowed into a dunning bump against the funded, in-budget subscriber.
+        vm.expectRevert(OracleLib.OracleLib__StalePrice.selector);
+        subsC.renew(subId);
+
+        // The subscription is untouched: still ACTIVE, still entitled, no dunning, budget intact.
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
+        assertEq(
+            uint8(s.status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE), "no dun on staleness"
+        );
+        assertEq(s.failCount, 0, "no dunning bump on a system-side failure");
         assertEq(grant.remaining(sessionId), PRICE_USD8 * 10 - PRICE_USD8, "only period-1 spent");
         assertEq(_totalDelivered(), deliveredAfterP1, "no delivery on stale renew");
         assertEq(usdc.balanceOf(address(subsC)), 0, "no custody");
+
+        // The honest keeper retries once the feed is fresh again and the renewal SUCCEEDS.
+        _warpAndRefresh(block.timestamp + 1);
+        uint256 charged = subsC.renew(subId);
+        assertEq(
+            charged, router.quote(merchantId, address(usdc), PRICE_USD8), "retry charges in full"
+        );
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE));
     }
 
-    /// @dev A zero / negative feed answer at renew time must NOT pull funds. quote reverts
-    ///      InvalidPrice inside the charge -> rolls back -> dun.
-    function test_attack_zeroPriceAtRenew_dunsNoPull() public {
+    /// @dev A zero / negative feed answer at renew time must NOT pull funds AND must NOT dun (audit
+    ///      L-1). An invalid oracle answer is a feed malfunction — system-side, not the subscriber's
+    ///      fault — so the `InvalidPrice` revert bubbles up through {renew} (the keeper retries once the
+    ///      feed reports a valid price), the budget is untouched, and the subscription stays ACTIVE.
+    function test_attack_zeroPriceAtRenew_revertsNoDun() public {
         bytes32 sessionId = _openSession(PRICE_USD8 * 10);
         vm.prank(subscriber);
         uint256 subId = subsC.subscribe(merchantId, PLAN_KEY, address(usdc), sessionId, false);
@@ -261,16 +282,27 @@ contract Access0x1SubscriptionsRedTeamTest is Test {
         // fails the answer > 0 validity check inside quote.
         usdcFeed.updateAnswer(0);
 
-        uint256 charged = subsC.renew(subId);
-        assertEq(charged, 0, "zero price pulls nothing");
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__InvalidPrice.selector, int256(0))
+        );
+        subsC.renew(subId);
         assertEq(grant.remaining(sessionId), PRICE_USD8 * 10 - PRICE_USD8, "only period-1 spent");
         assertEq(_totalDelivered(), deliveredAfterP1, "no delivery on zero-price renew");
 
-        // Negative answer: same outcome.
-        vm.warp(block.timestamp + PERIOD);
+        // Negative answer: same system-side outcome (bubble, no dun).
         usdcFeed.updateAnswer(-1);
-        uint256 charged2 = subsC.renew(subId);
-        assertEq(charged2, 0, "negative price pulls nothing");
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__InvalidPrice.selector, int256(-1))
+        );
+        subsC.renew(subId);
+
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
+        assertEq(
+            uint8(s.status),
+            uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE),
+            "no dun on invalid price"
+        );
+        assertEq(s.failCount, 0, "no dunning bump on a system-side failure");
         assertEq(usdc.balanceOf(address(subsC)), 0, "no custody");
     }
 

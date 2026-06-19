@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
 import { IPaymentLanes } from "../../src/interfaces/IPaymentLanes.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
@@ -370,6 +371,85 @@ contract PaymentLanesTest is Test {
         // Ownable's own zero-owner guard fires first.
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
         new PaymentLanes(address(0));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          OWNERSHIP (Ownable2Step)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice L-2: admin handover is the fat-finger-safe two-tx flow — `transferOwnership` only
+    ///         records a pending owner; the new owner takes control only after `acceptOwnership`.
+    function test_ownership_twoStep() public {
+        address newOwner = makeAddr("newOwner");
+
+        vm.expectEmit(true, true, false, true, address(lanes));
+        emit Ownable2Step.OwnershipTransferStarted(admin, newOwner);
+        vm.prank(admin);
+        lanes.transferOwnership(newOwner);
+
+        // Still the old owner until the new one accepts; pending owner is recorded.
+        assertEq(lanes.owner(), admin);
+        assertEq(lanes.pendingOwner(), newOwner);
+
+        vm.prank(newOwner);
+        lanes.acceptOwnership();
+
+        assertEq(lanes.owner(), newOwner);
+        assertEq(lanes.pendingOwner(), address(0));
+    }
+
+    /// @notice L-2 regression: a `transferOwnership` is NOT effective until `acceptOwnership`. The old
+    ///         owner keeps `setRouter` authority and the (still-only-pending) successor is rejected, so a
+    ///         mistyped/uncontrolled successor address can never seize — or permanently brick — the
+    ///         router allowlist in a single tx (the single-step `Ownable` footgun this finding closes).
+    function test_ownership_transferNotEffectiveUntilAccept() public {
+        address newOwner = makeAddr("newOwner");
+
+        vm.prank(admin);
+        lanes.transferOwnership(newOwner);
+
+        // Pending only: the old owner is still the live admin.
+        assertEq(lanes.owner(), admin);
+        assertEq(lanes.pendingOwner(), newOwner);
+
+        // The pending (not-yet-accepted) owner cannot use owner-only `setRouter` yet.
+        vm.prank(newOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, newOwner)
+        );
+        lanes.setRouter(newOwner, true);
+
+        // The current owner still fully controls the allowlist mid-handover.
+        address r2 = makeAddr("r2");
+        vm.expectEmit(true, false, false, true, address(lanes));
+        emit IPaymentLanes.RouterSet(r2, true);
+        vm.prank(admin);
+        lanes.setRouter(r2, true);
+        assertTrue(lanes.isRouter(r2));
+
+        // Only after the successor accepts does control move; the old owner then loses `setRouter`.
+        vm.prank(newOwner);
+        lanes.acceptOwnership();
+        assertEq(lanes.owner(), newOwner);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, admin));
+        lanes.setRouter(admin, true);
+    }
+
+    /// @notice Only the recorded pending owner may accept; an arbitrary account cannot.
+    function test_ownership_acceptOwnership_onlyPending() public {
+        address newOwner = makeAddr("newOwner");
+        vm.prank(admin);
+        lanes.transferOwnership(newOwner);
+
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, bob));
+        lanes.acceptOwnership();
+
+        // The handover is untouched — still pending the real successor.
+        assertEq(lanes.owner(), admin);
+        assertEq(lanes.pendingOwner(), newOwner);
     }
 
     /*//////////////////////////////////////////////////////////////

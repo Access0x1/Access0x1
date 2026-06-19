@@ -35,7 +35,7 @@ contract ReentrantNftBuyer is IERC721Receiver {
     }
 
     function doBuy(uint256 listingId, uint256 priceUsd8) external {
-        market.buy(listingId, priceUsd8);
+        market.buy(listingId, priceUsd8, type(uint256).max);
     }
 
     /// @dev Re-enter buy() on the second listing while delivering the first NFT. nonReentrant reverts.
@@ -46,7 +46,7 @@ contract ReentrantNftBuyer is IERC721Receiver {
     {
         if (armed) {
             armed = false;
-            try market.buy(secondListingId, secondPriceUsd8) {
+            try market.buy(secondListingId, secondPriceUsd8, type(uint256).max) {
                 innerReverted = false;
             } catch {
                 innerReverted = true;
@@ -70,7 +70,7 @@ contract NonReceiverBuyer {
     }
 
     function doBuy(uint256 listingId, uint256 priceUsd8) external {
-        market.buy(listingId, priceUsd8);
+        market.buy(listingId, priceUsd8, type(uint256).max);
     }
 }
 
@@ -153,7 +153,7 @@ contract Access0x1NftAttackTest is Test {
         // Exactly one settlement: first NFT delivered, second still escrowed and active.
         assertEq(collection.ownerOf(firstTokenId), address(attacker), "first NFT delivered once");
         assertEq(collection.ownerOf(secondTokenId), address(market), "second NFT still escrowed");
-        (,,,,,, bool secondActive) = market.listings(secondId);
+        (, bool secondActive,,,,,) = market.listings(secondId);
         assertTrue(secondActive, "second listing untouched by the blocked re-entry");
 
         // Zero custody after the single legitimate settlement.
@@ -184,7 +184,7 @@ contract Access0x1NftAttackTest is Test {
 
         // Atomic rollback: NFT still escrowed, listing active, no money moved.
         assertEq(collection.ownerOf(tokenId), address(market), "NFT still escrowed");
-        (,,,,,, bool active) = market.listings(listingId);
+        (, bool active,,,,,) = market.listings(listingId);
         assertTrue(active, "listing still active");
         assertEq(usdc.balanceOf(address(badBuyer)), 1_000_000e6, "buyer fully refunded by rollback");
         assertEq(usdc.balanceOf(sellerPayout), 0, "no payout");
@@ -207,7 +207,7 @@ contract Access0x1NftAttackTest is Test {
                 Access0x1Nft.Access0x1Nft__PriceMismatch.selector, PRICE_USD8, PRICE_USD8 - 1
             )
         );
-        market.buy(listingId, PRICE_USD8 - 1);
+        market.buy(listingId, PRICE_USD8 - 1, type(uint256).max);
         assertEq(usdc.balanceOf(buyer), 1_000_000e6, "no money moved on mismatch");
     }
 
@@ -233,7 +233,7 @@ contract Access0x1NftAttackTest is Test {
         vm.prank(buyer);
         usdc.approve(address(market), gross);
         vm.prank(buyer);
-        market.buy(listingId, usd8);
+        market.buy(listingId, usd8, gross);
 
         assertEq(collection.ownerOf(tokenId), buyer, "NFT delivered");
         assertEq(net + platformFee + merchantFee, gross, "conservation");

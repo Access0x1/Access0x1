@@ -265,9 +265,12 @@ contract Access0x1InvoicesIntegration is Test {
         // A stranger cannot void it (auth flows from the deployed registry, not a local copy).
         address stranger = makeAddr("int_stranger");
         vm.prank(stranger);
+        // First field is the MERCHANT id (matching {createInvoice}'s convention), not the invoice id.
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccess0x1Invoices.Access0x1Invoices__NotMerchantOwner.selector, id, stranger
+                IAccess0x1Invoices.Access0x1Invoices__NotMerchantOwner.selector,
+                merchantId,
+                stranger
             )
         );
         invoices.void(id);

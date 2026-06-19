@@ -221,15 +221,19 @@ contract Access0x1GiftCardsIntegrationTest is Test {
         uint256 settledNet = lanes.balanceOf(payout, laneId);
         assertGt(settledNet, 0, "remainder settled into the lane");
 
-        // Cancel: reverse the card leg. The card is restored to its full face, once.
+        // Cancel: the merchant owner reverses the card leg (only it may re-credit a spent balance).
+        // The card is restored to its full face, once.
         vm.expectEmit(true, true, true, true, address(cards));
         emit IAccess0x1GiftCards.RedemptionReversed(id, buyer, rid, applied);
+        vm.prank(merchantOwner);
         cards.reverseRedemption(rid);
         assertEq(cards.balanceOf(buyer, id), FACE, "card credited back to its full face");
 
         // Idempotent: extra reverses never double-credit the card.
+        vm.startPrank(merchantOwner);
         cards.reverseRedemption(rid);
         cards.reverseRedemption(rid);
+        vm.stopPrank();
         assertEq(
             cards.balanceOf(buyer, id), FACE, "card credited back exactly once despite retries"
         );
@@ -252,6 +256,7 @@ contract Access0x1GiftCardsIntegrationTest is Test {
         vm.prank(buyer);
         cards.redeem(id, FACE, rid1);
         assertEq(cards.balanceOf(buyer, id), 0, "fully spent");
+        vm.prank(merchantOwner);
         cards.reverseRedemption(rid1);
         assertEq(cards.balanceOf(buyer, id), FACE, "relived to full face");
 

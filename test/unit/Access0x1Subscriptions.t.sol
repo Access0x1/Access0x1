@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import { Access0x1Subscriptions } from "../../src/Access0x1Subscriptions.sol";
 import {
@@ -715,5 +716,211 @@ contract Access0x1SubscriptionsTest is Test {
 
     function test_effectiveTier_unknownIsZero() public view {
         assertEq(subsC.effectiveTier(123), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              M-1 · SESSION-OWNER BIND (no stranger drain)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev M-1 regression: a stranger cannot pass a VICTIM's (public) session id to subscribe and drain
+    ///      the victim's budget. The subscriber must OWN the session — keyed on `subscriber == msg.sender`
+    ///      on the direct path, so a stranger reverts {NotSessionOwner} before any spend can run.
+    function test_subscribe_revertNotSessionOwner_strangerCannotUseVictimSession() public {
+        // The victim opens a budget-scoped session delegating to the subscriptions contract.
+        bytes32 victimSession = _openSession(BUDGET);
+
+        // A stranger funds + approves their OWN wallet and tries to subscribe USING the victim's session
+        // (pointing the merchant at one they control would let them recover the gross while DRAINING the
+        // victim's budget). The owner bind rejects it: subscriber (== stranger) != ownerOf(session).
+        usdc.mint(stranger, 1_000_000e6);
+        vm.prank(stranger);
+        usdc.approve(address(subsC), type(uint256).max);
+
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Subscriptions.Access0x1Subs__NotSessionOwner.selector,
+                victimSession,
+                stranger
+            )
+        );
+        subsC.subscribe(merchantId, PLAN_KEY, address(usdc), victimSession, false);
+
+        // The victim's budget is completely untouched — nothing was spent.
+        assertEq(
+            grant.remaining(victimSession), BUDGET, "victim budget untouched by the failed drain"
+        );
+    }
+
+    /// @dev M-1: the CORRECT owner still subscribes successfully on the DIRECT path (the bind passes when
+    ///      `subscriber == msg.sender == ownerOf(session)`).
+    function test_subscribe_correctOwner_stillSucceeds() public {
+        bytes32 sessionId = _openSession(BUDGET);
+        vm.prank(subscriber);
+        uint256 subId = subsC.subscribe(merchantId, PLAN_KEY, address(usdc), sessionId, false);
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE));
+        assertEq(subsC.subs(subId).subscriber, subscriber);
+        assertEq(grant.remaining(sessionId), BUDGET - PRICE_USD8, "owner's own period 1 charged");
+    }
+
+    /// @dev M-1: the RELAYED path still succeeds — the session is opened in-tx bound to the signature-
+    ///      verified owner, so `subscriber == ownerOf(session)` holds and the bind passes.
+    function test_subscribeFor_correctOwner_stillSucceeds() public {
+        bytes memory sig = _grantSig(subscriber, subscriberPk, BUDGET, expiry, 0);
+        vm.prank(keeper); // permissionless relayer
+        uint256 subId = subsC.subscribeFor(
+            merchantId, PLAN_KEY, address(usdc), subscriber, BUDGET, expiry, false, sig
+        );
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
+        assertEq(uint8(s.status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE));
+        assertEq(s.subscriber, subscriber);
+        assertEq(s.sessionId, grant.computeSessionId(subscriber, address(subsC), 0));
+        assertEq(grant.remaining(s.sessionId), BUDGET - PRICE_USD8, "owner's own period 1 charged");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              L-1 · RENEW CATCH NARROWING + REACTIVATE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev L-1 regression: a renewal attempted while the ROUTER is paused must NOT dun a blameless,
+    ///      fully-funded, in-budget subscriber. The pause (`EnforcedPause`) is a SYSTEM-side failure:
+    ///      {renew} re-reverts it so the keeper retries once unpaused — it does not advance dunning.
+    function test_renew_duringRouterPause_doesNotDun() public {
+        (uint256 subId, bytes32 sessionId) = _subscribeNoTrial();
+        uint256 remAfterP1 = grant.remaining(sessionId);
+
+        _warpAndRefresh(subsC.subs(subId).periodEnd); // exactly due, fresh feed
+
+        // The admin pauses the router (a temporary operational halt).
+        vm.prank(admin);
+        router.pause();
+
+        // The pay-in reverts `EnforcedPause` inside the charge; {renew} bubbles it (system-side).
+        vm.prank(keeper);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        subsC.renew(subId);
+
+        // The subscriber is NOT penalized: still ACTIVE, no dunning, no budget spent.
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
+        assertEq(
+            uint8(s.status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE), "no dun on pause"
+        );
+        assertEq(s.failCount, 0, "no dunning bump while the router was paused");
+        assertEq(grant.remaining(sessionId), remAfterP1, "no budget consumed during the pause");
+
+        // Once unpaused, the honest keeper retries and the renewal SUCCEEDS.
+        vm.prank(admin);
+        router.unpause();
+        vm.prank(keeper);
+        uint256 charged = subsC.renew(subId);
+        assertEq(
+            charged, router.quote(merchantId, address(usdc), PRICE_USD8), "retry charges in full"
+        );
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE));
+    }
+
+    /// @dev L-1: the per-period fail throttle blocks a permissionless griefer from amplifying repeated
+    ///      SAME-window failures into terminal UNPAID. With the budget exhausted, the first renew duns
+    ///      to PAST_DUE; every further renew in the SAME due window is a no-op (failCount stays 1).
+    function test_renew_samePeriodFailures_throttledToOneDun() public {
+        bytes32 sessionId = _openSession(PRICE_USD8); // exactly one period
+        vm.prank(subscriber);
+        uint256 subId = subsC.subscribe(merchantId, PLAN_KEY, address(usdc), sessionId, false);
+
+        _warpAndRefresh(subsC.subs(subId).periodEnd); // due; budget now exhausted
+
+        // First failure: dun to PAST_DUE (attributable — the never-negative meter rejects the spend).
+        vm.prank(keeper);
+        subsC.renew(subId);
+        assertEq(subsC.subs(subId).failCount, 1, "first same-window failure duns once");
+
+        // Hammer renew in the SAME window (GRACE+5 times): the throttle caps it at one bump per period.
+        for (uint256 i = 0; i < GRACE + 5; i++) {
+            vm.prank(keeper);
+            subsC.renew(subId);
+        }
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
+        assertEq(s.failCount, 1, "same-window repeats never amplify the dunning count");
+        assertEq(
+            uint8(s.status),
+            uint8(IAccess0x1Subscriptions.SubStatus.PAST_DUE),
+            "throttle blocks the amplification to terminal UNPAID"
+        );
+    }
+
+    /// @dev L-1: `reactivate` cures a terminally-UNPAID subscription back to PAST_DUE so a renewal can
+    ///      be retried — both the platform owner and the merchant owner are authorized; a stranger is
+    ///      not; only UNPAID is curable.
+    function test_reactivate_curesUnpaid_byOwnerAndMerchant() public {
+        // Drive a subscription to UNPAID across DISTINCT periods (budget exhausted after period 1).
+        bytes32 sessionId = _openSession(PRICE_USD8);
+        vm.prank(subscriber);
+        uint256 subId = subsC.subscribe(merchantId, PLAN_KEY, address(usdc), sessionId, false);
+        for (uint256 i = 0; i < GRACE; i++) {
+            _warpAndRefresh(block.timestamp + PERIOD); // a genuinely new period each iteration
+            vm.prank(keeper);
+            subsC.renew(subId);
+        }
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.UNPAID));
+        assertEq(subsC.effectiveTier(subId), 0, "UNPAID has no entitlement");
+
+        // A stranger cannot cure it.
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Subscriptions.Access0x1Subs__NotAuthorizedToCure.selector, subId, stranger
+            )
+        );
+        subsC.reactivate(subId);
+
+        // The merchant owner cures it -> PAST_DUE, dunning reset.
+        vm.expectEmit(true, true, false, false, address(subsC));
+        emit IAccess0x1Subscriptions.Reactivated(subId, merchantOwner);
+        vm.prank(merchantOwner);
+        subsC.reactivate(subId);
+
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
+        assertEq(
+            uint8(s.status), uint8(IAccess0x1Subscriptions.SubStatus.PAST_DUE), "cured to PAST_DUE"
+        );
+        assertEq(s.failCount, 0, "dunning reset on cure");
+        // Tier is restored to the grace window (PAST_DUE keeps the tier) — entitlement only truly
+        // returns once a renewal actually charges, but the sub is renewable again.
+        assertEq(subsC.effectiveTier(subId), PLAN_KEY + 1, "PAST_DUE keeps the tier in grace");
+
+        // Re-demote to UNPAID, then the PLATFORM OWNER cures it (the other authorized path).
+        for (uint256 i = 0; i < GRACE; i++) {
+            _warpAndRefresh(block.timestamp + PERIOD);
+            vm.prank(keeper);
+            subsC.renew(subId);
+        }
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.UNPAID));
+        vm.prank(admin); // the platform owner
+        subsC.reactivate(subId);
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.PAST_DUE));
+    }
+
+    /// @dev L-1: `reactivate` only cures UNPAID — an ACTIVE (or any non-UNPAID) subscription reverts
+    ///      {NotReactivatable}, and a CANCELED one stays terminal.
+    function test_reactivate_revertNotReactivatable() public {
+        (uint256 subId,) = _subscribeNoTrial(); // ACTIVE
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Subscriptions.Access0x1Subs__NotReactivatable.selector,
+                subId,
+                IAccess0x1Subscriptions.SubStatus.ACTIVE
+            )
+        );
+        subsC.reactivate(subId);
+    }
+
+    /// @dev L-1: `reactivate` reverts {SubUnknown} for an id that was never subscribed.
+    function test_reactivate_revertUnknown() public {
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccess0x1Subscriptions.Access0x1Subs__SubUnknown.selector, 99)
+        );
+        subsC.reactivate(99);
     }
 }

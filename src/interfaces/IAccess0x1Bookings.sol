@@ -143,6 +143,12 @@ interface IAccess0x1Bookings {
     /// @param amount The amount claimed.
     event RefundClaimed(address indexed to, address indexed token, uint256 amount);
 
+    /// @notice A payer set (or cleared) a relayer's approval to {cancelWithSession} the payer's bookings.
+    /// @param payer    The payer granting/revoking the approval (the caller of {setCancelRelayer}).
+    /// @param relayer  The relayer whose cancel approval changed.
+    /// @param approved The new approval state (true = the relayer may relay-cancel this payer's bookings).
+    event CancelRelayerSet(address indexed payer, address indexed relayer, bool approved);
+
     // ──────────────────────── errors ────────────────────────
 
     /// @notice A zero address was supplied where a non-zero one is required.
@@ -238,7 +244,7 @@ interface IAccess0x1Bookings {
     ) external returns (uint256 id);
 
     /// @notice Confirm a HELD reservation: release the escrow to the operator through the Router
-    ///         fee-split. Only the merchant owner (or an authorized manage-session relayer) may call.
+    ///         fee-split. Only the merchant owner may call.
     /// @param id The reservation id.
     function confirm(uint256 id) external;
 
@@ -255,6 +261,14 @@ interface IAccess0x1Bookings {
     /// @param id        The reservation id.
     /// @param actorType The actor label recorded in the event (does not affect the refund math).
     function cancel(uint256 id, ActorType actorType) external;
+
+    /// @notice Approve (or revoke) a relayer to {cancelWithSession} the caller's bookings. The CALLER is
+    ///         the payer granting consent for ITSELF — this contract-scoped allowlist is required IN
+    ///         ADDITION to a live SessionGrant session, so a generic agent-budget session cannot double
+    ///         as authority to cancel the payer's reservations.
+    /// @param relayer  The relayer to approve or revoke.
+    /// @param approved True to approve, false to revoke.
+    function setCancelRelayer(address relayer, bool approved) external;
 
     /// @notice Mark a CONFIRMED reservation a no-show: keep the no-show fee, refund the remainder. Only
     ///         the merchant owner may call.

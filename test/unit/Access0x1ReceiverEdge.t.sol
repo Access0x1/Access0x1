@@ -99,7 +99,7 @@ contract Access0x1ReceiverEdgeTest is Test {
         // 61 bytes: cid(32) + name(10) + 19 of the 20 owner bytes — one byte short.
         bytes memory md61 = new bytes(61);
         vm.prank(forwarder);
-        vm.expectRevert(bytes("Access0x1Receiver: short metadata"));
+        vm.expectRevert(Access0x1Receiver.ShortMetadata.selector);
         receiver.onReport(md61, _report());
         assertEq(receiver.auditCount(), 0, "61-byte buffer writes nothing");
 

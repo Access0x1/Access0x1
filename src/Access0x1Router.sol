@@ -72,6 +72,12 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice token ⇒ its Chainlink <token>/USD feed. `priceFeedOf[NATIVE]` is the native/USD feed.
     mapping(address => address) public priceFeedOf;
 
+    /// @notice token ⇒ the max age (seconds) its feed answer may reach before `quote()` treats it as
+    ///         stale. `0` (unset) means `quote()` falls back to OracleLib's 1h default — so the 2-arg
+    ///         `setPriceFeed` keeps the historical 1h window, while the 3-arg overload widens it for
+    ///         slow-heartbeat feeds (a 24h USDC/USD needs an 86400s+margin window).
+    mapping(address => uint256) public stalenessOf;
+
     /// @notice Optional Chainlink L2 Sequencer Uptime feed. When set (the L2 deployments), `quote()`
     ///         rejects pricing while the sequencer is down or freshly restarted; `address(0)` — the
     ///         default, and L1/Arc — skips the check, leaving behaviour unchanged.
@@ -128,6 +134,10 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
 
     /// @notice A token's price feed was set or cleared.
     event PriceFeedSet(address indexed token, address feed);
+
+    /// @notice A token's per-feed staleness window was set. `maxStaleness == 0` means the token falls
+    ///         back to OracleLib's 1h default in `quote()`.
+    event FeedStalenessSet(address indexed token, uint256 maxStaleness);
 
     /// @notice The Chainlink L2 Sequencer Uptime feed used by `quote()` was set or cleared.
     event SequencerUptimeFeedSet(address indexed feed);
@@ -269,13 +279,41 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         emit TokenAllowedSet(token, allowed);
     }
 
-    /// @notice Set (or clear) the Chainlink <token>/USD feed used to price a token. `priceFeedOf[0]`
-    ///         is the native/USD feed. Passing `feed == address(0)` clears the mapping.
+    /// @notice Set (or clear) the Chainlink <token>/USD feed used to price a token, keeping the
+    ///         historical 1h staleness window. `priceFeedOf[0]` is the native/USD feed. Passing
+    ///         `feed == address(0)` clears the mapping.
+    /// @dev    Clears any per-feed `stalenessOf[token]` override, so `quote()` falls back to
+    ///         OracleLib's 1h default — preserving every existing caller's behaviour exactly. A
+    ///         slow-heartbeat feed (e.g. a 24h USDC/USD) must use the 3-arg overload instead.
     /// @param token The token (address(0) = native) whose feed is being set.
     /// @param feed  The Chainlink aggregator, or address(0) to clear.
     function setPriceFeed(address token, address feed) external onlyOwner {
         priceFeedOf[token] = feed;
+        stalenessOf[token] = 0; // unset ⇒ quote() uses OracleLib's 1h default
         emit PriceFeedSet(token, feed);
+        emit FeedStalenessSet(token, 0);
+    }
+
+    /// @notice Set the Chainlink <token>/USD feed AND an explicit per-feed staleness window. Use this
+    ///         for slow-heartbeat feeds (e.g. a 24h-heartbeat USDC/USD that only republishes on a
+    ///         0.25% deviation): a flat 1h window would falsely revert `quote()` as stale during a
+    ///         quiet stretch even though the price is valid.
+    /// @dev    `maxStaleness` MUST be `> 0`; to clear a feed (and its window) use the 2-arg overload,
+    ///         which resets `stalenessOf` to the 1h default. The deploy runbook must verify the
+    ///         configured window is `>=` the feed's published heartbeat (heartbeat is not
+    ///         on-chain-queryable). `feed == address(0)` is rejected — a window with no feed is
+    ///         meaningless; use the 2-arg overload to clear.
+    /// @param token        The token (address(0) = native) whose feed is being set.
+    /// @param feed         The Chainlink aggregator (non-zero).
+    /// @param maxStaleness Max age (seconds) the feed answer may reach before `quote()` treats it as
+    ///                     stale (e.g. 86400 + margin for a 24h-heartbeat feed).
+    function setPriceFeed(address token, address feed, uint256 maxStaleness) external onlyOwner {
+        if (feed == address(0)) revert Access0x1__ZeroAddress();
+        if (maxStaleness == 0) revert Access0x1__ZeroAmount();
+        priceFeedOf[token] = feed;
+        stalenessOf[token] = maxStaleness;
+        emit PriceFeedSet(token, feed);
+        emit FeedStalenessSet(token, maxStaleness);
     }
 
     /// @notice Set (or clear) the Chainlink L2 Sequencer Uptime feed checked by `quote()`. Set it on
@@ -371,10 +409,17 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         address feedAddr = priceFeedOf[token];
         if (feedAddr == address(0)) revert Access0x1__TokenNotAllowed(token);
 
+        // Per-feed staleness window: a slow-heartbeat feed (24h USDC/USD) gets its configured window;
+        // an unset (0) window falls back to OracleLib's 1h default, so the historical 1h behaviour
+        // (and the 2-arg setPriceFeed path) is unchanged.
+        uint256 maxStaleness = stalenessOf[token];
+        if (maxStaleness == 0) maxStaleness = OracleLib.TIMEOUT;
+
         // Only the answer is needed; the staleness guard already reverted a stale/invalid round,
         // so the other tuple fields are intentionally unused (Slither unused-return acknowledged).
         // slither-disable-next-line unused-return
-        (, int256 answer,,,) = AggregatorV3Interface(feedAddr).staleCheckLatestRoundData();
+        (, int256 answer,,,) =
+            AggregatorV3Interface(feedAddr).staleCheckLatestRoundData(maxStaleness);
         if (answer <= 0) revert Access0x1__InvalidPrice(answer);
         // answer > 0 is enforced by the guard above, so this int256→uint256 cast cannot wrap.
         // forge-lint: disable-next-line(unsafe-typecast)

@@ -84,7 +84,7 @@ contract Access0x1NftTest is Test {
         uint256 listingId = _list();
 
         assertEq(collection.ownerOf(tokenId), address(nftMarket), "NFT escrowed");
-        (address s, address c, uint256 tid, uint256 mid, address pt, uint256 price, bool active) =
+        (address s, bool active, address c, address pt, uint256 tid, uint256 mid, uint256 price) =
             nftMarket.listings(listingId);
         assertEq(s, seller);
         assertEq(c, address(collection));
@@ -104,7 +104,7 @@ contract Access0x1NftTest is Test {
         vm.prank(buyer);
         usdc.approve(address(nftMarket), gross);
         vm.prank(buyer);
-        nftMarket.buy(listingId, PRICE_USD8);
+        nftMarket.buy(listingId, PRICE_USD8, gross);
 
         // NFT delivered to buyer.
         assertEq(collection.ownerOf(tokenId), buyer, "NFT to buyer");
@@ -124,7 +124,7 @@ contract Access0x1NftTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(Access0x1Nft.Access0x1Nft__ListingInactive.selector, listingId)
         );
-        nftMarket.buy(listingId, PRICE_USD8);
+        nftMarket.buy(listingId, PRICE_USD8, type(uint256).max);
     }
 
     /// @notice buy() with a mismatched buyer price reverts (front-run / price-bump consent guard).
@@ -138,9 +138,52 @@ contract Access0x1NftTest is Test {
                 Access0x1Nft.Access0x1Nft__PriceMismatch.selector, PRICE_USD8, PRICE_USD8 + 1
             )
         );
-        nftMarket.buy(listingId, PRICE_USD8 + 1);
+        nftMarket.buy(listingId, PRICE_USD8 + 1, type(uint256).max);
         // Unsold: NFT still escrowed, listing still active.
         assertEq(collection.ownerOf(tokenId), address(nftMarket));
+    }
+
+    /// @notice buy() reverts when the live quote requires more token units than the buyer's outlay cap
+    ///         (slippage guard, L-5). The USD price is unchanged — `maxPriceUsd8` still matches — so this
+    ///         proves the token-amount ceiling is an INDEPENDENT bound, not subsumed by the USD consent.
+    ///         The cap reverts BEFORE any token moves: no money leaves the buyer, the NFT stays escrowed.
+    function test_buy_tokenAmountTooHighReverts() public {
+        uint256 listingId = _list();
+        uint256 gross = router.quote(merchantId, address(usdc), PRICE_USD8);
+        // Cap one unit below the actual quote: the buyer consents to the USD price but will not spend
+        // this many token units.
+        uint256 cap = gross - 1;
+
+        vm.prank(buyer);
+        usdc.approve(address(nftMarket), type(uint256).max);
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Nft.Access0x1Nft__TokenAmountTooHigh.selector, gross, cap
+            )
+        );
+        nftMarket.buy(listingId, PRICE_USD8, cap);
+
+        // No token moved and the listing is untouched (cap check is before the pull + the effect).
+        assertEq(usdc.balanceOf(buyer), 1_000_000e6, "buyer not charged on slippage revert");
+        assertEq(collection.ownerOf(tokenId), address(nftMarket), "NFT still escrowed");
+        (,,,,,, uint256 price) = nftMarket.listings(listingId);
+        assertEq(price, PRICE_USD8, "listing intact");
+    }
+
+    /// @notice buy() succeeds when the buyer's outlay cap exactly equals the quoted gross — the boundary
+    ///         is inclusive (`gross > maxTokenAmount` reverts, `gross == maxTokenAmount` passes).
+    function test_buy_tokenAmountCapExactBoundaryPasses() public {
+        uint256 listingId = _list();
+        uint256 gross = router.quote(merchantId, address(usdc), PRICE_USD8);
+
+        vm.prank(buyer);
+        usdc.approve(address(nftMarket), gross);
+        vm.prank(buyer);
+        nftMarket.buy(listingId, PRICE_USD8, gross); // cap == gross: at the boundary, not over it
+
+        assertEq(collection.ownerOf(tokenId), buyer, "NFT delivered at the exact cap");
+        assertEq(usdc.balanceOf(buyer), 1_000_000e6 - gross, "buyer charged exactly gross");
     }
 
     /// @notice cancelListing() returns the NFT to the seller and deactivates the listing.
@@ -156,7 +199,7 @@ contract Access0x1NftTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(Access0x1Nft.Access0x1Nft__ListingInactive.selector, listingId)
         );
-        nftMarket.buy(listingId, PRICE_USD8);
+        nftMarket.buy(listingId, PRICE_USD8, type(uint256).max);
     }
 
     /// @notice Only the seller may cancel.
@@ -224,7 +267,7 @@ contract Access0x1NftTest is Test {
         usdc.approve(address(nftMarket), type(uint256).max);
         vm.prank(buyer);
         vm.expectRevert(); // Pausable: EnforcedPause
-        nftMarket.buy(listingId, PRICE_USD8);
+        nftMarket.buy(listingId, PRICE_USD8, type(uint256).max);
 
         // list blocked.
         uint256 t2 = collection.mint(seller);

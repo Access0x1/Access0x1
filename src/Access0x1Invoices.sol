@@ -185,7 +185,10 @@ contract Access0x1Invoices is IAccess0x1Invoices, ReentrancyGuard {
         if (inv.status == InvStatus.NONE) revert Access0x1Invoices__InvoiceUnknown(id);
         address merchantOwner = _merchantOwner(inv.merchantId);
         if (msg.sender != merchantOwner) {
-            revert Access0x1Invoices__NotMerchantOwner(id, msg.sender);
+            // First field is the MERCHANT id (the convention this error family follows — see
+            // {createInvoice} and the sibling router error), not the invoice id, so an off-chain
+            // decoder attributes the failed void to the right merchant.
+            revert Access0x1Invoices__NotMerchantOwner(inv.merchantId, msg.sender);
         }
         if (inv.status != InvStatus.OPEN) revert Access0x1Invoices__NotOpen(id, inv.status);
 

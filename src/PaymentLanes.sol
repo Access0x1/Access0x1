@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -22,7 +23,7 @@ import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 ///         and returns the underlying with `SafeERC20`. CEI + `nonReentrant` guard every value path:
 ///         balances are written BEFORE any external token call, so a malicious asset that re-enters on
 ///         transfer finds the balance already settled.
-contract PaymentLanes is IPaymentLanes, Ownable, ReentrancyGuard {
+contract PaymentLanes is IPaymentLanes, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice owner ⇒ lane id ⇒ credited-but-unclaimed balance. The whole accounting state.
@@ -46,7 +47,10 @@ contract PaymentLanes is IPaymentLanes, Ownable, ReentrancyGuard {
     mapping(address router => bool authorized) public isRouter;
 
     /// @param initialOwner The admin that manages the router allowlist (multisig in prod). Holds NO
-    ///                     authority over any merchant's lane balance — only over {setRouter}.
+    ///                     authority over any merchant's lane balance — only over {setRouter}. Admin is
+    ///                     `Ownable2Step` (fat-finger-safe): a handover is a two-tx
+    ///                     {transferOwnership} → {acceptOwnership}, so a mistyped successor never seizes
+    ///                     the allowlist and can never permanently brick router governance.
     constructor(address initialOwner) Ownable(initialOwner) {
         if (initialOwner == address(0)) revert PaymentLanes__ZeroAddress();
     }

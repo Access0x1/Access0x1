@@ -214,14 +214,14 @@ contract Access0x1ReceiverAttackTest is Test {
     function test_attack_metadata_tooShort_reverts() public {
         bytes memory shortMd = new bytes(61); // one byte short of the 62-byte floor
         vm.prank(forwarder);
-        vm.expectRevert(bytes("Access0x1Receiver: short metadata"));
+        vm.expectRevert(Access0x1Receiver.ShortMetadata.selector);
         receiver.onReport(shortMd, _report(_entry()));
     }
 
     /// @dev Empty metadata is the degenerate short case — also rejected.
     function test_attack_metadata_empty_reverts() public {
         vm.prank(forwarder);
-        vm.expectRevert(bytes("Access0x1Receiver: short metadata"));
+        vm.expectRevert(Access0x1Receiver.ShortMetadata.selector);
         receiver.onReport(new bytes(0), _report(_entry()));
     }
 
