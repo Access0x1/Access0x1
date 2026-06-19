@@ -217,7 +217,7 @@ contract Access0x1ReceiverTest is Test {
         AuditEntry memory e = _sampleEntry();
         bytes memory shortMd = new bytes(40); // < 62 readable bytes
         vm.prank(forwarder);
-        vm.expectRevert(bytes("Access0x1Receiver: short metadata"));
+        vm.expectRevert(Access0x1Receiver.ShortMetadata.selector);
         receiver.onReport(shortMd, _report(e));
     }
 
