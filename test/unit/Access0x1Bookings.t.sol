@@ -11,6 +11,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
 import { BlocklistToken } from "../mocks/BlocklistToken.sol";
+import { MockReturnsNothingToken } from "../mocks/MockReturnsNothingToken.sol";
 
 /// @notice The Access0x1Bookings unit suite — the full lifecycle in one fixture: reserve, confirm,
 ///         complete, expire, cancel (free / late-fee / blocked), no-show, and the refund pull-map. The
@@ -601,9 +602,12 @@ contract Access0x1BookingsTest is Test {
         (uint256 id, uint256 escrow) = _reserve(SLOT_KEY, keccak256("n1"));
         address relayer = makeAddr("relayer");
 
-        // The payer opens a manage-session delegating the relayer (nonce 0, the first session).
+        // The payer opens a manage-session delegating the relayer (nonce 0, the first session) AND
+        // separately allowlists the relayer for cancels — both consents are now required (M-2).
         vm.prank(payer);
         sessionGrant.openSession(relayer, 1e18, uint64(block.timestamp + 1 days));
+        vm.prank(payer);
+        bookings.setCancelRelayer(relayer, true);
 
         uint256 payerBalBefore = usdc.balanceOf(payer);
         vm.prank(relayer);
@@ -615,6 +619,60 @@ contract Access0x1BookingsTest is Test {
         );
     }
 
+    /// @notice M-2 regression: a relayer the payer opened a LIVE session for but never allowlisted for
+    ///         cancels is REJECTED — a generic agent-budget session can no longer be repurposed as
+    ///         cancel authority (the confused-deputy fix). Adding the allowlist opt-in then succeeds.
+    function test_cancelWithSessionRejectsUnapprovedRelayer() public {
+        (uint256 id, uint256 escrow) = _reserve(SLOT_KEY, keccak256("n1"));
+        address relayer = makeAddr("relayer");
+
+        // A live session, but NO setCancelRelayer opt-in: the second consent gate is missing.
+        vm.prank(payer);
+        sessionGrant.openSession(relayer, 1e18, uint64(block.timestamp + 1 days));
+
+        vm.prank(relayer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Bookings.Access0x1Bookings__NotAuthorized.selector, id, relayer
+            )
+        );
+        bookings.cancelWithSession(id, 0, IAccess0x1Bookings.ActorType.PAYER);
+
+        // The payer grants the contract-scoped consent → the very same call now succeeds.
+        vm.prank(payer);
+        bookings.setCancelRelayer(relayer, true);
+        uint256 payerBalBefore = usdc.balanceOf(payer);
+        vm.prank(relayer);
+        bookings.cancelWithSession(id, 0, IAccess0x1Bookings.ActorType.PAYER);
+        assertEq(usdc.balanceOf(payer) - payerBalBefore, escrow);
+        assertEq(
+            uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.CANCELLED)
+        );
+    }
+
+    /// @notice A payer can revoke a previously-granted cancel-relayer approval; the relayer is then
+    ///         rejected even with a still-live session (the allowlist is a standing, payer-revocable gate).
+    function test_cancelWithSessionRejectsAfterRelayerRevoked() public {
+        (uint256 id,) = _reserve(SLOT_KEY, keccak256("n1"));
+        address relayer = makeAddr("relayer");
+
+        vm.prank(payer);
+        sessionGrant.openSession(relayer, 1e18, uint64(block.timestamp + 1 days));
+        vm.prank(payer);
+        bookings.setCancelRelayer(relayer, true);
+        // The payer changes their mind and clears the cancel approval (session stays live).
+        vm.prank(payer);
+        bookings.setCancelRelayer(relayer, false);
+
+        vm.prank(relayer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Bookings.Access0x1Bookings__NotAuthorized.selector, id, relayer
+            )
+        );
+        bookings.cancelWithSession(id, 0, IAccess0x1Bookings.ActorType.PAYER);
+    }
+
     function test_cancelWithSessionRejectsWrongDelegate() public {
         (uint256 id,) = _reserve(SLOT_KEY, keccak256("n1"));
         address relayer = makeAddr("relayer");
@@ -622,6 +680,10 @@ contract Access0x1BookingsTest is Test {
 
         vm.prank(payer);
         sessionGrant.openSession(relayer, 1e18, uint64(block.timestamp + 1 days));
+        // Allowlist the attacker so the test exercises the SESSION check, not the allowlist gate: even
+        // an allowlisted caller is rejected when (payer, attacker, 0) recomputes to no live session.
+        vm.prank(payer);
+        bookings.setCancelRelayer(attacker, true);
 
         // The attacker is not the session delegate — recomputing (payer, attacker, 0) finds no session.
         vm.prank(attacker);
@@ -639,6 +701,10 @@ contract Access0x1BookingsTest is Test {
 
         vm.prank(payer);
         bytes32 sid = sessionGrant.openSession(relayer, 1e18, uint64(block.timestamp + 1 days));
+        // Allowlisted for cancels, so the rejection is proven to come from the REVOKED session, not
+        // the allowlist gate.
+        vm.prank(payer);
+        bookings.setCancelRelayer(relayer, true);
         vm.prank(payer);
         sessionGrant.revoke(sid);
 
@@ -693,5 +759,137 @@ contract Access0x1BookingsTest is Test {
         (uint256 id2,) = _reserve(SLOT_KEY, keccak256("n2"));
         assertEq(id2, 2);
         assertEq(bookings.occupant(SLOT_KEY), id2);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              M-3 · USDT-STYLE (NO-RETURN-DATA) REFUND PUSHES
+    //////////////////////////////////////////////////////////////*/
+
+    // The token whose transfer/transferFrom move value but return NO data (USDT/BNB-class). Before the
+    // M-3 fix, `_payoutOrQueue`'s `try transfer() returns (bool)` decoded the empty return in the
+    // SUCCESS path, reverting the WHOLE lifecycle transition and locking the escrow. After the fix the
+    // length-safe low-level call accepts the no-data success, so every refund/surplus push either pays
+    // out or queues — it NEVER reverts the transition. These four tests prove that across all four
+    // refund-bearing transitions: complete (surplus), expireHold, cancel, markNoShow.
+    MockReturnsNothingToken internal noData;
+    MockV3Aggregator internal noDataFeed;
+
+    /// @dev Allowlist a fresh USDT-style token on the Router with a $1 feed, fund + approve the payer,
+    ///      and reserve a deposit in it. Returns the reservation id and the escrowed token amount.
+    function _setUpNoDataReserve(bytes32 slotKey, bytes32 nonce)
+        internal
+        returns (uint256 id, uint256 escrow)
+    {
+        noData = new MockReturnsNothingToken();
+        noDataFeed = new MockV3Aggregator(8, 1e8); // $1, 8 dp
+        vm.startPrank(admin);
+        router.setTokenAllowed(address(noData), true);
+        router.setPriceFeed(address(noData), address(noDataFeed));
+        vm.stopPrank();
+
+        noData.mint(payer, 1_000_000e6);
+        vm.prank(payer);
+        noData.approve(address(bookings), type(uint256).max);
+
+        IAccess0x1Bookings.Policy memory p = _policy(2 hours, 10e8, 20e8); // $10 late, $20 no-show
+        vm.prank(payer);
+        id = bookings.reserve(
+            merchantId, slotKey, SLOT_TS, address(noData), DEPOSIT_USD8, 0, p, HOLD_SECS, nonce
+        );
+        escrow = bookings.reservationOf(id).escrowAmount;
+    }
+
+    /// @notice complete() surplus refund in a no-data token does not revert. Raising the feed price
+    ///         after reserve re-quotes the deposit gross BELOW the escrow, so a surplus refunds to the
+    ///         payer — that push must succeed (or queue), never brick the COMPLETED transition.
+    function test_noDataToken_completeSurplusRefundSucceeds() public {
+        (uint256 id, uint256 escrow) = _setUpNoDataReserve(SLOT_KEY, keccak256("nd1"));
+
+        vm.prank(merchantOwner);
+        bookings.confirm(id);
+
+        // Token doubles in USD value → the $50 deposit re-quotes to ~half the escrow → surplus refund.
+        noDataFeed.updateAnswer(2e8);
+
+        // The re-quoted gross at the doubled price (the amount the Router will pull) — the surplus is
+        // the escrow minus this, and it must come back to the payer.
+        uint256 grossNow = router.quote(merchantId, address(noData), DEPOSIT_USD8);
+        assertLt(grossNow, escrow, "price rise should make the re-quoted gross below the escrow");
+
+        uint256 payerBefore = noData.balanceOf(payer);
+        vm.prank(merchantOwner);
+        bookings.complete(id); // MUST NOT revert on the no-data surplus push
+
+        assertEq(
+            uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.COMPLETED)
+        );
+        // The escrow ledger fully drains (release + refund), and the surplus reached the payer either
+        // directly or via the pull-map — the refund is never lost (law #5). The surplus is at least
+        // `escrow - grossNow` (the routed gross is clamped to `grossNow` and the token→USD inversion can
+        // only route LESS, never more, so the refund is never smaller than this floor).
+        assertEq(bookings.escrowedOf(address(noData)), 0);
+        uint256 paidOut = noData.balanceOf(payer) - payerBefore;
+        uint256 queued = bookings.refundRescueOf(payer, address(noData));
+        assertGe(paidOut + queued, escrow - grossNow, "surplus below the escrow-minus-gross floor");
+    }
+
+    /// @notice expireHold() full-escrow refund in a no-data token does not revert.
+    function test_noDataToken_expireHoldRefundSucceeds() public {
+        (uint256 id, uint256 escrow) = _setUpNoDataReserve(SLOT_KEY, keccak256("nd2"));
+
+        vm.warp(block.timestamp + HOLD_SECS + 1);
+        uint256 payerBefore = noData.balanceOf(payer);
+        bookings.expireHold(id); // MUST NOT revert on the no-data refund push
+
+        assertEq(
+            uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.EXPIRED)
+        );
+        assertEq(bookings.escrowedOf(address(noData)), 0);
+        // The full escrow reached the payer (no-data success), not the queue.
+        assertEq(noData.balanceOf(payer) - payerBefore, escrow);
+        assertEq(bookings.refundRescueOf(payer, address(noData)), 0);
+    }
+
+    /// @notice cancel() free-refund in a no-data token does not revert.
+    function test_noDataToken_cancelRefundSucceeds() public {
+        (uint256 id, uint256 escrow) = _setUpNoDataReserve(SLOT_KEY, keccak256("nd3"));
+
+        // Well before the cancel window ⇒ free cancel ⇒ full escrow refunds to the payer.
+        uint256 payerBefore = noData.balanceOf(payer);
+        vm.prank(payer);
+        bookings.cancel(id, IAccess0x1Bookings.ActorType.PAYER); // MUST NOT revert
+
+        assertEq(
+            uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.CANCELLED)
+        );
+        assertEq(bookings.escrowedOf(address(noData)), 0);
+        assertEq(noData.balanceOf(payer) - payerBefore, escrow);
+        assertEq(bookings.refundRescueOf(payer, address(noData)), 0);
+    }
+
+    /// @notice markNoShow() remainder refund in a no-data token does not revert: the no-show fee routes
+    ///         to the operator through the Router (SafeERC20, no-data-safe) and the remainder pushes
+    ///         back to the payer via the now-length-safe `_payoutOrQueue`.
+    function test_noDataToken_markNoShowRefundSucceeds() public {
+        (uint256 id, uint256 escrow) = _setUpNoDataReserve(SLOT_KEY, keccak256("nd4"));
+
+        vm.prank(merchantOwner);
+        bookings.confirm(id);
+
+        uint256 payerBefore = noData.balanceOf(payer);
+        uint256 payoutBefore = noData.balanceOf(payout);
+        vm.prank(merchantOwner);
+        bookings.markNoShow(id); // MUST NOT revert on the no-data remainder push
+
+        assertEq(
+            uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.NO_SHOW)
+        );
+        assertEq(bookings.escrowedOf(address(noData)), 0);
+        // The operator kept a fee and the payer got the remainder — both legs settled, none reverted.
+        assertGt(noData.balanceOf(payout) - payoutBefore, 0, "operator took no no-show fee");
+        uint256 paidOut = noData.balanceOf(payer) - payerBefore;
+        uint256 queued = bookings.refundRescueOf(payer, address(noData));
+        assertGt(paidOut + queued, 0, "remainder neither paid nor queued");
+        assertLt(paidOut + queued, escrow, "remainder should be escrow minus the no-show fee");
     }
 }
