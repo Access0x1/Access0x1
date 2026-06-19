@@ -179,10 +179,16 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     }
 
     /// @inheritdoc IAccess0x1GiftCards
-    /// @dev CEI + `nonReentrant`. Idempotent: the `reversed` flag gates a second call to a clean
-    ///      no-return revert is avoided by flipping it BEFORE crediting; an unknown id reverts. The
-    ///      applied amount is credited back to the ORIGINAL holder (recorded at redeem time), flipping
-    ///      a fully-spent card live again — a mature commerce app's expire/cancel reversal.
+    /// @dev CEI + `nonReentrant`. MERCHANT-OWNER ONLY: a reversal RE-CREDITS spent value (the holder
+    ///      already consumed goods against the debit), so only the owner of the card's merchant may
+    ///      authorize it — anyone else re-crediting a spent balance is a double-spend. The check is
+    ///      inline (not the modifier) so the unknown-id revert fires FIRST and `r` is read once: the
+    ///      card's merchant is looked up via its immutable binding (`_cardMerchant[r.cardId]`) and the
+    ///      caller must be that merchant's Router-registered owner. A zero-applied redemption (a
+    ///      phantom no-op) early-returns BEFORE the owner gate so a keeper can retry any id safely.
+    ///      Idempotent: the `reversed` flag gates a second call to a clean no-op return (flipped BEFORE
+    ///      crediting); the applied amount is credited back to the ORIGINAL holder (recorded at redeem
+    ///      time), reviving a fully-spent card — a mature commerce app's expire/cancel reversal.
     function reverseRedemption(bytes32 redemptionId) external nonReentrant {
         Redemption storage r = _redemptions[redemptionId];
         if (!r.exists) revert GiftCards__RedemptionUnknown(redemptionId);
@@ -190,9 +196,27 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
         // never a double-credit and never a revert (so a keeper can retry safely).
         if (r.reversed) return;
 
+        // A zero-applied redemption (a fully-spent card redeemed again) re-credits nothing, so it is a
+        // pure no-op: settle it BEFORE the owner gate to preserve keeper-retry semantics on phantom ids
+        // (there is no value to re-credit, so no double-spend surface to gate).
+        uint256 amount = r.applied;
+        if (amount == 0) {
+            r.reversed = true;
+            emit RedemptionReversed(r.cardId, r.holder, redemptionId, 0);
+            return;
+        }
+
+        // Authorize: only the owner of the card's merchant may re-credit a SPENT balance. A redemption
+        // is value the holder already consumed (goods delivered, the chargeable remainder settled
+        // through the Router); re-crediting it is the double-spend vector, so it carries the same
+        // owner gate as {issueCard}/{releaseCoupon}. Inline (not the modifier) so the unknown-id revert
+        // fires first and `r` is read once; the card's merchant is its immutable {issueCard} binding.
+        uint256 merchantId = _cardMerchant[r.cardId];
+        (, address mOwner,,,,) = router.merchants(merchantId);
+        if (msg.sender != mOwner) revert GiftCards__NotMerchantOwner(merchantId, msg.sender);
+
         // Effect: flip the idempotency flag first (CEI), then credit the original holder back.
         r.reversed = true;
-        uint256 amount = r.applied;
         _balanceOf[r.holder][r.cardId] += amount;
         emit RedemptionReversed(r.cardId, r.holder, redemptionId, amount);
     }
@@ -249,7 +273,34 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     }
 
     /// @inheritdoc IAccess0x1GiftCards
-    /// @dev Atomic read-modify-write. The cap is checked and the count incremented in the SAME state
+    /// @dev Permissionless READ. Performs the SAME active/expired/cap qualification as {applyCoupon} and
+    ///      returns the clamped discount WITHOUT incrementing `redemptionsCount` — a storefront preview
+    ///      any party may call for free. Because it never consumes the cap it cannot grief a finite-cap
+    ///      promotion (the L-4 split: read is public, consume is owner-gated). A disqualifying state
+    ///      (inactive, expired, cap reached) reverts so a preview matches what a consume would do.
+    function quoteCoupon(uint256 merchantId, bytes32 couponId, uint256 amountUsd8)
+        external
+        view
+        returns (uint256 discount)
+    {
+        Coupon storage c = _coupons[merchantId][couponId];
+        if (!c.active) revert GiftCards__CouponInactive(merchantId, couponId);
+        // slither-disable-next-line timestamp
+        if (c.validUntil != 0 && block.timestamp > c.validUntil) {
+            revert GiftCards__CouponExpired(merchantId, couponId);
+        }
+        if (c.maxRedemptions != 0 && c.redemptionsCount >= c.maxRedemptions) {
+            revert GiftCards__CouponExhausted(merchantId, couponId);
+        }
+        return _discountFor(c.dType, c.value, amountUsd8);
+    }
+
+    /// @inheritdoc IAccess0x1GiftCards
+    /// @dev `onlyMerchantOwner` + atomic read-modify-write. MERCHANT-OWNER ONLY: consuming a coupon
+    ///      increments `redemptionsCount` toward `maxRedemptions`, so a permissionless caller could
+    ///      burn a finite-cap promotion to exhaustion (the L-4 griefing/DoS) — gating it to the owner
+    ///      (mirroring {setCoupon}/{releaseCoupon}) closes that, while {quoteCoupon} gives storefronts a
+    ///      free, non-consuming preview. The cap is checked and the count incremented in the SAME state
     ///      transition, so `redemptionsCount` can never exceed `maxRedemptions` even under concurrent
     ///      sales (each is its own tx; the EVM serializes them). A disqualifying state (inactive,
     ///      expired, cap reached) reverts; the discount math itself NEVER throws — an unknown discount
@@ -257,6 +308,7 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     ///      is clamped to `[0, amountUsd8]` so a coupon can never exceed the sale it discounts.
     function applyCoupon(uint256 merchantId, bytes32 couponId, uint256 amountUsd8)
         external
+        onlyMerchantOwner(merchantId)
         returns (uint256 discount)
     {
         Coupon storage c = _coupons[merchantId][couponId];

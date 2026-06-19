@@ -12,8 +12,10 @@ import { Access0x1Router } from "../../src/Access0x1Router.sol";
 ///           - reentrancy on the only un-guarded balance path (`transfer`) via a contract recipient
 ///           - the null-merchant (id 0 sentinel) land-grab
 ///           - re-issue top-up + reverse lifecycle conservation
-///           - permissionless `reverseRedemption` cannot mint value past what was debited
-///           - permissionless `applyCoupon` griefing CANNOT touch any holder balance
+///           - `reverseRedemption` is MERCHANT-OWNER GATED (H-1): a stranger re-crediting a spent
+///             balance is the double-spend, and is now rejected — only the owner reverses, once
+///           - `applyCoupon` is MERCHANT-OWNER GATED (L-4): a stranger cannot burn a finite-cap promo;
+///             the permissionless `quoteCoupon` preview never consumes the cap
 ///           - coupon count never wraps under reset + release interleaving
 ///           - PERCENT value > 100 clamps to a 100% discount, never a negative price / over-credit
 ///           - cross-holder reverse credits the ORIGINAL holder, never inflates total beyond issued
@@ -115,22 +117,26 @@ contract Access0x1GiftCardsRedTeamTest is Test {
 
         _issueA(victim, FACE); // top-up: issued total 200, balance 100
 
-        cards.reverseRedemption(rid); // credit back the original 100
+        vm.prank(ownerA);
+        cards.reverseRedemption(rid); // merchant owner credits back the original 100
         assertEq(cards.balanceOf(victim, id), 2 * FACE, "exactly the 200 issued, no inflation");
 
         // A second reverse is a clean no-op — cannot push past issued.
+        vm.prank(ownerA);
         cards.reverseRedemption(rid);
         assertEq(cards.balanceOf(victim, id), 2 * FACE, "still 200 - idempotent");
     }
 
     /*//////////////////////////////////////////////////////////////
-        ATTACK D — PERMISSIONLESS reverseRedemption CANNOT MINT VALUE
+        ATTACK D — reverseRedemption IS MERCHANT-OWNER GATED (H-1)
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice `reverseRedemption` is permissionless (any keeper can retry it). The adversarial worry
-    ///         is value creation: an attacker reversing someone else's redemption can only restore the
-    ///         EXACT amount that redemption debited — never more — and only once. Net across the
-    ///         redeem+reverse the holder is back to the pre-redeem balance, not above it.
+    /// @notice H-1 FIX. `reverseRedemption` re-credits a SPENT balance — value the holder already
+    ///         consumed (goods delivered, the chargeable remainder settled through the Router). When it
+    ///         was permissionless, the holder (or anyone) could revive that balance and redeem it again
+    ///         — a free double-spend. Now only the owner of the card's merchant may reverse: a stranger
+    ///         is rejected with `GiftCards__NotMerchantOwner` and the balance never moves, and the owner
+    ///         credits the EXACT debit back exactly once (idempotent retries are clean no-ops).
     function test_attack_permissionlessReverseCreditsExactDebitOnce() public {
         uint256 id = _issueA(victim, FACE);
         bytes32 rid = keccak256("perm_r");
@@ -138,18 +144,60 @@ contract Access0x1GiftCardsRedTeamTest is Test {
         vm.prank(victim);
         cards.redeem(id, 70e8, rid); // balance 30, debited 70
 
-        // Attacker (not the holder, not the merchant) reverses it.
+        // An arbitrary attacker (not the holder, not the merchant owner) is now REJECTED.
         vm.prank(attacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1GiftCards.GiftCards__NotMerchantOwner.selector, merchantA, attacker
+            )
+        );
+        cards.reverseRedemption(rid);
+        assertEq(cards.balanceOf(victim, id), 30e8, "spent balance NOT revived by a stranger");
+
+        // The merchant owner is the only party who can reverse — and only credits the exact debit once.
+        vm.prank(ownerA);
         cards.reverseRedemption(rid);
         assertEq(cards.balanceOf(victim, id), FACE, "restored exactly to face, not above");
         assertEq(cards.balanceOf(attacker, id), 0, "attacker gained nothing");
 
-        // Attacker hammers reverse — never a second credit.
+        // Owner hammers reverse — never a second credit.
         for (uint256 i = 0; i < 4; i++) {
-            vm.prank(attacker);
+            vm.prank(ownerA);
             cards.reverseRedemption(rid);
         }
         assertEq(cards.balanceOf(victim, id), FACE, "still face - single credit");
+    }
+
+    /// @notice H-1 DOUBLE-SPEND REGRESSION. The exact PoC the fix kills: card 100 → holder redeems 100
+    ///         against a real $100 order (balance→0, goods shipped) → holder tries to `reverseRedemption`
+    ///         to revive the balance and redeem AGAIN. The reverse now REVERTS for the non-owner holder,
+    ///         so the spent balance stays at zero and the second $100 order has nothing to draw on — the
+    ///         $200-against-a-$100-card drain is closed.
+    function test_attack_holderCannotReverseToDoubleSpend() public {
+        uint256 id = _issueA(victim, FACE); // card balance 100
+        bytes32 rid1 = keccak256("ds_order_1");
+
+        // Order 1: the holder spends the whole $100 (goods shipped against this debit).
+        vm.prank(victim);
+        assertEq(cards.redeem(id, FACE, rid1), FACE);
+        assertEq(cards.balanceOf(victim, id), 0, "card fully spent on order 1");
+
+        // The holder tries to revive the spent balance to fund a second order — REJECTED (not the
+        // merchant owner). This is the double-spend the H-1 gate closes.
+        vm.prank(victim);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1GiftCards.GiftCards__NotMerchantOwner.selector, merchantA, victim
+            )
+        );
+        cards.reverseRedemption(rid1);
+        assertEq(cards.balanceOf(victim, id), 0, "balance stays zero - no revival");
+
+        // Order 2 therefore has nothing to draw on: the second redemption applies zero.
+        bytes32 rid2 = keccak256("ds_order_2");
+        vm.prank(victim);
+        assertEq(cards.redeem(id, FACE, rid2), 0, "second order cannot re-spend the dead card");
+        assertEq(cards.balanceOf(victim, id), 0, "no $200 consumed against a $100 card");
     }
 
     /// @notice Reversing a redemption that applied ZERO (a fully-spent card redeemed again, recorded
@@ -168,21 +216,40 @@ contract Access0x1GiftCardsRedTeamTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-        ATTACK E — PERMISSIONLESS applyCoupon CANNOT TOUCH BALANCES
+        ATTACK E — applyCoupon IS MERCHANT-OWNER GATED (L-4)
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice `applyCoupon` is permissionless and is pure coupon-registry bookkeeping. The worry: can
-    ///         an attacker spamming it move ANY holder balance, or push the count past max? Neither —
-    ///         it only increments a counter (capped) and returns a clamped discount; the canary card
-    ///         balance is untouched and the cap is never exceeded.
+    /// @notice L-4 FIX. `applyCoupon` consumes (increments the cap toward `maxRedemptions`), so when it
+    ///         was permissionless an attacker could burn a finite-cap promotion to exhaustion for gas
+    ///         only (promotion griefing/DoS). Now it is merchant-owner gated: the attacker is rejected
+    ///         BEFORE the cap moves, the count stays at zero, and the canary balance is untouched. The
+    ///         storefront still gets a free, NON-consuming preview through `quoteCoupon`.
     function test_attack_applyCouponNeverTouchesBalancesAndRespectsCap() public {
         uint256 id = _issueA(victim, FACE);
         bytes32 cid = keccak256("GRIEF");
         vm.prank(ownerA);
         cards.setCoupon(merchantA, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 2);
 
-        // Attacker burns the whole cap.
+        // Attacker tries to burn the cap — REJECTED by the owner gate before any increment.
         vm.startPrank(attacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1GiftCards.GiftCards__NotMerchantOwner.selector, merchantA, attacker
+            )
+        );
+        cards.applyCoupon(merchantA, cid, 100e8);
+        // The attacker CAN still preview the discount (read-only), but it never consumes the cap.
+        assertEq(cards.quoteCoupon(merchantA, cid, 100e8), 10e8, "preview returns the discount");
+        assertEq(cards.quoteCoupon(merchantA, cid, 100e8), 10e8, "preview is repeatable, free");
+        vm.stopPrank();
+
+        assertEq(
+            cards.coupons(merchantA, cid).redemptionsCount, 0, "cap untouched by the rejected spam"
+        );
+        assertEq(cards.balanceOf(victim, id), FACE, "no holder balance moved by coupon spam");
+
+        // The owner consumes the cap legitimately, and the cap still bites at exhaustion.
+        vm.startPrank(ownerA);
         cards.applyCoupon(merchantA, cid, 100e8);
         cards.applyCoupon(merchantA, cid, 100e8);
         vm.expectRevert(
@@ -192,9 +259,9 @@ contract Access0x1GiftCardsRedTeamTest is Test {
         );
         cards.applyCoupon(merchantA, cid, 100e8);
         vm.stopPrank();
-
-        assertEq(cards.coupons(merchantA, cid).redemptionsCount, 2, "count pinned at cap");
-        assertEq(cards.balanceOf(victim, id), FACE, "no holder balance moved by coupon spam");
+        assertEq(
+            cards.coupons(merchantA, cid).redemptionsCount, 2, "count pinned at cap by the owner"
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -208,17 +275,14 @@ contract Access0x1GiftCardsRedTeamTest is Test {
         bytes32 cid = keccak256("RST");
         vm.startPrank(ownerA);
         cards.setCoupon(merchantA, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 1);
-        vm.stopPrank();
 
         cards.applyCoupon(merchantA, cid, 100e8); // count 1 (at cap)
 
-        vm.startPrank(ownerA);
         cards.setCoupon(merchantA, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 1); // reset→0
         // Hammer release on a freshly-reset (count 0) coupon — must NOT underflow to type(uint32).max.
         for (uint256 i = 0; i < 5; i++) {
             cards.releaseCoupon(merchantA, cid);
         }
-        vm.stopPrank();
 
         assertEq(
             cards.coupons(merchantA, cid).redemptionsCount, 0, "floored at zero, never wrapped"
@@ -231,6 +295,7 @@ contract Access0x1GiftCardsRedTeamTest is Test {
             )
         );
         cards.applyCoupon(merchantA, cid, 100e8);
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -242,20 +307,22 @@ contract Access0x1GiftCardsRedTeamTest is Test {
     ///         (which a settlement layer could misread as a negative price / refund-from-thin-air).
     function test_attack_percentOver100ClampsToSale() public {
         bytes32 cid = keccak256("OVER");
-        vm.prank(ownerA);
+        vm.startPrank(ownerA);
         cards.setCoupon(merchantA, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 250, 0, 0);
 
         uint256 discount = cards.applyCoupon(merchantA, cid, 80e8);
+        vm.stopPrank();
         assertEq(discount, 80e8, "clamped to the full sale, never above");
     }
 
     /// @notice A flat AMOUNT coupon larger than the sale is likewise clamped to the sale amount.
     function test_attack_flatAmountOverSaleClamps() public {
         bytes32 cid = keccak256("FLAT_OVER");
-        vm.prank(ownerA);
+        vm.startPrank(ownerA);
         cards.setCoupon(merchantA, cid, IAccess0x1GiftCards.DiscountType.AMOUNT, 1_000e8, 0, 0);
 
         uint256 discount = cards.applyCoupon(merchantA, cid, 30e8);
+        vm.stopPrank();
         assertEq(discount, 30e8, "flat discount clamped to the sale");
     }
 
@@ -275,7 +342,8 @@ contract Access0x1GiftCardsRedTeamTest is Test {
         cards.transfer(attacker, id, 40e8); // victim 0, attacker 40
         vm.stopPrank();
 
-        cards.reverseRedemption(rid); // credits original holder (victim) back 60
+        vm.prank(ownerA);
+        cards.reverseRedemption(rid); // merchant owner credits original holder (victim) back 60
 
         uint256 total = cards.balanceOf(victim, id) + cards.balanceOf(attacker, id);
         assertEq(cards.balanceOf(victim, id), 60e8, "original holder credited");
@@ -292,13 +360,14 @@ contract Access0x1GiftCardsRedTeamTest is Test {
     ///         the count tracks exactly, never wrapping near the boundary.
     function test_attack_maxRedemptionsBoundaryIncrementsCleanly() public {
         bytes32 cid = keccak256("BOUND");
-        vm.prank(ownerA);
+        vm.startPrank(ownerA);
         cards.setCoupon(
             merchantA, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, type(uint32).max
         );
         for (uint256 i = 0; i < 5; i++) {
             cards.applyCoupon(merchantA, cid, 100e8);
         }
+        vm.stopPrank();
         assertEq(cards.coupons(merchantA, cid).redemptionsCount, 5, "counts exactly, no wrap");
     }
 
