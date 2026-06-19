@@ -12,14 +12,18 @@
  * "not configured" result, never a 500. SECRETS (the Uniswap key, the Blink RPC) are server-only
  * (`runtime = "nodejs"`) and never appear in a response body.
  *
- * INTERNAL endpoint: it is meant to be called by the settlement worker, not the open web. When
- * `PAYOUT_SWAP_INTERNAL_SECRET` is set it is enforced via the `x-internal-secret` header (production
- * default); unset = open (local/demo). Production should also rate-limit it. The swap is always
- * merchant-signed (non-custodial), so even an open call cannot move a third party's funds.
+ * INTERNAL endpoint: it is meant to be called by the settlement worker, not the open web. It FAILS
+ * CLOSED — when `PAYOUT_SWAP_INTERNAL_SECRET` is unset the route REFUSES every request with a 503
+ * `not_configured` rather than serving open (the prior fail-open default was R-7). Once the secret is
+ * set it is enforced via the `x-internal-secret` header (production default). The only way to run the
+ * route without a secret is the EXPLICIT, opt-in local-dev escape hatch `PAYOUT_SWAP_ALLOW_INSECURE=true`
+ * (never set in production). Production should also rate-limit it. The swap is always merchant-signed
+ * (non-custodial), so even an authorized call cannot move a third party's funds.
  *
  * Standard Web `Request`/`Response` so it works as a Next.js App Router handler and typechecks
  * without the Next types installed.
  */
+import { timingSafeEqual } from "node:crypto";
 import { isAddress, type Address } from "viem";
 import { runPayoutSwap, selectPayoutSwapClient } from "../../../lib/payout-swap/index.js";
 import { buildPayoutSwapDeps } from "../../../lib/payout-swap/deps-from-env.js";
@@ -50,6 +54,18 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+/**
+ * Constant-time string equality for the internal-secret check, so a wrong header can't be
+ * recovered byte-by-byte via response timing. Returns false on any length mismatch (the only
+ * thing a length leak reveals is the secret's length, which is not sensitive here).
+ */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
+
 /** PayoutSwapResult carries a bigint `amountOut`; stringify it for the wire (omit when absent). */
 function serialize(r: PayoutSwapResult): Record<string, unknown> {
   return { ...r, amountOut: r.amountOut === undefined ? undefined : r.amountOut.toString() };
@@ -66,13 +82,19 @@ function parseBaseUnits(v: string | undefined): bigint | null {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  // Internal guard (env-gated): enforce only when a secret is configured (production default).
+  // Internal guard — FAIL CLOSED (R-7). The endpoint triggers merchant USDC→token swaps
+  // (slippage), so an unconfigured guard must REFUSE, not serve open.
+  //   - secret set   → require an exact `x-internal-secret` match (constant-time compare).
+  //   - secret unset → refuse with 503 not_configured, UNLESS the explicit local-dev escape
+  //                    hatch `PAYOUT_SWAP_ALLOW_INSECURE=true` is set (never set in production).
   const internalSecret = (process.env.PAYOUT_SWAP_INTERNAL_SECRET ?? "").trim();
   if (internalSecret) {
     const provided = request.headers.get("x-internal-secret") ?? "";
-    if (provided !== internalSecret) {
+    if (!timingSafeEqualStr(provided, internalSecret)) {
       return json({ error: "unauthorized" }, 401);
     }
+  } else if ((process.env.PAYOUT_SWAP_ALLOW_INSECURE ?? "").trim().toLowerCase() !== "true") {
+    return json({ error: "Payout-swap is not configured on this deployment.", code: "not_configured" }, 503);
   }
 
   let body: PayoutSwapBody;

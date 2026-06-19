@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react'
 
+import { scaleSvg } from '@/lib/branding/logo'
+
 /**
  * BrandPreview — the live "Pay {name}" + logo + description card, themed by the
  * merchant's brand color (ADR D2 step 3 live-preview law / D4 a hosted-page
@@ -41,7 +43,9 @@ export function BrandPreview({
           <span
             className="inline-block overflow-hidden rounded-xl"
             style={{ width: logoBox, height: logoBox }}
-            // Sanitized inline SVG (server-scrubbed). See component doc.
+            // Sanitized inline SVG (server-scrubbed); scaleSvg() re-sanitizes
+            // the resized string before it reaches the DOM (lib/branding/logo.ts,
+            // red-report R-4). See component doc.
             dangerouslySetInnerHTML={{ __html: scaleSvg(logoSvg, logoBox) }}
           />
         ) : (
@@ -75,16 +79,4 @@ export function BrandPreview({
       ) : null}
     </div>
   )
-}
-
-/**
- * Force the inline SVG to render at a fixed pixel box. The sanitized logo SVGs
- * carry their own width/height; we override them to fit the preview/checkout
- * slot without distorting (the viewBox preserves aspect). Pure string edit; the
- * SVG was already sanitized server-side.
- */
-function scaleSvg(svg: string, px: number): string {
-  return svg
-    .replace(/width="[^"]*"/, `width="${px}"`)
-    .replace(/height="[^"]*"/, `height="${px}"`)
 }

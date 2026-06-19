@@ -58,6 +58,10 @@ describe("POST /api/agent/pay", () => {
     process.env.WALLET_PASSWORD = SECRET;
     process.env.AGENT_DAILY_USD_CAP = "5.00";
     process.env.AGENT_URL_ALLOWLIST = "http://localhost:3000";
+    // These tests exercise the allowlist / caps / error mapping, NOT the R-5 caller-auth gate.
+    // Open the gate via the explicit local-dev escape hatch (the route fails CLOSED without it).
+    process.env.AGENT_ALLOW_INSECURE = "true";
+    delete process.env.AGENT_INTERNAL_SECRET;
     delete process.env.AGENT_WALLET_ID;
     installWalletMock();
     setWrapFetchWithPayment((() => async () => jsonResponse({ quote: "ok" })) as never);
@@ -69,6 +73,8 @@ describe("POST /api/agent/pay", () => {
     setDynamicClientFactory(null);
     __resetMeterForTests();
     __resetWalletForTests();
+    delete process.env.AGENT_ALLOW_INSECURE;
+    delete process.env.AGENT_INTERNAL_SECRET;
   });
 
   it("rejects a url not in the allowlist with 400 (SSRF guard)", async () => {

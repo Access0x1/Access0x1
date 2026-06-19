@@ -7,6 +7,7 @@ import { getMerchant, type Merchant } from '@/lib/contracts'
 import { getPublicClient } from '@/lib/wallet'
 import { CheckoutCard } from '@/components/CheckoutCard'
 import { AskAssistant } from '@/components/AskAssistant'
+import { safeReturnUrl } from '@/lib/safeUrl'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -73,7 +74,9 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
 
   const amount = searchParams.get('amount') ?? '29.00'
   const orderParam = searchParams.get('order') ?? undefined
-  const returnUrl = searchParams.get('return_url') ?? undefined
+  // Validate at the source: only an https: URL survives; a javascript:/data:/http:
+  // /evil-origin value is dropped to undefined (no link rendered) — red-report C-1.
+  const returnUrl = safeReturnUrl(searchParams.get('return_url'))
   const nameParam = searchParams.get('name') ?? undefined
 
   const merchantName =

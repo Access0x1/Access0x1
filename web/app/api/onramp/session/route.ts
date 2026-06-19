@@ -19,6 +19,7 @@
 import { NextResponse } from 'next/server'
 import { isAddress } from 'viem'
 import { buildOnrampSession } from '@/lib/onramp'
+import { safeReturnUrl } from '@/lib/safeUrl'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,12 +54,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     )
   }
 
+  // Validate the redirect before forwarding it to the external provider: only an
+  // https: URL passes; a javascript:/data:/http:/evil-origin value is dropped to
+  // undefined so the provider gets NO redirect param (same root cause as C-1 —
+  // red-report O-11). Never hand a tainted return URL to a third party.
   const result = buildOnrampSession({
     address: address as `0x${string}`,
     amount,
     asset,
     network,
-    redirectUrl,
+    redirectUrl: safeReturnUrl(redirectUrl),
   })
 
   if (!result.ok) {

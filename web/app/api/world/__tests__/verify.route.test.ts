@@ -52,6 +52,13 @@ function proof(nullifier: string, action = 'checkout-verified-human'): Record<st
   }
 }
 
+/** The same payload with NO `action` field — the action is derived server-side. */
+function proofNoAction(nullifier: string): Record<string, unknown> {
+  const { action: _omit, ...rest } = proof(nullifier)
+  void _omit
+  return rest
+}
+
 let fetchSpy: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
@@ -170,15 +177,95 @@ describe('POST /api/world/verify — failures', () => {
   })
 })
 
+describe('POST /api/world/verify — C-2: action comes ONLY from server config', () => {
+  it('ignores a body `action` and forwards the SERVER buyer action to the portal', async () => {
+    // The portal echoes whatever action it received; the route must have sent the
+    // server buyer action, NOT the attacker-supplied body action.
+    stubPortal((url) => {
+      void url
+      const sentBody = JSON.parse(String(fetchSpy.mock.calls.at(-1)?.[1]?.body ?? '{}'))
+      return new Response(
+        JSON.stringify({ success: true, nullifier: '0xc2', action: sentBody.action }),
+        { status: 200 },
+      )
+    })
+    // Attacker presents a proof but injects a DIFFERENT action in the body.
+    const res = await postProof({ ...proof('0xc2', 'checkout-verified-human'), action: 'attacker-action' })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // The verified + claimed action is the trusted server action, never the body's.
+    expect(body.action).toBe('checkout-verified-human')
+    // The payload forwarded to the portal carried the server action (not the body's).
+    const forwarded = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body ?? '{}'))
+    expect(forwarded.action).toBe('checkout-verified-human')
+    expect(forwarded.action).not.toBe('attacker-action')
+  })
+
+  it('claims the nullifier under the SERVER action even when the body action differs', async () => {
+    // A proof claimed under the buyer action; a second request injecting a
+    // different body action but the SAME human must still collide (one human, one
+    // slot) — proving the body action does not open a fresh nullifier space.
+    stubPortal(() => {
+      const sentBody = JSON.parse(String(fetchSpy.mock.calls.at(-1)?.[1]?.body ?? '{}'))
+      return new Response(
+        JSON.stringify({ success: true, nullifier: '0x5a3e', action: sentBody.action }),
+        { status: 200 },
+      )
+    })
+    const first = await postProof(proof('0x5a3e'))
+    expect(first.status).toBe(200)
+    // Same human, but now lying about the action in the body — must still be 409.
+    const second = await postProof({ ...proof('0x5a3e'), action: 'some-other-action' })
+    expect(second.status).toBe(409)
+    expect((await second.json()).error).toBe('already_verified')
+  })
+
+  it('selects the agent gate via the `gate` enum (server action), not a body action', async () => {
+    stubPortal(() => {
+      const sentBody = JSON.parse(String(fetchSpy.mock.calls.at(-1)?.[1]?.body ?? '{}'))
+      return new Response(
+        JSON.stringify({ success: true, nullifier: '0xa17e', action: sentBody.action }),
+        { status: 200 },
+      )
+    })
+    expect(agentGate.isAgentTrialUnlocked()).toBe(false)
+    // No `action` in the body at all — only the trusted `gate` selector.
+    const res = await postProof({ ...proofNoAction('0xa17e'), gate: 'agent' })
+    expect(res.status).toBe(200)
+    const forwarded = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body ?? '{}'))
+    expect(forwarded.action).toBe('agent-trial-unlock')
+    expect(agentGate.isAgentTrialUnlocked()).toBe(true)
+  })
+
+  it('a body action of the agent string does NOT reach the agent gate (no gate enum)', async () => {
+    // Defeats the old bug shape: presenting `action: 'agent-trial-unlock'` in the
+    // body must NOT unlock the agent trial — only the trusted `gate` enum does.
+    stubPortal(() => {
+      const sentBody = JSON.parse(String(fetchSpy.mock.calls.at(-1)?.[1]?.body ?? '{}'))
+      return new Response(
+        JSON.stringify({ success: true, nullifier: '0xb2f0', action: sentBody.action }),
+        { status: 200 },
+      )
+    })
+    const res = await postProof({ ...proof('0xb2f0'), action: 'agent-trial-unlock' })
+    expect(res.status).toBe(200)
+    const forwarded = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body ?? '{}'))
+    expect(forwarded.action).toBe('checkout-verified-human')
+    expect(agentGate.isAgentTrialUnlocked()).toBe(false)
+  })
+})
+
 describe('POST /api/world/verify — Track A agent trial', () => {
-  it('unlocks the agent trial when the proof is for the agent action', async () => {
+  it('unlocks the agent trial when the agent gate is selected (via the trusted enum)', async () => {
+    // C-2: the agent gate is now reached by the trusted `gate: 'agent'` selector
+    // (the server derives `worldAgentAction()`), NOT by a body `action` string.
     stubPortal(() =>
       new Response(JSON.stringify({ success: true, nullifier: '0xa9', action: 'agent-trial-unlock' }), {
         status: 200,
       }),
     )
     expect(agentGate.isAgentTrialUnlocked()).toBe(false)
-    const res = await postProof(proof('0xa9', 'agent-trial-unlock'))
+    const res = await postProof({ ...proofNoAction('0xa9'), gate: 'agent' })
     expect(res.status).toBe(200)
     expect(agentGate.isAgentTrialUnlocked()).toBe(true)
   })

@@ -6,9 +6,12 @@
  * an `https://` URL (ADR D5, C2). So every merchant logo must end up as a
  * sanitized inline-SVG string (`logo_svg_inline`):
  *
- *   - An uploaded SVG is SANITIZED: every `<script>`, every `on*` event handler,
- *     every `javascript:`/external-resource reference is stripped before the
- *     string is ever stored or shipped to a wallet. We never trust merchant SVG.
+ *   - An uploaded SVG is SANITIZED: every `<script>`, every `<style>` block,
+ *     every `on*` event handler, every `style=` attribute, and every
+ *     `javascript:`/external-resource reference is stripped before the string is
+ *     ever stored or shipped to a wallet — `<style>`/`style=` can carry a CSS
+ *     `url(...)` beacon that fetches from an attacker origin on render. We never
+ *     trust merchant SVG, and we re-sanitize after any post-processing.
  *   - An uploaded raster (PNG/JPG, supplied as a `data:` URI) is WRAPPED in a
  *     minimal SVG `<image>` element so the Snap can render it — the raster bytes
  *     stay inert, no script can ride along.
@@ -63,6 +66,12 @@ function byteLength(s: string): number {
  *
  * Removes:
  *   - `<script>…</script>` blocks (and bare/self-closing `<script .../>`),
+ *   - `<style>…</style>` blocks (and bare/self-closing `<style .../>`) — CSS can
+ *     smuggle a `url(...)` / `@import` / `@font-face src:url(...)` beacon that
+ *     fetches from an attacker origin the moment the logo renders (red-report
+ *     R-4); a static mark needs no embedded stylesheet,
+ *   - every `style="…"` / `style='…'` presentational attribute — same `url()`
+ *     beacon vector, inline,
  *   - `<foreignObject>…</foreignObject>` (an HTML-injection vector inside SVG),
  *   - every `on*="…"` / `on*='…'` event-handler attribute,
  *   - `javascript:` URIs anywhere,
@@ -82,6 +91,9 @@ export function sanitizeSvg(svg: string): string {
       // <script> in any form
       .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
       .replace(/<script\b[^>]*\/?>/gi, '')
+      // <style> blocks (CSS url()/@import/@font-face beacons) in any form
+      .replace(/<style[\s\S]*?<\/style\s*>/gi, '')
+      .replace(/<style\b[^>]*\/?>/gi, '')
       // <foreignObject> can smuggle live HTML
       .replace(/<foreignObject[\s\S]*?<\/foreignObject\s*>/gi, '')
       .replace(/<foreignObject\b[^>]*\/?>/gi, '')
@@ -92,6 +104,10 @@ export function sanitizeSvg(svg: string): string {
       .replace(/\son[a-z0-9_-]+\s*=\s*"[^"]*"/gi, '')
       .replace(/\son[a-z0-9_-]+\s*=\s*'[^']*'/gi, '')
       .replace(/\son[a-z0-9_-]+\s*=\s*[^\s>]+/gi, '')
+      // style="…" / style='…' / style=bare presentational attrs (CSS url() beacons)
+      .replace(/\sstyle\s*=\s*"[^"]*"/gi, '')
+      .replace(/\sstyle\s*=\s*'[^']*'/gi, '')
+      .replace(/\sstyle\s*=\s*[^\s>]+/gi, '')
       // javascript: URIs anywhere (attribute or text)
       .replace(/javascript:/gi, '')
       // remote href / xlink:href (keep data: refs; drop http(s)/// network refs)
@@ -106,8 +122,15 @@ function assertIsSvg(svg: string): void {
   if (!/^<svg[\s>]/i.test(svg) || !/<\/svg\s*>\s*$/i.test(svg)) {
     throw new LogoError('Logo SVG must be a single <svg>…</svg> element.');
   }
-  // Belt-and-suspenders: nothing executable may survive the scrub.
-  if (/<script\b/i.test(svg) || /\son[a-z0-9_-]+\s*=/i.test(svg) || /javascript:/i.test(svg)) {
+  // Belt-and-suspenders: nothing executable OR network-fetching may survive the
+  // scrub — incl. a CSS-beacon `<style>` block or inline `style=` attribute.
+  if (
+    /<script\b/i.test(svg) ||
+    /<style\b/i.test(svg) ||
+    /\son[a-z0-9_-]+\s*=/i.test(svg) ||
+    /\sstyle\s*=/i.test(svg) ||
+    /javascript:/i.test(svg)
+  ) {
     throw new LogoError('Logo SVG still contained executable content after sanitization.');
   }
 }
@@ -131,6 +154,33 @@ export function sanitizeSvgLogo(svg: string): LogoResult {
     throw new LogoError(`Logo SVG exceeds ${MAX_LOGO_SVG_BYTES} bytes after sanitization.`);
   }
   return { svg: cleaned, kind: 'svg' };
+}
+
+/**
+ * Force an already-sanitized inline SVG to render at a fixed pixel box, then
+ * RE-SANITIZE the result. The checkout/preview slots override the SVG's own
+ * width/height so the mark fits without distorting (the viewBox preserves aspect
+ * ratio). Because that is a raw string edit on a string ultimately dropped into
+ * `dangerouslySetInnerHTML`, it MUST be re-scrubbed afterwards: re-running
+ * {@link sanitizeSvg} on the post-processed output closes the gap where a
+ * `<style>`/`url()` beacon that the width/height replace happened to reconstruct
+ * (or that slipped past an earlier pass) could reach the DOM unscrubbed
+ * (red-report R-4 — "re-sanitize after any post-processing").
+ *
+ * Pure + idempotent: passing an already-clean, already-sized SVG returns it
+ * unchanged. Safe to call in the browser (no DOM, no network).
+ *
+ * @param svg - a sanitized inline-SVG string (e.g. `logo_svg_inline`).
+ * @param px - the target square pixel size for the render slot.
+ * @returns the resized, re-sanitized inline-SVG string.
+ */
+export function scaleSvg(svg: string, px: number): string {
+  const sized = svg
+    .replace(/width="[^"]*"/, `width="${px}"`)
+    .replace(/height="[^"]*"/, `height="${px}"`);
+  // Re-scrub after the post-processing edit — never ship a post-processed string
+  // straight to `dangerouslySetInnerHTML` without re-sanitizing.
+  return sanitizeSvg(sized);
 }
 
 /**

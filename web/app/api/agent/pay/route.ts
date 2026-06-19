@@ -15,6 +15,13 @@
  *   502  { error: "PrivatePayFailed", code, recoverable }      shield landed but payout failed (law #5)
  *   500  { error: "Internal" }           any other throw — no leak
  *
+ * CALLER AUTH (R-5): spending is gated by an internal shared secret BEFORE any money moves.
+ * The route signs and spends real USDC, so the per-call cap + SSRF allowlist + human gate are
+ * defense-in-depth, NOT the security boundary. The boundary is the `x-internal-secret` header
+ * matched against `AGENT_INTERNAL_SECRET` (constant-time). It FAILS CLOSED: when the secret is
+ * unset the route refuses with 503 `not_configured`, UNLESS the explicit local-dev escape hatch
+ * `AGENT_ALLOW_INSECURE=true` is set (never set in production). 401 on a missing/wrong header.
+ *
  * THE PRIVATE RAIL (this unit): by default a spend is a PUBLIC x402/EIP-3009 USDC
  * transfer (the path above, unchanged). When the body carries `private: true` AND the
  * env flag `UNLINK_PRIVATE_PAY=true` is set with the Unlink config present, the request
@@ -24,6 +31,7 @@
  * path and NEVER drops the payment.
  */
 
+import { timingSafeEqual } from "node:crypto";
 import { agentPay, agentNanoLoop, PaymentRequiredUnresolved } from "../../../../lib/agent/payPerCall.js";
 import { agentAddress } from "../../../../lib/agent/dynamicAgentWallet.js";
 import { BudgetExceeded } from "../../../../lib/agent/agentMeter.js";
@@ -46,6 +54,44 @@ function json(body: unknown, status: number): Response {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+/**
+ * Constant-time string equality for the internal-secret check, so a wrong header can't be
+ * recovered byte-by-byte via response timing. A length mismatch returns false immediately.
+ */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
+
+/**
+ * Caller-authentication gate (R-5) — the real security boundary for a route that signs and
+ * spends real USDC. Runs BEFORE any payment effect (CEI). Returns a refusal {@link Response}
+ * when the caller is not authorized, or `null` to proceed.
+ *
+ *   - `AGENT_INTERNAL_SECRET` set  → require an exact `x-internal-secret` match → else 401.
+ *   - `AGENT_INTERNAL_SECRET` unset → FAIL CLOSED with 503 `not_configured`, UNLESS the explicit
+ *     local-dev escape hatch `AGENT_ALLOW_INSECURE=true` is set (never set in production).
+ *
+ * @param req The incoming request (for the `x-internal-secret` header).
+ * @returns A refusal Response when blocked, or `null` when the caller is authorized.
+ */
+function callerAuthFailure(req: Request): Response | null {
+  const secret = (process.env.AGENT_INTERNAL_SECRET ?? "").trim();
+  if (secret) {
+    const provided = req.headers.get("x-internal-secret") ?? "";
+    if (!timingSafeEqualStr(provided, secret)) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+    return null;
+  }
+  if ((process.env.AGENT_ALLOW_INSECURE ?? "").trim().toLowerCase() === "true") {
+    return null;
+  }
+  return json({ error: "Agent pay is not configured on this deployment.", code: "not_configured" }, 503);
 }
 
 /**
@@ -140,6 +186,12 @@ function validate(body: unknown): PayRequest | string {
  * @returns A JSON {@link Response} with the structured success or error body.
  */
 export async function POST(req: Request): Promise<Response> {
+  // R-5: authenticate the caller BEFORE any work or money effect. A 401/503 here means the
+  // request never reaches validation, the meter, or the wallet — the cap/allowlist below are
+  // defense-in-depth, not the gate.
+  const authFailure = callerAuthFailure(req);
+  if (authFailure) return authFailure;
+
   let parsed: unknown;
   try {
     parsed = await req.json();

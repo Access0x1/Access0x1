@@ -66,6 +66,10 @@ describe("POST /api/agent/pay — SSRF allowlist (adversarial)", () => {
     process.env.AGENT_DAILY_USD_CAP = "5.00";
     // Only this exact origin is allowed.
     process.env.AGENT_URL_ALLOWLIST = "https://api.example.com";
+    // These tests exercise the SSRF allowlist, NOT the R-5 caller-auth gate; open it via the
+    // explicit local-dev escape hatch (the route fails CLOSED without it).
+    process.env.AGENT_ALLOW_INSECURE = "true";
+    delete process.env.AGENT_INTERNAL_SECRET;
     delete process.env.AGENT_WALLET_ID;
     installWalletMock();
     paidFetch = vi.fn(async () =>
@@ -80,6 +84,8 @@ describe("POST /api/agent/pay — SSRF allowlist (adversarial)", () => {
     setDynamicClientFactory(null);
     __resetMeterForTests();
     __resetWalletForTests();
+    delete process.env.AGENT_ALLOW_INSECURE;
+    delete process.env.AGENT_INTERNAL_SECRET;
   });
 
   /** Every one of these must be rejected with 400 and spend nothing. */
