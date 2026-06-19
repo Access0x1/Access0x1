@@ -327,6 +327,23 @@ contract SessionGrantTest is Test {
         assertEq(grant.remaining(keccak256("nope")), 0);
     }
 
+    function test_ownerOf_returnsOpener() public {
+        bytes32 id = _open();
+        assertEq(grant.ownerOf(id), owner);
+    }
+
+    function test_ownerOf_relayedSession_returnsSigner() public {
+        // A session opened via openSessionFor is owned by the SIGNER, not the relayer.
+        bytes memory sig = _signGrant(ownerPk, owner, delegate, BUDGET, expiry, 0);
+        vm.prank(relayer);
+        bytes32 id = grant.openSessionFor(owner, delegate, BUDGET, expiry, sig);
+        assertEq(grant.ownerOf(id), owner);
+    }
+
+    function test_ownerOf_unknownSession_zero() public view {
+        assertEq(grant.ownerOf(keccak256("nope")), address(0));
+    }
+
     function test_isValidSignatureNow_eoa() public {
         bytes32 digest = grant.grantDigest(owner, delegate, BUDGET, expiry, 0);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);

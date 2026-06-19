@@ -246,6 +246,42 @@ contract SessionGrantAttackTest is Test {
         grant.openSessionFor(owner, delegate, BUDGET, expiry, wrapped);
     }
 
+    /// @dev L-3 regression: a body that carries the magic suffix but is NOT a valid
+    ///      `(address,bytes,bytes)` encoding must yield `false` from the reusable boolean validator
+    ///      {isValidSignatureNow} — never a propagating `abi.decode` Panic. (The
+    ///      {test_attack_6492_garbageBodyWithMagic} sibling only feeds a WELL-FORMED tuple that decodes
+    ///      successfully, so the malformed-decode path was untested before this.) Two shapes both
+    ///      trigger the raw-decode Panic: a too-short body, and a tuple with out-of-bounds dynamic
+    ///      offsets. Both must now return `false`, and {openSessionFor} over them reverts with the
+    ///      clean {BadSignature}, not a bubbled Panic.
+    function test_attack_6492_malformedBody_returnsFalse_noRevert() public {
+        bytes32 digest = grant.grantDigest(owner, delegate, BUDGET, expiry, 0);
+
+        // Shape 1: a 4-byte body (cannot hold even the first head word) + magic.
+        bytes memory shortBody = abi.encodePacked(bytes4(0xdeadbeef), ERC6492_MAGIC);
+        assertFalse(
+            grant.isValidSignatureNow(owner, digest, shortBody),
+            "malformed (short) 6492 body must validate false, not panic"
+        );
+
+        // Shape 2: a well-sized body whose dynamic offsets point out of bounds + magic. Three head
+        // words: an address leg then two dynamic-`bytes` offsets that point far past the body end.
+        bytes memory oobBody = abi.encodePacked(
+            bytes32(uint256(uint160(address(factory)))), // factory leg
+            bytes32(type(uint256).max), // factoryCalldata offset → out of bounds
+            bytes32(type(uint256).max), // innerSig offset → out of bounds
+            ERC6492_MAGIC
+        );
+        assertFalse(
+            grant.isValidSignatureNow(owner, digest, oobBody),
+            "malformed (out-of-bounds offset) 6492 body must validate false, not panic"
+        );
+
+        // And the open relay over a malformed wrapper fails CLOSED with BadSignature (no Panic).
+        vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
+        grant.openSessionFor(owner, delegate, BUDGET, expiry, shortBody);
+    }
+
     /// @dev A 6492 wrapper that names a factory whose `factoryCalldata` is EMPTY must not let an
     ///      attacker-keyed inner sig pass: with no code at the counterfactual address and no factory
     ///      prepare, validation falls to EOA recovery of the inner sig, which recovers the attacker —
