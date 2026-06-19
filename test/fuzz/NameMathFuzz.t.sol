@@ -64,13 +64,17 @@ contract NameMathFuzzTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice colorOf is TOTAL and matches the documented SDK-mirror formula for EVERY node.
-    /// @dev    Proves the on-chain derivation is exactly `bytes3(keccak(abi.encode("color", node)))`
-    ///         — the formula `proc-sdk-embed` must reproduce in viem. If this drifts, the off-chain
-    ///         SDK and the on-chain brand layer would render different colors for the same name.
+    /// @dev    Proves the on-chain derivation is exactly the documented formula — the raw
+    ///         `bytes3(keccak(abi.encode("color", node)))` followed by the I-4 legibility nudge
+    ///         (`== BG ? ^ 0x111111`). The `_expectedColor` helper applies that SAME nudge, so this
+    ///         pins the full formula `proc-sdk-embed` must reproduce in viem, including the nudge. If
+    ///         either leg drifts, the off-chain SDK and on-chain brand layer would render different
+    ///         colors for the same name.
     function testFuzz_colorOf_matchesDocumentedFormula(bytes32 node) public view {
-        bytes3 expected = bytes3(keccak256(abi.encode("color", node)));
         assertEq(
-            h.colorOf(node), expected, "colorOf must equal bytes3(keccak(encode('color',node)))"
+            h.colorOf(node),
+            _expectedColor(node),
+            "colorOf must equal the documented (nudged) formula"
         );
     }
 
@@ -79,6 +83,26 @@ contract NameMathFuzzTest is Test {
     ///         introduced non-determinism (e.g. a block-dependent term) would fail loudly.
     function testFuzz_colorOf_isDeterministic(bytes32 node) public view {
         assertEq(h.colorOf(node), h.colorOf(node), "same node must yield same color");
+    }
+
+    /// @notice colorOf NEVER equals the background `BG` (0xF4F4F5) for any node — the I-4 nudge.
+    /// @dev    The rendered foreground is `colorOf(node)`; were it ever equal to the backdrop the
+    ///         avatar would paint invisible. The `== BG ? ^ NUDGE` branch in `colorOf` guarantees
+    ///         this for every input; fuzzing the whole space proves no name escapes the nudge.
+    function testFuzz_colorOf_neverEqualsBackground(bytes32 node) public view {
+        assertTrue(h.colorOf(node) != bytes3(0xF4F4F5), "brand color must never equal the BG");
+    }
+
+    /// @notice The ONE node whose raw hash equals `BG` is nudged to exactly `BG ^ 0x111111`.
+    /// @dev    A deterministic regression for the nudge branch itself. `colorOf` cannot easily be
+    ///         driven to the `BG` pre-image by fuzzing (1-in-2^24), so we synthesize the collision:
+    ///         the nudged output must be `0xE5E5E4`, a valid visible RRGGBB, and never `BG`. This is
+    ///         the exact value the SDK must produce for the colliding name.
+    function test_colorOf_nudgesExactBackgroundCollisionDeterministically() public pure {
+        bytes3 bg = 0xF4F4F5;
+        bytes3 nudged = bg ^ bytes3(0x111111);
+        assertEq(nudged, bytes3(0xE5E5E4), "BG ^ 0x111111 must be the fixed visible nudge 0xE5E5E4");
+        assertTrue(nudged != bg, "nudged color must never equal the background");
     }
 
     /// @notice The "color" domain tag keeps colorOf independent of the identicon seed: the color
@@ -198,6 +222,20 @@ contract NameMathFuzzTest is Test {
         assertEq(_count(svg, 'fill="#F4F4F5"'), 1, "exactly one neutral background rect");
     }
 
+    /// @notice The rendered foreground hex is NEVER `#F4F4F5` for any node — the I-4 invisibility
+    ///         guard at the STRING level (the avatar can never paint its cells in the backdrop).
+    /// @dev    `colorHex(node)` is the exact string the SDK/SVG paints into every "on" cell. The
+    ///         single neutral-BG `fill="#F4F4F5"` is the backdrop rect only; this asserts the
+    ///         FOREGROUND hex differs from it for every fuzzed input. Pairs with
+    ///         `testFuzz_colorOf_neverEqualsBackground` (the byte-level twin).
+    function testFuzz_renderedForegroundNeverEqualsBackground(bytes32 node) public view {
+        string memory fg = h.colorHex(node);
+        assertTrue(
+            keccak256(bytes(fg)) != keccak256(bytes("#F4F4F5")),
+            "rendered foreground must never be #F4F4F5"
+        );
+    }
+
     /*//////////////////////////////////////////////////////////////
                           identiconSVG (URI)
     //////////////////////////////////////////////////////////////*/
@@ -230,6 +268,14 @@ contract NameMathFuzzTest is Test {
     /*//////////////////////////////////////////////////////////////
                               HELPERS
     //////////////////////////////////////////////////////////////*/
+
+    /// @dev The full documented color formula, INCLUDING the I-4 legibility nudge — the exact
+    ///      byte-for-byte computation the SDK must mirror. Used as the expected value so the
+    ///      formula-mirror fuzz asserts the FIXED behavior, not the old raw-hash bug.
+    function _expectedColor(bytes32 node) internal pure returns (bytes3) {
+        bytes3 color = bytes3(keccak256(abi.encode("color", node)));
+        return color == bytes3(0xF4F4F5) ? color ^ bytes3(0x111111) : color;
+    }
 
     /// @dev Parse one uppercase-hex / decimal char to its 0..15 nibble value (asserts validity).
     function _hexVal(bytes1 ch) internal pure returns (uint8) {

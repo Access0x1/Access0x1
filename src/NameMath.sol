@@ -17,14 +17,17 @@ pragma solidity 0.8.28;
 ///         ALGORITHM (mirrored EXACTLY in the SDK — `proc-sdk-embed` must match byte-for-byte):
 ///
 ///         colorOf(node):
-///             return uint24( keccak256( abi.encode("color", node) ) )   // low 3 bytes = bytes3
+///             c = uint24( keccak256( abi.encode("color", node) ) )       // low 3 bytes = bytes3
+///             return c == 0xF4F4F5 ? c ^ 0x111111 : c                    // legibility nudge (I-4)
 ///             // Solidity `abi.encode("color", node)` = ABI-encode of a (string, bytes32) tuple:
 ///             //   word0: 0x40                              (offset to the string, = 64)
 ///             //   word1: node                              (the bytes32, inline)
 ///             //   word2: 0x05                              (string byte-length = 5)
 ///             //   word3: "color" left-aligned, zero-padded (0x636f6c6f720000…00)
 ///             // SDK MUST use viem `encodeAbiParameters([{type:'string'},{type:'bytes32'}],
-///             //   ['color', node])` then keccak256 then take the LOW 3 bytes (& 0xffffff).
+///             //   ['color', node])` then keccak256, take the LOW 3 bytes (& 0xffffff), THEN apply
+///             //   the SAME background-collision nudge below — byte-for-byte — or the off-chain
+///             //   color/avatar would diverge from the on-chain brand for that one name.
 ///
 ///         identiconSVG(node):
 ///             seed = keccak256( abi.encode("identicon", node) )   // same tuple-encode rule
@@ -41,6 +44,12 @@ library NameMath {
     ///         so two names with similar hues stay legible against the same backdrop.
     bytes3 private constant BG = 0xF4F4F5;
 
+    /// @notice Deterministic legibility nudge XOR-ed into the brand color when it would otherwise
+    ///         equal `BG` (see `colorOf`). `BG ^ NUDGE == 0xE5E5E4` — a fixed, visible offset that
+    ///         is still a valid 24-bit RRGGBB and never equals `BG`, so the avatar can never paint
+    ///         its foreground in the backdrop and render invisible (audit finding I-4).
+    bytes3 private constant NUDGE = 0x111111;
+
     /// @notice Grid is 5 cells per side; each cell is `CELL` units in a `SIZE`x`SIZE` viewBox.
     uint256 private constant N = 5;
     uint256 private constant CELL = 100;
@@ -50,10 +59,21 @@ library NameMath {
     /// @dev    `bytes3(keccak256(abi.encode("color", node)))` — the low 3 bytes of the domain-
     ///         separated hash. Domain tag `"color"` keeps it independent of the identicon seed so
     ///         the two derivations never collide. Pure: no storage, no oracle.
+    ///
+    ///         LEGIBILITY NUDGE (audit I-4): for ~1 in 2^24 namehashes the raw hash equals the
+    ///         neutral background `BG`, which would paint the identicon foreground in the backdrop
+    ///         and render the avatar invisible. When that happens we XOR in a fixed `NUDGE`
+    ///         (`BG ^ 0x111111 == 0xE5E5E4`) — still a valid 24-bit RRGGBB, still pure and
+    ///         deterministic, and never equal to `BG`. The nudge is applied HERE, at the single
+    ///         source, so `colorHex` and the painted identicon cells (both derived from `colorOf`)
+    ///         use the SAME nudged value and can never disagree. The SDK (`proc-sdk-embed`) MUST
+    ///         mirror this branch byte-for-byte, or its off-chain color/avatar would diverge from
+    ///         the on-chain brand for that one name.
     /// @param  node The ENS namehash.
-    /// @return The 24-bit brand color (RRGGBB).
+    /// @return The 24-bit brand color (RRGGBB), guaranteed never to equal the background `BG`.
     function colorOf(bytes32 node) internal pure returns (bytes3) {
-        return bytes3(keccak256(abi.encode("color", node)));
+        bytes3 color = bytes3(keccak256(abi.encode("color", node)));
+        return color == BG ? color ^ NUDGE : color;
     }
 
     /// @notice The brand color rendered as a 7-char `#RRGGBB` hex string (CSS / SVG ready).
