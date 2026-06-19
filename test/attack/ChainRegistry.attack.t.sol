@@ -23,6 +23,8 @@ contract ChainRegistryAttackTest is Test {
     uint16 internal constant FLAG_CIRCLE_USDC = 0x0002;
     uint16 internal constant FLAG_CCIP_LANE = 0x0004;
     uint16 internal constant FLAG_TESTNET = 0x0008;
+    // The reserved registration marker (bit 15) addChain always ORs into the stored flags word.
+    uint16 internal constant FLAG_REGISTERED = 0x8000;
 
     uint256 internal constant BASE_SEPOLIA = 84_532;
     uint256 internal constant ARC_TESTNET = 5_042_002;
@@ -108,41 +110,35 @@ contract ChainRegistryAttackTest is Test {
         // And the owner can still administer the registry.
         vm.prank(owner);
         registry.addChain(BASE_SEPOLIA, _cfg(FLAG_TESTNET));
-        assertEq(registry.getChain(BASE_SEPOLIA).flags, FLAG_TESTNET);
+        assertEq(registry.getChain(BASE_SEPOLIA).flags, FLAG_TESTNET | FLAG_REGISTERED);
     }
 
     /*//////////////////////////////////////////////////////////////
                        ATTACK: FLAG / ENTRY CORRUPTION
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev FLAG CORRUPTION via all-zero upsert. `_exists` treats the all-zero entry as "never added",
-    ///      so writing a fully-zero config leaves the entry INVISIBLE: getChain/setChainLive revert
-    ///      ChainNotFound even though addChain "succeeded". This is the documented `_exists` sentinel
-    ///      contract — proven here so the SDK never relies on a zero-config entry being readable.
-    function test_attack_allZeroUpsert_isInvisible() public {
+    /// @dev L-6: an all-zero upsert CANNOT delete an entry. `addChain` always ORs in FLAG_REGISTERED
+    ///      and `_exists` tests only that bit, so writing a fully-zero config still leaves the entry
+    ///      FOUND (flags == FLAG_REGISTERED) — getChain returns it and setChainLive does not revert.
+    ///      This is the fixed `_exists` contract: a write can blank the public facts but can never
+    ///      collapse the entry to a not-found sentinel (the delete-by-write defect L-6 closes). Proven
+    ///      under the attack framing so the SDK can rely on a registered chain staying readable.
+    function test_attack_allZeroUpsert_staysRegistered() public {
         ChainRegistry.ChainConfig memory zero = ChainRegistry.ChainConfig({
             usdc: address(0), router: address(0), ccipSelector: 0, flags: 0
         });
         vm.prank(owner);
-        registry.addChain(BASE_SEPOLIA, zero); // "succeeds" but writes the all-zero sentinel
+        registry.addChain(BASE_SEPOLIA, zero); // blanks public facts, but registers the entry
 
-        // The entry reads back as not-found everywhere that depends on _exists.
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ChainRegistry.ChainRegistry__ChainNotFound.selector, BASE_SEPOLIA
-            )
-        );
-        registry.getChain(BASE_SEPOLIA);
-
-        vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ChainRegistry.ChainRegistry__ChainNotFound.selector, BASE_SEPOLIA
-            )
-        );
-        registry.setChainLive(BASE_SEPOLIA, true);
-
+        // The entry reads back as FOUND everywhere that depends on _exists.
+        ChainRegistry.ChainConfig memory got = registry.getChain(BASE_SEPOLIA);
+        assertEq(got.flags, FLAG_REGISTERED, "public bits blanked, registration marker remains");
         assertFalse(registry.isLive(BASE_SEPOLIA)); // view helper: false, no revert
+
+        // setChainLive does NOT revert ChainNotFound — the entry is still mutable.
+        vm.prank(owner);
+        registry.setChainLive(BASE_SEPOLIA, true);
+        assertTrue(registry.isLive(BASE_SEPOLIA), "blanked entry can still be brought live");
     }
 
     /// @dev An upsert cannot be used to flip another chain's facts: writes are keyed by chainId, so a
@@ -156,7 +152,7 @@ contract ChainRegistryAttackTest is Test {
 
         // BASE_SEPOLIA is untouched.
         ChainRegistry.ChainConfig memory base = registry.getChain(BASE_SEPOLIA);
-        assertEq(base.flags, FLAG_TESTNET | FLAG_LIVE);
+        assertEq(base.flags, FLAG_TESTNET | FLAG_LIVE | FLAG_REGISTERED);
         assertTrue(registry.isLive(BASE_SEPOLIA));
         // ARC is its own entry.
         assertFalse(registry.isLive(ARC_TESTNET));
@@ -177,11 +173,12 @@ contract ChainRegistryAttackTest is Test {
         // And the targeted toggle restores exactly the live bit, nothing else.
         registry.setChainLive(BASE_SEPOLIA, true);
         vm.stopPrank();
-        assertEq(registry.getChain(BASE_SEPOLIA).flags, FLAG_TESTNET | FLAG_LIVE);
+        assertEq(registry.getChain(BASE_SEPOLIA).flags, FLAG_TESTNET | FLAG_LIVE | FLAG_REGISTERED);
     }
 
-    /// @dev Undocumented high flag bits a caller smuggles in are stored verbatim but never satisfy the
-    ///      `isLive` check (only bit 0 is FLAG_LIVE), so junk flags cannot forge a "live" chain.
+    /// @dev Undocumented flag bits a caller smuggles in are stored verbatim (plus the contract's own
+    ///      registration marker) but never satisfy the `isLive` check (only bit 0 is FLAG_LIVE), so
+    ///      junk flags cannot forge a "live" chain.
     function testFuzz_attack_junkFlagsNeverForgeLive(uint16 junk) public {
         // Clear bit 0 so the only way isLive can be true is the real FLAG_LIVE, not the junk. The
         // entry still exists for getChain because `_cfg` sets a non-zero usdc/router/selector.
@@ -189,6 +186,7 @@ contract ChainRegistryAttackTest is Test {
         vm.prank(owner);
         registry.addChain(BASE_SEPOLIA, _cfg(flagsNoLive));
         assertFalse(registry.isLive(BASE_SEPOLIA), "no junk flag may forge a live chain");
-        assertEq(registry.getChain(BASE_SEPOLIA).flags, flagsNoLive); // stored verbatim
+        // Caller's bits stored verbatim, with the registration marker addChain forces on.
+        assertEq(registry.getChain(BASE_SEPOLIA).flags, flagsNoLive | FLAG_REGISTERED);
     }
 }

@@ -50,6 +50,8 @@ contract ChainRegistryIntegrationTest is Test {
     uint16 internal constant FLAG_CIRCLE_USDC = 0x0002;
     uint16 internal constant FLAG_CCIP_LANE = 0x0004;
     uint16 internal constant FLAG_TESTNET = 0x0008;
+    // The reserved registration marker (bit 15) addChain always ORs into the stored flags word.
+    uint16 internal constant FLAG_REGISTERED = 0x8000;
 
     /*//////////////////////////////////////////////////////////////
        1. DeployChainRegistry — the standalone seeding script, end to end
@@ -69,13 +71,26 @@ contract ChainRegistryIntegrationTest is Test {
         assertEq(registry.pendingOwner(), address(0), "no hand-off without REGISTRY_OWNER");
 
         // Arc: Circle-native USDC + testnet, no router/CCIP yet (zero placeholders).
+        // Stored flags carry the registration marker addChain forces on, on top of the seed bits.
         ChainRegistry.ChainConfig memory arc = registry.getChain(ARC_TESTNET);
-        assertEq(arc.flags, FLAG_CIRCLE_USDC | FLAG_TESTNET, "Arc seeded Circle+testnet");
+        assertEq(
+            arc.flags,
+            FLAG_CIRCLE_USDC | FLAG_TESTNET | FLAG_REGISTERED,
+            "Arc seeded Circle+testnet"
+        );
         assertEq(arc.router, address(0), "Arc router not wired at seed");
 
         // Base Sepolia + zkSync Sepolia: readable testnet entries (no CCIP selector ⇒ no lane flag).
-        assertEq(registry.getChain(BASE_SEPOLIA).flags, FLAG_TESTNET, "Base seeded testnet");
-        assertEq(registry.getChain(ZKSYNC_SEPOLIA).flags, FLAG_TESTNET, "zkSync seeded testnet");
+        assertEq(
+            registry.getChain(BASE_SEPOLIA).flags,
+            FLAG_TESTNET | FLAG_REGISTERED,
+            "Base seeded testnet"
+        );
+        assertEq(
+            registry.getChain(ZKSYNC_SEPOLIA).flags,
+            FLAG_TESTNET | FLAG_REGISTERED,
+            "zkSync seeded testnet"
+        );
 
         // None is live until the operator switches it on — the deploy never auto-arms a chain.
         assertFalse(registry.isLive(ARC_TESTNET), "Arc not live at seed");
@@ -123,7 +138,11 @@ contract ChainRegistryIntegrationTest is Test {
 
         // The other seeded chains are untouched by the Base wiring (no cross-id bleed).
         assertFalse(registry.isLive(ARC_TESTNET), "Arc still not live");
-        assertEq(registry.getChain(ZKSYNC_SEPOLIA).flags, FLAG_TESTNET, "zkSync untouched");
+        assertEq(
+            registry.getChain(ZKSYNC_SEPOLIA).flags,
+            FLAG_TESTNET | FLAG_REGISTERED,
+            "zkSync untouched"
+        );
     }
 
     /// @notice The two-step ownership hand-off the script supports out of band: a script-deployed
