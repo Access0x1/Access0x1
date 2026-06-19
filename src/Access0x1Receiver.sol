@@ -84,6 +84,9 @@ contract Access0x1Receiver is IReceiver, Ownable2Step {
     /// @notice The constructor was given the zero address for the Forwarder.
     error ZeroForwarder();
 
+    /// @notice The report metadata is shorter than the 62 bytes the fixed-offset decode needs.
+    error ShortMetadata();
+
     /// @param forwarder The KeystoneForwarder address this consumer will trust for `onReport`.
     /// @param initialOwner The owner that may manage the workflow allowlist (Ownable2Step).
     constructor(address forwarder, address initialOwner) Ownable(initialOwner) {
@@ -161,7 +164,7 @@ contract Access0x1Receiver is IReceiver, Ownable2Step {
         // Need bytes [32..94): cid(32) + name(10) + owner(20) past the implicit length prefix.
         // calldata `bytes` has no in-memory length prefix, so offsets are 0-based here: name at
         // [32..42), owner at [42..62). Require at least 62 readable bytes (NOT exactly 62).
-        require(metadata.length >= 62, "Access0x1Receiver: short metadata");
+        if (metadata.length < 62) revert ShortMetadata();
         assembly {
             // workflow_name: 10 bytes at calldata offset 32 (after the 32-byte workflow_cid).
             workflowName := calldataload(add(metadata.offset, 32))

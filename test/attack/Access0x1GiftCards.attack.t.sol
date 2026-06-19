@@ -119,16 +119,18 @@ contract Access0x1GiftCardsAttackTest is Test {
         assertEq(cards.balanceOf(victim, id), FACE - 40e8, "debited exactly once");
     }
 
-    /// @notice A reversal cannot be replayed to credit a card balance up out of thin air. Calling
-    ///         reverse N times credits the applied amount back exactly ONCE.
+    /// @notice A reversal cannot be replayed to credit a card balance up out of thin air. The merchant
+    ///         owner calling reverse N times credits the applied amount back exactly ONCE.
     function test_attack_reversalCannotDoubleCredit() public {
         uint256 id = _issueA(victim, FACE);
         bytes32 rid = keccak256("rev");
         vm.prank(victim);
         cards.redeem(id, 60e8, rid);
 
-        // Hammer the reverse — only the first credits back.
+        // Hammer the reverse (as the merchant owner — the only authorized reverser) — only the first
+        // credits back.
         for (uint256 i = 0; i < 5; i++) {
+            vm.prank(ownerA);
             cards.reverseRedemption(rid);
         }
         assertEq(cards.balanceOf(victim, id), FACE, "credited back exactly once, no inflation");
@@ -160,8 +162,11 @@ contract Access0x1GiftCardsAttackTest is Test {
         uint256 applied = cards.redeem(id, ask, rid);
         assertEq(cards.balanceOf(victim, id), face - applied);
 
+        // The merchant owner is the only party that can reverse (a value-bearing reverse is owner-gated;
+        // a zero-applied one is a permissionless no-op — pranking the owner covers both safely).
         uint256 n = uint256(reverses) % 4;
         for (uint256 i = 0; i < n; i++) {
+            vm.prank(ownerA);
             cards.reverseRedemption(rid);
         }
         // If reversed at all, full face is back; otherwise the debit stands. Never more than face.
@@ -220,8 +225,10 @@ contract Access0x1GiftCardsAttackTest is Test {
         vm.prank(ownerB);
         cards.setCoupon(merchantB, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 20, 0, 1);
 
-        cards.applyCoupon(merchantA, cid, 100e8); // exhaust A's
-        // B's identical-id coupon is untouched and still usable.
+        vm.prank(ownerA);
+        cards.applyCoupon(merchantA, cid, 100e8); // exhaust A's (consumed by A's owner)
+        // B's identical-id coupon is untouched and still usable by B's owner.
+        vm.prank(ownerB);
         uint256 dB = cards.applyCoupon(merchantB, cid, 100e8);
         assertEq(dB, 20e8);
         assertEq(cards.coupons(merchantA, cid).redemptionsCount, 1);
@@ -236,7 +243,7 @@ contract Access0x1GiftCardsAttackTest is Test {
     ///         further apply reverts — there is no interleaving that lets `count` pass `max`.
     function test_attack_couponCapCannotBeExceeded() public {
         bytes32 cid = keccak256("CAP3");
-        vm.prank(ownerA);
+        vm.startPrank(ownerA);
         cards.setCoupon(merchantA, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 3);
 
         for (uint256 i = 0; i < 3; i++) {
@@ -250,6 +257,7 @@ contract Access0x1GiftCardsAttackTest is Test {
             )
         );
         cards.applyCoupon(merchantA, cid, 100e8);
+        vm.stopPrank();
     }
 
     /// @notice Fuzz: the discount returned is ALWAYS within `[0, amount]` — a coupon can never discount
@@ -263,10 +271,11 @@ contract Access0x1GiftCardsAttackTest is Test {
         IAccess0x1GiftCards.DiscountType dt = isPercent
             ? IAccess0x1GiftCards.DiscountType.PERCENT
             : IAccess0x1GiftCards.DiscountType.AMOUNT;
-        vm.prank(ownerA);
+        vm.startPrank(ownerA);
         cards.setCoupon(merchantA, cid, dt, value, 0, 0);
 
         uint256 discount = cards.applyCoupon(merchantA, cid, amount);
+        vm.stopPrank();
         assertLe(discount, amount, "discount never exceeds the sale amount");
     }
 
@@ -280,9 +289,11 @@ contract Access0x1GiftCardsAttackTest is Test {
 
         uint256 n = uint256(ops) % 40;
         for (uint256 i = 0; i < n; i++) {
-            // Pseudo-randomly apply or release; both must keep the count in-bounds and never revert
-            // for the wrong reason (apply reverts only when truly at cap — caught and skipped).
+            // Pseudo-randomly apply or release (both merchant-owner only); both must keep the count
+            // in-bounds and never revert for the wrong reason (apply reverts only when truly at cap —
+            // caught and skipped).
             if (uint256(keccak256(abi.encode(seed, i))) % 2 == 0) {
+                vm.prank(ownerA);
                 try cards.applyCoupon(merchantA, cid, 100e8) { } catch { }
             } else {
                 vm.prank(ownerA);
@@ -348,6 +359,7 @@ contract Access0x1GiftCardsAttackTest is Test {
         vm.prank(victim);
         assertEq(cards.redeem(id, 1, rid), 1);
         assertEq(cards.balanceOf(victim, id), 0);
+        vm.prank(ownerA);
         cards.reverseRedemption(rid);
         assertEq(cards.balanceOf(victim, id), 1);
     }

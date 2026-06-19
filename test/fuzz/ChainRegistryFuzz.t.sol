@@ -31,22 +31,24 @@ contract ChainRegistryFuzzTest is Test {
     uint16 internal constant FLAG_CIRCLE_USDC = 0x0002;
     uint16 internal constant FLAG_CCIP_LANE = 0x0004;
     uint16 internal constant FLAG_TESTNET = 0x0008;
+    // The reserved registration marker (bit 15) addChain always ORs into the stored flags word.
+    uint16 internal constant FLAG_REGISTERED = 0x8000;
 
     function setUp() public {
         registry = new ChainRegistry(owner);
     }
 
-    /// @dev Build a config and force it NON-DEFAULT (at least one field non-zero) so the `_exists`
-    ///      sentinel always reports the entry as found after an add — the property under test in the
-    ///      "real add" fuzzes is the round-trip, not the all-zero sentinel (that boundary has its own
-    ///      test below and in the attack suite).
+    /// @dev Build a config with at least one PUBLIC field non-zero so the round-trip fuzzes assert a
+    ///      meaningful struct (not the bare registration marker). Post-L-6 the registry registers
+    ///      every add regardless of `cfg`, so this is a fixture-shaping convenience, not an existence
+    ///      requirement (the all-zero-add corner has its own test, `testFuzz_exists_addAlwaysRegisters`).
     function _nonDefault(address u, address r, uint64 sel, uint16 f)
         internal
         pure
         returns (ChainRegistry.ChainConfig memory cfg)
     {
         cfg = ChainRegistry.ChainConfig({ usdc: u, router: r, ccipSelector: sel, flags: f });
-        // If the fuzzer handed us the all-zero struct, set FLAG_TESTNET so the entry is a real add.
+        // If the fuzzer handed us the all-zero struct, set FLAG_TESTNET so the fixture is non-trivial.
         if (u == address(0) && r == address(0) && sel == 0 && f == 0) {
             cfg.flags = FLAG_TESTNET;
         }
@@ -72,19 +74,22 @@ contract ChainRegistryFuzzTest is Test {
         vm.prank(owner);
         registry.addChain(chainId, cfg);
 
+        // The non-flag fields round-trip verbatim; flags round-trip plus the registration marker.
+        uint16 expectedFlags = cfg.flags | FLAG_REGISTERED;
+
         // getChain view path.
         ChainRegistry.ChainConfig memory got = registry.getChain(chainId);
         assertEq(got.usdc, cfg.usdc, "usdc must round-trip");
         assertEq(got.router, cfg.router, "router must round-trip");
         assertEq(got.ccipSelector, cfg.ccipSelector, "ccipSelector must round-trip");
-        assertEq(got.flags, cfg.flags, "flags must round-trip");
+        assertEq(got.flags, expectedFlags, "flags must round-trip with registration marker");
 
         // The public auto-generated `chains` getter returns the same tuple (same storage).
         (address pu, address pr, uint64 psel, uint16 pf) = registry.chains(chainId);
         assertEq(pu, cfg.usdc, "public getter usdc must match");
         assertEq(pr, cfg.router, "public getter router must match");
         assertEq(psel, cfg.ccipSelector, "public getter selector must match");
-        assertEq(pf, cfg.flags, "public getter flags must match");
+        assertEq(pf, expectedFlags, "public getter flags must match");
     }
 
     /// @notice PROPERTY: the LAST write wins for a given id. A second `addChain` to the same id fully
@@ -112,7 +117,8 @@ contract ChainRegistryFuzzTest is Test {
         assertEq(got.usdc, second.usdc, "upsert must overwrite usdc");
         assertEq(got.router, second.router, "upsert must overwrite router");
         assertEq(got.ccipSelector, second.ccipSelector, "upsert must overwrite selector");
-        assertEq(got.flags, second.flags, "upsert must overwrite flags");
+        // The second write's flags win, carrying the registration marker addChain forces on.
+        assertEq(got.flags, second.flags | FLAG_REGISTERED, "upsert must overwrite flags");
     }
 
     /// @notice PROPERTY: `addChain` is owner-gated for EVERY non-owner caller. Fuzzing the caller
@@ -130,35 +136,37 @@ contract ChainRegistryFuzzTest is Test {
                   _exists SENTINEL — THE FOUND/NOT-FOUND EDGE
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice PROPERTY: the `_exists` sentinel is EXACTLY "any field non-zero". For any config whose
-    ///         union of fields is non-zero, the entry is found (getChain returns, setChainLive works);
-    ///         for the all-zero config the entry is invisible (getChain reverts). Fuzzing all four
-    ///         fields pins the boundary in both directions in one test.
-    function testFuzz_exists_boundaryIsAnyNonZeroField(
+    /// @notice PROPERTY (L-6 fixed boundary): existence is decided SOLELY by {FLAG_REGISTERED}, which
+    ///         `addChain` always ORs in — so ANY add makes the entry found, even an all-zero `cfg`.
+    ///         For any config (including the all-zero one) `getChain` returns and reads back the input
+    ///         flags with the registration marker set; the registry never deletes-by-write. Fuzzing
+    ///         all four fields, including the all-zero corner that USED to collapse to "not found",
+    ///         pins the new boundary. (A never-added id reverting is covered by
+    ///         `testFuzz_getChain_unknownIdReverts`.)
+    function testFuzz_exists_addAlwaysRegisters(
         uint256 chainId,
         address u,
         address r,
         uint64 sel,
         uint16 f
     ) public {
-        bool anyNonZero = (u != address(0) || r != address(0) || sel != 0 || f != 0);
-        ChainRegistry.ChainConfig memory cfg =
-            ChainRegistry.ChainConfig({ usdc: u, router: r, ccipSelector: sel, flags: f });
+        ChainRegistry.ChainConfig memory cfg = ChainRegistry.ChainConfig({
+            usdc: u, router: r, ccipSelector: sel, flags: f
+        });
 
         vm.prank(owner);
         registry.addChain(chainId, cfg);
 
-        if (anyNonZero) {
-            // Found: getChain returns the exact config, no revert.
-            ChainRegistry.ChainConfig memory got = registry.getChain(chainId);
-            assertEq(got.flags, f, "found entry must read back its flags");
-        } else {
-            // All-zero ⇒ the sentinel reports "never added": getChain reverts ChainNotFound.
-            vm.expectRevert(
-                abi.encodeWithSelector(ChainRegistry.ChainRegistry__ChainNotFound.selector, chainId)
-            );
-            registry.getChain(chainId);
-        }
+        // Found for every input — the all-zero cfg no longer vanishes (the L-6 fix).
+        ChainRegistry.ChainConfig memory got = registry.getChain(chainId);
+        assertEq(got.usdc, u, "usdc round-trips");
+        assertEq(got.router, r, "router round-trips");
+        assertEq(got.ccipSelector, sel, "selector round-trips");
+        assertEq(
+            got.flags, f | FLAG_REGISTERED, "found entry reads its flags + registration marker"
+        );
+        // The registration marker is always present after an add, so _exists is satisfied.
+        assertTrue(got.flags & FLAG_REGISTERED != 0, "every added entry is registered");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -222,8 +230,9 @@ contract ChainRegistryFuzzTest is Test {
         vm.stopPrank();
 
         uint16 after_ = registry.getChain(chainId).flags;
-        // Non-live bits are untouched.
-        assertEq(after_ & ~FLAG_LIVE, seed & ~FLAG_LIVE, "non-live bits must be preserved");
+        // Non-live bits are untouched — including the registration marker addChain forced on.
+        uint16 storedNonLive = (seed | FLAG_REGISTERED) & ~FLAG_LIVE;
+        assertEq(after_ & ~FLAG_LIVE, storedNonLive, "non-live bits must be preserved");
         // Live bit reflects the request exactly.
         assertEq(after_ & FLAG_LIVE, live ? FLAG_LIVE : uint16(0), "live bit must match request");
         assertEq(registry.isLive(chainId), live, "isLive must agree with setChainLive");
@@ -310,11 +319,17 @@ contract ChainRegistryFuzzTest is Test {
         ChainRegistry.ChainConfig memory gotA = registry.getChain(idA);
         ChainRegistry.ChainConfig memory gotB = registry.getChain(idB);
 
-        // A is exactly cfgA plus the live bit; B is exactly cfgB, untouched.
+        // A is exactly cfgA plus the registration marker plus the live bit; B is cfgA-untouched.
         assertEq(gotA.usdc, cfgA.usdc, "A.usdc isolated");
-        assertEq(gotA.flags, (flagsA | FLAG_TESTNET) | FLAG_LIVE, "A flags = cfgA | live");
+        assertEq(
+            gotA.flags,
+            (flagsA | FLAG_TESTNET) | FLAG_REGISTERED | FLAG_LIVE,
+            "A flags = cfgA | registered | live"
+        );
         assertEq(gotB.usdc, cfgB.usdc, "B.usdc isolated");
-        assertEq(gotB.flags, flagsB | FLAG_TESTNET, "B flags untouched by A's writes");
+        assertEq(
+            gotB.flags, (flagsB | FLAG_TESTNET) | FLAG_REGISTERED, "B flags untouched by A's writes"
+        );
         assertTrue(registry.isLive(idA), "A is live");
         assertEq(
             registry.isLive(idB), ((flagsB | FLAG_TESTNET) & FLAG_LIVE) != 0, "B liveness intact"

@@ -53,15 +53,38 @@ contract NameMathTest is Test {
     // ─── the derivation matches the documented formula (SDK mirror contract) ───────────────────
 
     function test_colorMatchesDocumentedFormula() public view {
-        // This is the EXACT formula the SDK (`proc-sdk-embed`) must reproduce in viem.
-        bytes3 expected = bytes3(keccak256(abi.encode("color", NODE_A)));
+        // This is the EXACT formula the SDK (`proc-sdk-embed`) must reproduce in viem — the raw
+        // hash followed by the I-4 legibility nudge (`== BG ? ^ 0x111111`).
         assertEq(
-            h.colorOf(NODE_A), expected, "colorOf must equal bytes3(keccak(encode('color',node)))"
+            h.colorOf(NODE_A),
+            _expectedColor(NODE_A),
+            "colorOf must equal the documented (nudged) formula"
         );
     }
 
     function testFuzz_colorMatchesDocumentedFormula(bytes32 node) public view {
-        assertEq(h.colorOf(node), bytes3(keccak256(abi.encode("color", node))));
+        assertEq(h.colorOf(node), _expectedColor(node));
+    }
+
+    // ─── I-4: the brand color can never equal the background (avatar never renders invisible) ────
+
+    function test_colorNeverEqualsBackground() public view {
+        // For both named vectors the raw hash is far from BG, but the guarantee holds universally:
+        // colorOf is nudged off BG whenever it would collide. See the fuzz twin for the full space.
+        assertTrue(h.colorOf(NODE_A) != bytes3(0xF4F4F5), "NODE_A brand color must not equal BG");
+        assertTrue(h.colorOf(NODE_B) != bytes3(0xF4F4F5), "NODE_B brand color must not equal BG");
+    }
+
+    function testFuzz_colorNeverEqualsBackground(bytes32 node) public view {
+        assertTrue(h.colorOf(node) != bytes3(0xF4F4F5), "brand color must never equal the BG");
+    }
+
+    function test_renderedForegroundNeverEqualsBackground() public view {
+        // The string the identicon paints into every "on" cell must never be the backdrop hex.
+        assertTrue(
+            keccak256(bytes(h.colorHex(NODE_A))) != keccak256(bytes("#F4F4F5")),
+            "rendered foreground must never be #F4F4F5"
+        );
     }
 
     function test_colorHexMatchesColorOf() public view {
@@ -160,6 +183,13 @@ contract NameMathTest is Test {
     }
 
     // ─── helpers ─────────────────────────────────────────────────────────────────────────────
+
+    /// @dev The full documented color formula, INCLUDING the I-4 legibility nudge — the exact
+    ///      byte-for-byte computation the SDK must mirror (raw hash, then `== BG ? ^ 0x111111`).
+    function _expectedColor(bytes32 node) internal pure returns (bytes3) {
+        bytes3 color = bytes3(keccak256(abi.encode("color", node)));
+        return color == bytes3(0xF4F4F5) ? color ^ bytes3(0x111111) : color;
+    }
 
     function _byteHex(uint8 b) internal pure returns (string memory) {
         bytes memory hexChars = "0123456789ABCDEF";

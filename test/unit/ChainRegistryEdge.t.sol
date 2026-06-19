@@ -12,9 +12,10 @@ import { ChainRegistry } from "../../src/ChainRegistry.sol";
 ///         file pins the EXTREMES and the easy-to-miss corners a human auditor checks last: the
 ///         max-width field values (a full `uint256` chainId, `type(uint64).max` selector, the all-bits
 ///         `uint16` flags word), `chainId == 0` as a real key, the raw public `chains` getter on an
-///         unknown id (all-zero, no revert — distinct from `getChain`'s revert), and the "downgrade to
-///         invisible" upsert (a real entry overwritten with the all-zero config disappears from the
-///         `_exists` view). Every test is arrange-act-assert with one property per function.
+///         unknown id (all-zero, no revert — distinct from `getChain`'s revert), and the all-zero
+///         upsert (a real entry overwritten with the all-zero config keeps its FLAG_REGISTERED marker
+///         and stays found — the L-6 fix). Every test is arrange-act-assert with one property per
+///         function.
 contract ChainRegistryEdgeTest is Test {
     ChainRegistry internal registry;
 
@@ -24,6 +25,8 @@ contract ChainRegistryEdgeTest is Test {
     uint16 internal constant FLAG_CIRCLE_USDC = 0x0002;
     uint16 internal constant FLAG_CCIP_LANE = 0x0004;
     uint16 internal constant FLAG_TESTNET = 0x0008;
+    // The reserved registration marker (bit 15) addChain always ORs into the stored flags word.
+    uint16 internal constant FLAG_REGISTERED = 0x8000;
 
     function setUp() public {
         registry = new ChainRegistry(owner);
@@ -47,7 +50,7 @@ contract ChainRegistryEdgeTest is Test {
 
         ChainRegistry.ChainConfig memory got = registry.getChain(maxId);
         assertEq(got.ccipSelector, 7, "max chainId stores its selector");
-        assertEq(got.flags, FLAG_TESTNET, "max chainId stores its flags");
+        assertEq(got.flags, FLAG_TESTNET | FLAG_REGISTERED, "max chainId stores its flags");
         assertFalse(registry.isLive(maxId), "max chainId not-live as written");
     }
 
@@ -69,7 +72,9 @@ contract ChainRegistryEdgeTest is Test {
 
     /// @notice The `flags` word is a `uint16`; storing all 16 bits set must round-trip verbatim, and
     ///         because bit 0 is set, `isLive` reads true. Proves the flags field is full-width storage
-    ///         (the documented FLAG_* bits are a subset; undocumented high bits are stored, not masked).
+    ///         (the documented FLAG_* bits are a subset; undocumented bits are stored, not masked). The
+    ///         all-bits input already includes bit 15, so OR-ing the registration marker is a no-op
+    ///         here and the round-trip is exactly `0xFFFF`.
     function test_addChain_allFlagBitsSet_roundTripsAndIsLive() public {
         uint16 allBits = type(uint16).max;
         ChainRegistry.ChainConfig memory cfg = ChainRegistry.ChainConfig({
@@ -119,7 +124,9 @@ contract ChainRegistryEdgeTest is Test {
         registry.addChain(0, cfg);
 
         ChainRegistry.ChainConfig memory got = registry.getChain(0);
-        assertEq(got.flags, FLAG_TESTNET, "zero-key entry is found and reads its flags");
+        assertEq(
+            got.flags, FLAG_TESTNET | FLAG_REGISTERED, "zero-key entry is found and reads its flags"
+        );
 
         // And the live toggle works on the zero key (it exists, so no ChainNotFound).
         vm.prank(owner);
@@ -145,15 +152,18 @@ contract ChainRegistryEdgeTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-            DOWNGRADE-TO-INVISIBLE UPSERT (the _exists corner)
+        UPSERT WITH ALL-ZERO cfg STAYS REGISTERED (the L-6 _exists corner)
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice A real entry overwritten with the all-zero config becomes INVISIBLE again: `getChain`
-    ///         and `setChainLive` revert `ChainNotFound` afterward, and `isLive` reads false. This is
-    ///         the inverse of the attack-suite's all-zero-add test — here an EXISTING entry is
-    ///         downgraded, proving the `_exists` sentinel is recomputed per read (no "once added,
-    ///         always found" caching) so the SDK never relies on a zeroed-out entry being readable.
-    function test_upsert_overwriteWithAllZero_makesEntryInvisible() public {
+    /// @notice L-6 FIX (corrected expectation): a real entry overwritten with the all-zero config
+    ///         STAYS found — it does NOT become invisible. `addChain` always ORs in {FLAG_REGISTERED},
+    ///         and `_exists` tests ONLY that bit, so even a fully-zero `cfg` writes a registered entry:
+    ///         `getChain` returns it (flags == FLAG_REGISTERED, every public bit cleared) and
+    ///         `setChainLive` still works. (Before L-6, `_exists` tested "any field non-zero", so this
+    ///         all-zero overwrite collapsed the entry to the not-found sentinel — the same delete-by-
+    ///         write defect L-6 closes; this asserts the fixed contract: a write can blank the public
+    ///         facts but can never delete the registration.)
+    function test_upsert_overwriteWithAllZero_staysRegistered() public {
         // First a real entry exists and is found.
         vm.startPrank(owner);
         registry.addChain(
@@ -167,7 +177,7 @@ contract ChainRegistryEdgeTest is Test {
         );
         assertTrue(registry.isLive(84_532), "entry initially live + found");
 
-        // Overwrite with the all-zero config — the upsert "succeeds" but writes the sentinel.
+        // Overwrite with the all-zero config — the upsert blanks the public facts but re-registers.
         registry.addChain(
             84_532,
             ChainRegistry.ChainConfig({
@@ -176,22 +186,17 @@ contract ChainRegistryEdgeTest is Test {
         );
         vm.stopPrank();
 
-        // Now it reads as never-added everywhere `_exists` gates.
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ChainRegistry.ChainRegistry__ChainNotFound.selector, uint256(84_532)
-            )
-        );
-        registry.getChain(84_532);
+        // The entry is STILL found everywhere `_exists` gates — registration survives the blanking.
+        ChainRegistry.ChainConfig memory got = registry.getChain(84_532);
+        assertEq(got.usdc, address(0), "usdc blanked");
+        assertEq(got.router, address(0), "router blanked");
+        assertEq(got.ccipSelector, 0, "selector blanked");
+        assertEq(got.flags, FLAG_REGISTERED, "public bits cleared, registration marker remains");
+        assertFalse(registry.isLive(84_532), "blanked entry reads not-live, no revert");
 
+        // And it is still mutable: setChainLive does not revert ChainNotFound.
         vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ChainRegistry.ChainRegistry__ChainNotFound.selector, uint256(84_532)
-            )
-        );
         registry.setChainLive(84_532, true);
-
-        assertFalse(registry.isLive(84_532), "downgraded entry reads not-live, no revert");
+        assertTrue(registry.isLive(84_532), "blanked entry can still be brought live");
     }
 }

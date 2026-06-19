@@ -16,6 +16,15 @@ contract OracleLibHarness {
     function check(AggregatorV3Interface feed) external view returns (int256 answer) {
         (, answer,,,) = feed.staleCheckLatestRoundData();
     }
+
+    /// @dev The per-feed `maxStaleness` overload, used by the router for slow-heartbeat feeds.
+    function checkWindow(AggregatorV3Interface feed, uint256 maxStaleness)
+        external
+        view
+        returns (int256 answer)
+    {
+        (, answer,,,) = feed.staleCheckLatestRoundData(maxStaleness);
+    }
 }
 
 contract OracleLibTest is Test {
@@ -61,5 +70,29 @@ contract OracleLibTest is Test {
         // boundary: age == TIMEOUT is NOT stale (the guard is strictly `>`)
         feed.setRoundData(1, PRICE, block.timestamp - 3600, block.timestamp - 3600, 1);
         assertEq(harness.check(_feed()), PRICE);
+    }
+
+    /// @dev The `maxStaleness` overload: an answer ~24h old (stale under the 1h default) is fresh
+    ///      under an 86400+margin window — the per-feed fix for slow-heartbeat feeds (USDC/USD).
+    function test_windowOverloadAcceptsWiderStaleness() public {
+        uint256 window = 86_400 + 3600;
+        feed.setRoundData(1, PRICE, block.timestamp - 86_400, block.timestamp - 86_400, 1);
+        assertEq(harness.checkWindow(_feed(), window), PRICE);
+    }
+
+    /// @dev The `maxStaleness` overload still reverts a genuinely stale answer (older than the window).
+    function test_windowOverloadRevertsBeyondWindow() public {
+        uint256 window = 86_400 + 3600;
+        feed.setRoundData(1, PRICE, block.timestamp - window - 1, block.timestamp - window - 1, 1);
+        vm.expectRevert(OracleLib.OracleLib__StalePrice.selector);
+        harness.checkWindow(_feed(), window);
+    }
+
+    /// @dev The overload boundary: age == maxStaleness is NOT stale (strictly `>`), matching the
+    ///      no-arg overload's `test_passesAtExactlyTimeout`.
+    function test_windowOverloadPassesAtExactlyWindow() public {
+        uint256 window = 86_400 + 3600;
+        feed.setRoundData(1, PRICE, block.timestamp - window, block.timestamp - window, 1);
+        assertEq(harness.checkWindow(_feed(), window), PRICE);
     }
 }

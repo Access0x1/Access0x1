@@ -353,9 +353,10 @@ contract Access0x1InvoicesFuzz is Test {
             invoices.createInvoice(merchantId, address(0), address(usdc), 20e8, 0, bytes32(0));
 
         vm.prank(caller);
+        // First field is the MERCHANT id (matching {createInvoice}'s convention), not the invoice id.
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccess0x1Invoices.Access0x1Invoices__NotMerchantOwner.selector, id, caller
+                IAccess0x1Invoices.Access0x1Invoices__NotMerchantOwner.selector, merchantId, caller
             )
         );
         invoices.void(id);

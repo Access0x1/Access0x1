@@ -316,6 +316,8 @@ contract Access0x1SubscriptionsAttackTest is Test {
         // Arm the re-entrancy for the first paid renewal.
         evil.arm(subsC, subId);
         _warpAndRefresh(block.timestamp + PERIOD);
+        evilFeed.updateAnswer(1e8); // refresh the LOCAL evil feed too — the helper only refreshes usdcFeed,
+        // so without this quote(evil) goes stale and (correctly) re-reverts before the pull is reached.
         // The outer renew's charge re-enters, hits the guard, reverts, and is caught -> dun (no charge).
         uint256 charged = subsC.renew(subId);
         assertEq(charged, 0, "reentrant pull blocked, charge failed");

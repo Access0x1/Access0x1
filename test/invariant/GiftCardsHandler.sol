@@ -138,13 +138,16 @@ contract GiftCardsHandler is Test {
     }
 
     /// @notice Reverse a previously recorded redemption (the first reverse credits back; later ones are
-    ///         clean no-ops the contract guards).
+    ///         clean no-ops the contract guards). A value-bearing reverse is merchant-owner gated (H-1),
+    ///         so the handler reverses AS the merchant owner — the only party authorized to re-credit a
+    ///         spent balance.
     function reverse(uint256 rSeed) external {
         uint256 len = liveRedemptions.length;
         if (len == 0) return;
         bytes32 rid = liveRedemptions[rSeed % len];
         if (!usedRedemptionId[rid]) return;
         bool already = reversedRedemptionId[rid];
+        vm.prank(merchantOwner);
         cards.reverseRedemption(rid);
         if (!already) {
             // Only the first effective reverse moves balance + ghost accounting.
@@ -168,10 +171,12 @@ contract GiftCardsHandler is Test {
     }
 
     /// @notice Apply the handler's coupon (no-op-guarded: skip when at cap so fail_on_revert holds).
+    ///         Consumption is merchant-owner gated (L-4), so the handler applies AS the merchant owner.
     function applyCoupon(uint256 amount) external {
         IAccess0x1GiftCards.Coupon memory c = cards.coupons(merchantId, COUPON);
         if (c.redemptionsCount >= COUPON_MAX) return;
         amount = bound(amount, 0, 1_000_000e8);
+        vm.prank(merchantOwner);
         cards.applyCoupon(merchantId, COUPON, amount);
     }
 

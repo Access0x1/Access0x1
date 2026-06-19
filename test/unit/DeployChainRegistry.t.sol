@@ -16,6 +16,8 @@ contract DeployChainRegistryTest is Test {
 
     uint16 internal constant FLAG_CIRCLE_USDC = 0x0002;
     uint16 internal constant FLAG_TESTNET = 0x0008;
+    // The reserved registration marker (bit 15) addChain always ORs into the stored flags word.
+    uint16 internal constant FLAG_REGISTERED = 0x8000;
 
     function test_deployScript_deploysThenSeeds() public {
         DeployChainRegistry deployer = new DeployChainRegistry();
@@ -30,14 +32,15 @@ contract DeployChainRegistryTest is Test {
 
         // Arc testnet seeded: Circle-native USDC + testnet flags; usdc is a zero placeholder
         // because ARC_USDC is unset in the test env (never invented).
+        // Stored flags carry the registration marker addChain forces on, on top of the seed bits.
         ChainRegistry.ChainConfig memory arc = registry.getChain(ARC_TESTNET);
-        assertEq(arc.flags, FLAG_CIRCLE_USDC | FLAG_TESTNET);
+        assertEq(arc.flags, FLAG_CIRCLE_USDC | FLAG_TESTNET | FLAG_REGISTERED);
         assertEq(arc.usdc, address(0));
         assertEq(arc.router, address(0));
 
         // Base Sepolia + zkSync Sepolia seeded as testnet entries (readable, no revert).
-        assertEq(registry.getChain(BASE_SEPOLIA).flags, FLAG_TESTNET);
-        assertEq(registry.getChain(ZKSYNC_SEPOLIA).flags, FLAG_TESTNET);
+        assertEq(registry.getChain(BASE_SEPOLIA).flags, FLAG_TESTNET | FLAG_REGISTERED);
+        assertEq(registry.getChain(ZKSYNC_SEPOLIA).flags, FLAG_TESTNET | FLAG_REGISTERED);
 
         // None is live until the operator flips it on.
         assertFalse(registry.isLive(ARC_TESTNET));

@@ -204,9 +204,31 @@ contract Access0x1GiftCardsTest is Test {
 
         vm.expectEmit(true, true, true, true, address(cards));
         emit IAccess0x1GiftCards.RedemptionReversed(id, alice, rid, 40e8);
-        cards.reverseRedemption(rid); // permissionless / keeper-callable
+        vm.prank(merchantOwner); // only the card's merchant owner may re-credit a spent balance
+        cards.reverseRedemption(rid);
 
         assertEq(cards.balanceOf(alice, id), FACE); // fully restored
+    }
+
+    /// @notice Only the owner of the card's merchant may reverse a (value-bearing) redemption — a
+    ///         stranger re-crediting spent value is the H-1 double-spend, now gated.
+    function test_reverse_revertsOnNonMerchantOwner() public {
+        uint256 id = _issue(alice, FACE);
+        bytes32 rid = keccak256("r1");
+        vm.prank(alice);
+        cards.redeem(id, 40e8, rid);
+
+        // Neither the holder nor a random caller can reverse; only the merchant owner.
+        vm.prank(alice);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1GiftCards.GiftCards__NotMerchantOwner.selector, merchantId, alice
+            )
+        );
+        cards.reverseRedemption(rid);
+        assertEq(
+            cards.balanceOf(alice, id), FACE - 40e8, "balance unchanged by the rejected reverse"
+        );
     }
 
     function test_reverse_isIdempotent() public {
@@ -215,15 +237,20 @@ contract Access0x1GiftCardsTest is Test {
         vm.prank(alice);
         cards.redeem(id, 40e8, rid);
 
+        vm.startPrank(merchantOwner);
         cards.reverseRedemption(rid);
         cards.reverseRedemption(rid); // second is a clean no-op, never a double-credit
         cards.reverseRedemption(rid);
+        vm.stopPrank();
 
         assertEq(cards.balanceOf(alice, id), FACE); // credited back exactly once
     }
 
     function test_reverse_revertsOnUnknown() public {
         bytes32 rid = keccak256("never");
+        // The unknown-id revert fires BEFORE the owner gate — even the merchant owner cannot reverse a
+        // redemption that never happened.
+        vm.prank(merchantOwner);
         vm.expectRevert(
             abi.encodeWithSelector(IAccess0x1GiftCards.GiftCards__RedemptionUnknown.selector, rid)
         );
@@ -237,6 +264,7 @@ contract Access0x1GiftCardsTest is Test {
         cards.redeem(id, FACE, rid); // fully spend
         assertEq(cards.balanceOf(alice, id), 0);
 
+        vm.prank(merchantOwner);
         cards.reverseRedemption(rid);
         assertEq(cards.balanceOf(alice, id), FACE); // alive again
     }
@@ -325,41 +353,66 @@ contract Access0x1GiftCardsTest is Test {
 
     function test_applyCoupon_percent() public {
         bytes32 cid = keccak256("SAVE10");
-        vm.prank(merchantOwner);
+        vm.startPrank(merchantOwner);
         cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 0);
 
         uint256 discount = cards.applyCoupon(merchantId, cid, 200e8);
+        vm.stopPrank();
         assertEq(discount, 20e8); // 10% of $200
         assertEq(cards.coupons(merchantId, cid).redemptionsCount, 1);
     }
 
     function test_applyCoupon_amount() public {
         bytes32 cid = keccak256("FLAT5");
-        vm.prank(merchantOwner);
+        vm.startPrank(merchantOwner);
         cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.AMOUNT, 5e8, 0, 0);
 
         uint256 discount = cards.applyCoupon(merchantId, cid, 200e8);
+        vm.stopPrank();
         assertEq(discount, 5e8); // flat $5
+    }
+
+    /// @notice Consuming a coupon is now merchant-owner only (L-4): a non-owner is rejected by the gate
+    ///         BEFORE any cap is touched, so it cannot grief a finite-cap promotion.
+    function test_applyCoupon_revertsOnNonMerchantOwner() public {
+        bytes32 cid = keccak256("SAVE10");
+        vm.prank(merchantOwner);
+        cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 5);
+
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1GiftCards.GiftCards__NotMerchantOwner.selector, merchantId, bob
+            )
+        );
+        cards.applyCoupon(merchantId, cid, 100e8);
+        assertEq(
+            cards.coupons(merchantId, cid).redemptionsCount, 0, "cap untouched by the rejected call"
+        );
     }
 
     function test_applyCoupon_clampsPercentOver100() public {
         bytes32 cid = keccak256("MEGA");
-        vm.prank(merchantOwner);
+        vm.startPrank(merchantOwner);
         cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 250, 0, 0);
         // 250% would be $250 on a $100 sale — clamped to the sale amount.
         assertEq(cards.applyCoupon(merchantId, cid, 100e8), 100e8);
+        vm.stopPrank();
     }
 
     function test_applyCoupon_clampsAmountOverSale() public {
         bytes32 cid = keccak256("BIG");
-        vm.prank(merchantOwner);
+        vm.startPrank(merchantOwner);
         cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.AMOUNT, 500e8, 0, 0);
         assertEq(cards.applyCoupon(merchantId, cid, 100e8), 100e8); // clamped to $100
+        vm.stopPrank();
     }
 
     function test_applyCoupon_revertsWhenInactive() public {
         bytes32 cid = keccak256("X");
-        // Never set ⇒ active == false (default).
+        // Never set ⇒ active == false (default). The owner gate passes (merchant exists), then the
+        // inactive check bites.
+        vm.prank(merchantOwner);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IAccess0x1GiftCards.GiftCards__CouponInactive.selector, merchantId, cid
@@ -371,7 +424,7 @@ contract Access0x1GiftCardsTest is Test {
     function test_applyCoupon_revertsWhenExpired() public {
         bytes32 cid = keccak256("OLD");
         vm.warp(1_000_000);
-        vm.prank(merchantOwner);
+        vm.startPrank(merchantOwner);
         cards.setCoupon(
             merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, uint64(500_000), 0
         );
@@ -381,11 +434,12 @@ contract Access0x1GiftCardsTest is Test {
             )
         );
         cards.applyCoupon(merchantId, cid, 100e8);
+        vm.stopPrank();
     }
 
     function test_applyCoupon_capEnforced() public {
         bytes32 cid = keccak256("TWICE");
-        vm.prank(merchantOwner);
+        vm.startPrank(merchantOwner);
         cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 2);
 
         cards.applyCoupon(merchantId, cid, 100e8);
@@ -398,11 +452,56 @@ contract Access0x1GiftCardsTest is Test {
             )
         );
         cards.applyCoupon(merchantId, cid, 100e8);
+        vm.stopPrank();
+    }
+
+    /// @notice {quoteCoupon} is the permissionless, non-consuming preview (L-4): any caller previews the
+    ///         clamped discount and the cap NEVER moves, so a storefront cannot exhaust a promotion.
+    function test_quoteCoupon_previewsWithoutConsuming() public {
+        bytes32 cid = keccak256("PREVIEW");
+        vm.prank(merchantOwner);
+        cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 2);
+
+        // A random caller previews repeatedly — the discount is correct and the count stays at zero.
+        vm.startPrank(bob);
+        assertEq(cards.quoteCoupon(merchantId, cid, 200e8), 20e8, "preview: 10% of $200");
+        assertEq(cards.quoteCoupon(merchantId, cid, 200e8), 20e8, "preview is repeatable");
+        vm.stopPrank();
+        assertEq(
+            cards.coupons(merchantId, cid).redemptionsCount, 0, "preview never consumes the cap"
+        );
+    }
+
+    /// @notice {quoteCoupon} runs the SAME disqualifying checks as {applyCoupon}: an exhausted cap, an
+    ///         inactive coupon, and an expired coupon each revert so a preview matches a consume.
+    function test_quoteCoupon_revertsOnDisqualifyingState() public {
+        bytes32 cid = keccak256("PREVIEW_DQ");
+        vm.startPrank(merchantOwner);
+        cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 1);
+        cards.applyCoupon(merchantId, cid, 100e8); // burn the only consumption
+        vm.stopPrank();
+
+        // Exhausted cap.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1GiftCards.GiftCards__CouponExhausted.selector, merchantId, cid
+            )
+        );
+        cards.quoteCoupon(merchantId, cid, 100e8);
+
+        // Inactive (never-set) coupon.
+        bytes32 unset = keccak256("UNSET");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1GiftCards.GiftCards__CouponInactive.selector, merchantId, unset
+            )
+        );
+        cards.quoteCoupon(merchantId, unset, 100e8);
     }
 
     function test_releaseCoupon_decrements() public {
         bytes32 cid = keccak256("REL");
-        vm.prank(merchantOwner);
+        vm.startPrank(merchantOwner);
         cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 2);
 
         cards.applyCoupon(merchantId, cid, 100e8);
@@ -410,8 +509,8 @@ contract Access0x1GiftCardsTest is Test {
 
         vm.expectEmit(true, true, false, false, address(cards));
         emit IAccess0x1GiftCards.CouponReleased(merchantId, cid);
-        vm.prank(merchantOwner);
         cards.releaseCoupon(merchantId, cid);
+        vm.stopPrank();
         assertEq(cards.coupons(merchantId, cid).redemptionsCount, 0);
     }
 
@@ -443,14 +542,13 @@ contract Access0x1GiftCardsTest is Test {
         bytes32 cid = keccak256("RESET");
         vm.startPrank(merchantOwner);
         cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 5);
-        vm.stopPrank();
         cards.applyCoupon(merchantId, cid, 100e8);
         cards.applyCoupon(merchantId, cid, 100e8);
         assertEq(cards.coupons(merchantId, cid).redemptionsCount, 2);
 
         // Redefining resets the count.
-        vm.prank(merchantOwner);
         cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.AMOUNT, 1e8, 0, 5);
+        vm.stopPrank();
         assertEq(cards.coupons(merchantId, cid).redemptionsCount, 0);
     }
 

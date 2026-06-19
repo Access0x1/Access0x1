@@ -78,6 +78,12 @@ contract DeployAll is Script {
     /// @notice The native-token sentinel: the router keys its native/USD feed at `priceFeedOf[0]`.
     address private constant NATIVE = address(0);
 
+    /// @notice Per-feed staleness window for the USDC/USD feed: its 24h (86400s) Chainlink heartbeat
+    ///         plus a 1h ingestion margin. The Router's default 1h window would falsely revert
+    ///         `quote()` during a quiet stretch even though the price is valid — so USDC/USD is wired
+    ///         via the 3-arg `setPriceFeed`. ETH/USD (a 1h-heartbeat feed) keeps the tight 1h default.
+    uint256 private constant USDC_FEED_STALENESS = 86_400 + 3600;
+
     /// @notice The default EIP-712 domain name for {SessionGrant} (matches the test suite + SDK).
     string private constant DEFAULT_SESSION_GRANT_NAME = "Access0x1 SessionGrant";
 
@@ -222,8 +228,11 @@ contract DeployAll is Script {
         // line above), mispricing native at ~$1 instead of its real ~$3000. Only wire the USDC feed when
         // the USDC token itself is booth-confirmed. The native feed above is set on its own, independently.
         if (cfg.usdc != address(0) && cfg.usdcUsdFeed != address(0)) {
-            router.setPriceFeed(cfg.usdc, cfg.usdcUsdFeed);
+            // USDC/USD publishes on a 24h heartbeat, so it needs a wider-than-default staleness window
+            // (the 3-arg overload); the 1h default would falsely revert quote() during a quiet stretch.
+            router.setPriceFeed(cfg.usdc, cfg.usdcUsdFeed, USDC_FEED_STALENESS);
             console2.log("  USDC/USD feed       :", cfg.usdcUsdFeed);
+            console2.log("  USDC/USD staleness  :", USDC_FEED_STALENESS);
         }
 
         // 11. Multi-token checkout: allowlist + price-feed the EXTRA pay tokens a buyer may settle in

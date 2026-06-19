@@ -83,6 +83,11 @@ contract SessionGrant is ISessionGrant, EIP712 {
     }
 
     /// @inheritdoc ISessionGrant
+    function ownerOf(bytes32 sessionId) external view returns (address) {
+        return _ownerOf[sessionId];
+    }
+
+    /// @inheritdoc ISessionGrant
     /// @dev Returns 0 for any dead session (unknown / expired / revoked / exhausted) so an integrator
     ///      can gate a spend on a single non-zero read without re-deriving liveness.
     function remaining(bytes32 sessionId) external view returns (uint256) {
@@ -297,6 +302,24 @@ contract SessionGrant is ISessionGrant, EIP712 {
         return _isValidSignatureNow(signer, hash, signature);
     }
 
+    /// @notice Decode an ERC-6492 wrapper body into its `(factory, factoryCalldata, innerSig)` legs.
+    /// @dev    Exists ONLY as the external `try` target of {_isValidSignatureNow}: a magic-suffixed but
+    ///         malformed-ABI body makes `abi.decode` revert with a Panic, so the engine calls this
+    ///         externally and `catch`es the revert to return `false` rather than propagating it. Pure +
+    ///         self-call: it touches no state and is reachable only via the engine's `try this.…`. Not
+    ///         part of {ISessionGrant} — it is an internal implementation detail of the 6492 guard.
+    /// @param body The 6492 wrapper minus its trailing 32-byte magic suffix.
+    /// @return f     The factory address leg.
+    /// @return fc    The factory-calldata leg.
+    /// @return inner The inner (ERC-1271 / EOA) signature leg.
+    function tryDecode6492(bytes calldata body)
+        external
+        pure
+        returns (address f, bytes memory fc, bytes memory inner)
+    {
+        (f, fc, inner) = abi.decode(body, (address, bytes, bytes));
+    }
+
     /// @dev The validation engine. ORDER MATTERS:
     ///      1. ERC-6492: if the signature ends with the magic suffix it is `abi.encode(factory,
     ///         factoryCalldata, innerSig)`. If `signer` has no code yet, call `factory` with
@@ -318,8 +341,24 @@ contract SessionGrant is ISessionGrant, EIP712 {
         if (signature.length >= 32) {
             bytes32 suffix = bytes32(signature[signature.length - 32:]);
             if (suffix == ERC6492_MAGIC) {
-                (address factory, bytes memory factoryCalldata, bytes memory innerSig) =
-                    abi.decode(signature[:signature.length - 32], (address, bytes, bytes));
+                // GUARD: a body that ends in the magic but is NOT a valid `(address,bytes,bytes)`
+                // encoding makes `abi.decode` revert with a Panic. Decode behind an external `try`
+                // self-call so a malformed wrapper yields a clean `false` (the documented "clean
+                // rejection") instead of propagating the revert into a reusable boolean validator.
+                // The engine is non-view, so a plain external self-call is permitted; gas is added
+                // only on the 6492 path. See {tryDecode6492}.
+                address factory;
+                bytes memory factoryCalldata;
+                bytes memory innerSig;
+                try this.tryDecode6492(signature[:signature.length - 32]) returns (
+                    address f, bytes memory fc, bytes memory inner
+                ) {
+                    factory = f;
+                    factoryCalldata = fc;
+                    innerSig = inner;
+                } catch {
+                    return false;
+                }
 
                 // Only attempt the prepare/deploy if the signer is not yet a contract. If it already
                 // has code, the inner ERC-1271 path below validates it directly (a redundant deploy is
