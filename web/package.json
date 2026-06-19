@@ -6,7 +6,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/replace-embed-addrs.js",
+    "prebuild": "node scripts/gen-deployments.mjs && node scripts/replace-embed-addrs.js",
+    "gen:deployments": "node scripts/gen-deployments.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
