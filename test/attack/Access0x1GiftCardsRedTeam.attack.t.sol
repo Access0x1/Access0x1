@@ -54,13 +54,13 @@ contract Access0x1GiftCardsRedTeamTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-        ATTACK A — REENTRANCY ON `transfer` (the only un-guarded path)
+        ATTACK A — REENTRANCY ON `transfer` (now `nonReentrant`-guarded, Y-2)
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice `transfer` is the one balance path without `nonReentrant`. It makes NO external call to
-    ///         `to`, so a contract recipient gets no callback and cannot re-enter to double-move. This
-    ///         proves the absence-of-callback that makes the missing guard safe: transferring to a
-    ///         reentrancy-attempting contract moves the balance exactly once and never re-enters.
+    /// @notice `transfer` makes NO external call to `to`, so a contract recipient gets no callback and
+    ///         cannot re-enter to double-move; it is ALSO `nonReentrant` now (Y-2), restoring the file
+    ///         invariant that every balance-mutating path carries the guard. This proves both: a transfer
+    ///         to a reentrancy-attempting contract moves the balance exactly once and never re-enters.
     function test_attack_transferToContractRecipientNoCallback() public {
         ReentrantHolder bad = new ReentrantHolder(cards);
         uint256 id = _issueA(address(bad), FACE);
@@ -395,8 +395,8 @@ contract Access0x1GiftCardsRedTeamTest is Test {
 }
 
 /// @notice A contract card-holder that ATTEMPTS to re-enter GiftCards on any callback. GiftCards makes
-///         no external call to a recipient, so `reenterCount` stays zero — proving the un-guarded
-///         `transfer` path has no reentrancy vector to guard against.
+///         no external call to a recipient, so `reenterCount` stays zero — and `transfer` is now
+///         `nonReentrant` (Y-2) as a belt-and-suspenders guard on top of that no-callback property.
 contract ReentrantHolder {
     Access0x1GiftCards internal immutable cards;
     uint256 internal armedCard;

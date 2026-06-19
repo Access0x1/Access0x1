@@ -47,6 +47,15 @@ import { IAccess0x1Bookings } from "./interfaces/IAccess0x1Bookings.sol";
 contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    /// @notice The floor on a reservation's hold window. A `holdSecs` below this reverts at {reserve},
+    ///         so a HELD slot is ALWAYS un-expirable for at least this long. This closes the
+    ///         slot-cycling griefing vector (audit O-2): a zero/too-small hold would otherwise be
+    ///         immediately expirable in the same (or the very next) block, letting an attacker reserve
+    ///         and instantly expire a merchant's slots in a tight loop to keep the calendar churning.
+    ///         The minimum guarantees a genuine, payer-protecting hold window before {expireHold} can
+    ///         ever fire (and {expireHold} is itself authorization-gated below).
+    uint64 public constant MIN_HOLD_SECS = 60;
+
     /// @notice The audited money spine the release/fee legs flow through (fee-split + in-tx pricing).
     Access0x1Router public immutable router;
 
@@ -161,6 +170,11 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     ) external nonReentrant returns (uint256 id) {
         if (token == address(0)) revert Access0x1Bookings__ZeroAddress();
         if (depositUsd8 == 0) revert Access0x1Bookings__ZeroAmount();
+        // A hold shorter than MIN_HOLD_SECS (including 0) is rejected: it would be immediately/near-
+        // immediately expirable, enabling reserve→expire slot-cycling griefing of the calendar (O-2).
+        if (holdSecs < MIN_HOLD_SECS) {
+            revert Access0x1Bookings__HoldTooShort(holdSecs, MIN_HOLD_SECS);
+        }
         _requireMerchantExists(merchantId);
         if (nonceUsed[clientNonce]) revert Access0x1Bookings__NonceUsed(clientNonce);
         uint256 occupiedBy = occupant[slotKey];
@@ -258,11 +272,19 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IAccess0x1Bookings
-    /// @dev Permissionless after the hold deadline while HELD. Refunds the full escrow to the payer
-    ///      (failed push → pull-map, NEVER blocked) and frees the slot. CEI + `nonReentrant`.
+    /// @dev Callable by the PAYER or the MERCHANT OWNER after the hold deadline while HELD — NOT
+    ///      permissionless (audit O-2). Restricting it to the two parties with standing (the payer
+    ///      reclaiming their deposit, or the operator freeing their own slot) removes the slot-cycling
+    ///      griefing surface where a third party churned a merchant's calendar by expiring holds the
+    ///      instant they lapsed. The refund itself is unconditional once authorized: the full escrow
+    ///      goes back to the payer (failed push → pull-map, NEVER blocked) and the slot frees. CEI +
+    ///      `nonReentrant`.
     function expireHold(uint256 id) external nonReentrant {
         Reservation storage r = _reservations[id];
         _requireStatus(id, r.status, RStatus.HELD);
+        if (msg.sender != r.payer && msg.sender != _merchantOwner(r.merchantId)) {
+            revert Access0x1Bookings__NotAuthorized(id, msg.sender);
+        }
         if (block.timestamp < r.holdExpiresAt) {
             revert Access0x1Bookings__HoldNotExpired(id, r.holdExpiresAt, block.timestamp);
         }

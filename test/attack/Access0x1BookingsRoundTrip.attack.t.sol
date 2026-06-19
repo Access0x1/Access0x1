@@ -304,6 +304,7 @@ contract Access0x1BookingsRoundTripAttackTest is Test {
 
         vm.warp(block.timestamp + 1 days + 1);
         re.arm(true, id);
+        vm.prank(payer); // payer is authorized to expire their own hold
         bookings.expireHold(id); // refund push re-enters; guard must hold
 
         uint256 got = re.balanceOf(payer) - (1_000_000e6 - escrow);
