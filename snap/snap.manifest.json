@@ -25,11 +25,6 @@
     },
     "snap_dialog": {},
     "snap_manageState": {},
-    "snap_getBip44Entropy": [
-      {
-        "coinType": 60
-      }
-    ],
     "endowment:network-access": {},
     "endowment:ethereum-provider": {}
   },
