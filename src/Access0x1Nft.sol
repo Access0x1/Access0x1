@@ -39,24 +39,27 @@ import { Access0x1Router } from "./Access0x1Router.sol";
 contract Access0x1Nft is Ownable2Step, Pausable, ReentrancyGuard, IERC721Receiver {
     using SafeERC20 for IERC20;
 
-    /// @notice A live NFT listing. Packs `seller`+`active` and `paymentToken` across slots; `priceUsd8`
-    ///         is the USD price with 8 decimals (matching the Router's `usdAmount8`).
+    /// @notice A live NFT listing, laid out for tight packing — 6 storage slots, not 7. Slot 0 co-packs
+    ///         `seller` (20 bytes) + `active` (1 byte), `collection` and `paymentToken` take one slot
+    ///         each, and `tokenId`/`merchantId`/`priceUsd8` are full words; `priceUsd8` is the USD price
+    ///         with 8 decimals (matching the Router's `usdAmount8`).
     /// @param seller       The address that listed (receives the NFT back on cancel). MUST be the
-    ///                     Router merchant owner at list time.
-    /// @param collection   The ERC-721 contract escrowed.
-    /// @param tokenId      The token id escrowed.
-    /// @param merchantId   The Router merchant the sale settles to (its payout receives the net).
-    /// @param paymentToken The allowlisted ERC-20 a buyer pays in (Router prices + fee-splits it).
-    /// @param priceUsd8    The list price in USD, 8 decimals (e.g. $99.00 == 99e8).
-    /// @param active       False once sold or cancelled (one-shot; blocks replay {buy}).
+    ///                     Router merchant owner at list time. (slot 0, low 20 bytes)
+    /// @param active       False once sold or cancelled (one-shot; blocks replay {buy}). Co-packed with
+    ///                     `seller` in slot 0 (byte 20).
+    /// @param collection   The ERC-721 contract escrowed. (slot 1)
+    /// @param paymentToken The allowlisted ERC-20 a buyer pays in (Router prices + fee-splits it). (slot 2)
+    /// @param tokenId      The token id escrowed. (slot 3)
+    /// @param merchantId   The Router merchant the sale settles to (its payout receives the net). (slot 4)
+    /// @param priceUsd8    The list price in USD, 8 decimals (e.g. $99.00 == 99e8). (slot 5)
     struct Listing {
         address seller;
+        bool active;
         address collection;
+        address paymentToken;
         uint256 tokenId;
         uint256 merchantId;
-        address paymentToken;
         uint256 priceUsd8;
-        bool active;
     }
 
     /// @notice The Access0x1 Router that prices, fee-splits, and settles every purchase, and whose
@@ -118,6 +121,11 @@ contract Access0x1Nft is Ownable2Step, Pausable, ReentrancyGuard, IERC721Receive
     /// @notice The buyer-supplied USD price did not match the listing (front-running / stale-quote
     ///         guard: the buyer signs the exact price they agreed to).
     error Access0x1Nft__PriceMismatch(uint256 expected, uint256 supplied);
+
+    /// @notice The token amount the live Chainlink quote requires exceeds the buyer's hard outlay cap
+    ///         (slippage guard: the fixed USD price re-prices into more token units between consent and
+    ///         inclusion than the buyer agreed to spend).
+    error Access0x1Nft__TokenAmountTooHigh(uint256 gross, uint256 maxTokenAmount);
 
     /// @notice The escrow did not actually receive the NFT during {list} (defensive: a non-standard
     ///         ERC-721 whose `safeTransferFrom` does not move ownership is rejected).
@@ -232,18 +240,29 @@ contract Access0x1Nft is Ownable2Step, Pausable, ReentrancyGuard, IERC721Receive
     ///           checks    — listing active, buyer-signed `maxPriceUsd8` matches the listing price
     ///                       (front-run / price-bump guard);
     ///           effects   — deactivate the listing (one-shot; a re-entrant buy finds it inactive);
-    ///           interaction — quote gross, pull gross from buyer, approve the Router, `payToken`
-    ///                       (Router pulls the gross from here and does the fee-split + settlement),
-    ///                       then `safeTransferFrom` the NFT to the buyer.
+    ///           interaction — quote gross, enforce the buyer's `maxTokenAmount` outlay cap (slippage
+    ///                       guard, reverting before any token moves), pull gross from buyer, approve the
+    ///                       Router, `payToken` (Router pulls the gross from here and does the fee-split +
+    ///                       settlement), then `safeTransferFrom` the NFT to the buyer.
     ///         ZERO CUSTODY of the payment token: it is pulled in and forwarded to the Router in the
     ///         same call; the post-settlement approval is reset to 0 so no dangling allowance remains.
     ///         The NFT leg uses {safeTransferFrom}, so a contract buyer that cannot receive ERC-721s
     ///         reverts the whole purchase (atomic — the money is rolled back with it).
-    /// @param listingId    The listing to buy.
-    /// @param maxPriceUsd8 The USD price (8 decimals) the buyer agreed to; must equal the listing price.
-    ///                     This is the buyer's explicit consent to the exact price, defeating a
-    ///                     seller price-bump or a swapped listing between quote and submit.
-    function buy(uint256 listingId, uint256 maxPriceUsd8) external nonReentrant whenNotPaused {
+    /// @param listingId      The listing to buy.
+    /// @param maxPriceUsd8   The USD price (8 decimals) the buyer agreed to; must equal the listing
+    ///                       price. This is the buyer's explicit consent to the exact price, defeating a
+    ///                       seller price-bump or a swapped listing between quote and submit.
+    /// @param maxTokenAmount The buyer's HARD CAP on token outlay: the maximum number of `paymentToken`
+    ///                       units they will spend. The fixed USD price re-prices against the live
+    ///                       Chainlink feed in-tx, so the token units can drift between consent and
+    ///                       inclusion; this bound reverts {Access0x1Nft__TokenAmountTooHigh} before any
+    ///                       token moves when the quote exceeds it. Pass the quoted amount for an exact
+    ///                       cap, or `type(uint256).max` to opt out of the slippage bound.
+    function buy(uint256 listingId, uint256 maxPriceUsd8, uint256 maxTokenAmount)
+        external
+        nonReentrant
+        whenNotPaused
+    {
         Listing storage l = listings[listingId];
         if (!l.active) revert Access0x1Nft__ListingInactive(listingId);
 
@@ -259,10 +278,12 @@ contract Access0x1Nft is Ownable2Step, Pausable, ReentrancyGuard, IERC721Receive
 
         l.active = false; // effect before interactions — one-shot, blocks re-entrant double-buy
 
-        // Quote the gross the Router will require, pull exactly that from the buyer, and approve the
-        // Router to pull it back out. The Router does ALL pricing/fee-split/settlement; this contract
-        // only relays the gross and never keeps it.
+        // Quote the gross the Router will require, enforce the buyer's token-outlay cap BEFORE pulling
+        // anything, then pull exactly that from the buyer and approve the Router to pull it back out.
+        // The Router does ALL pricing/fee-split/settlement; this contract only relays the gross and
+        // never keeps it.
         uint256 gross = router.quote(merchantId, paymentToken, priceUsd8);
+        if (gross > maxTokenAmount) revert Access0x1Nft__TokenAmountTooHigh(gross, maxTokenAmount);
         IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), gross);
         IERC20(paymentToken).forceApprove(address(router), gross);
 
