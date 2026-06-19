@@ -27,6 +27,10 @@ contract ChainRegistryHarness is ChainRegistry {
     function FLAG_TESTNET_() external pure returns (uint16) {
         return FLAG_TESTNET;
     }
+
+    function FLAG_REGISTERED_() external pure returns (uint16) {
+        return FLAG_REGISTERED;
+    }
 }
 
 /// @notice ChainRegistry unit suite — the sidecar chain hash-map: upsert, the targeted live bit
@@ -46,6 +50,8 @@ contract ChainRegistryTest is Test {
     uint16 internal constant FLAG_CIRCLE_USDC = 0x0002;
     uint16 internal constant FLAG_CCIP_LANE = 0x0004;
     uint16 internal constant FLAG_TESTNET = 0x0008;
+    // The reserved registration marker (bit 15) addChain always ORs in; stored flags carry it.
+    uint16 internal constant FLAG_REGISTERED = 0x8000;
 
     uint256 internal constant ARC_TESTNET = 5_042_002;
     uint256 internal constant BASE_SEPOLIA = 84_532;
@@ -79,9 +85,11 @@ contract ChainRegistryTest is Test {
 
     function test_addChain_success_emitsChainAdded() public {
         ChainRegistry.ChainConfig memory cfg = _cfg(FLAG_TESTNET);
+        // addChain ORs in FLAG_REGISTERED, so both the stored flags and the emitted event carry it.
+        ChainRegistry.ChainConfig memory stored = _cfg(FLAG_TESTNET | FLAG_REGISTERED);
 
         vm.expectEmit(true, false, false, true, address(registry));
-        emit ChainAdded(BASE_SEPOLIA, cfg);
+        emit ChainAdded(BASE_SEPOLIA, stored);
 
         vm.prank(owner);
         registry.addChain(BASE_SEPOLIA, cfg);
@@ -90,7 +98,7 @@ contract ChainRegistryTest is Test {
         assertEq(got.usdc, usdc);
         assertEq(got.router, router);
         assertEq(got.ccipSelector, 1234);
-        assertEq(got.flags, FLAG_TESTNET);
+        assertEq(got.flags, FLAG_TESTNET | FLAG_REGISTERED);
     }
 
     function test_addChain_canUpsert() public {
@@ -103,9 +111,16 @@ contract ChainRegistryTest is Test {
             ccipSelector: 9999,
             flags: FLAG_TESTNET | FLAG_CCIP_LANE
         });
+        // The event mirrors storage: the upserted flags with the registration bit forced on.
+        ChainRegistry.ChainConfig memory updatedStored = ChainRegistry.ChainConfig({
+            usdc: address(0xBEEF),
+            router: address(0xCAFE),
+            ccipSelector: 9999,
+            flags: FLAG_TESTNET | FLAG_CCIP_LANE | FLAG_REGISTERED
+        });
 
         vm.expectEmit(true, false, false, true, address(registry));
-        emit ChainAdded(BASE_SEPOLIA, updated);
+        emit ChainAdded(BASE_SEPOLIA, updatedStored);
         registry.addChain(BASE_SEPOLIA, updated);
         vm.stopPrank();
 
@@ -113,7 +128,7 @@ contract ChainRegistryTest is Test {
         assertEq(got.usdc, address(0xBEEF));
         assertEq(got.router, address(0xCAFE));
         assertEq(got.ccipSelector, 9999);
-        assertEq(got.flags, FLAG_TESTNET | FLAG_CCIP_LANE);
+        assertEq(got.flags, FLAG_TESTNET | FLAG_CCIP_LANE | FLAG_REGISTERED);
     }
 
     function test_addChain_onlyOwner_reverts() public {
@@ -134,14 +149,15 @@ contract ChainRegistryTest is Test {
 
         ChainRegistry.ChainConfig memory got = registry.getChain(ZKSYNC_SEPOLIA);
         assertEq(got.usdc, address(0));
-        assertEq(got.flags, FLAG_TESTNET);
+        assertEq(got.flags, FLAG_TESTNET | FLAG_REGISTERED);
     }
 
     function test_addChain_flagBitsPreserved() public {
         uint16 flags = FLAG_LIVE | FLAG_TESTNET;
         vm.prank(owner);
         registry.addChain(BASE_SEPOLIA, _cfg(flags));
-        assertEq(registry.getChain(BASE_SEPOLIA).flags, flags);
+        // The caller's public bits are preserved; the registration marker is added on top.
+        assertEq(registry.getChain(BASE_SEPOLIA).flags, flags | FLAG_REGISTERED);
     }
 
     function test_addChain_arcTestnet() public {
@@ -150,7 +166,7 @@ contract ChainRegistryTest is Test {
         registry.addChain(ARC_TESTNET, _cfg(flags));
 
         ChainRegistry.ChainConfig memory got = registry.getChain(ARC_TESTNET);
-        assertEq(got.flags, flags);
+        assertEq(got.flags, flags | FLAG_REGISTERED);
         assertTrue(got.flags & FLAG_CIRCLE_USDC != 0);
         assertTrue(got.flags & FLAG_TESTNET != 0);
     }
@@ -207,15 +223,51 @@ contract ChainRegistryTest is Test {
 
     function test_setChainLive_doesNotMutateOtherBits() public {
         uint16 flags = FLAG_TESTNET | FLAG_CIRCLE_USDC | FLAG_CCIP_LANE;
+        // Stored flags always carry the registration marker; setChainLive only moves FLAG_LIVE.
+        uint16 stored = flags | FLAG_REGISTERED;
         vm.startPrank(owner);
         registry.addChain(BASE_SEPOLIA, _cfg(flags));
 
         registry.setChainLive(BASE_SEPOLIA, true);
-        assertEq(registry.getChain(BASE_SEPOLIA).flags, flags | FLAG_LIVE);
+        assertEq(registry.getChain(BASE_SEPOLIA).flags, stored | FLAG_LIVE);
 
         registry.setChainLive(BASE_SEPOLIA, false);
-        assertEq(registry.getChain(BASE_SEPOLIA).flags, flags);
+        assertEq(registry.getChain(BASE_SEPOLIA).flags, stored);
         vm.stopPrank();
+    }
+
+    /// @notice L-6 REGRESSION: pausing a `flags`-only entry must NOT delete it. Before the fix,
+    ///         `_exists` tested "any field non-zero", so an entry whose only non-zero field was the
+    ///         live bit collapsed to the all-zero sentinel when `setChainLive(.., false)` cleared
+    ///         FLAG_LIVE — `getChain`/`setChainLive` then reverted ChainNotFound and `isLive` read
+    ///         false: a pause silently destroyed the entry. With FLAG_REGISTERED (set by addChain,
+    ///         never cleared by setChainLive) as the sole existence signal, the entry survives the
+    ///         pause: getChain still returns it and isLive is false, with no revert.
+    function test_setChainLive_off_onLiveOnlyEntry_doesNotDeleteEntry() public {
+        // The exact L-6 PoC shape: a config whose only non-zero PUBLIC field is the live bit.
+        ChainRegistry.ChainConfig memory liveOnly = ChainRegistry.ChainConfig({
+            usdc: address(0), router: address(0), ccipSelector: 0, flags: FLAG_LIVE
+        });
+
+        vm.startPrank(owner);
+        registry.addChain(BASE_SEPOLIA, liveOnly);
+        // Pause it — the historically-deleting call.
+        registry.setChainLive(BASE_SEPOLIA, false);
+        vm.stopPrank();
+
+        // The entry is STILL found (no ChainNotFound) and reads back not-live.
+        ChainRegistry.ChainConfig memory got = registry.getChain(BASE_SEPOLIA);
+        assertEq(got.usdc, address(0), "usdc unchanged");
+        assertEq(got.router, address(0), "router unchanged");
+        assertEq(got.ccipSelector, 0, "selector unchanged");
+        // Live bit cleared, registration bit intact — that marker is what keeps the entry alive.
+        assertEq(got.flags, FLAG_REGISTERED, "only the registration marker remains");
+        assertFalse(registry.isLive(BASE_SEPOLIA), "chain reads not-live after pause");
+
+        // And it is still mutable: re-arming it live works (it never became ChainNotFound).
+        vm.prank(owner);
+        registry.setChainLive(BASE_SEPOLIA, true);
+        assertTrue(registry.isLive(BASE_SEPOLIA), "paused entry can be brought back live");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -231,7 +283,8 @@ contract ChainRegistryTest is Test {
         assertEq(got.usdc, cfg.usdc);
         assertEq(got.router, cfg.router);
         assertEq(got.ccipSelector, cfg.ccipSelector);
-        assertEq(got.flags, cfg.flags);
+        // Stored flags are the caller's plus the registration marker addChain forces on.
+        assertEq(got.flags, cfg.flags | FLAG_REGISTERED);
     }
 
     function test_getChain_notFound_reverts() public {
@@ -271,6 +324,18 @@ contract ChainRegistryTest is Test {
         assertEq(registry.FLAG_CIRCLE_USDC_(), 2);
         assertEq(registry.FLAG_CCIP_LANE_(), 4);
         assertEq(registry.FLAG_TESTNET_(), 8);
+        // The reserved registration marker is the high bit, clear of every documented public bit.
+        assertEq(registry.FLAG_REGISTERED_(), 0x8000);
+    }
+
+    /// @notice FLAG_REGISTERED (bit 15) must not collide with any documented public flag bit
+    ///         (`0x0001`-`0x0008`) — a collision would let a public flag accidentally register an
+    ///         entry or let registration masquerade as a public fact. Proves the bit budgets are
+    ///         disjoint (the L-6 fix relies on it).
+    function test_constants_registeredBitIsDisjointFromPublicBits() public view {
+        uint16 publicBits = registry.FLAG_LIVE_() | registry.FLAG_CIRCLE_USDC_()
+            | registry.FLAG_CCIP_LANE_() | registry.FLAG_TESTNET_();
+        assertEq(registry.FLAG_REGISTERED_() & publicBits, 0, "registration bit must not overlap");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -319,7 +384,8 @@ contract ChainRegistryTest is Test {
         assertEq(got.usdc, fUsdc);
         assertEq(got.router, fRouter);
         assertEq(got.ccipSelector, fSelector);
-        assertEq(got.flags, fFlags);
+        // The fuzzed flags round-trip exactly, plus the registration marker addChain forces on.
+        assertEq(got.flags, fFlags | FLAG_REGISTERED);
     }
 
     function testFuzz_setChainLive_onlyBit0Changes(uint16 seedFlags, bool live) public {
@@ -329,7 +395,8 @@ contract ChainRegistryTest is Test {
         ChainRegistry.ChainConfig memory cfg = ChainRegistry.ChainConfig({
             usdc: usdc, router: address(0), ccipSelector: 0, flags: baseline | FLAG_TESTNET
         });
-        uint16 expectedBase = baseline | FLAG_TESTNET;
+        // Stored non-live bits = the baseline plus the registration marker addChain forces on.
+        uint16 expectedBase = baseline | FLAG_TESTNET | FLAG_REGISTERED;
 
         vm.startPrank(owner);
         registry.addChain(BASE_SEPOLIA, cfg);

@@ -57,8 +57,19 @@ contract ChainRegistry is Ownable2Step {
     // slither-disable-next-line unused-state
     uint16 internal constant FLAG_TESTNET = 0x0008;
 
+    /// @notice Flag bit 15 (the high bit): the entry exists / is registered. {addChain} ALWAYS ORs
+    ///         this in, and it is the SOLE bit {_exists} tests — so an entry stays found through any
+    ///         {setChainLive} toggle (which only touches {FLAG_LIVE}), closing the L-6 sentinel-
+    ///         collision where pausing a `flags`-only entry silently deleted it.
+    /// @dev    A RESERVED registration marker, not a public/operator fact: it is set by the contract,
+    ///         never by the caller's `cfg`, and lives at bit 15 so it cannot collide with the four
+    ///         documented public bits (`0x0001`-`0x0008`). Off-chain `flags` readers MUST mask it out
+    ///         (`flags & 0x7FFF`, or simply ignore bit 15) — it carries no chain fact, only "added".
+    uint16 internal constant FLAG_REGISTERED = 0x8000;
+
     /// @notice chainId ⇒ its config. Public getter for the SDK/frontend; a never-added id reads back
-    ///         as the all-zero `ChainConfig` (treated as "not found" by {getChain}/{setChainLive}).
+    ///         as the all-zero `ChainConfig`, whose clear {FLAG_REGISTERED} bit is what {getChain}/
+    ///         {setChainLive} treat as "not found". A real (added) entry always has bit 15 set.
     mapping(uint256 chainId => ChainConfig cfg) public chains;
 
     /// @notice A chain entry was added or upserted.
@@ -88,14 +99,22 @@ contract ChainRegistry is Ownable2Step {
     /// @notice Upsert a chain entry. Owner-only. Calling again for the same `chainId` overwrites the
     ///         stored config (so a single tx can correct any field) and emits a fresh `ChainAdded`.
     ///         A zero `cfg.usdc` is allowed — a chain may not have native USDC wired yet.
-    /// @dev    Law #4 (truth): CONFIRM every address and CCIP selector from your chain's official
-    ///         official docs (e.g. docs.chain.link/ccip/directory) before calling this on a LIVE
-    ///         chain. Never pass a value invented from memory. Three storage slots are written.
+    /// @dev    The contract ALWAYS ORs {FLAG_REGISTERED} (bit 15) into the stored `flags`, so the
+    ///         persisted word is `cfg.flags | FLAG_REGISTERED` and the entry is unambiguously "found"
+    ///         by {_exists} regardless of which public bits the caller set — even an otherwise all-zero
+    ///         `cfg`. This is the L-6 fix: a registration marker {setChainLive} can never clear, so a
+    ///         pause cannot silently delete the entry. The emitted `ChainAdded.cfg` carries the
+    ///         registered flags (what is actually stored), so an indexer mirrors storage exactly.
+    ///         Law #4 (truth): CONFIRM every address and CCIP selector from your chain's official docs
+    ///         (e.g. docs.chain.link/ccip/directory) before calling this on a LIVE chain. Never pass a
+    ///         value invented from memory. Three storage slots are written.
     /// @param  chainId The chain id to key.
-    /// @param  cfg     The full config to store.
+    /// @param  cfg     The full config to store (the caller's `flags` is stored with bit 15 forced on).
     function addChain(uint256 chainId, ChainConfig calldata cfg) external onlyOwner {
-        chains[chainId] = cfg;
-        emit ChainAdded(chainId, cfg);
+        ChainConfig memory stored = cfg;
+        stored.flags |= FLAG_REGISTERED;
+        chains[chainId] = stored;
+        emit ChainAdded(chainId, stored);
     }
 
     /// @notice Flip only the `FLAG_LIVE` bit for `chainId`, leaving every other flag untouched, so
@@ -114,7 +133,8 @@ contract ChainRegistry is Ownable2Step {
     }
 
     /// @notice Read the full config for `chainId`. Reverts `ChainRegistry__ChainNotFound` if the id
-    ///         was never added (the all-zero entry is the "not found" sentinel — see {_exists}).
+    ///         was never added (a clear {FLAG_REGISTERED} bit is the "not found" signal — see
+    ///         {_exists}). The returned `flags` carries bit 15 set; off-chain readers mask it out.
     /// @param  chainId The chain id to read.
     /// @return cfg The stored config.
     function getChain(uint256 chainId) external view returns (ChainConfig memory cfg) {
@@ -130,13 +150,15 @@ contract ChainRegistry is Ownable2Step {
         return chains[chainId].flags & FLAG_LIVE != 0;
     }
 
-    /// @dev "Exists" iff the entry is not the all-zero default. A real add always sets at least one
-    ///      of `usdc`, `router`, `ccipSelector`, or `flags` to a non-zero value (every seeded chain
-    ///      sets `FLAG_TESTNET`), so an all-zero read is unambiguously a never-added id.
+    /// @dev "Exists" iff the {FLAG_REGISTERED} bit is set — the SOLE existence signal. {addChain}
+    ///      always ORs that bit in, and {setChainLive} only touches {FLAG_LIVE}, so registration
+    ///      survives every pause/unpause. Testing only this bit (not "any field non-zero") is the L-6
+    ///      fix: a `flags`-only entry whose live bit a `setChainLive(.., false)` clears no longer
+    ///      collapses to the all-zero sentinel and vanishes. A never-added id reads the all-zero
+    ///      default (bit 15 clear) ⇒ not found.
     /// @param chainId The chain id to test.
-    /// @return exists Whether a non-default entry is stored.
+    /// @return exists Whether a registered entry is stored.
     function _exists(uint256 chainId) internal view returns (bool exists) {
-        ChainConfig storage c = chains[chainId];
-        return c.usdc != address(0) || c.router != address(0) || c.ccipSelector != 0 || c.flags != 0;
+        return chains[chainId].flags & FLAG_REGISTERED != 0;
     }
 }
