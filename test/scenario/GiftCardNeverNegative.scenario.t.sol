@@ -147,10 +147,13 @@ contract GiftCardNeverNegativeScenarioTest is Test {
         assertEq(applied, 30e8, "friend redeemed the full $30");
         assertEq(cards.balanceOf(friend, cardId), 0, "friend's card spent to zero");
 
-        cards.reverseRedemption(rid); // permissionless idempotent reversal
+        // The merchant owner reverses (only it may re-credit a spent balance).
+        vm.prank(bakeryOwner);
+        cards.reverseRedemption(rid);
         assertEq(cards.balanceOf(friend, cardId), 30e8, "reversal credited the exact $30 back");
 
         // A second reverse is a clean idempotent no-op — never a double-credit.
+        vm.prank(bakeryOwner);
         cards.reverseRedemption(rid);
         assertEq(
             cards.balanceOf(friend, cardId), 30e8, "idempotent: no double-credit on re-reverse"

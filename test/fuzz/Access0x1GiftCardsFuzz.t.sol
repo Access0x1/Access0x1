@@ -196,6 +196,7 @@ contract Access0x1GiftCardsFuzzTest is Test {
         vm.prank(alice);
         cards.redeem(id, ask, rid);
 
+        vm.prank(merchantOwner); // only the merchant owner may reverse a value-bearing redemption
         cards.reverseRedemption(rid);
         assertEq(cards.balanceOf(alice, id), face, "reverse restores the balance to exactly issued");
     }
@@ -214,8 +215,9 @@ contract Access0x1GiftCardsFuzzTest is Test {
         vm.prank(alice);
         cards.redeem(id, ask, rid);
 
-        // First reverse credits back; every subsequent one is a clean no-op.
+        // First reverse credits back (merchant-owner gated); every subsequent one is a clean no-op.
         for (uint256 i = 0; i < extraReverses; ++i) {
+            vm.prank(merchantOwner);
             cards.reverseRedemption(rid);
         }
         assertEq(
@@ -247,6 +249,9 @@ contract Access0x1GiftCardsFuzzTest is Test {
         cards.transfer(bob, id, moved);
         vm.stopPrank();
 
+        // The merchant owner reverses; the credit lands on the ORIGINAL holder (alice) recorded at
+        // redeem time, regardless of who triggered the reverse or who holds the card now.
+        vm.prank(merchantOwner);
         cards.reverseRedemption(rid); // credits `applied` back to alice (the recorded holder)
 
         // Alice = (remainder - moved) + applied ; Bob = moved ; sum == issued face (conservation).

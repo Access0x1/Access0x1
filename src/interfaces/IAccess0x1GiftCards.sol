@@ -195,7 +195,11 @@ interface IAccess0x1GiftCards {
         returns (uint256 applied);
 
     /// @notice Reverse a prior redemption, crediting the applied amount back to the original holder.
-    ///         Idempotent: a given `redemptionId` reverses at most once.
+    ///         Only the owner of the card's merchant may call (per the Router registry): a reversal
+    ///         re-credits already-spent value, so re-crediting it is a double-spend an arbitrary caller
+    ///         must not be able to trigger. Idempotent: a given `redemptionId` reverses at most once. A
+    ///         zero-applied redemption (a fully-spent card redeemed again) is a permissionless no-op
+    ///         (nothing to re-credit) so a keeper can retry any id safely.
     /// @param redemptionId The redemption to reverse (must have been recorded by {redeem}).
     function reverseRedemption(bytes32 redemptionId) external;
 
@@ -231,9 +235,26 @@ interface IAccess0x1GiftCards {
         uint32 maxRedemptions
     ) external;
 
-    /// @notice Atomically consume a coupon and return the clamped discount for `amountUsd8`. Reverts
-    ///         only on a hard-disqualifying state (inactive, expired, cap reached); the discount math
-    ///         never throws (an unknown type yields a zero discount).
+    /// @notice Preview a coupon's clamped discount for `amountUsd8` WITHOUT consuming it. Permissionless
+    ///         (any storefront may call) and view-only: it runs the SAME active/expired/cap checks as
+    ///         {applyCoupon} but never increments `redemptionsCount`, so it cannot exhaust a finite-cap
+    ///         promotion. Reverts on a hard-disqualifying state (inactive, expired, cap reached) so a
+    ///         preview matches what a consume would do; the discount math never throws.
+    /// @param merchantId The merchant the coupon belongs to.
+    /// @param couponId   The coupon to preview.
+    /// @param amountUsd8 The pre-discount sale amount.
+    /// @return discount  The USD (8-dec) discount, clamped to `[0, amountUsd8]`.
+    function quoteCoupon(uint256 merchantId, bytes32 couponId, uint256 amountUsd8)
+        external
+        view
+        returns (uint256 discount);
+
+    /// @notice Atomically consume a coupon and return the clamped discount for `amountUsd8`. Only the
+    ///         merchant owner may call (per the Router registry) — consuming increments the cap, so a
+    ///         permissionless caller could grief a finite-cap promotion to exhaustion; use {quoteCoupon}
+    ///         for a free, non-consuming storefront preview. Reverts only on a hard-disqualifying state
+    ///         (inactive, expired, cap reached); the discount math never throws (an unknown type yields
+    ///         a zero discount).
     /// @param merchantId The merchant the coupon belongs to.
     /// @param couponId   The coupon to consume.
     /// @param amountUsd8 The pre-discount sale amount.
