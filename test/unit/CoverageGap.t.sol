@@ -189,11 +189,12 @@ contract CoverageGapTest is Test {
         merchantId = router.registerMerchant(payout, address(0), 0, keccak256("gc-m"));
 
         bytes32 cid = keccak256("FLAT10");
-        vm.prank(merchantOwner);
+        vm.startPrank(merchantOwner);
         // AMOUNT coupon: flat $10 discount
         cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.AMOUNT, 10e8, 0, 0);
 
         uint256 discount = cards.applyCoupon(merchantId, cid, 100e8);
+        vm.stopPrank();
         assertEq(discount, 10e8, "AMOUNT discount: flat $10 off a $100 sale");
     }
 
@@ -206,11 +207,12 @@ contract CoverageGapTest is Test {
         uint256 mid = router.registerMerchant(payout, address(0), 0, keccak256("gc-m2"));
 
         bytes32 cid = keccak256("FLAT500");
-        vm.prank(merchantOwner);
+        vm.startPrank(merchantOwner);
         cards.setCoupon(mid, cid, IAccess0x1GiftCards.DiscountType.AMOUNT, 500e8, 0, 0);
 
         // $500 flat on a $50 sale: must clamp to $50.
         uint256 discount = cards.applyCoupon(mid, cid, 50e8);
+        vm.stopPrank();
         assertEq(discount, 50e8, "AMOUNT discount clamped to sale amount");
     }
 

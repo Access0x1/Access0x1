@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
+import { OracleLib } from "../../src/libraries/OracleLib.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { RevertingReceiver } from "../mocks/RevertingReceiver.sol";
@@ -275,8 +276,75 @@ contract Access0x1RouterTest is Test {
     function test_quoteRevertsOnStaleFeed() public {
         _configureFeeds();
         nativeFeed.setRoundData(1, 2000e8, block.timestamp - 3601, block.timestamp - 3601, 1);
-        vm.expectRevert(); // OracleLib__StalePrice, surfaced through the inlined guard
+        vm.expectRevert(OracleLib.OracleLib__StalePrice.selector); // surfaced through the inlined guard
         router.quote(1, address(0), 20e8);
+    }
+
+    /// @dev Per-feed staleness (Medium fix): a 24h-heartbeat USDC/USD feed wired via the 3-arg
+    ///      `setPriceFeed` with an 86400+margin window prices fine even when its answer is ~24h old —
+    ///      where the flat 1h default would falsely revert it as stale. Proves the window is honored.
+    function test_quoteHonorsPerFeedStaleness24hHeartbeat() public {
+        _configureFeeds();
+        uint256 window = 86_400 + 3600;
+        vm.prank(owner);
+        router.setPriceFeed(address(usdc), address(usdcFeed), window);
+        assertEq(router.stalenessOf(address(usdc)), window);
+        // Answer last updated ~24h ago — stale under the 1h default, fresh under the 24h+ window.
+        usdcFeed.setRoundData(1, 1e8, block.timestamp - 86_400, block.timestamp - 86_400, 1);
+        assertEq(router.quote(1, address(usdc), 20e8), 20e6); // does NOT revert
+    }
+
+    /// @dev Even with a wide per-feed window, a genuinely stale answer (older than the configured
+    ///      window) still reverts `OracleLib__StalePrice` — the guard is widened, not disabled.
+    function test_quoteRevertsWhenBeyondPerFeedStaleness() public {
+        _configureFeeds();
+        uint256 window = 86_400 + 3600;
+        vm.prank(owner);
+        router.setPriceFeed(address(usdc), address(usdcFeed), window);
+        // Older than the configured window ⇒ genuinely stale ⇒ revert.
+        usdcFeed.setRoundData(1, 1e8, block.timestamp - window - 1, block.timestamp - window - 1, 1);
+        vm.expectRevert(OracleLib.OracleLib__StalePrice.selector);
+        router.quote(1, address(usdc), 20e8);
+    }
+
+    /// @dev The 2-arg `setPriceFeed` leaves `stalenessOf` at 0, so `quote()` falls back to OracleLib's
+    ///      1h default: an answer just over 1h old still reverts as stale (backward-compatible).
+    function test_twoArgSetPriceFeedKeeps1hDefault() public {
+        _configureFeeds(); // wires usdc via the 2-arg overload
+        assertEq(router.stalenessOf(address(usdc)), 0); // unset ⇒ 1h default
+        // 1h + 1s old: fresh under any wider window, but stale under the inherited 1h default.
+        usdcFeed.setRoundData(1, 1e8, block.timestamp - 3601, block.timestamp - 3601, 1);
+        vm.expectRevert(OracleLib.OracleLib__StalePrice.selector);
+        router.quote(1, address(usdc), 20e8);
+    }
+
+    /// @dev The 3-arg `setPriceFeed` rejects a zero `maxStaleness` (no silent 0-window write).
+    function test_threeArgSetPriceFeedRejectsZeroStaleness() public {
+        _configureFeeds();
+        vm.prank(owner);
+        vm.expectRevert(Access0x1Router.Access0x1__ZeroAmount.selector);
+        router.setPriceFeed(address(usdc), address(usdcFeed), 0);
+    }
+
+    /// @dev The 3-arg `setPriceFeed` rejects a zero feed (a window with no feed is meaningless;
+    ///      callers clear via the 2-arg overload).
+    function test_threeArgSetPriceFeedRejectsZeroFeed() public {
+        _configureFeeds();
+        vm.prank(owner);
+        vm.expectRevert(Access0x1Router.Access0x1__ZeroAddress.selector);
+        router.setPriceFeed(address(usdc), address(0), 86_400);
+    }
+
+    /// @dev Re-wiring with the 2-arg overload resets a previously-set per-feed window back to the 1h
+    ///      default, so clearing-by-2-arg can never leave a stale wide window behind.
+    function test_twoArgSetPriceFeedResetsStaleness() public {
+        _configureFeeds();
+        vm.startPrank(owner);
+        router.setPriceFeed(address(usdc), address(usdcFeed), 86_400);
+        assertEq(router.stalenessOf(address(usdc)), 86_400);
+        router.setPriceFeed(address(usdc), address(usdcFeed)); // 2-arg resets to default
+        vm.stopPrank();
+        assertEq(router.stalenessOf(address(usdc)), 0);
     }
 
     function test_quoteRevertsOnZeroPrice() public {

@@ -26,17 +26,22 @@ library OracleLib {
     /// @notice The L2 sequencer restarted within the grace window; its feeds are not yet trusted.
     error OracleLib__SequencerGracePeriodNotOver();
 
-    /// @notice Max age of a feed answer before it is treated as stale (1 hour).
-    /// @dev    Matches the router's `MAX_FEED_STALENESS`. Stricter than the 3h Cyfrin canonical:
-    ///         a payments router must settle against a fresh round, not a 3-hour-old one.
-    uint256 private constant TIMEOUT = 3600;
+    /// @notice Default max age of a feed answer before it is treated as stale (1 hour).
+    /// @dev    OracleLib is the single source of truth for the feed-staleness window; the router has
+    ///         no separate staleness constant — it consumes this guard via `quote()`. Stricter than
+    ///         the 3h Cyfrin canonical: a payments router must settle against a fresh round, not a
+    ///         3-hour-old one. This 1h default suits fast feeds (ETH/USD); slow-heartbeat feeds
+    ///         (e.g. a 24h USDC/USD) configure a wider per-feed window via the `maxStaleness` overload.
+    uint256 internal constant TIMEOUT = 3600;
 
     /// @notice Grace period after an L2 sequencer restart before its price feeds are trusted (1 hour).
     /// @dev    Chainlink's recommended pattern: a price reported right after the sequencer comes back
     ///         can be stale or manipulated, so reject quotes until the sequencer has been up that long.
     uint256 private constant SEQUENCER_GRACE_PERIOD = 3600;
 
-    /// @notice `latestRoundData()` guarded by a staleness + completed-round check.
+    /// @notice `latestRoundData()` guarded by a staleness + completed-round check, using the default
+    ///         1h `TIMEOUT` window. Kept for fast feeds (ETH/USD) and existing callers — backward
+    ///         compatible; delegates to the `maxStaleness` overload.
     /// @param feed The Chainlink aggregator to read.
     /// @return roundId         The round the answer was computed in.
     /// @return answer          The raw feed answer (validity, e.g. `answer > 0`, is the caller's job).
@@ -54,12 +59,38 @@ library OracleLib {
             uint80 answeredInRound
         )
     {
+        return staleCheckLatestRoundData(feed, TIMEOUT);
+    }
+
+    /// @notice `latestRoundData()` guarded by a staleness + completed-round check, against a
+    ///         caller-supplied `maxStaleness` window. A slow-heartbeat feed (e.g. a 24h USDC/USD that
+    ///         only republishes on a 0.25% deviation) is perfectly fresh well past 1h, so the router
+    ///         configures a per-feed window (`stalenessOf`) and passes it here; fast feeds use the 1h
+    ///         default via the no-arg overload above.
+    /// @param feed         The Chainlink aggregator to read.
+    /// @param maxStaleness Max age (seconds) of the answer before it is treated as stale.
+    /// @return roundId         The round the answer was computed in.
+    /// @return answer          The raw feed answer (validity, e.g. `answer > 0`, is the caller's job).
+    /// @return startedAt       When the round started.
+    /// @return updatedAt       When the round was last updated (0 ⇒ never completed ⇒ revert).
+    /// @return answeredInRound The round the answer was carried from; `< roundId` ⇒ carried-over ⇒ revert.
+    function staleCheckLatestRoundData(AggregatorV3Interface feed, uint256 maxStaleness)
+        internal
+        view
+        returns (
+            uint80 roundId,
+            int256 answer,
+            uint256 startedAt,
+            uint256 updatedAt,
+            uint80 answeredInRound
+        )
+    {
         (roundId, answer, startedAt, updatedAt, answeredInRound) = feed.latestRoundData();
         if (updatedAt == 0 || answeredInRound < roundId) revert OracleLib__StalePrice();
         // Comparing against block.timestamp IS the staleness guard — the canonical Chainlink
-        // pattern; minute-scale miner drift cannot defeat a 1-hour window (Slither timestamp ack).
+        // pattern; minute-scale miner drift cannot defeat the configured window (Slither timestamp ack).
         // slither-disable-next-line timestamp
-        if (block.timestamp - updatedAt > TIMEOUT) revert OracleLib__StalePrice();
+        if (block.timestamp - updatedAt > maxStaleness) revert OracleLib__StalePrice();
     }
 
     /// @notice Revert when an L2 sequencer is down or restarted less than `SEQUENCER_GRACE_PERIOD` ago,
