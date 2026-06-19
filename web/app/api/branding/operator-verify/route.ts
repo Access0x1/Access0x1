@@ -60,8 +60,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'no_branding' }, { status: 400 })
   }
 
+  // C-2: derive the action ONLY from trusted server config and OVERRIDE any body-supplied action in
+  // the payload forwarded to the portal, so a proof generated for a different scope cannot be replayed
+  // here; the nullifier is then claimed under this same server action (never result.action).
   const action = worldOperatorAction()
-  const result = await verifyWorldProof(body, action)
+  const sealed =
+    typeof body === 'object' && body !== null
+      ? { ...(body as Record<string, unknown>), action }
+      : body
+  const result = await verifyWorldProof(sealed, action)
 
   if (!result.ok) {
     if (result.code === 'not_configured') {
@@ -76,7 +83,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // One human, one operator slot.
   let fresh: boolean
   try {
-    fresh = claimNullifier(result.action, result.nullifier)
+    fresh = claimNullifier(action, result.nullifier)
   } catch {
     return NextResponse.json({ error: 'bad_nullifier' }, { status: 400 })
   }

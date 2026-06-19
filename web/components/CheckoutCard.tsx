@@ -12,6 +12,7 @@ import { ConnectButton } from './ConnectButton'
 import { MerchantIdentity } from './MerchantIdentity'
 import { FundButton } from './FundButton'
 import { isOnrampPublicConfigured } from '@/lib/onramp'
+import { safeReturnUrl } from '@/lib/safeUrl'
 import { isBlinkPublicConfigured, runBlinkDeposit } from '@/lib/funding/blink'
 import { isPaymasterActiveForChain } from '@/lib/paymaster'
 import { ReceiptScreen } from './ReceiptScreen'
@@ -86,6 +87,14 @@ export function CheckoutCard({
 }): ReactNode {
   const { primaryWallet } = useDynamicContext()
   const usdAmount8 = usdToAmount8(Number(usdAmount))
+
+  // Sanitize the merchant-supplied return URL ONCE, here, before it is forwarded
+  // anywhere: rendered as the receipt's "Return to merchant" href OR sent to the
+  // on-ramp as `redirectUrl`. Only an https: URL survives; a javascript:/data:/
+  // http:/evil-origin value collapses to undefined so neither path forwards it
+  // (red-report C-1 / O-11). The page already validates at extraction; this is
+  // the in-component backstop in case the prop arrives from elsewhere.
+  const safeReturn = safeReturnUrl(returnUrl)
 
   // The pay-token menu for THIS chain (USDC first; others disabled until env-set).
   const payTokens = resolvePayTokens(chainId)
@@ -163,7 +172,7 @@ export function CheckoutCard({
       const res = await fetch('/api/onramp/session', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ address: addr, amount: usdAmount, redirectUrl: returnUrl }),
+        body: JSON.stringify({ address: addr, amount: usdAmount, redirectUrl: safeReturn }),
       })
       if (res.status === 503) {
         setFundNote('Bank funding is not configured yet.')
@@ -181,7 +190,7 @@ export function CheckoutCard({
     } finally {
       setFunding(false)
     }
-  }, [primaryWallet?.address, usdAmount, returnUrl])
+  }, [primaryWallet?.address, usdAmount, safeReturn])
 
   const handleOneTapDeposit = useCallback(async (): Promise<void> => {
     setFundNote(null)
@@ -314,7 +323,7 @@ export function CheckoutCard({
         chainId={chainId}
         tokenSymbol={tokenSymbol}
         tokenDecimals={tokenDecimals}
-        returnUrl={returnUrl}
+        returnUrl={safeReturn}
       />
     )
   }

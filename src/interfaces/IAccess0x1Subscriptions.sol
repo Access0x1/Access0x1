@@ -162,8 +162,21 @@ interface IAccess0x1Subscriptions {
     /// @param status    The status after applying dunning.
     event RenewalFailed(uint256 indexed subId, uint16 failCount, SubStatus status);
 
-    /// @notice A subscription was canceled by its subscriber. The SessionGrant is revoked.
+    /// @notice A subscription was canceled by its subscriber. {cancel} also makes a BEST-EFFORT attempt
+    ///         to revoke the underlying SessionGrant; the {SessionRevokeOnCancel} event records whether
+    ///         that succeeded. A failed revoke never blocks the cancel.
     event Canceled(uint256 indexed subId);
+
+    /// @notice Emitted on every {cancel} to LOUDLY record the fate of the underlying SessionGrant budget
+    ///         authorization. SessionGrant.revoke is OWNER-only and this contract is only the session's
+    ///         DELEGATE, so the on-chain attempt almost always fails — when `revoked == false` the
+    ///         subscriber's budget authorization REMAINS LIVE until the session's own expiry, and the
+    ///         subscriber should call `SessionGrant.revoke(sessionId)` themselves to kill it immediately.
+    ///         When `revoked == true` the authorization was successfully torn down in this tx.
+    /// @param subId     The canceled subscription.
+    /// @param sessionId The underlying SessionGrant session id.
+    /// @param revoked   True if the best-effort revoke succeeded; false if the budget remains live to expiry.
+    event SessionRevokeOnCancel(uint256 indexed subId, bytes32 indexed sessionId, bool revoked);
 
     /// @notice A terminally-UNPAID subscription was cured back to PAST_DUE by the owner or merchant.
     /// @param subId   The reactivated subscription.

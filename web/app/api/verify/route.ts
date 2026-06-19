@@ -174,8 +174,17 @@ async function verifyWorldIdMethod(body: Record<string, unknown>): Promise<Verdi
   if (proof === undefined || proof === null) {
     return { ok: false, code: 'missing_proof', status: 400 }
   }
-  const action = typeof body.action === 'string' ? body.action : worldAction()
-  const result = await verifyWorldProof(proof, action)
+  // C-2: the world-id trust method is the BUYER gate; the action is fixed by
+  // trusted server config, never the body. We also FORCE the action field in the
+  // forwarded proof so the portal verifies against the same action we claim the
+  // nullifier under — a proof made for action A cannot be claimed under a body
+  // action B.
+  const action = worldAction()
+  const sealedProof =
+    typeof proof === 'object' && proof !== null
+      ? { ...(proof as Record<string, unknown>), action }
+      : proof
+  const result = await verifyWorldProof(sealedProof, action)
   if (!result.ok) {
     if (result.code === 'not_configured') return { ok: false, code: 'not_configured', status: 503 }
     if (result.code === 'verify_unreachable')
@@ -183,9 +192,11 @@ async function verifyWorldIdMethod(body: Record<string, unknown>): Promise<Verdi
     return { ok: false, code: 'proof_invalid', status: 401 }
   }
   // OUR one-per-human enforcement (a repeat human cannot re-earn the method).
+  // Claim under the TRUSTED server action, never `result.action` (the portal
+  // echo), so the nullifier slot can't be steered by the body or the portal (C-2).
   let fresh: boolean
   try {
-    fresh = claimNullifier(result.action, result.nullifier)
+    fresh = claimNullifier(action, result.nullifier)
   } catch {
     return { ok: false, code: 'bad_nullifier', status: 400 }
   }

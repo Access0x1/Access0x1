@@ -220,6 +220,70 @@ contract Access0x1BookingsTest is Test {
         );
     }
 
+    /// @notice O-2: a `holdSecs` below `MIN_HOLD_SECS` (here 0) reverts at reserve — a too-short hold
+    ///         would be immediately/near-immediately expirable, enabling slot-cycling griefing.
+    function test_reserveRevertsOnZeroHold() public {
+        IAccess0x1Bookings.Policy memory p = _policy(2 hours, 10e8, 20e8);
+        uint64 minHold = bookings.MIN_HOLD_SECS();
+        vm.prank(payer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Bookings.Access0x1Bookings__HoldTooShort.selector, uint64(0), minHold
+            )
+        );
+        bookings.reserve(
+            merchantId, SLOT_KEY, SLOT_TS, address(usdc), DEPOSIT_USD8, 0, p, 0, keccak256("n")
+        );
+    }
+
+    /// @notice O-2: a `holdSecs` of `MIN_HOLD_SECS - 1` (just below the floor) reverts {HoldTooShort}.
+    function test_reserveRevertsOnHoldBelowMinimum() public {
+        IAccess0x1Bookings.Policy memory p = _policy(2 hours, 10e8, 20e8);
+        uint64 minHold = bookings.MIN_HOLD_SECS();
+        uint64 tooShort = minHold - 1;
+        vm.prank(payer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Bookings.Access0x1Bookings__HoldTooShort.selector, tooShort, minHold
+            )
+        );
+        bookings.reserve(
+            merchantId,
+            SLOT_KEY,
+            SLOT_TS,
+            address(usdc),
+            DEPOSIT_USD8,
+            0,
+            p,
+            tooShort,
+            keccak256("n")
+        );
+    }
+
+    /// @notice O-2: a `holdSecs` of EXACTLY `MIN_HOLD_SECS` is the boundary — it is accepted, and the
+    ///         reservation's hold deadline is `now + MIN_HOLD_SECS`.
+    function test_reserveAcceptsExactMinimumHold() public {
+        IAccess0x1Bookings.Policy memory p = _policy(2 hours, 10e8, 20e8);
+        uint64 minHold = bookings.MIN_HOLD_SECS();
+        vm.prank(payer);
+        uint256 id = bookings.reserve(
+            merchantId,
+            SLOT_KEY,
+            SLOT_TS,
+            address(usdc),
+            DEPOSIT_USD8,
+            0,
+            p,
+            minHold,
+            keccak256("n")
+        );
+        assertEq(
+            bookings.reservationOf(id).holdExpiresAt,
+            uint64(block.timestamp) + minHold,
+            "hold deadline is now + MIN_HOLD_SECS"
+        );
+    }
+
     function test_reserveRevertsOnUnknownMerchant() public {
         IAccess0x1Bookings.Policy memory p = _policy(2 hours, 10e8, 20e8);
         vm.prank(payer);
@@ -370,13 +434,12 @@ contract Access0x1BookingsTest is Test {
                               EXPIRE HOLD
     //////////////////////////////////////////////////////////////*/
 
-    function test_expireHoldRefundsPayerPermissionlessly() public {
+    function test_expireHoldRefundsPayer() public {
         (uint256 id, uint256 escrow) = _reserve(SLOT_KEY, keccak256("n1"));
         uint256 payerBalBefore = usdc.balanceOf(payer);
 
         vm.warp(block.timestamp + HOLD_SECS + 1);
-        address keeper = makeAddr("keeper");
-        vm.prank(keeper); // permissionless
+        vm.prank(payer); // payer is authorized
         bookings.expireHold(id);
 
         assertEq(usdc.balanceOf(payer) - payerBalBefore, escrow);
@@ -390,6 +453,7 @@ contract Access0x1BookingsTest is Test {
 
     function test_expireHoldRevertsBeforeDeadline() public {
         (uint256 id,) = _reserve(SLOT_KEY, keccak256("n1"));
+        vm.prank(payer); // authorized caller — the revert is the deadline guard, not authz
         vm.expectRevert(
             abi.encodeWithSelector(
                 IAccess0x1Bookings.Access0x1Bookings__HoldNotExpired.selector,
@@ -399,6 +463,47 @@ contract Access0x1BookingsTest is Test {
             )
         );
         bookings.expireHold(id);
+    }
+
+    /// @notice O-2: the MERCHANT OWNER may also expire a lapsed hold (freeing their own slot), not just
+    ///         the payer. The full escrow still refunds to the payer regardless of who triggers it.
+    function test_expireHoldByMerchantOwnerRefundsPayer() public {
+        (uint256 id, uint256 escrow) = _reserve(SLOT_KEY, keccak256("n1"));
+        uint256 payerBalBefore = usdc.balanceOf(payer);
+
+        vm.warp(block.timestamp + HOLD_SECS + 1);
+        vm.prank(merchantOwner); // merchant owner is authorized
+        bookings.expireHold(id);
+
+        assertEq(
+            usdc.balanceOf(payer) - payerBalBefore,
+            escrow,
+            "payer refunded by owner-triggered expiry"
+        );
+        assertEq(
+            uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.EXPIRED)
+        );
+        assertTrue(bookings.isSlotFree(SLOT_KEY));
+    }
+
+    /// @notice O-2: a third party (not the payer, not the merchant owner) CANNOT expire a hold, even
+    ///         after the deadline — this is the slot-cycling griefing fix. The reservation stays HELD.
+    function test_expireHoldRevertsForUnauthorizedCaller() public {
+        (uint256 id,) = _reserve(SLOT_KEY, keccak256("n1"));
+        vm.warp(block.timestamp + HOLD_SECS + 1); // deadline has passed
+
+        address griefer = makeAddr("griefer");
+        vm.prank(griefer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Bookings.Access0x1Bookings__NotAuthorized.selector, id, griefer
+            )
+        );
+        bookings.expireHold(id);
+
+        // The slot is still HELD — the griefer could not cycle it.
+        assertEq(uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.HELD));
+        assertFalse(bookings.isSlotFree(SLOT_KEY));
     }
 
     function test_expireRefundToBlocklistedPayerGoesToRescue() public {
@@ -430,6 +535,7 @@ contract Access0x1BookingsTest is Test {
         // Block the payer from receiving; the refund push must NOT revert — it queues.
         bt.setBlocked(payer, true);
         vm.warp(block.timestamp + HOLD_SECS + 1);
+        vm.prank(payer); // payer is authorized to expire their own hold
         bookings.expireHold(id);
 
         assertEq(bookings.refundRescueOf(payer, address(bt)), escrow);
@@ -839,6 +945,7 @@ contract Access0x1BookingsTest is Test {
 
         vm.warp(block.timestamp + HOLD_SECS + 1);
         uint256 payerBefore = noData.balanceOf(payer);
+        vm.prank(payer); // payer is authorized to expire their own hold
         bookings.expireHold(id); // MUST NOT revert on the no-data refund push
 
         assertEq(

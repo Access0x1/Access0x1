@@ -179,9 +179,12 @@ interface IAccess0x1Bookings {
     /// @notice Reservation `id` is not in the state this transition requires.
     error Access0x1Bookings__WrongStatus(uint256 id, RStatus current, RStatus required);
 
-    /// @notice The hold deadline has not yet passed, so the reservation cannot be permissionlessly
-    ///         expired.
+    /// @notice The hold deadline has not yet passed, so the reservation cannot be expired yet.
     error Access0x1Bookings__HoldNotExpired(uint256 id, uint64 holdExpiresAt, uint256 nowTs);
+
+    /// @notice The requested `holdSecs` is below `MIN_HOLD_SECS` — a hold that short would be
+    ///         immediately/near-immediately expirable, enabling slot-cycling griefing.
+    error Access0x1Bookings__HoldTooShort(uint64 holdSecs, uint64 minHoldSecs);
 
     /// @notice A late cancel was attempted under a policy that blocks late cancellation
     ///         (`lateFeeUsd8 == 0` inside the cancel window).
@@ -228,7 +231,9 @@ interface IAccess0x1Bookings {
     /// @param depositUsd8   The deposit price in USD (8 decimals).
     /// @param balanceDueUsd8 The in-person remainder asserted at service time; 0 for a full deposit.
     /// @param policy        The cancellation policy to snapshot (immutable after this call).
-    /// @param holdSecs      Seconds from now until the hold may be permissionlessly expired.
+    /// @param holdSecs      Seconds from now until the hold may be expired (by the payer or merchant
+    ///                      owner). Must be `>= MIN_HOLD_SECS`; a shorter (or zero) hold reverts
+    ///                      {HoldTooShort} so a slot is never immediately expirable.
     /// @param clientNonce   An idempotency key (a replay reverts {NonceUsed}).
     /// @return id           The new reservation id.
     function reserve(
@@ -252,8 +257,9 @@ interface IAccess0x1Bookings {
     /// @param id The reservation id.
     function complete(uint256 id) external;
 
-    /// @notice Expire a HELD reservation after its deadline, refunding the escrow to the payer.
-    ///         Permissionless.
+    /// @notice Expire a HELD reservation after its deadline, refunding the escrow to the payer. Only
+    ///         the payer or the merchant owner may call (not permissionless) — this prevents a third
+    ///         party from slot-cycling the merchant's calendar.
     /// @param id The reservation id.
     function expireHold(uint256 id) external;
 

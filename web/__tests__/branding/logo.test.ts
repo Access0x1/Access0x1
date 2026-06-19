@@ -16,6 +16,7 @@ import {
   rasterDataUriToSvg,
   sanitizeSvg,
   sanitizeSvgLogo,
+  scaleSvg,
   toInlineSvgLogo,
 } from '@/lib/branding/logo'
 
@@ -71,6 +72,49 @@ describe('sanitizeSvg — strips all executable / fetching content', () => {
     const clean = sanitizeSvg('<svg><scr<script></script>ipt>alert(1)</script><rect/></svg>')
     expect(clean).not.toMatch(/<script/i)
   })
+
+  it('removes <style> blocks carrying a CSS url() / @font-face beacon (R-4)', () => {
+    const dirty =
+      '<svg><style>@font-face{font-family:x;src:url(https://attacker.example/beacon.woff)}' +
+      'rect{fill:url(https://attacker.example/track.png)}</style><rect/></svg>'
+    const clean = sanitizeSvg(dirty)
+    expect(clean).not.toMatch(/<style/i)
+    expect(clean).not.toMatch(/@font-face/i)
+    expect(clean).not.toMatch(/attacker\.example/)
+    expect(clean).toContain('<rect')
+  })
+
+  it('removes self-closing / bare <style ...> tags', () => {
+    const clean = sanitizeSvg('<svg><style type="text/css"/><rect/></svg>')
+    expect(clean).not.toMatch(/<style/i)
+    expect(clean).toContain('<rect')
+  })
+
+  it('removes inline style= attributes carrying a CSS url() beacon (R-4)', () => {
+    const clean = sanitizeSvg(
+      `<svg><rect style="fill:url(https://attacker.example/track.png)"/>` +
+        `<circle style='background:url(https://attacker.example/b.gif)'/></svg>`,
+    )
+    expect(clean).not.toMatch(/\sstyle\s*=/i)
+    expect(clean).not.toMatch(/attacker\.example/)
+    expect(clean).toContain('<rect')
+    expect(clean).toContain('<circle')
+  })
+
+  it('removes a bare (unquoted) style= attribute', () => {
+    const clean = sanitizeSvg('<svg><rect style=fill:red /></svg>')
+    expect(clean).not.toMatch(/\sstyle\s*=/i)
+  })
+})
+
+describe('sanitizeSvgLogo — rejects surviving <style> / style= (belt-and-suspenders)', () => {
+  it('strips a <style> beacon and still validates as a clean svg', () => {
+    const { svg } = sanitizeSvgLogo(
+      '<svg viewBox="0 0 10 10"><style>rect{fill:url(https://attacker.example/x)}</style><rect/></svg>',
+    )
+    expect(svg).not.toMatch(/<style/i)
+    expect(svg).not.toMatch(/attacker\.example/)
+  })
 })
 
 describe('sanitizeSvgLogo — validates a clean single <svg>', () => {
@@ -91,6 +135,36 @@ describe('sanitizeSvgLogo — validates a clean single <svg>', () => {
   it('rejects an oversize svg', () => {
     const huge = '<svg>' + 'a'.repeat(300 * 1024) + '</svg>'
     expect(() => sanitizeSvgLogo(huge)).toThrow(LogoError)
+  })
+})
+
+describe('scaleSvg — resizes AND re-sanitizes the post-processed string (R-4)', () => {
+  it('overrides width/height to the target pixel box', () => {
+    const sized = scaleSvg('<svg width="256" height="256"><rect/></svg>', 56)
+    expect(sized).toContain('width="56"')
+    expect(sized).toContain('height="56"')
+    expect(sized).not.toContain('256')
+  })
+
+  it('re-strips a <style> url() beacon that survived in the stored string', () => {
+    // A logo string that (e.g. via an older store row) still carries a CSS beacon
+    // must NOT reach the DOM through scaleSvg's raw string edit — it re-sanitizes.
+    const stored =
+      '<svg width="256" height="256"><style>rect{fill:url(https://attacker.example/x)}</style><rect/></svg>'
+    const sized = scaleSvg(stored, 40)
+    expect(sized).not.toMatch(/<style/i)
+    expect(sized).not.toMatch(/attacker\.example/)
+    expect(sized).toContain('width="40"')
+  })
+
+  it('re-strips a script reintroduced into the stored string', () => {
+    const sized = scaleSvg('<svg width="10" height="10"><script>alert(1)</script><rect/></svg>', 56)
+    expect(sized).not.toMatch(/<script/i)
+  })
+
+  it('is idempotent on an already-clean, already-sized svg', () => {
+    const clean = '<svg width="56" height="56"><rect/></svg>'
+    expect(scaleSvg(clean, 56)).toBe(clean)
   })
 })
 

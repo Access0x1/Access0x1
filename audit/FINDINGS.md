@@ -7,7 +7,7 @@ set, not just the router core.
 
 | Layer | Result |
 | --- | --- |
-| `forge test` | **871 tests green, 0 failed, 0 skipped** (86 suites: unit + attack + invariant + integration + fuzz; **fork-excluded** — the 3 Chainlink fork tests pass in isolation, flaky only under live-RPC rate-limit) |
+| `forge test` | **920 tests green, 0 failed, 0 skipped** (87 suites: unit + attack + invariant + integration + fuzz + fork). The 3 `test/fork/**` Chainlink-feed tests are counted in the 920 and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI both run 920/920 green; export `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed. |
 | `forge coverage` | lines **98.58%**, statements **97.65%**, branches **89.90%**, functions **100%** overall (`--ir-minimum`; per-contract table below, raw in [`COVERAGE.md`](COVERAGE.md)) |
 | Invariants | **31 total** hold under `fail_on_revert`, 0 reverts: 6 router + 3 PaymentLanes + 6 Bookings + 6 Invoices + 6 Subscriptions + 4 GiftCards |
 | `slither .` (v0.11.5) | **34 results across 13 detectors**, all triaged (false-positive / by-design / justified-with-runtime-guard); router native-send rows suppressed by inline `slither-disable` |

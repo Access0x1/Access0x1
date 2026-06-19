@@ -34,7 +34,7 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: Anthropic }
 })
 
-const { POST } = await import('../route.js')
+const { POST, __resetAskMetersForTests } = await import('../route.js')
 
 /** Build an async-iterable that yields the given text as one text_delta event. */
 function streamOf(text: string): AsyncIterable<unknown> {
@@ -61,11 +61,17 @@ function req(body: unknown, ip?: string): Request {
 
 beforeEach(() => {
   streamMock.mockReset()
+  __resetAskMetersForTests()
   vi.stubEnv('CLAUDE_API_KEY', 'sk-test-key')
+  // The limiter keys on a TRUSTED proxy-set IP (R-6). Tell the route it is behind a
+  // trusted proxy so the per-request x-forwarded-for IP is honored (single hop ⇒
+  // first==last), preserving the unique-IP-per-request isolation these tests rely on.
+  vi.stubEnv('ASK_TRUST_PROXY', 'true')
 })
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  __resetAskMetersForTests()
 })
 
 describe('happy path (mocked SDK)', () => {
@@ -111,6 +117,91 @@ describe('fail-soft: unconfigured', () => {
     const body = (await res.json()) as { error: string; code: string }
     expect(body.code).toBe('not_configured')
     expect(streamMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('rate-limit IP keying (R-6) — no trust in the raw first x-forwarded-for', () => {
+  it('does NOT trust forwarding headers when ASK_TRUST_PROXY is off (spoofed IPs share one bucket)', async () => {
+    vi.stubEnv('ASK_TRUST_PROXY', '') // no trusted proxy in front
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    // Spoof a DIFFERENT first x-forwarded-for on every request. Without trust, all
+    // map to a single shared key, so the 11th request still hits the per-IP cap of 10.
+    let last: Response | undefined
+    for (let i = 0; i < 11; i++) {
+      last = await POST(
+        new Request('https://x/api/ask', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-forwarded-for': `1.2.3.${i}` },
+          body: JSON.stringify({ question: 'hi' }),
+        }),
+      )
+    }
+    expect(last!.status).toBe(429) // spoofing the client IP did NOT escape the limiter
+  })
+
+  it('keys on the LAST x-forwarded-for hop (proxy-appended), not the spoofable first', async () => {
+    vi.stubEnv('ASK_TRUST_PROXY', 'true')
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    // Same trusted last hop (10.9.9.9), attacker varies the first (client-supplied) hop.
+    // The limiter must bucket them together → the 11th is rejected.
+    let last: Response | undefined
+    for (let i = 0; i < 11; i++) {
+      last = await POST(
+        new Request('https://x/api/ask', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-forwarded-for': `9.9.9.${i}, 10.9.9.9` },
+          body: JSON.stringify({ question: 'hi' }),
+        }),
+      )
+    }
+    expect(last!.status).toBe(429)
+  })
+
+  it('prefers the proxy-set x-real-ip over x-forwarded-for when trusting the proxy', async () => {
+    vi.stubEnv('ASK_TRUST_PROXY', 'true')
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    let last: Response | undefined
+    for (let i = 0; i < 11; i++) {
+      last = await POST(
+        new Request('https://x/api/ask', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-real-ip': '10.0.0.42', // trusted, constant
+            'x-forwarded-for': `9.9.9.${i}`, // spoofed, varied — must be ignored
+          },
+          body: JSON.stringify({ question: 'hi' }),
+        }),
+      )
+    }
+    expect(last!.status).toBe(429)
+  })
+})
+
+describe('hard server-side spend cap (R-6)', () => {
+  it('returns 429 daily_cap once the daily request budget is exhausted', async () => {
+    streamMock.mockReturnValue(streamOf('ok'))
+    // Distinct trusted IP per request so the per-IP minute limiter never trips;
+    // the daily request cap (500) is what we want to hit.
+    async function ask(n: number) {
+      return POST(
+        new Request('https://x/api/ask', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-real-ip': `10.1.${Math.floor(n / 250)}.${n % 250}` },
+          body: JSON.stringify({ question: 'hi' }),
+        }),
+      )
+    }
+    let exhausted: Response | undefined
+    for (let i = 0; i < 501; i++) {
+      exhausted = await ask(i)
+    }
+    expect(exhausted!.status).toBe(429)
+    const body = (await exhausted!.json()) as { code: string }
+    expect(body.code).toBe('daily_cap')
   })
 })
 
