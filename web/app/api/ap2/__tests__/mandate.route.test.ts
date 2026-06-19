@@ -4,16 +4,20 @@
  * The route is pure derivation. These pin: a valid SessionGrant body yields an Intent Mandate; a cart
  * yields a hash-bound chain; a bad body / over-budget cart surfaces as a structured 400 (law #5).
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { POST } from "../mandate/route.js";
 
-function req(body: unknown): Request {
+function req(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request("http://localhost:3000/api/ap2/mandate", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
+
+afterEach(() => {
+  delete process.env.AP2_MANDATE_SECRET;
+});
 
 const GRANT = {
   sessionId: "0xaaaa000000000000000000000000000000000000000000000000000000000001",
@@ -59,6 +63,46 @@ describe("POST /api/ap2/mandate", () => {
     expect(body.mandates.intent.credentialSubject.spendingScope.budgetCap).toBe("100000000");
     expect(body.mandates.cart).toBeUndefined();
     expect(body.note).toMatch(/UNSIGNED/);
+  });
+
+  it("carries a PROMINENT on-chain-truth caveat on every success (O-10)", async () => {
+    const res = await POST(req({ grant: GRANT, options: OPTIONS }));
+    const body = await res.json();
+    expect(typeof body.onChainTruth).toBe("string");
+    expect(body.onChainTruth).toMatch(/DERIVED, NOT AUTHORITATIVE/);
+    expect(body.onChainTruth).toMatch(/re-verify the grant/i);
+  });
+
+  describe("caller check (O-10) — AP2_MANDATE_SECRET", () => {
+    it("stays OPEN when no secret is configured (derivation moves no money)", async () => {
+      delete process.env.AP2_MANDATE_SECRET;
+      const res = await POST(req({ grant: GRANT, options: OPTIONS }));
+      expect(res.status).toBe(200);
+    });
+
+    it("401s a missing / wrong x-internal-secret when the secret IS configured", async () => {
+      process.env.AP2_MANDATE_SECRET = "ap2-secret";
+      expect((await POST(req({ grant: GRANT, options: OPTIONS }))).status).toBe(401); // missing
+      expect(
+        (await POST(req({ grant: GRANT, options: OPTIONS }, { "x-internal-secret": "wrong" }))).status,
+      ).toBe(401); // wrong
+    });
+
+    it("allows a correct x-internal-secret when configured", async () => {
+      process.env.AP2_MANDATE_SECRET = "ap2-secret";
+      const res = await POST(req({ grant: GRANT, options: OPTIONS }, { "x-internal-secret": "ap2-secret" }));
+      expect(res.status).toBe(200);
+    });
+
+    it("checks the caller BEFORE parsing the body (junk JSON ⇒ 401, not 400)", async () => {
+      process.env.AP2_MANDATE_SECRET = "ap2-secret";
+      const bad = new Request("http://localhost:3000/api/ap2/mandate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{not json",
+      });
+      expect((await POST(bad)).status).toBe(401);
+    });
   });
 
   it("returns Intent + Cart when a cart is supplied", async () => {

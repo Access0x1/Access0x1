@@ -36,17 +36,44 @@ function issueSubnameInBackground(row: TenantBranding): void {
  * Reads the calling tenant's own row so the "edit later" card can prefill. The
  * tenant id comes from the `?tenantId=` query (the same Dynamic identity the
  * write uses). Returns `{ branding: null }` when they have not saved yet.
+ *
+ * R-8: the `?tenantId=` query is UNAUTHENTICATED — anyone can pass any wallet
+ * address — so this endpoint MUST NOT leak the verification fields
+ * (`operatorNullifier` — a World ID nullifier hash — `humanVerifier`,
+ * `requiredTier`) to an unauthenticated caller (a privacy/enumeration regression
+ * for a personhood product). We therefore split the projection: a caller who
+ * proves ownership via a verified Dynamic JWT (`Authorization: Bearer`) for the
+ * SAME tenant gets the full row; everyone else gets the public projection with
+ * the verification fields stripped.
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url)
+  const queryTenantId = searchParams.get('tenantId') ?? undefined
+
+  // Always shape-check the query tenant id (so a junk address is a clean 401).
   let tenantId: string
   try {
-    tenantId = resolveTenantId({ tenantId: searchParams.get('tenantId') ?? undefined })
+    tenantId = resolveTenantId({ tenantId: queryTenantId })
   } catch {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
+
+  // Was a verified Dynamic JWT presented for THIS tenant? Only then do we return
+  // the verification fields. A presented-but-invalid token, a mismatched wallet,
+  // or no token all resolve to the stripped public projection (never a 500/leak).
+  let verifiedOwner = false
+  try {
+    const resolved = await resolveVerifiedTenant(request, { tenantId })
+    verifiedOwner = resolved.verified && resolved.tenantId === tenantId
+  } catch {
+    verifiedOwner = false
+  }
+
   const row = getByTenant(tenantId)
-  return NextResponse.json({ branding: row ? toClientBranding(row) : null })
+  if (!row) return NextResponse.json({ branding: null })
+  return NextResponse.json({
+    branding: verifiedOwner ? toClientBranding(row) : toUnauthenticatedBranding(row),
+  })
 }
 
 /**
@@ -130,9 +157,33 @@ export async function POST(request: Request): Promise<NextResponse> {
 }
 
 /**
- * The tenant-facing branding view: the full row MINUS nothing sensitive (the
- * tenant owns it). Distinct from the PUBLIC payout-free payload in response.ts.
+ * The tenant-facing branding view: the full row, returned ONLY to a caller that
+ * proved ownership via a verified Dynamic JWT (the tenant owns it). Distinct from
+ * the PUBLIC payout-free payload in response.ts.
  */
 function toClientBranding(row: TenantBranding): TenantBranding {
   return row
+}
+
+/** The tenant-row projection with the verification fields removed (R-8). */
+type UnauthenticatedBranding = Omit<
+  TenantBranding,
+  'operatorNullifier' | 'humanVerifier' | 'requiredTier'
+>
+
+/**
+ * The unauthenticated projection (R-8): the full tenant row MINUS the
+ * verification fields — `operatorNullifier` (a World ID nullifier hash),
+ * `humanVerifier`, and `requiredTier`. The `?tenantId=` query is
+ * unauthenticated, so this is what a caller who has NOT proven ownership of the
+ * tenant receives. The fields are removed via destructuring (not nulled) so they
+ * never appear on the wire at all.
+ *
+ * NOTE: distinct from `lib/branding/response.ts`'s `toPublicBranding`, which is
+ * the reshaped embed/Snap payload (name/logoSvg/router/…). This one keeps the raw
+ * tenant-row field names the dashboard prefill expects.
+ */
+function toUnauthenticatedBranding(row: TenantBranding): UnauthenticatedBranding {
+  const { operatorNullifier: _n, humanVerifier: _h, requiredTier: _t, ...publicRow } = row
+  return publicRow
 }

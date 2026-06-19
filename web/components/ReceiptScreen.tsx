@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import type { Hash } from 'viem'
 import type { PaymentReceivedEvent } from '@/lib/contracts'
 import { amount8ToUsd, formatTokenAmount } from '@/lib/quote'
+import { safeReturnUrl } from '@/lib/safeUrl'
 import { TxHashLink } from './TxHashLink'
 
 /**
@@ -27,6 +28,10 @@ export function ReceiptScreen({
   tokenDecimals: number
   returnUrl?: string
 }): ReactNode {
+  // Defense-in-depth: re-validate at the render boundary so a tainted href can
+  // never reach this payment-confirmed page, regardless of the caller (C-1). Only
+  // an https: URL renders the link; anything else drops it entirely.
+  const safeReturn = safeReturnUrl(returnUrl)
   return (
     <div className="flex flex-col gap-4 text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-700">
@@ -54,9 +59,10 @@ export function ReceiptScreen({
         </div>
       </dl>
 
-      {returnUrl ? (
+      {safeReturn ? (
         <a
-          href={returnUrl}
+          href={safeReturn}
+          rel="noopener noreferrer"
           className="mx-auto mt-2 rounded-lg bg-rail px-5 py-2.5 font-medium text-white hover:opacity-90"
         >
           Return to merchant

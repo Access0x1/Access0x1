@@ -34,9 +34,13 @@ beforeEach(() => {
   jwtVerify.mockReset()
   __resetTenantJwksForTests()
   delete process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID
+  delete process.env.DYNAMIC_JWT_ISSUER
+  delete process.env.DYNAMIC_JWT_AUDIENCE
 })
 afterEach(() => {
   delete process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID
+  delete process.env.DYNAMIC_JWT_ISSUER
+  delete process.env.DYNAMIC_JWT_AUDIENCE
 })
 
 describe('resolveTenantId (legacy shape check)', () => {
@@ -85,6 +89,56 @@ describe('resolveVerifiedTenant — verified path (issuer + token)', () => {
     const out = await resolveVerifiedTenant(reqWith({ authorization: 'Bearer good.jwt' }), {})
     expect(out).toEqual({ tenantId: WALLET, verified: true })
     expect(jwtVerify).toHaveBeenCalledWith('good.jwt', 'JWKS', expect.any(Object))
+  })
+
+  it('C-3: pins issuer + audience to THIS environment in the jwtVerify options', async () => {
+    jwtVerify.mockResolvedValue({
+      payload: { verified_credentials: [{ address: WALLET }] },
+    })
+    await resolveVerifiedTenant(reqWith({ authorization: 'Bearer good.jwt' }), {})
+    // The options object MUST pin both claims (empty options accepted a token
+    // minted for any environment whose key is in some Dynamic JWKS).
+    expect(jwtVerify).toHaveBeenCalledWith(
+      'good.jwt',
+      'JWKS',
+      expect.objectContaining({
+        issuer: 'app.dynamicauth.com/env-123',
+        audience: 'env-123',
+      }),
+    )
+  })
+
+  it('C-3: a token minted for a DIFFERENT environment (wrong iss/aud) is rejected', async () => {
+    // jose enforces the pinned issuer/audience: a token for another environment
+    // throws `JWTClaimValidationFailed`, which must surface as an auth failure and
+    // NEVER fall through to trusting the body.
+    jwtVerify.mockRejectedValue(
+      Object.assign(new Error('unexpected "iss" claim value'), {
+        code: 'ERR_JWT_CLAIM_VALIDATION_FAILED',
+      }),
+    )
+    await expect(
+      resolveVerifiedTenant(reqWith({ authorization: 'Bearer other-env.jwt' }), { tenantId: WALLET }),
+    ).rejects.toBeInstanceOf(TenantAuthError)
+  })
+
+  it('C-3: honors DYNAMIC_JWT_ISSUER / DYNAMIC_JWT_AUDIENCE overrides', async () => {
+    process.env.DYNAMIC_JWT_ISSUER = 'https://custom-issuer.example'
+    process.env.DYNAMIC_JWT_AUDIENCE = 'custom-aud'
+    jwtVerify.mockResolvedValue({
+      payload: { verified_credentials: [{ address: WALLET }] },
+    })
+    await resolveVerifiedTenant(reqWith({ authorization: 'Bearer good.jwt' }), {})
+    expect(jwtVerify).toHaveBeenCalledWith(
+      'good.jwt',
+      'JWKS',
+      expect.objectContaining({
+        issuer: 'https://custom-issuer.example',
+        audience: 'custom-aud',
+      }),
+    )
+    delete process.env.DYNAMIC_JWT_ISSUER
+    delete process.env.DYNAMIC_JWT_AUDIENCE
   })
 
   it('rejects when the body tenantId disagrees with the verified wallet', async () => {
