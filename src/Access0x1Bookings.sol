@@ -76,6 +76,14 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     ///         keeper on their behalf) claims via {claimRefund}; a refund can never be lost or blocked.
     mapping(address account => mapping(address token => uint256 amount)) private _refundRescue;
 
+    /// @notice payer ⇒ relayer ⇒ approved to {cancelWithSession} this payer's bookings. A SECOND,
+    ///         contract-scoped consent gate on top of the live-session check: a generic SessionGrant
+    ///         spend-session (the headline agent-budget delegation) must NOT double as authority to
+    ///         cancel a payer's reservations. The payer opts a relayer in via {setCancelRelayer}; an
+    ///         un-approved relayer holding a live session is rejected. Set by the payer only.
+    mapping(address payer => mapping(address relayer => bool approved)) public
+        approvedCancelRelayer;
+
     /// @notice clientNonce ⇒ consumed. The on-chain idempotency guard: a replayed {reserve} reverts.
     mapping(bytes32 clientNonce => bool used) public nonceUsed;
 
@@ -199,7 +207,7 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IAccess0x1Bookings
-    /// @dev CEI + `nonReentrant`. HELD→CONFIRMED, merchant-owner (or manage-session relayer) only. A
+    /// @dev CEI + `nonReentrant`. HELD→CONFIRMED, merchant-owner only. A
     ///      PURE state transition: the operator commits to honor the slot, but the deposit stays
     ///      ESCROWED so it remains available as cancel/no-show collateral. No money moves here. The
     ///      slot stays occupied (CONFIRMED still blocks it) until {complete}/{cancel}/{markNoShow}. The
@@ -283,14 +291,29 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
         _cancel(id, r, actorType);
     }
 
-    /// @notice Cancel a reservation via a SessionGrant manage-token: a relayer holding a live session
-    ///         the PAYER opened (delegate == caller) may cancel on the payer's behalf without the
-    ///         payer's wallet. The session is read-only here (no budget is spent — a cancel moves no
-    ///         new money, only resolves the existing escrow), so any live, non-revoked session whose
-    ///         delegate is the caller and whose recomputed id binds to (payer, caller, nonce)
-    ///         authorizes the cancel.
-    /// @dev    Reverts {NotAuthorized} if no SessionGrant is configured or the session is not the
-    ///         payer's live manage-token. CEI + `nonReentrant`.
+    /// @inheritdoc IAccess0x1Bookings
+    /// @dev A pure consent toggle the PAYER sets for THEMSELVES — `msg.sender` is the payer granting (or
+    ///      revoking) `relayer` the right to {cancelWithSession} bookings the caller paid for. No
+    ///      reservation is touched and no money moves, so the check is just "the caller speaks only for
+    ///      its own (payer ⇒ relayer) bit"; a third party can never approve a relayer on someone else's
+    ///      behalf. This is the contract-scoped half of the relayed-cancel authority (see
+    ///      {approvedCancelRelayer}) — required IN ADDITION to a live SessionGrant session.
+    function setCancelRelayer(address relayer, bool approved) external {
+        approvedCancelRelayer[msg.sender][relayer] = approved;
+        emit CancelRelayerSet(msg.sender, relayer, approved);
+    }
+
+    /// @notice Cancel a reservation via a SessionGrant manage-token: a relayer the PAYER both opened a
+    ///         live session for (delegate == caller) AND opted in via {setCancelRelayer} may cancel on
+    ///         the payer's behalf without the payer's wallet. The session is read-only here (no budget
+    ///         is spent — a cancel moves no new money, only resolves the existing escrow), so the
+    ///         authority is the AND of two payer consents: a live, non-revoked session whose recomputed
+    ///         id binds to (payer, caller, nonce), AND `approvedCancelRelayer[payer][caller]`.
+    /// @dev    TWO gates so a generic agent-budget session can't double as cancel authority (a confused
+    ///         deputy): the contract-scoped {approvedCancelRelayer} allowlist is a SEPARATE consent the
+    ///         payer grants for THIS purpose, checked alongside the live-session check. Reverts
+    ///         {NotAuthorized} if no SessionGrant is configured, the relayer is not allowlisted, or the
+    ///         session is not the payer's live manage-token. CEI + `nonReentrant`.
     /// @param id        The reservation id.
     /// @param ownerNonce The nonce the payer opened the session with (binds the session id to the payer).
     /// @param actorType The actor label recorded in the event (does not affect the refund math).
@@ -301,6 +324,11 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
         Reservation storage r = _reservations[id];
         if (r.status == RStatus.NONE) revert Access0x1Bookings__ReservationNotFound(id);
         if (address(sessionGrant) == address(0)) {
+            revert Access0x1Bookings__NotAuthorized(id, msg.sender);
+        }
+        // Contract-scoped consent: the payer must have separately allowlisted this relayer FOR CANCELS,
+        // so a generic spend-session delegate can't repurpose its budget authority into a cancel.
+        if (!approvedCancelRelayer[r.payer][msg.sender]) {
             revert Access0x1Bookings__NotAuthorized(id, msg.sender);
         }
         // Recompute the session id from (payer, caller, nonce). The id is a pure function of the
@@ -524,18 +552,24 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     /// @dev Push `amount` of `token` to `to`, or queue it to the pull-map on failure. A refund/surplus
     ///      must never be lost or block a lifecycle transition (law #5): a recipient whose transfer
     ///      fails (a reverting ERC-777 hook, a blocklisted address, etc.) is credited to
-    ///      {refundRescueOf} and claims later via {claimRefund}. The `try/catch` around `transfer`
-    ///      stops a reverting token call from bricking the settlement; a `false` return is treated the
-    ///      same as a revert (queued). CEI: this runs AFTER all status/ledger effects.
+    ///      {refundRescueOf} and claims later via {claimRefund}. CEI: this runs AFTER all status/ledger
+    ///      effects.
+    /// @dev LENGTH-SAFE, like SafeERC20: a raw `try transfer() returns (bool)` would ABI-decode the
+    ///      return data in the SUCCESS path (not the catch), so a USDT-style token that moves value but
+    ///      returns NO data — a token class this product supports (`reserve`/`claimRefund` use
+    ///      SafeERC20) — makes the decode revert the WHOLE transition, bricking the booking and locking
+    ///      the escrow (the opposite of never-blocked). Instead we low-level `call` and inspect the
+    ///      return data ourselves: empty return-data is a success (USDT), a 32-byte `true` is a success,
+    ///      and only a genuine revert or a `false`-returning liar queues to the pull-map. So every
+    ///      refund/surplus push either pays out or queues — it NEVER reverts the lifecycle transition.
     // slither-disable-next-line reentrancy-events
     function _payoutOrQueue(address to, address token, uint256 amount) private {
         if (amount == 0) return;
-        // slither-disable-next-line uninitialized-local
-        try IERC20(token).transfer(to, amount) returns (bool ok) {
-            if (!ok) _refundRescue[to][token] += amount;
-        } catch {
-            _refundRescue[to][token] += amount;
-        }
+        // slither-disable-next-line low-level-calls
+        (bool callOk, bytes memory ret) = token.call(abi.encodeCall(IERC20.transfer, (to, amount)));
+        bool transferOk =
+            callOk && (ret.length == 0 || (ret.length >= 32 && abi.decode(ret, (bool))));
+        if (!transferOk) _refundRescue[to][token] += amount;
     }
 
     /// @dev `slotTimestamp - cancelWindowSecs`, floored at 0 so an early/zero slot time never

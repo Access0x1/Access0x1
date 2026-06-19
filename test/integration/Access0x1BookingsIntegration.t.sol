@@ -321,9 +321,12 @@ contract Access0x1BookingsIntegrationTest is Test {
         (uint256 id, uint256 escrow) = _reserve(10e8, 20e8, keccak256("bint_n4"));
         address relayer = makeAddr("bint_relayer");
 
-        // The payer opens a session on the WIRED SessionGrant (nonce 0 = the payer's first session).
+        // The payer opens a session on the WIRED SessionGrant (nonce 0 = the payer's first session)
+        // AND allowlists the relayer for cancels — both consents are required (M-2 confused-deputy fix).
         vm.prank(payer);
         sessionGrant.openSession(relayer, 1e18, uint64(block.timestamp + 1 days));
+        vm.prank(payer);
+        bookings.setCancelRelayer(relayer, true);
 
         // Free cancel (well before the cancel window) ⇒ full escrow refunds to the payer.
         uint256 payerBefore = usdc.balanceOf(payer);
