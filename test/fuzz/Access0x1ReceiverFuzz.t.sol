@@ -269,7 +269,7 @@ contract Access0x1ReceiverFuzzTest is Test {
 
         uint256 before = receiver.auditCount();
         vm.prank(forwarder);
-        vm.expectRevert(bytes("Access0x1Receiver: short metadata"));
+        vm.expectRevert(Access0x1Receiver.ShortMetadata.selector);
         receiver.onReport(shortMd, _report(_anyEntry()));
         assertEq(receiver.auditCount(), before, "short metadata never writes an entry");
     }
