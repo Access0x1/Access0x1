@@ -10,6 +10,11 @@ pragma solidity 0.8.28;
 /// @dev    The full router additionally exposes `payNative`, `platformFeeBps`, `MAX_FEE_BPS`, etc.;
 ///         only the three members the subscriptions money path needs are surfaced.
 interface IAccess0x1Router {
+    /// @notice The Chainlink feed answered with a non-positive (zero/negative) price — a feed
+    ///         malfunction. Surfaced here so the subscriptions {renew} catch can recognize it as a
+    ///         SYSTEM-side failure (re-revert for a keeper retry, never dun the subscriber).
+    error Access0x1__InvalidPrice(int256 answer);
+
     /// @notice Convert a USD amount (8 decimals) into the token amount required, via the token's
     ///         Chainlink <token>/USD feed read THROUGH the staleness guard, in-tx.
     /// @param merchantId Reserved for future per-merchant pricing (ignored by the current router).
@@ -160,6 +165,11 @@ interface IAccess0x1Subscriptions {
     /// @notice A subscription was canceled by its subscriber. The SessionGrant is revoked.
     event Canceled(uint256 indexed subId);
 
+    /// @notice A terminally-UNPAID subscription was cured back to PAST_DUE by the owner or merchant.
+    /// @param subId   The reactivated subscription.
+    /// @param caller  The platform owner or merchant owner that cured it.
+    event Reactivated(uint256 indexed subId, address indexed caller);
+
     /// @notice The dunning grace threshold changed.
     event GraceFailThresholdSet(uint16 oldThreshold, uint16 newThreshold);
 
@@ -189,6 +199,11 @@ interface IAccess0x1Subscriptions {
     /// @notice The supplied SessionGrant does not authorize THIS contract as its delegate.
     error Access0x1Subs__SessionDelegateMismatch(bytes32 sessionId, address delegate);
 
+    /// @notice The subscriber is not the OWNER of the supplied SessionGrant. Without this bind, a
+    ///         stranger could pass a victim's public session id and drain the victim's budget (the
+    ///         delegate is this contract, so {SessionGrant.spend} would otherwise pass for anyone).
+    error Access0x1Subs__NotSessionOwner(bytes32 sessionId, address caller);
+
     /// @notice The SessionGrant's remaining budget cannot cover even one period at the plan price.
     error Access0x1Subs__BudgetTooLow(bytes32 sessionId, uint256 remaining, uint256 needed);
 
@@ -197,6 +212,12 @@ interface IAccess0x1Subscriptions {
 
     /// @notice The renewal is not yet due (`block.timestamp < periodEnd`).
     error Access0x1Subs__NotDue(uint256 subId, uint64 periodEnd, uint256 nowTs);
+
+    /// @notice {reactivate} was called on a subscription that is not in the curable UNPAID state.
+    error Access0x1Subs__NotReactivatable(uint256 subId, SubStatus status);
+
+    /// @notice Caller is neither the platform owner nor the merchant owner of subscription `subId`.
+    error Access0x1Subs__NotAuthorizedToCure(uint256 subId, address caller);
 
     // ──────────────────────── admin ────────────────────────
 
@@ -266,6 +287,15 @@ interface IAccess0x1Subscriptions {
     ///         SessionGrant (no further pulls possible) and sets CANCELED. No proration refund.
     /// @param subId The subscription to cancel.
     function cancel(uint256 subId) external;
+
+    /// @notice Cure a terminally-UNPAID subscription back to PAST_DUE so a {renew} can be retried. Only
+    ///         the platform owner or the subscription's merchant owner may call. The dunning counter is
+    ///         reset so a fresh grace window applies; the period is NOT advanced (a renew still charges
+    ///         the outstanding period). Without this, UNPAID is irreversible — a subscriber wrongly
+    ///         demoted (e.g. an amplified dunning during a router pause) could only recover by opening a
+    ///         brand-new subscription on a new subId. CANCELED stays terminal (not curable).
+    /// @param subId The UNPAID subscription to cure.
+    function reactivate(uint256 subId) external;
 
     /// @notice Set the dunning grace threshold: PAST_DUE demotes to UNPAID once `failCount` reaches it.
     /// @param newThreshold The new threshold (non-zero).

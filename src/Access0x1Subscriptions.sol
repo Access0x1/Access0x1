@@ -4,9 +4,11 @@ pragma solidity 0.8.28;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ISessionGrant } from "./interfaces/ISessionGrant.sol";
+import { OracleLib } from "./libraries/OracleLib.sol";
 import {
     IAccess0x1Router,
     IAccess0x1Subscriptions
@@ -50,6 +52,17 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
 
     /// @notice subId => the subscription record.
     mapping(uint256 subId => Subscription sub) private _subs;
+
+    /// @notice subId => `1 + the elapsed-period bucket` a dunning bump was last applied at. The
+    ///         per-period fail throttle: {renew} is permissionless and a failed renewal does NOT
+    ///         advance `periodEnd`, so without a throttle an attacker could call {renew} repeatedly in
+    ///         ONE due window to drive `failCount` 0 -> threshold and demote a blameless subscriber to
+    ///         the otherwise-irreversible UNPAID. The bucket = `(now - periodEnd) / periodSecs` counts
+    ///         how many FULL periods have elapsed past the due time; we permit at most ONE dun per
+    ///         distinct bucket, so same-window repeats are no-ops (amplification blocked) while genuine
+    ///         sustained non-payment — each new real period that passes — still advances dunning toward
+    ///         UNPAID (audit L-1). Stored as `bucket + 1` so the zero default means "never dunned".
+    mapping(uint256 subId => uint256 bucketPlusOne) private _lastDunBucket;
 
     /// @notice subscriber => merchantId => planKey => the subscriber has already consumed a trial on
     ///         this plan. The trial-once guard: a subscriber cannot re-open a fresh subscription with a
@@ -221,6 +234,15 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
         if (sess.delegate != address(this)) {
             revert Access0x1Subs__SessionDelegateMismatch(sessionId, sess.delegate);
         }
+        // The session must be OWNED by the subscriber. The delegate is this contract, so
+        // {SessionGrant.spend} alone would pass for ANYONE who passes a victim's (public) session id —
+        // binding the owner here is the only thing that stops a stranger from draining a victim's
+        // budget into a merchant they control. Keying on the `subscriber` param keeps both entrypoints
+        // correct: on {subscribe}, `subscriber == msg.sender` (a stranger reverts); on {subscribeFor},
+        // `subscriber` is the signature-verified owner the session was just bound to.
+        if (subscriber != sessionGrant.ownerOf(sessionId)) {
+            revert Access0x1Subs__NotSessionOwner(sessionId, subscriber);
+        }
         uint256 live = sessionGrant.remaining(sessionId);
         if (live < plan.priceUsd8) {
             revert Access0x1Subs__BudgetTooLow(sessionId, live, plan.priceUsd8);
@@ -321,10 +343,52 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
             s.failCount = 0;
             s.status = SubStatus.ACTIVE;
             emit Renewed(subId, priceUsd8, chargedToken, s.periodEnd);
-        } catch {
-            _markRenewalFailed(s, subId);
+        } catch (bytes memory err) {
+            // Dun ONLY for subscriber/token-attributable failures; re-revert SYSTEM-side ones (audit
+            // L-1). A system-side failure — the router being paused, the oracle stale / sequencer-down /
+            // reporting an invalid price, or a raw out-of-gas — is NOT the subscriber's fault, so we
+            // bubble the original revert verbatim and the keeper simply retries once the window clears,
+            // instead of penalizing (and, permissionlessly, amplifying the dunning of) a fully-funded,
+            // in-budget subscriber. Everything else — the never-negative meter rejecting the spend, or
+            // the subscriber's chosen token failing/skimming the pull — is genuinely attributable and
+            // duns. (Denylist, not allowlist: an unrecognized failure defaults to dun, never to a
+            // keeper-bricking bubble, and "no charge + roll back" already protects budget + custody.)
+            if (_isSystemSideFailure(err)) {
+                assembly {
+                    revert(add(err, 0x20), mload(err))
+                }
+            }
+            // Throttle key: how many FULL periods have elapsed past the due time. Same-window repeats
+            // share a bucket (one dun max); a genuinely missed next period is a new bucket.
+            uint256 bucket = (block.timestamp - due) / periodSecs;
+            _markRenewalFailed(s, subId, bucket);
             chargedToken = 0;
         }
+    }
+
+    /// @dev Classify a `chargeViaSelf` revert by its 4-byte selector: is the failure SYSTEM-side (the
+    ///      router/oracle infrastructure, not the subscriber) so {renew} re-reverts for a later keeper
+    ///      retry — or attributable to the subscriber/their token so dunning advances? System-side =
+    ///      the router being paused (`EnforcedPause`), the oracle being stale / the L2 sequencer being
+    ///      down or in its grace period, or the feed reporting an invalid (zero/negative) price. A
+    ///      bare/empty revert (a raw out-of-gas carries no selector) is also treated as system-side so a
+    ///      gas-griefer can never silently amplify dunning. Anything else (the SessionGrant meter, a
+    ///      token-pull failure, a fee-on-transfer skim, a reentrant token) is the subscriber's fault.
+    /// @param err The raw revert returndata from the failed self-call.
+    /// @return systemSide True if the failure is infrastructure-side and {renew} should re-revert.
+    function _isSystemSideFailure(bytes memory err) private pure returns (bool systemSide) {
+        // A bare/empty revert (e.g. a raw OOG) carries no selector — bubble it (system-side) so a
+        // metered-gas griefer cannot turn an out-of-gas into a stealth dunning bump.
+        if (err.length < 4) return true;
+        bytes4 sel;
+        assembly {
+            sel := mload(add(err, 0x20))
+        }
+        return sel == Pausable.EnforcedPause.selector
+            || sel == OracleLib.OracleLib__StalePrice.selector
+            || sel == OracleLib.OracleLib__SequencerDown.selector
+            || sel == OracleLib.OracleLib__SequencerGracePeriodNotOver.selector
+            || sel == IAccess0x1Router.Access0x1__InvalidPrice.selector;
     }
 
     /// @notice Internal charge wrapped as an external self-call so {renew} can try/catch it. Reverts
@@ -388,7 +452,21 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
 
     /// @dev Apply dunning to a failed renewal: bump the consecutive-failure count and demote to UNPAID
     ///      once it reaches the grace threshold, else PAST_DUE (tier survives PAST_DUE). Never reverts.
-    function _markRenewalFailed(Subscription storage s, uint256 subId) private {
+    /// @dev PER-PERIOD THROTTLE: `renew` is permissionless and the failure leg does NOT advance
+    ///      `periodEnd`, so without a throttle an attacker could call `renew` repeatedly within ONE due
+    ///      window to drive `failCount` 0 -> threshold and demote a blameless subscriber to the
+    ///      otherwise-irreversible UNPAID. We throttle on the ELAPSED-PERIOD bucket: at most one dunning
+    ///      step per distinct bucket, so same-window repeats are no-ops (amplification blocked) while a
+    ///      genuinely missed NEXT period (a new bucket as real time passes) still advances dunning.
+    /// @param s      The subscription storage slot.
+    /// @param subId  The subscription id.
+    /// @param bucket The elapsed-period bucket this renewal targeted (the throttle key).
+    function _markRenewalFailed(Subscription storage s, uint256 subId, uint256 bucket) private {
+        // Already dunned this exact bucket: do nothing (one bump per period; repeats are no-ops).
+        // `_lastDunBucket` stores `bucket + 1` so its zero default reads as "never dunned".
+        if (_lastDunBucket[subId] == bucket + 1) return;
+        _lastDunBucket[subId] = bucket + 1;
+
         uint16 fails;
         unchecked {
             fails = s.failCount + 1; // a uint16 of consecutive failures cannot realistically overflow
@@ -418,6 +496,36 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
 
         s.status = SubStatus.CANCELED;
         emit Canceled(subId);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                               REACTIVATE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IAccess0x1Subscriptions
+    /// @dev Cure path for the otherwise-irreversible UNPAID state. Authorized by the platform owner OR
+    ///      the subscription's merchant owner — the parties who BEAR the cure decision, never a third
+    ///      party. Resets the dunning counter and the per-period throttle so a full fresh grace window
+    ///      applies, and restores PAST_DUE (NOT ACTIVE): the sub re-enters the grace window (so the
+    ///      keeper can retry {renew}) and the tier survives PAST_DUE, exactly as it did before the
+    ///      UNPAID demotion. The period is NOT advanced, so the next {renew} charges the outstanding
+    ///      period. CANCELED is a deliberate, subscriber-driven terminal state and stays terminal — only
+    ///      UNPAID is curable.
+    function reactivate(uint256 subId) external nonReentrant {
+        Subscription storage s = _subs[subId];
+        if (s.status == SubStatus.NONE) revert Access0x1Subs__SubUnknown(subId);
+        if (s.status != SubStatus.UNPAID) revert Access0x1Subs__NotReactivatable(subId, s.status);
+
+        // Only the platform owner or the merchant that owns this subscription may cure it.
+        (, address mOwner,,,,) = router.merchants(s.merchantId);
+        if (msg.sender != owner() && msg.sender != mOwner) {
+            revert Access0x1Subs__NotAuthorizedToCure(subId, msg.sender);
+        }
+
+        s.failCount = 0;
+        delete _lastDunBucket[subId]; // a cured sub starts a clean grace window
+        s.status = SubStatus.PAST_DUE;
+        emit Reactivated(subId, msg.sender);
     }
 
     /*//////////////////////////////////////////////////////////////
