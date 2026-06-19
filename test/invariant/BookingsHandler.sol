@@ -14,10 +14,12 @@ import { MockUSDC } from "../mocks/MockUSDC.sol";
 ///         written to NEVER revert (the suite runs `fail_on_revert = true`): inputs are `bound`ed and
 ///         preconditions early-return.
 /// @dev    TIME IS FROZEN (the test pins `block.timestamp`), so the feeds stay fresh and transitions
-///         are reachable without warping: reserves use `holdSecs = 0` (immediately expirable) and a
+///         are reachable without warping: reserves use the minimum `holdSecs = MIN_HOLD_SECS` and a
 ///         `slotTimestamp` in the past (always inside the cancel window, so the late-fee branch is
-///         exercised). A FROZEN CANARY merchant + reservation (created once, never touched) backs the
-///         isolation + policy-immutability invariants.
+///         exercised). {expireHold} momentarily warps past the (short, minimum) hold deadline and back
+///         so it stays reachable without leaving the feeds stale for later actions. A FROZEN CANARY
+///         merchant + reservation (created once, never touched) backs the isolation +
+///         policy-immutability invariants.
 contract BookingsHandler is Test {
     Access0x1Bookings public immutable bookings;
     Access0x1Router public immutable router;
@@ -161,9 +163,10 @@ contract BookingsHandler is Test {
                                 ACTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Reserve a fresh slot. `holdSecs = 0` (immediately expirable) and a PAST slotTimestamp
-    ///         (always inside the cancel window) so every downstream transition is reachable with frozen
-    ///         time. A unique slot key avoids collisions (unit-tested separately).
+    /// @notice Reserve a fresh slot. `holdSecs = MIN_HOLD_SECS` (the shortest legal hold; {expireHold}
+    ///         warps past it) and a PAST slotTimestamp (always inside the cancel window) so every
+    ///         downstream transition is reachable with frozen time. A unique slot key avoids collisions
+    ///         (unit-tested separately).
     function reserve(uint256 payerSeed, uint256 assetSeed, uint256 depositSeed) external {
         address payer = payers[payerSeed % payers.length];
         address asset = _asset(assetSeed);
@@ -177,6 +180,10 @@ contract BookingsHandler is Test {
             noShowFeeUsd8: bound(depositSeed, 1e8, 5_000e8)
         });
 
+        // Read MIN_HOLD_SECS() BEFORE vm.prank: a contract call inside the reserve() argument list is
+        // evaluated first and would consume the prank, leaving reserve() to run as the (unfunded)
+        // handler instead of the approved payer.
+        uint64 minHold = bookings.MIN_HOLD_SECS();
         vm.prank(payer);
         uint256 id = bookings.reserve(
             merchantId,
@@ -186,7 +193,7 @@ contract BookingsHandler is Test {
             depositUsd8,
             0,
             p,
-            0, // holdSecs = 0 → immediately expirable
+            minHold, // shortest legal hold; expireHold warps past it
             nonce
         );
         ghostEscrowed[asset] += bookings.reservationOf(id).escrowAmount;
@@ -220,14 +227,21 @@ contract BookingsHandler is Test {
         _removeLive(id);
     }
 
-    /// @notice Expire a HELD reservation (holdSecs was 0, so always expirable) — refunds the payer.
+    /// @notice Expire a HELD reservation — refunds the payer. Warps past the (minimum) hold deadline,
+    ///         calls as the authorized payer (expiry is now payer/merchant-owner only, not
+    ///         permissionless), then restores the frozen timestamp so later actions keep fresh feeds.
     function expireHold(uint256 seed) external {
         (uint256 id, bool ok) = _pickLive(seed);
         if (!ok) return;
         IAccess0x1Bookings.Reservation memory r = bookings.reservationOf(id);
         if (r.status != IAccess0x1Bookings.RStatus.HELD) return;
 
-        bookings.expireHold(id); // permissionless
+        uint256 frozenNow = block.timestamp;
+        vm.warp(uint256(r.holdExpiresAt) + 1); // past the deadline so the expiry is reachable
+        vm.prank(r.payer); // the payer is an authorized expirer
+        bookings.expireHold(id);
+        vm.warp(frozenNow); // restore frozen time (expireHold reads no oracle; this keeps feeds fresh)
+
         ghostEscrowed[r.token] -= r.escrowAmount;
         _removeLive(id);
     }

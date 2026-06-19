@@ -154,9 +154,9 @@ contract Access0x1BookingsFuzz is Test {
     ///         FULL escrow returns to the payer (no fee is ever taken on an expiry — it is a pure
     ///         refund), the escrow ledger zeroes, the contract holds zero of the token, and no operator
     ///         sink received anything. Proves expiry is a guaranteed, fee-free refund (law #5) for any
-    ///         input, and that the caller need not be the payer (permissionless keeper path).
+    ///         input, when called by the authorized payer (expiry is now payer/merchant-owner only).
     /// @param depositSeed Fuzzed deposit, $1 .. $1M.
-    /// @param holdSeed    Fuzzed hold window in seconds (0 .. ~1yr).
+    /// @param holdSeed    Fuzzed hold window in seconds (>= MIN_HOLD_SECS .. ~1yr).
     /// @param warpSeed    Fuzzed extra time past the deadline.
     function testFuzz_expireHoldRefundsFullEscrowFeeFree(
         uint256 depositSeed,
@@ -164,7 +164,7 @@ contract Access0x1BookingsFuzz is Test {
         uint64 warpSeed
     ) public {
         uint256 depositUsd8 = bound(depositSeed, 1e8, 1_000_000e8);
-        uint64 holdSecs = uint64(bound(holdSeed, 0, 365 days));
+        uint64 holdSecs = uint64(bound(holdSeed, bookings.MIN_HOLD_SECS(), 365 days));
         uint64 past = uint64(bound(warpSeed, 1, 365 days)); // strictly past the deadline
 
         vm.prank(payer);
@@ -183,10 +183,9 @@ contract Access0x1BookingsFuzz is Test {
         uint256 payerBefore = usdc.balanceOf(payer);
         uint256 sinksBefore = _sinks();
 
-        // Past the deadline; a third party (keeper) triggers it — expiry is permissionless.
+        // Past the deadline; the payer (an authorized party) triggers the refund.
         vm.warp(uint256(block.timestamp) + holdSecs + past);
-        address keeper = makeAddr("fz_keeper");
-        vm.prank(keeper);
+        vm.prank(payer);
         bookings.expireHold(id);
 
         assertEq(usdc.balanceOf(payer) - payerBefore, escrow, "payer not fully refunded on expiry");
@@ -360,7 +359,8 @@ contract Access0x1BookingsFuzz is Test {
         // Block the payer + expire: the refund push reverts inside the token transfer, so it queues.
         bt.setBlocked(payer, true);
         vm.warp(uint256(block.timestamp) + HOLD_SECS + 1);
-        bookings.expireHold(id); // permissionless; must NOT revert despite the blocked push
+        vm.prank(payer); // payer is authorized to expire their own hold
+        bookings.expireHold(id); // must NOT revert despite the blocked push — it queues
         assertEq(bookings.refundRescueOf(payer, address(bt)), escrow, "refund not queued on block");
 
         // Unblock + claim: the claim pays out EXACTLY the owed escrow and zeroes the credit.

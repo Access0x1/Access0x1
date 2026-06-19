@@ -224,6 +224,161 @@ contract Access0x1RouterTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                      MERCHANT OWNERSHIP (2-step transfer)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice O-4: the full 2-step transfer. The current owner proposes a new owner (control unchanged),
+    ///         then the proposed owner accepts and becomes the owner; the pending slot clears.
+    function test_proposeAndAcceptMerchantOwner() public {
+        uint256 id = _register();
+        address newOwner = makeAddr("newMerchantOwner");
+
+        // Step 1: current owner proposes. Control does NOT change yet.
+        vm.expectEmit(true, true, true, false, address(router));
+        emit Access0x1Router.MerchantOwnerProposed(id, merchantOwner, newOwner);
+        vm.prank(merchantOwner);
+        router.proposeMerchantOwner(id, newOwner);
+
+        assertEq(router.pendingMerchantOwner(id), newOwner);
+        (, address ownerMid,,,,) = router.merchants(id);
+        assertEq(ownerMid, merchantOwner, "owner unchanged until accept");
+
+        // Step 2: the proposed owner accepts. Control transfers; pending clears.
+        vm.expectEmit(true, true, true, false, address(router));
+        emit Access0x1Router.MerchantOwnerTransferred(id, merchantOwner, newOwner);
+        vm.prank(newOwner);
+        router.acceptMerchantOwner(id);
+
+        (, address ownerAfter,,,,) = router.merchants(id);
+        assertEq(ownerAfter, newOwner, "new owner now controls the merchant");
+        assertEq(router.pendingMerchantOwner(id), address(0), "pending cleared on accept");
+    }
+
+    /// @notice O-4: after a completed transfer, the NEW owner can update the merchant and the OLD owner
+    ///         can no longer — control genuinely moved (a recovery path for a compromised key).
+    function test_ownershipTransferMovesControl() public {
+        uint256 id = _register();
+        address newOwner = makeAddr("newMerchantOwner");
+        vm.prank(merchantOwner);
+        router.proposeMerchantOwner(id, newOwner);
+        vm.prank(newOwner);
+        router.acceptMerchantOwner(id);
+
+        // The OLD owner is now rejected by updateMerchant.
+        vm.prank(merchantOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__NotMerchantOwner.selector, id, merchantOwner
+            )
+        );
+        router.updateMerchant(id, payout, feeRecipient, MERCHANT_FEE_BPS, true);
+
+        // The NEW owner can update it.
+        address freshPayout = makeAddr("freshPayout");
+        vm.prank(newOwner);
+        router.updateMerchant(id, freshPayout, feeRecipient, MERCHANT_FEE_BPS, true);
+        (address p,,,,,) = router.merchants(id);
+        assertEq(p, freshPayout);
+    }
+
+    /// @notice O-4: only the current merchant owner may propose a new owner.
+    function test_proposeMerchantOwnerRevertsForNonOwner() public {
+        uint256 id = _register();
+        address attacker = makeAddr("attacker");
+        vm.prank(attacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__NotMerchantOwner.selector, id, attacker
+            )
+        );
+        router.proposeMerchantOwner(id, attacker);
+    }
+
+    /// @notice O-4: proposing on an unknown merchant reverts {MerchantNotFound}.
+    function test_proposeMerchantOwnerRevertsOnUnknownId() public {
+        vm.prank(merchantOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(Access0x1Router.Access0x1__MerchantNotFound.selector, 999)
+        );
+        router.proposeMerchantOwner(999, merchantOwner);
+    }
+
+    /// @notice O-4: only the EXACT pending owner may accept. A stranger (here the current owner, who is
+    ///         not the proposed address) is rejected and control does not change.
+    function test_acceptMerchantOwnerRevertsForNonPending() public {
+        uint256 id = _register();
+        address newOwner = makeAddr("newMerchantOwner");
+        vm.prank(merchantOwner);
+        router.proposeMerchantOwner(id, newOwner);
+
+        address stranger = makeAddr("stranger");
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__NotPendingMerchantOwner.selector, id, stranger
+            )
+        );
+        router.acceptMerchantOwner(id);
+
+        (, address ownerStill,,,,) = router.merchants(id);
+        assertEq(
+            ownerStill, merchantOwner, "control unchanged when a non-pending caller tries to accept"
+        );
+    }
+
+    /// @notice O-4: accepting when nothing was proposed (zero pending) reverts — an unset proposal can
+    ///         never transfer control, not even to address(0).
+    function test_acceptMerchantOwnerRevertsWhenNoPending() public {
+        uint256 id = _register();
+        address claimant = makeAddr("claimant");
+        vm.prank(claimant);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__NotPendingMerchantOwner.selector, id, claimant
+            )
+        );
+        router.acceptMerchantOwner(id);
+    }
+
+    /// @notice O-4: re-proposing overwrites the prior pending owner, and passing address(0) cancels a
+    ///         pending proposal so the previously-proposed address can no longer accept.
+    function test_proposeMerchantOwnerCanCancelAndOverwrite() public {
+        uint256 id = _register();
+        address first = makeAddr("firstProposed");
+        address second = makeAddr("secondProposed");
+
+        vm.prank(merchantOwner);
+        router.proposeMerchantOwner(id, first);
+        assertEq(router.pendingMerchantOwner(id), first);
+
+        // Overwrite with a different proposal.
+        vm.prank(merchantOwner);
+        router.proposeMerchantOwner(id, second);
+        assertEq(router.pendingMerchantOwner(id), second);
+
+        // The first (now-stale) proposed owner cannot accept.
+        vm.prank(first);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__NotPendingMerchantOwner.selector, id, first
+            )
+        );
+        router.acceptMerchantOwner(id);
+
+        // Cancel entirely with address(0); now nobody can accept.
+        vm.prank(merchantOwner);
+        router.proposeMerchantOwner(id, address(0));
+        assertEq(router.pendingMerchantOwner(id), address(0));
+        vm.prank(second);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Access0x1Router.Access0x1__NotPendingMerchantOwner.selector, id, second
+            )
+        );
+        router.acceptMerchantOwner(id);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                                 QUOTE
     //////////////////////////////////////////////////////////////*/
 

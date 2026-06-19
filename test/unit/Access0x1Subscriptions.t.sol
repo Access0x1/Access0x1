@@ -635,6 +635,49 @@ contract Access0x1SubscriptionsTest is Test {
         subsC.renew(subId);
     }
 
+    /// @notice O-5: {cancel} makes a BEST-EFFORT revoke of the underlying SessionGrant. Because
+    ///         SessionGrant.revoke is OWNER-gated and this contract is only the session DELEGATE, the
+    ///         attempt fails — but it is caught, so the cancel STILL succeeds, and the loud
+    ///         {SessionRevokeOnCancel} event records `revoked == false`. The session budget remains live.
+    function test_cancel_bestEffortRevoke_emitsFalseAndDoesNotBlock() public {
+        (uint256 subId, bytes32 sessionId) = _subscribeNoTrial();
+
+        // The session is live (owned by the subscriber, delegate = this contract) before cancel.
+        assertGt(grant.remaining(sessionId), 0, "session live before cancel");
+
+        // Expect both the Canceled event and the loud loud revoke-outcome event (revoked == false).
+        vm.expectEmit(true, false, false, false, address(subsC));
+        emit IAccess0x1Subscriptions.Canceled(subId);
+        vm.expectEmit(true, true, false, true, address(subsC));
+        emit IAccess0x1Subscriptions.SessionRevokeOnCancel(subId, sessionId, false);
+        vm.prank(subscriber);
+        subsC.cancel(subId); // MUST NOT revert despite the failed best-effort revoke
+
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.CANCELED));
+        // The on-chain authorization is NOT torn down by the delegate's failed revoke: it stays live.
+        assertFalse(
+            grant.sessionOf(sessionId).revoked, "delegate cannot revoke; session stays live"
+        );
+        assertGt(grant.remaining(sessionId), 0, "budget authorization remains until expiry");
+    }
+
+    /// @notice O-5: after a cancel, the SUBSCRIBER (the session OWNER) can still kill the residual budget
+    ///         authorization directly on SessionGrant — the documented belt-and-suspenders path the loud
+    ///         event points them to.
+    function test_cancel_subscriberCanSelfRevokeResidualSession() public {
+        (uint256 subId, bytes32 sessionId) = _subscribeNoTrial();
+        vm.prank(subscriber);
+        subsC.cancel(subId);
+
+        // The owner-driven revoke succeeds and zeroes the remaining budget.
+        vm.prank(subscriber);
+        grant.revoke(sessionId);
+        assertTrue(
+            grant.sessionOf(sessionId).revoked, "owner self-revoke tears down the authorization"
+        );
+        assertEq(grant.remaining(sessionId), 0, "no budget remains after self-revoke");
+    }
+
     function test_cancel_revertNotSubscriber() public {
         (uint256 subId,) = _subscribeNoTrial();
         vm.prank(stranger);

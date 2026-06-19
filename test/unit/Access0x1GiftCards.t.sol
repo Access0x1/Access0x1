@@ -318,6 +318,22 @@ contract Access0x1GiftCardsTest is Test {
         assertEq(cards.balanceOf(bob, id), 5e8);
     }
 
+    /// @notice Y-2: `transfer` is `nonReentrant`. With no external callback the guard cannot be tripped
+    ///         from inside a single transfer, so the proof the guard is wired (and does not break the
+    ///         path) is that the guard RELEASES cleanly: two sequential transfers in the same tx both
+    ///         succeed (a stuck/never-released lock would revert the second), and the file invariant —
+    ///         every balance-mutating path is `nonReentrant` — now holds for `transfer`.
+    function test_transfer_nonReentrantGuardReleasesBetweenCalls() public {
+        uint256 id = _issue(alice, FACE);
+        vm.startPrank(alice);
+        cards.transfer(bob, id, 10e8); // first guarded call
+        cards.transfer(bob, id, 15e8); // second guarded call: succeeds only if the guard released
+        vm.stopPrank();
+
+        assertEq(cards.balanceOf(alice, id), FACE - 25e8);
+        assertEq(cards.balanceOf(bob, id), 25e8);
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 COUPON
     //////////////////////////////////////////////////////////////*/
@@ -370,6 +386,22 @@ contract Access0x1GiftCardsTest is Test {
         uint256 discount = cards.applyCoupon(merchantId, cid, 200e8);
         vm.stopPrank();
         assertEq(discount, 5e8); // flat $5
+    }
+
+    /// @notice Y-1: `applyCoupon` is `nonReentrant`. With no external callback the guard cannot be
+    ///         tripped from inside one call, so the proof it is wired (and non-breaking) is that the
+    ///         guard RELEASES cleanly: two sequential consumes in the same tx both succeed and the
+    ///         consumption count advances by exactly two (a stuck lock would revert the second consume).
+    ///         The file invariant — every count-mutating path is `nonReentrant` — now holds here too.
+    function test_applyCoupon_nonReentrantGuardReleasesBetweenCalls() public {
+        bytes32 cid = keccak256("SAVE10");
+        vm.startPrank(merchantOwner);
+        cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 0);
+        cards.applyCoupon(merchantId, cid, 100e8); // first guarded consume
+        cards.applyCoupon(merchantId, cid, 100e8); // second: succeeds only if the guard released
+        vm.stopPrank();
+
+        assertEq(cards.coupons(merchantId, cid).redemptionsCount, 2, "both consumes counted");
     }
 
     /// @notice Consuming a coupon is now merchant-owner only (L-4): a non-owner is rejected by the gate

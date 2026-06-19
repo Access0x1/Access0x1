@@ -222,9 +222,16 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     }
 
     /// @inheritdoc IAccess0x1GiftCards
-    /// @dev CEI: both balance legs are written before the event; the caller can never move more than
-    ///      it holds (`balance >= amount`, the never-negative guard for transfers).
-    function transfer(address to, uint256 cardId_, uint256 amount) external returns (bool) {
+    /// @dev CEI + `nonReentrant`: both balance legs are written before the event; the caller can never
+    ///      move more than it holds (`balance >= amount`, the never-negative guard for transfers). The
+    ///      guard upholds the file invariant — EVERY balance-mutating path is `nonReentrant` — so a
+    ///      future asset-bearing extension cannot reorder a mid-transfer callback (Y-2; no external call
+    ///      today).
+    function transfer(address to, uint256 cardId_, uint256 amount)
+        external
+        nonReentrant
+        returns (bool)
+    {
         if (to == address(0)) revert GiftCards__ZeroAddress();
         uint256 balance = _balanceOf[msg.sender][cardId_];
         if (balance < amount) {
@@ -296,7 +303,9 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     }
 
     /// @inheritdoc IAccess0x1GiftCards
-    /// @dev `onlyMerchantOwner` + atomic read-modify-write. MERCHANT-OWNER ONLY: consuming a coupon
+    /// @dev `nonReentrant` + `onlyMerchantOwner` + atomic read-modify-write. The `nonReentrant` guard
+    ///      upholds the file invariant that every balance/count-mutating path carries it (Y-1; no
+    ///      external call today). MERCHANT-OWNER ONLY: consuming a coupon
     ///      increments `redemptionsCount` toward `maxRedemptions`, so a permissionless caller could
     ///      burn a finite-cap promotion to exhaustion (the L-4 griefing/DoS) — gating it to the owner
     ///      (mirroring {setCoupon}/{releaseCoupon}) closes that, while {quoteCoupon} gives storefronts a
@@ -308,6 +317,7 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     ///      is clamped to `[0, amountUsd8]` so a coupon can never exceed the sale it discounts.
     function applyCoupon(uint256 merchantId, bytes32 couponId, uint256 amountUsd8)
         external
+        nonReentrant
         onlyMerchantOwner(merchantId)
         returns (uint256 discount)
     {

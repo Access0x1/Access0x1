@@ -483,19 +483,38 @@ contract Access0x1Subscriptions is IAccess0x1Subscriptions, Ownable2Step, Reentr
 
     /// @inheritdoc IAccess0x1Subscriptions
     /// @dev Immediate, no proration (the standard downgrade rule). Setting CANCELED is the on-chain
-    ///      stop: {renew} reverts {NotRenewable} on a CANCELED subscription, so no further pull can ever
-    ///      run through this contract. The underlying SessionGrant is owner-gated, so the subscriber
-    ///      (who IS the session owner) revokes it directly on SessionGrant for a belt-and-suspenders
-    ///      kill of the authorization itself — this contract is only the delegate and cannot revoke.
-    ///      Only the subscriber may cancel.
+    ///      stop FOR THIS CONTRACT: {renew} reverts {NotRenewable} on a CANCELED subscription, so no
+    ///      further pull can ever run through this contract. Only the subscriber may cancel.
+    /// @dev SESSION AUTHORIZATION — BEST-EFFORT REVOKE + LOUD EVENT (audit O-5). Cancelling here stops
+    ///      THIS contract from spending, but the underlying SessionGrant budget is a SEPARATE on-chain
+    ///      authorization. `SessionGrant.revoke` is OWNER-gated and this contract is only the session's
+    ///      DELEGATE, so we make a BEST-EFFORT `try`-wrapped revoke that almost always lands in the
+    ///      catch — a revoke failure must NEVER block the cancel (the subscriber must always be able to
+    ///      stop billing). We then emit {SessionRevokeOnCancel} LOUDLY recording whether the revoke
+    ///      succeeded: when it did not, the budget authorization REMAINS LIVE until the session's own
+    ///      expiry and the subscriber should call `SessionGrant.revoke(sessionId)` directly (as the
+    ///      session owner) for a belt-and-suspenders kill of the authorization itself. CEI: the status
+    ///      is written BEFORE the external revoke attempt, so a re-entrant call sees CANCELED and reverts.
     function cancel(uint256 subId) external nonReentrant {
         Subscription storage s = _subs[subId];
         if (s.status == SubStatus.NONE) revert Access0x1Subs__SubUnknown(subId);
         if (msg.sender != s.subscriber) revert Access0x1Subs__NotSubscriber(subId, msg.sender);
         if (s.status == SubStatus.CANCELED) revert Access0x1Subs__NotRenewable(subId, s.status);
 
-        s.status = SubStatus.CANCELED;
+        bytes32 sessionId = s.sessionId;
+        s.status = SubStatus.CANCELED; // effect before the external revoke attempt (CEI)
         emit Canceled(subId);
+
+        // Best-effort revoke: owner-gated on SessionGrant, so this contract (the delegate) almost always
+        // fails — caught so it can NEVER block the cancel. The event records the outcome either way.
+        bool revoked;
+        // slither-disable-next-line reentrancy-events,reentrancy-no-eth
+        try sessionGrant.revoke(sessionId) {
+            revoked = true;
+        } catch {
+            revoked = false; // budget authorization stays live until expiry; subscriber must self-revoke
+        }
+        emit SessionRevokeOnCancel(subId, sessionId, revoked);
     }
 
     /*//////////////////////////////////////////////////////////////
