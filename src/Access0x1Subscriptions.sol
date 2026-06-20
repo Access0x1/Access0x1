@@ -8,7 +8,9 @@ import {
 import {
     Ownable2StepUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -52,17 +54,16 @@ import {
 ///         {upgradeToAndCall} and are authorized by {_authorizeUpgrade} (`Ownable2Step` `owner`-only — the
 ///         platform admin / upgrade admin). Calling `renounceOwnership()` permanently freezes the
 ///         implementation (no owner ⇒ no authorized upgrade ⇒ immutable forever). A trailing `__gap`
-///         reserves slots for safe future storage appends. `ReentrancyGuard` (the non-upgradeable OZ
-///         5.6.1 contract) is intentionally retained as a base: in OZ 5.x there is NO
-///         `ReentrancyGuardTransient` — the guard now lives at a FIXED ERC-7201 namespaced slot (not a
-///         sequential one), carries no initializable state, and is therefore proxy-safe as-is (its default
-///         zero slot reads as "not entered", so no `__init` call is needed or exists).
+///         reserves slots for safe future storage appends. `ReentrancyGuardTransient` (OZ 5.x) holds its
+///         guard flag in TRANSIENT storage (EIP-1153, cancun): it carries NO persistent storage slot and
+///         no initializable state, so it adds nothing to the layout and is proxy-safe by construction —
+///         the transient flag auto-clears at the end of every tx, so no `__init` call is needed or exists.
 contract Access0x1Subscriptions is
     IAccess0x1Subscriptions,
     Initializable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
-    ReentrancyGuard
+    ReentrancyGuardTransient
 {
     using SafeERC20 for IERC20;
 
@@ -131,7 +132,7 @@ contract Access0x1Subscriptions is
     ///         proxy; the typical deploy is `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
     /// @dev    Mirrors the original constructor's args + order EXACTLY (the deploy script depends on it).
     ///         `__Ownable_init(initialOwner)` reverts on a zero owner. No `__ReentrancyGuard_init()` /
-    ///         `__UUPSUpgradeable_init()` calls: in OZ 5.6.1 neither has an initializer — `ReentrancyGuard`
+    ///         `__UUPSUpgradeable_init()` calls: in OZ 5.6.1 neither has an initializer — `ReentrancyGuardTransient`
     ///         uses a fixed ERC-7201 slot (proxy-safe by default) and `UUPSUpgradeable` holds no
     ///         initializable storage.
     /// @param initialOwner        The admin (Ownable2Step / upgrade admin) — burner at the event, multisig
