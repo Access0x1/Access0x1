@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { SessionGrant } from "../../src/SessionGrant.sol";
 import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 import { SmartWallet1271, WalletFactory } from "../mocks/SmartWallet1271.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  SessionGrantFuzz — stateless (single-call) fuzz suite for SessionGrant
 /// @author Access0x1
@@ -27,19 +28,27 @@ import { SmartWallet1271, WalletFactory } from "../mocks/SmartWallet1271.sol";
 ///           * ZERO CUSTODY:       the contract NEVER holds ETH — it is a pure authorization ledger.
 ///
 /// @dev    Reuses the existing mocks ({SmartWallet1271}, {WalletFactory}) — no duplicate mocks added.
-contract SessionGrantFuzzTest is Test {
+contract SessionGrantFuzzTest is Test, ProxyDeployer {
     SessionGrant internal grant;
     WalletFactory internal factory;
 
     uint256 internal ownerPk;
     address internal owner;
 
+    /// @dev The contract (upgrade-admin) owner — required by {initialize}; not otherwise exercised here.
+    address internal admin = makeAddr("admin");
+
     /// @dev The ERC-6492 detection suffix (mirrors the contract constant) — used to wrap inner sigs.
     bytes32 internal constant ERC6492_MAGIC =
         0x6492649264926492649264926492649264926492649264926492649264926492;
 
     function setUp() public {
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new SessionGrant());
+        address proxy = deployProxy(
+            impl, abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+        );
+        grant = SessionGrant(proxy);
         factory = new WalletFactory();
         (owner, ownerPk) = makeAddrAndKey("owner");
         // A stable, non-zero base time so warps/expiries are always in a sane range.

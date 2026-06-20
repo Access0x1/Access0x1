@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { ChainRegistry } from "../../src/ChainRegistry.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  ChainRegistryEdge — boundary / extreme-value unit cases the main unit suite omits
 /// @author Access0x1
@@ -16,7 +17,7 @@ import { ChainRegistry } from "../../src/ChainRegistry.sol";
 ///         upsert (a real entry overwritten with the all-zero config keeps its FLAG_REGISTERED marker
 ///         and stays found — the L-6 fix). Every test is arrange-act-assert with one property per
 ///         function.
-contract ChainRegistryEdgeTest is Test {
+contract ChainRegistryEdgeTest is Test, ProxyDeployer {
     ChainRegistry internal registry;
 
     address internal owner = makeAddr("owner");
@@ -29,7 +30,10 @@ contract ChainRegistryEdgeTest is Test {
     uint16 internal constant FLAG_REGISTERED = 0x8000;
 
     function setUp() public {
-        registry = new ChainRegistry(owner);
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new ChainRegistry());
+        address proxy = deployProxy(impl, abi.encodeCall(ChainRegistry.initialize, (owner)));
+        registry = ChainRegistry(proxy);
     }
 
     /*//////////////////////////////////////////////////////////////

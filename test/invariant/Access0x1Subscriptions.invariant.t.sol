@@ -15,6 +15,7 @@ import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { SubscriptionsHandler } from "./SubscriptionsHandler.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice The six money invariants of Access0x1Subscriptions under a bounded, handler-driven fuzzer.
 ///         Each is asserted against an INDEPENDENT ghost recomputation, never against the contract's
@@ -23,7 +24,7 @@ import { SubscriptionsHandler } from "./SubscriptionsHandler.sol";
 /// @dev    The subscriptions contract COMPOSES the real Access0x1Router (fee-split) + SessionGrant
 ///         (the never-negative budget meter) + a MockV3Aggregator-fed MockUSDC, so the invariants are
 ///         proven on the genuine money path, not a stub.
-contract Access0x1SubscriptionsInvariant is StdInvariant, Test {
+contract Access0x1SubscriptionsInvariant is StdInvariant, Test, ProxyDeployer {
     Access0x1Subscriptions internal subsC;
     Access0x1Router internal router;
     SessionGrant internal grant;
@@ -56,10 +57,26 @@ contract Access0x1SubscriptionsInvariant is StdInvariant, Test {
         usdc = new MockUSDC();
         feed = new MockV3Aggregator(8, 1e8);
 
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE_BPS);
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
-        subsC = new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 3
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        grant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
+        subsC = Access0x1Subscriptions(
+            deployProxy(
+                address(new Access0x1Subscriptions()),
+                abi.encodeCall(
+                    Access0x1Subscriptions.initialize,
+                    (admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 3)
+                )
+            )
         );
 
         vm.startPrank(admin);

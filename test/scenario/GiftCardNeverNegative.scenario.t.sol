@@ -6,6 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { Access0x1GiftCards } from "../../src/Access0x1GiftCards.sol";
 import { IAccess0x1GiftCards } from "../../src/interfaces/IAccess0x1GiftCards.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  GiftCardNeverNegative — a prepaid balance that can be spent down but NEVER overdrawn
 /// @author Access0x1
@@ -26,7 +27,7 @@ import { IAccess0x1GiftCards } from "../../src/interfaces/IAccess0x1GiftCards.so
 ///           3. Replay guard: the same redemptionId can be used at most once.
 ///           4. CONSERVATION across transfer + reverse: value moves between holders or is credited
 ///              back, but the total tied to a card is conserved.
-contract GiftCardNeverNegativeScenarioTest is Test {
+contract GiftCardNeverNegativeScenarioTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1GiftCards internal cards;
 
@@ -44,8 +45,19 @@ contract GiftCardNeverNegativeScenarioTest is Test {
     function setUp() public {
         vm.warp(1_700_000_000);
 
-        router = new Access0x1Router(platformAdmin, treasury, 100); // 1% platform fee (unused here)
-        cards = new Access0x1GiftCards(platformAdmin, router);
+        // Both contracts run behind UUPS proxies (1% platform fee, unused here).
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (platformAdmin, treasury, 100))
+            )
+        );
+        cards = Access0x1GiftCards(
+            deployProxy(
+                address(new Access0x1GiftCards()),
+                abi.encodeCall(Access0x1GiftCards.initialize, (platformAdmin, router))
+            )
+        );
 
         // The bakery onboards on the router (the GiftCards contract reads it for owner-authorization).
         vm.prank(bakeryOwner);

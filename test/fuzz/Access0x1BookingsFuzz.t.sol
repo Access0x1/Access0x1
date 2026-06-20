@@ -9,6 +9,7 @@ import { SessionGrant } from "../../src/SessionGrant.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { BlocklistToken } from "../mocks/BlocklistToken.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  Access0x1BookingsFuzz
 /// @author Access0x1
@@ -27,7 +28,7 @@ import { BlocklistToken } from "../mocks/BlocklistToken.sol";
 ///         using the real composed Router (never a mock split). The single shared USDC feed is held at
 ///         a fresh round (time frozen) so the in-tx quote never goes stale; price-drift fuzzing is
 ///         already owned by the round-trip attack file, so it is deliberately not re-done here.
-contract Access0x1BookingsFuzz is Test {
+contract Access0x1BookingsFuzz is Test, ProxyDeployer {
     Access0x1Bookings internal bookings;
     Access0x1Router internal router;
     SessionGrant internal sessionGrant;
@@ -57,7 +58,12 @@ contract Access0x1BookingsFuzz is Test {
         // in-tx quote, so a fuzzed input never trips the oracle guard (price-drift is fuzzed elsewhere).
         vm.warp(1_700_000_000);
 
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE_BPS);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE_BPS))
+            )
+        );
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1.00
         usdc = new MockUSDC();
 
@@ -66,8 +72,22 @@ contract Access0x1BookingsFuzz is Test {
         router.setPriceFeed(address(usdc), address(usdcFeed));
         vm.stopPrank();
 
-        sessionGrant = new SessionGrant("Access0x1 SessionGrant", "1");
-        bookings = new Access0x1Bookings(admin, address(router), address(sessionGrant));
+        sessionGrant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
+        // Deploy Bookings behind a UUPS proxy (impl → ERC1967Proxy running initialize → cast).
+        address bookingsImpl = address(new Access0x1Bookings());
+        bookings = Access0x1Bookings(
+            deployProxy(
+                bookingsImpl,
+                abi.encodeCall(
+                    Access0x1Bookings.initialize, (admin, address(router), address(sessionGrant))
+                )
+            )
+        );
 
         vm.prank(merchantOwner);
         merchantId = router.registerMerchant(payout, feeRecipient, MERCHANT_FEE_BPS, keccak256("m"));

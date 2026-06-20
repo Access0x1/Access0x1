@@ -9,6 +9,7 @@ import { IAccess0x1Bookings } from "../../src/interfaces/IAccess0x1Bookings.sol"
 
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  SalonBooking — a deposit, a late cancel, a no-show, and a refund that NEVER gets stuck
 /// @author Access0x1
@@ -33,7 +34,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 ///           3. refund = escrow - fee, and fee <= escrow always (refund never negative).
 ///           4. REFUND NEVER BLOCKED: even with a dead/stale feed, the no-show resolves and the
 ///              customer is made whole (the fee leg simply takes nothing).
-contract SalonBookingScenarioTest is Test {
+contract SalonBookingScenarioTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1Bookings internal bookings;
 
@@ -60,9 +61,25 @@ contract SalonBookingScenarioTest is Test {
     function setUp() public {
         vm.warp(1_700_000_000);
 
-        router = new Access0x1Router(platformAdmin, treasury, PLATFORM_FEE_BPS);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(
+                    Access0x1Router.initialize, (platformAdmin, treasury, PLATFORM_FEE_BPS)
+                )
+            )
+        );
         // No SessionGrant manage-token in this scenario (relayed cancels disabled) -> address(0).
-        bookings = new Access0x1Bookings(platformAdmin, address(router), address(0));
+        // Deploy Bookings behind a UUPS proxy (impl → ERC1967Proxy running initialize → cast).
+        address bookingsImpl = address(new Access0x1Bookings());
+        bookings = Access0x1Bookings(
+            deployProxy(
+                bookingsImpl,
+                abi.encodeCall(
+                    Access0x1Bookings.initialize, (platformAdmin, address(router), address(0))
+                )
+            )
+        );
 
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1.00 / USDC

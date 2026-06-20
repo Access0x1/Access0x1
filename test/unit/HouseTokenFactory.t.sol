@@ -9,15 +9,45 @@ import { ERC20Burnable } from "@openzeppelin/contracts/token/ERC20/extensions/ER
 import { HouseTokenFactory } from "../../src/HouseTokenFactory.sol";
 import { HouseToken } from "../../src/HouseToken.sol";
 import { IHouseTokenFactory } from "../../src/interfaces/IHouseTokenFactory.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior state. It deliberately
+///         carries no new storage (it would consume from `__gap` if it did), proving the proxy keeps
+///         every slot — including the provenance ledger — across the implementation swap.
+contract HouseTokenFactoryV2 is HouseTokenFactory {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
 
 /// @notice Unit + fuzz suite for the non-custodial {HouseTokenFactory} and the {HouseToken} it deploys.
 ///         Covers every path of {deployHouseToken} (success, zero-owner, empty metadata, zero supply,
 ///         custom decimals, distinct caller vs owner) plus the deployed token's owner-only mint, the
 ///         burn extension, the permit domain, and the core security claim: the factory walks away with
 ///         NO ownership, NO mint authority, and NO balance — verified both directly and via an
-///         adversarial attempt to make the factory exercise authority it must not have.
-contract HouseTokenFactoryTest is Test {
+///         adversarial attempt to make the factory exercise authority it must not have. The factory is
+///         deployed BEHIND a UUPS proxy (deploy impl → `ERC1967Proxy` with `initialize(...)` calldata →
+///         cast the proxy to the type) via the shared {ProxyDeployer}, so every behavioural test
+///         exercises the production proxy↔impl shape. Tail tests cover the UUPS upgrade + the permanent
+///         freeze via `renounceOwnership`.
+contract HouseTokenFactoryTest is Test, ProxyDeployer {
     HouseTokenFactory internal factory;
+
+    /// @dev The contract (upgrade-admin) owner — the `Ownable2Step` owner. Authorizes UUPS upgrades;
+    ///      renouncing it freezes the implementation forever. It has NO power over a deployed
+    ///      {HouseToken} and does NOT gate {deployHouseToken} (deploying stays permissionless).
+    address internal admin = makeAddr("admin");
 
     address internal business = makeAddr("business"); // the merchant/business wallet (token owner)
     address internal caller = makeAddr("caller"); // a distinct deployer (e.g. an onboarding relayer)
@@ -30,7 +60,10 @@ contract HouseTokenFactoryTest is Test {
     uint256 internal constant SUPPLY = 1_000_000e18;
 
     function setUp() public {
-        factory = new HouseTokenFactory();
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new HouseTokenFactory());
+        address proxy = deployProxy(impl, abi.encodeCall(HouseTokenFactory.initialize, (admin)));
+        factory = HouseTokenFactory(proxy);
     }
 
     /// @dev Deploy a standard house token owned by `business`, called by `caller`.
@@ -266,6 +299,82 @@ contract HouseTokenFactoryTest is Test {
         vm.prank(caller);
         vm.expectRevert(IHouseTokenFactory.HouseTokenFactory__ZeroOwner.selector);
         factory.deployHouseToken(address(0), NAME, SYMBOL, DECIMALS, supply_);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_initialize_setsAdminOwner() public view {
+        // The contract owner is the upgrade admin set at initialize — it gates upgrades ONLY, never a
+        // deployed token and never deployHouseToken (which stays permissionless).
+        assertEq(OwnableUpgradeable(address(factory)).owner(), admin);
+    }
+
+    function test_initialize_revertOnSecondCall() public {
+        // The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        factory.initialize(admin);
+    }
+
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: deploy two house tokens so the provenance ledger is
+        // non-empty (count == 2, both flagged) before the implementation swap.
+        vm.prank(caller);
+        address t1 = factory.deployHouseToken(business, NAME, SYMBOL, DECIMALS, SUPPLY);
+        vm.prank(caller);
+        address t2 = factory.deployHouseToken(alice, "Beta", "BETA", 18, 0);
+        assertEq(factory.deployedCount(), 2);
+
+        // The admin (contract owner) upgrades the proxy to v2.
+        address v2 = address(new HouseTokenFactoryV2());
+        vm.prank(admin);
+        UUPSUpgradeable(address(factory)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(HouseTokenFactoryV2(address(factory)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        assertEq(factory.deployedCount(), 2);
+        assertTrue(factory.isHouseToken(t1));
+        assertTrue(factory.isHouseToken(t2));
+        assertEq(OwnableUpgradeable(address(factory)).owner(), admin); // upgrade admin unchanged
+
+        // The factory still deploys after the upgrade, continuing the same ledger.
+        vm.prank(caller);
+        address t3 = factory.deployHouseToken(bob, "Gamma", "GAMMA", 18, 1e18);
+        assertEq(factory.deployedCount(), 3);
+        assertTrue(factory.isHouseToken(t3));
+    }
+
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new HouseTokenFactoryV2());
+        // A non-admin cannot upgrade — _authorizeUpgrade is onlyOwner.
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, bob)
+        );
+        UUPSUpgradeable(address(factory)).upgradeToAndCall(v2, "");
+    }
+
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        // The admin renounces ownership: the upgrade admin becomes address(0).
+        vm.prank(admin);
+        OwnableUpgradeable(address(factory)).renounceOwnership();
+        assertEq(OwnableUpgradeable(address(factory)).owner(), address(0));
+
+        // With no owner, _authorizeUpgrade reverts for EVERYONE — the implementation is frozen forever.
+        address v2 = address(new HouseTokenFactoryV2());
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, admin)
+        );
+        UUPSUpgradeable(address(factory)).upgradeToAndCall(v2, "");
+
+        // And deploying still works after the freeze — the frozen owner never gated it.
+        vm.prank(caller);
+        address t = factory.deployHouseToken(business, NAME, SYMBOL, DECIMALS, SUPPLY);
+        assertTrue(factory.isHouseToken(t));
     }
 }
 

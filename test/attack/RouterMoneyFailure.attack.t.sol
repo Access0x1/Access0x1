@@ -11,6 +11,7 @@ import { MockFailedTransferFrom } from "../mocks/MockFailedTransferFrom.sol";
 import { MockReturnsNothingToken } from "../mocks/MockReturnsNothingToken.sol";
 import { MockReentrantToken } from "../mocks/MockReentrantToken.sol";
 import { RevertingReceiver } from "../mocks/RevertingReceiver.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice The failure-injection money matrix: deploy each hostile token into a FRESH router, drive
 ///         the money path, and assert the contract REVERTS + rolls back — no phantom payment, no
@@ -24,7 +25,7 @@ import { RevertingReceiver } from "../mocks/RevertingReceiver.sol";
 ///         still settles, and that a reentrant-on-transfer token cannot double-settle. Each test
 ///         snapshots balances/ledger before, forces the failing leg, and asserts the after-state is
 ///         byte-for-byte the before-state (atomic rollback).
-contract RouterMoneyFailureAttackTest is Test {
+contract RouterMoneyFailureAttackTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     MockV3Aggregator internal feed; // a generic 8-dec $1 feed reused for each hostile token
 
@@ -41,7 +42,12 @@ contract RouterMoneyFailureAttackTest is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
         feed = new MockV3Aggregator(8, 1e8); // token/USD = $1
     }
 

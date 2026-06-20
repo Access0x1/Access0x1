@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Access0x1GiftCards } from "../../src/Access0x1GiftCards.sol";
 import { IAccess0x1GiftCards } from "../../src/interfaces/IAccess0x1GiftCards.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice OPUS red-team round 2 for Access0x1GiftCards — adversarial probes that go BEYOND the
 ///         headline-invariant suite already in `Access0x1GiftCards.attack.t.sol`. Each test is an
@@ -22,7 +23,7 @@ import { Access0x1Router } from "../../src/Access0x1Router.sol";
 ///           - uint32 max-redemptions boundary semantics
 /// @dev    A green run is the proof the unit holds the line on these corners too. Red-team never edits
 ///         src/; a real loss documented here would be a BREAK the contract owner must fix.
-contract Access0x1GiftCardsRedTeamTest is Test {
+contract Access0x1GiftCardsRedTeamTest is Test, ProxyDeployer {
     Access0x1GiftCards internal cards;
     Access0x1Router internal router;
 
@@ -39,8 +40,19 @@ contract Access0x1GiftCardsRedTeamTest is Test {
     uint256 internal constant FACE = 100e8;
 
     function setUp() public {
-        router = new Access0x1Router(admin, treasury, 100);
-        cards = new Access0x1GiftCards(admin, router);
+        // Both contracts run behind UUPS proxies (storage in the proxy, logic in the impl).
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100))
+            )
+        );
+        cards = Access0x1GiftCards(
+            deployProxy(
+                address(new Access0x1GiftCards()),
+                abi.encodeCall(Access0x1GiftCards.initialize, (admin, router))
+            )
+        );
 
         vm.prank(ownerA);
         merchantA = router.registerMerchant(makeAddr("rt_payoutA"), address(0), 0, keccak256("rtA"));

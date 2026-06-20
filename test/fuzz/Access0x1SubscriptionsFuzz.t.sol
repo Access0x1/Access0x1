@@ -15,6 +15,7 @@ import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  Access0x1SubscriptionsFuzz
 /// @author Access0x1
@@ -51,7 +52,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 /// @dev    Composes the REAL {Access0x1Router} + {SessionGrant} + a {MockV3Aggregator}-fed {MockUSDC},
 ///         so each charge exercises the genuine fee-split + in-tx USD->token quote — never a stub. No new
 ///         mocks are introduced (the canonical {MockUSDC} 6-dp asset + {MockV3Aggregator} feed).
-contract Access0x1SubscriptionsFuzzTest is Test {
+contract Access0x1SubscriptionsFuzzTest is Test, ProxyDeployer {
     Access0x1Subscriptions internal subsC;
     Access0x1Router internal router;
     SessionGrant internal grant;
@@ -89,10 +90,26 @@ contract Access0x1SubscriptionsFuzzTest is Test {
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1.00/USDC
 
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE_BPS);
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
-        subsC = new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), GRACE
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        grant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
+        subsC = Access0x1Subscriptions(
+            deployProxy(
+                address(new Access0x1Subscriptions()),
+                abi.encodeCall(
+                    Access0x1Subscriptions.initialize,
+                    (admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), GRACE)
+                )
+            )
         );
 
         vm.startPrank(admin);

@@ -9,6 +9,7 @@ import { IAccess0x1Invoices } from "../../src/interfaces/IAccess0x1Invoices.sol"
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice An 18-decimal USD stablecoin (the "Arc trap": native USDC on Arc is 18-dec while the
 ///         ERC-20 USDC most chains ship is 6-dec, and the Chainlink feed is 8-dec). Used to prove the
@@ -69,7 +70,7 @@ contract NativeRefundGriefer {
 ///         NOT cover: the 18-dec Arc-trap conservation, native-refund griefing + cross-invoice
 ///         re-entry during the refund hook, dust-rounding conservation at $0.00000001, void-after-pay
 ///         races, fee-on-transfer rejection on the invoice hop, and the unknown-merchant / id-0 edges.
-contract Access0x1InvoicesRedTeam is Test {
+contract Access0x1InvoicesRedTeam is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1Invoices internal invoices;
     MockV3Aggregator internal nativeFeed;
@@ -94,8 +95,20 @@ contract Access0x1InvoicesRedTeam is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
-        invoices = new Access0x1Invoices(router);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        // Deploy the invoice contract behind its UUPS proxy (impl + ERC1967Proxy initialized in one tx);
+        // the test is the upgrade admin, which no red-team case here exercises.
+        address invoicesImpl = address(new Access0x1Invoices());
+        invoices = Access0x1Invoices(
+            deployProxy(
+                invoicesImpl, abi.encodeCall(Access0x1Invoices.initialize, (router, address(this)))
+            )
+        );
 
         nativeFeed = new MockV3Aggregator(8, 2000e8); // ETH/USD
         usdcFeed = new MockV3Aggregator(8, 1e8); // USDC/USD (6-dec token)

@@ -9,12 +9,37 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
 import { RevertingReceiver } from "../mocks/RevertingReceiver.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-/// @notice The invoice contract's unit suite: the full surface in one fixture — constructor, create,
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior state. It deliberately
+///         carries no new storage (it would consume from `__gap` if it did), proving the proxy keeps
+///         every slot across the implementation swap.
+contract Access0x1InvoicesV2 is Access0x1Invoices {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
+
+/// @notice The invoice contract's unit suite: the full surface in one fixture — initializer, create,
 ///         the token + native pay paths (with adversarial mocks), void, the terminal-state machine,
 ///         and the views. Asserts the contract composes the router's fee-split exactly (net + fee ==
-///         gross, zero custody) without re-deriving it.
-contract Access0x1InvoicesTest is Test {
+///         gross, zero custody) without re-deriving it. The invoice contract is deployed BEHIND a UUPS
+///         proxy (deploy impl → `ERC1967Proxy` with `initialize(...)` calldata → cast the proxy to the
+///         type) via the shared {ProxyDeployer}, so every behavioural test exercises the production
+///         proxy↔impl shape. Tail tests cover the UUPS upgrade + the permanent freeze via
+///         `renounceOwnership`.
+contract Access0x1InvoicesTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1Invoices internal invoices;
 
@@ -37,13 +62,27 @@ contract Access0x1InvoicesTest is Test {
     bytes32 internal constant NONCE = keccak256("nonce-1");
     bytes32 internal constant MEMO = keccak256("memo");
 
+    /// @dev The contract (upgrade-admin) owner — the `Ownable2Step` owner of the Invoices proxy.
+    ///      Authorizes UUPS upgrades; renouncing it freezes the implementation forever. DISTINCT from
+    ///      `merchantOwner` (a per-merchant owner read live from the router).
+    address internal admin = makeAddr("admin");
+
     uint256 internal merchantId;
 
     function setUp() public virtual {
         vm.warp(1_700_000_000); // fixed, fresh time so the feeds stay inside the staleness window
 
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
-        invoices = new Access0x1Invoices(router);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address invoicesImpl = address(new Access0x1Invoices());
+        invoices = Access0x1Invoices(
+            deployProxy(invoicesImpl, abi.encodeCall(Access0x1Invoices.initialize, (router, admin)))
+        );
 
         nativeFeed = new MockV3Aggregator(8, 2000e8); // ETH/USD = $2000
         usdcFeed = new MockV3Aggregator(8, 1e8); // USDC/USD = $1
@@ -82,17 +121,32 @@ contract Access0x1InvoicesTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
+                              INITIALIZE
     //////////////////////////////////////////////////////////////*/
 
-    function test_constructorSetsRouterAndNextId() public view {
+    function test_initializeSetsRouterNextIdAndOwner() public view {
         assertEq(address(invoices.router()), address(router));
         assertEq(invoices.nextInvoiceId(), 1); // 0 stays the unset sentinel
+        assertEq(OwnableUpgradeable(address(invoices)).owner(), admin); // upgrade admin
     }
 
-    function test_constructorRevertsOnZeroRouter() public {
+    function test_initializeRevertsOnZeroRouter() public {
+        // The zero-router guard moved from the constructor into `initialize`: a proxy whose initializer
+        // is run with a zero router reverts during the deploy, so the proxy is never stood up.
+        address impl = address(new Access0x1Invoices());
         vm.expectRevert(IAccess0x1Invoices.Access0x1Invoices__ZeroAddress.selector);
-        new Access0x1Invoices(Access0x1Router(payable(address(0))));
+        deployProxy(
+            impl,
+            abi.encodeCall(
+                Access0x1Invoices.initialize, (Access0x1Router(payable(address(0))), admin)
+            )
+        );
+    }
+
+    function test_initializeRevertsOnSecondCall() public {
+        // The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        invoices.initialize(router, admin);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -541,5 +595,59 @@ contract Access0x1InvoicesTest is Test {
         assertEq(inv.merchantId, 0);
         assertEq(uint8(inv.status), uint8(IAccess0x1Invoices.InvStatus.NONE));
         assertFalse(invoices.isPayable(123));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: one OPEN invoice + an advanced nextInvoiceId.
+        uint256 id = _createToken(payer); // id 1, payer-locked, OPEN
+        assertEq(invoices.nextInvoiceId(), 2);
+
+        // The admin (contract owner) upgrades the proxy to v2.
+        address v2 = address(new Access0x1InvoicesV2());
+        vm.prank(admin);
+        UUPSUpgradeable(address(invoices)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(Access0x1InvoicesV2(address(invoices)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        assertEq(address(invoices.router()), address(router));
+        assertEq(invoices.nextInvoiceId(), 2);
+        IAccess0x1Invoices.Invoice memory inv = invoices.invoiceOf(id);
+        assertEq(inv.merchantId, merchantId);
+        assertEq(inv.payer, payer);
+        assertEq(inv.token, address(usdc));
+        assertEq(inv.amountUsd8, 20e8);
+        assertEq(uint8(inv.status), uint8(IAccess0x1Invoices.InvStatus.OPEN));
+        assertEq(OwnableUpgradeable(address(invoices)).owner(), admin); // upgrade admin unchanged
+    }
+
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new Access0x1InvoicesV2());
+        // A non-admin (even a merchant owner) cannot upgrade — _authorizeUpgrade is onlyOwner.
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, stranger)
+        );
+        UUPSUpgradeable(address(invoices)).upgradeToAndCall(v2, "");
+    }
+
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        // The admin renounces ownership: the upgrade admin becomes address(0).
+        vm.prank(admin);
+        OwnableUpgradeable(address(invoices)).renounceOwnership();
+        assertEq(OwnableUpgradeable(address(invoices)).owner(), address(0));
+
+        // With no owner, _authorizeUpgrade reverts for EVERYONE — the implementation is frozen forever.
+        address v2 = address(new Access0x1InvoicesV2());
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, admin)
+        );
+        UUPSUpgradeable(address(invoices)).upgradeToAndCall(v2, "");
     }
 }

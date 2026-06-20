@@ -6,6 +6,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { HouseTokenFactory } from "../../src/HouseTokenFactory.sol";
 import { HouseToken } from "../../src/HouseToken.sol";
 import { IHouseTokenFactory } from "../../src/interfaces/IHouseTokenFactory.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  HouseTokenFactoryEdge — Cyfrin UNIT EDGE-CASE suite for {HouseTokenFactory}
 /// @author Access0x1
@@ -17,11 +18,12 @@ import { IHouseTokenFactory } from "../../src/interfaces/IHouseTokenFactory.sol"
 ///         across the token's own ownership transfer. These are pure unit tests (arrange-act-assert) on a
 ///         fresh factory — no fuzzing here (that lives in test/fuzz), no script (that lives in
 ///         test/integration); this file fills the corners the happy-path unit tests skip.
-contract HouseTokenFactoryEdgeTest is Test {
+contract HouseTokenFactoryEdgeTest is Test, ProxyDeployer {
     HouseTokenFactory internal factory;
 
     address internal business = makeAddr("business");
     address internal caller = makeAddr("caller");
+    address internal admin = makeAddr("admin"); // the upgrade admin set at initialize
 
     string internal constant NAME = "Acme Loyalty";
     string internal constant SYMBOL = "ACME";
@@ -37,7 +39,10 @@ contract HouseTokenFactoryEdgeTest is Test {
     );
 
     function setUp() public {
-        factory = new HouseTokenFactory();
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new HouseTokenFactory());
+        address proxy = deployProxy(impl, abi.encodeCall(HouseTokenFactory.initialize, (admin)));
+        factory = HouseTokenFactory(proxy);
     }
 
     /*//////////////////////////////////////////////////////////////

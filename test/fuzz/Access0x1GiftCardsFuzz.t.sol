@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Access0x1GiftCards } from "../../src/Access0x1GiftCards.sol";
 import { IAccess0x1GiftCards } from "../../src/interfaces/IAccess0x1GiftCards.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  Access0x1GiftCardsFuzz
 /// @author Access0x1
@@ -32,7 +33,7 @@ import { Access0x1Router } from "../../src/Access0x1Router.sol";
 ///         just the unit suite's hand-picked points.
 /// @dev    Reuses the live {Access0x1Router} merchant registry for authorization exactly as the unit
 ///         suite does (no duplicated owner store, no new mock). USD amounts are 8-decimal; $1 == 1e8.
-contract Access0x1GiftCardsFuzzTest is Test {
+contract Access0x1GiftCardsFuzzTest is Test, ProxyDeployer {
     Access0x1GiftCards internal cards;
     Access0x1Router internal router;
 
@@ -52,8 +53,19 @@ contract Access0x1GiftCardsFuzzTest is Test {
     uint256 internal constant MAX_USD8 = 1_000_000_000e8;
 
     function setUp() public {
-        router = new Access0x1Router(admin, treasury, 100); // 1% platform fee (unused here)
-        cards = new Access0x1GiftCards(admin, router);
+        // Both contracts run behind UUPS proxies (1% platform fee, unused here).
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100))
+            )
+        );
+        cards = Access0x1GiftCards(
+            deployProxy(
+                address(new Access0x1GiftCards()),
+                abi.encodeCall(Access0x1GiftCards.initialize, (admin, router))
+            )
+        );
 
         // Register a merchant; the caller becomes its owner — the only address that may issue cards.
         vm.prank(merchantOwner);

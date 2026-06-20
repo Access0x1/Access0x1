@@ -10,6 +10,7 @@ import { MockERC721 } from "../mocks/MockERC721.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice A malicious contract buyer that re-enters {Access0x1Nft.buy} from inside the NFT-delivery
 ///         callback ({onERC721Received}) — the dangerous window: it runs AFTER the listing was
@@ -79,7 +80,7 @@ contract NonReceiverBuyer {
 /// @notice Adversarial coverage for the NFT commerce escrow: reentrancy on the NFT-delivery callback,
 ///         a non-receiver buyer (atomic money rollback), and front-run price-bump consent. A green run
 ///         is the proof the escrow resists the classic NFT-marketplace exploits with zero custody.
-contract Access0x1NftAttackTest is Test {
+contract Access0x1NftAttackTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1Nft internal market;
     MockV3Aggregator internal usdcFeed;
@@ -100,8 +101,15 @@ contract Access0x1NftAttackTest is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE_BPS);
-        market = new Access0x1Nft(admin, router);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        address impl = address(new Access0x1Nft());
+        address proxy = deployProxy(impl, abi.encodeCall(Access0x1Nft.initialize, (admin, router)));
+        market = Access0x1Nft(proxy);
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8);
         collection = new MockERC721();

@@ -6,6 +6,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  Access0x1RouterFuzz
 /// @author Access0x1
@@ -26,7 +27,7 @@ import { MockUSDC } from "../mocks/MockUSDC.sol";
 ///         staleness window across every fuzz run. The fee splits are recomputed INDEPENDENTLY of the
 ///         contract (mirroring the unit suite's `_fees`), so the assertions are a true oracle, never a
 ///         tautology against the contract's own math.
-contract Access0x1RouterFuzz is Test {
+contract Access0x1RouterFuzz is Test, ProxyDeployer {
     Access0x1Router internal router;
     MockV3Aggregator internal nativeFeed; // ETH/USD, 8 dp
     MockV3Aggregator internal usdcFeed; // USDC/USD, 8 dp
@@ -50,7 +51,12 @@ contract Access0x1RouterFuzz is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000); // fixed, fresh time so the feeds never go stale during a run
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
         nativeFeed = new MockV3Aggregator(8, NATIVE_PRICE_8);
         usdcFeed = new MockV3Aggregator(8, USDC_PRICE_8);
         usdc = new MockUSDC();
