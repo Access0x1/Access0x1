@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed on seven testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), and Ethereum Hoodi (560048); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). Source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed on eight testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Ethereum Hoodi (560048), and 0G Galileo (16602 — full 12-contract stack); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). Source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -488,9 +488,9 @@ make deploy-unichain-sepolia # Unichain Sepolia
 
 Every address below is read straight from the committed broadcast log
 (`broadcast/DeployAll.s.sol/<chainId>/run-latest.json`) — **never** hand-entered (law #4: an address
-that isn't on-chain isn't claimed). The full first-party surface is **live on the six chains detailed
+that isn't on-chain isn't claimed). The full first-party surface is **live on the seven chains detailed
 below — Arc Testnet (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia
-(11155420), Avalanche Fuji (43113), and Robinhood Chain (46630)** (Ethereum Hoodi (560048) is also
+(11155420), Avalanche Fuji (43113), Robinhood Chain (46630), and 0G Galileo (16602)** (Ethereum Hoodi (560048) is also
 confirmed on-chain — addresses in its `broadcast/` record), and **source-verified on Arc and Base
 Sepolia**; zkSync Sepolia is one-command ready (`make deploy-zksync-sepolia`) but not yet broadcast (its
 rows stay blank until it is). `Access0x1Router` is the
@@ -516,6 +516,18 @@ operator guide.
 | Arc Testnet (5042002) | `USDC/USD feed` _(MockV3Aggregator — no live Chainlink DON on Arc testnet)_ | [`0x60eb647D166b70662e0567551Af7E575f13e8008`](https://testnet.arcscan.app/address/0x60eb647d166b70662e0567551af7e575f13e8008) | — |
 | Arc Testnet (5042002) | `Access0x1Receiver` | — (sidecar, not deployed) | — |
 | Arc Testnet (5042002) | `ChainRegistry` | — (sidecar, not deployed) | — |
+| 0G Galileo (16602) | `Access0x1Router` | [`0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad`](https://chainscan-galileo.0g.ai/address/0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad) | — |
+| 0G Galileo (16602) | `SessionGrant` | [`0x89f904a7328eaB1Fd8Ea422A5e635344766fBF4d`](https://chainscan-galileo.0g.ai/address/0x89f904a7328eaB1Fd8Ea422A5e635344766fBF4d) | — |
+| 0G Galileo (16602) | `PaymentLanes` | [`0x3D5247B4D5d1947c7b9c82b27f20246da9923238`](https://chainscan-galileo.0g.ai/address/0x3D5247B4D5d1947c7b9c82b27f20246da9923238) | — |
+| 0G Galileo (16602) | `HouseTokenFactory` | [`0x1001dc04da8706D53b24389c3348Ca512A5bA6b7`](https://chainscan-galileo.0g.ai/address/0x1001dc04da8706D53b24389c3348Ca512A5bA6b7) | — |
+| 0G Galileo (16602) | `Access0x1ProvenanceRegistry` | [`0xF0056B52Df2CC2Aa3e80e607a0770b062Ba737D5`](https://chainscan-galileo.0g.ai/address/0xF0056B52Df2CC2Aa3e80e607a0770b062Ba737D5) | — |
+| 0G Galileo (16602) | `Access0x1Escrow` | [`0xc7Ed3886Ec8995531531cb2659d6B4bC4519C231`](https://chainscan-galileo.0g.ai/address/0xc7Ed3886Ec8995531531cb2659d6B4bC4519C231) | — |
+| 0G Galileo (16602) | `Access0x1Subscriptions` | [`0x5aC1bC66D5073B0f84BB4f240dc2dDA95CC46a6e`](https://chainscan-galileo.0g.ai/address/0x5aC1bC66D5073B0f84BB4f240dc2dDA95CC46a6e) | — |
+| 0G Galileo (16602) | `AutomationGateway` | [`0x065311Fa0170422Ee6025c2c4BAA5724a5886Bf0`](https://chainscan-galileo.0g.ai/address/0x065311Fa0170422Ee6025c2c4BAA5724a5886Bf0) | — |
+| 0G Galileo (16602) | `Access0x1Bookings` | [`0x1fECfe4781E9a38B4291b681751E048cc6d1eAc5`](https://chainscan-galileo.0g.ai/address/0x1fECfe4781E9a38B4291b681751E048cc6d1eAc5) | — |
+| 0G Galileo (16602) | `Access0x1Invoices` | [`0xB90f34e22683D24b622a8CA32FB8cCEB8aB1d505`](https://chainscan-galileo.0g.ai/address/0xB90f34e22683D24b622a8CA32FB8cCEB8aB1d505) | — |
+| 0G Galileo (16602) | `Access0x1GiftCards` | [`0x5b2C1857C65c7daa672985Fc9C3AAF2050b42288`](https://chainscan-galileo.0g.ai/address/0x5b2C1857C65c7daa672985Fc9C3AAF2050b42288) | — |
+| 0G Galileo (16602) | `Access0x1Nft` | [`0xD682F77D0aE016838D89b4F673f17Acd93102231`](https://chainscan-galileo.0g.ai/address/0xD682F77D0aE016838D89b4F673f17Acd93102231) | — |
 | Base Sepolia (84532) | `Access0x1Router` | [`0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57`](https://base-sepolia.blockscout.com/address/0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57) | `0x099628a1…4611` |
 | Base Sepolia (84532) | `SessionGrant` | [`0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6`](https://base-sepolia.blockscout.com/address/0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6) | — |
 | Base Sepolia (84532) | `PaymentLanes` | [`0x5578929702b0158682286982e3f82d04a08f3b92`](https://base-sepolia.blockscout.com/address/0x5578929702b0158682286982e3f82d04a08f3b92) | — |
