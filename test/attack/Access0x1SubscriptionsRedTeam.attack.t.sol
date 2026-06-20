@@ -17,6 +17,7 @@ import { OracleLib } from "../../src/libraries/OracleLib.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice A settlement token whose `transferFrom` re-enters {Access0x1Subscriptions.setPlan} to
 ///         mutate the plan's `periodSecs` MID-CHARGE. The attack probes whether a merchant who
@@ -115,7 +116,7 @@ contract Token18 is ERC20 {
 ///         billing after a PAST_DUE recovery (no double-charge, no budget overrun), a mid-charge
 ///         re-entry into the non-guarded {setPlan}, and gas-metered try/catch griefing. A PASS = the
 ///         attack is DEFEATED (revert, dun, or no-op) and every money invariant still holds.
-contract Access0x1SubscriptionsRedTeamTest is Test {
+contract Access0x1SubscriptionsRedTeamTest is Test, ProxyDeployer {
     Access0x1Subscriptions internal subsC;
     Access0x1Router internal router;
     SessionGrant internal grant;
@@ -148,10 +149,26 @@ contract Access0x1SubscriptionsRedTeamTest is Test {
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8);
 
-        router = new Access0x1Router(admin, treasury, 100); // 1%
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
-        subsC = new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 3
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100)) // 1%
+            )
+        );
+        grant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
+        subsC = Access0x1Subscriptions(
+            deployProxy(
+                address(new Access0x1Subscriptions()),
+                abi.encodeCall(
+                    Access0x1Subscriptions.initialize,
+                    (admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 3)
+                )
+            )
         );
 
         vm.startPrank(admin);

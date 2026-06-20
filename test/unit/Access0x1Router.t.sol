@@ -12,13 +12,38 @@ import { RevertingReceiver } from "../mocks/RevertingReceiver.sol";
 import { ReentrantPayout } from "../mocks/ReentrantPayout.sol";
 import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
 import { RescueClaimer } from "../mocks/RescueClaimer.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 import {
     AggregatorV3Interface
 } from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-/// @notice The router's unit suite — the full surface in one fixture: constructor, merchant
-///         registry, pricing, both pay paths (with adversarial mocks), admin, and rescue.
-contract Access0x1RouterTest is Test {
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior state. It deliberately
+///         carries no new storage (it would consume from `__gap` if it did), proving the proxy keeps
+///         every slot across the implementation swap.
+contract Access0x1RouterV2 is Access0x1Router {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
+
+/// @notice The router's unit suite — the full surface in one fixture: initializer, merchant
+///         registry, pricing, both pay paths (with adversarial mocks), admin, and rescue. The router
+///         is deployed BEHIND a UUPS proxy (deploy impl → `ERC1967Proxy` with `initialize(...)`
+///         calldata → cast the proxy to the type) via the shared {ProxyDeployer}, so every behavioural
+///         test exercises the production proxy↔impl shape. Tail tests cover the UUPS upgrade + the
+///         permanent freeze via `renounceOwnership`.
+contract Access0x1RouterTest is Test, ProxyDeployer {
     Access0x1Router internal router;
 
     address internal owner = makeAddr("owner");
@@ -39,7 +64,12 @@ contract Access0x1RouterTest is Test {
     bytes32 internal constant ORDER = keccak256("order-1");
 
     function setUp() public virtual {
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new Access0x1Router());
+        address proxy = deployProxy(
+            impl, abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+        );
+        router = Access0x1Router(proxy);
     }
 
     /// @dev Deploy + wire a native ($2000) and a USDC ($1) feed, and allowlist USDC. Called by the
@@ -74,7 +104,7 @@ contract Access0x1RouterTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
+                              INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
     function test_constructorSetsInitialState() public view {
@@ -86,18 +116,30 @@ contract Access0x1RouterTest is Test {
     }
 
     function test_constructorRevertsOnZeroTreasury() public {
+        // Validation moved from the constructor into initialize(); the revert surfaces when the proxy
+        // runs the initializer in its constructor.
+        address impl = address(new Access0x1Router());
         vm.expectRevert(Access0x1Router.Access0x1__ZeroAddress.selector);
-        new Access0x1Router(owner, address(0), PLATFORM_FEE_BPS);
+        deployProxy(
+            impl, abi.encodeCall(Access0x1Router.initialize, (owner, address(0), PLATFORM_FEE_BPS))
+        );
     }
 
     function test_constructorRevertsOnFeeTooHigh() public {
         uint16 tooHigh = router.MAX_FEE_BPS() + 1;
+        address impl = address(new Access0x1Router());
         vm.expectRevert(
             abi.encodeWithSelector(
                 Access0x1Router.Access0x1__FeeTooHigh.selector, tooHigh, router.MAX_FEE_BPS()
             )
         );
-        new Access0x1Router(owner, treasury, tooHigh);
+        deployProxy(impl, abi.encodeCall(Access0x1Router.initialize, (owner, treasury, tooHigh)));
+    }
+
+    function test_initialize_revertOnSecondCall() public {
+        // The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        router.initialize(owner, treasury, PLATFORM_FEE_BPS);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -980,6 +1022,65 @@ contract Access0x1RouterTest is Test {
         // The re-entrant claim rolled back whole: the credit is intact, nothing double-paid.
         assertEq(router.rescue(address(claimer)), net);
         assertEq(address(claimer).balance, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: a registered merchant + a bumped fee + a treasury swap.
+        uint256 id = _register();
+        address newTreasury = makeAddr("newTreasury");
+        vm.startPrank(owner);
+        router.setPlatformFee(250);
+        router.setTreasury(newTreasury);
+        vm.stopPrank();
+
+        // The owner (upgrade admin) upgrades the proxy to v2.
+        address v2 = address(new Access0x1RouterV2());
+        vm.prank(owner);
+        UUPSUpgradeable(address(router)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(Access0x1RouterV2(address(router)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        (address p, address o,, uint16 fb, bool active,) = router.merchants(id);
+        assertEq(p, payout);
+        assertEq(o, merchantOwner);
+        assertEq(fb, MERCHANT_FEE_BPS);
+        assertTrue(active);
+        assertEq(router.platformFeeBps(), 250);
+        assertEq(router.platformTreasury(), newTreasury);
+        assertEq(router.nextMerchantId(), 2);
+        assertEq(router.owner(), owner); // upgrade admin unchanged
+    }
+
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new Access0x1RouterV2());
+        // A non-owner cannot upgrade — _authorizeUpgrade is onlyOwner.
+        address stranger = makeAddr("stranger");
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, stranger)
+        );
+        UUPSUpgradeable(address(router)).upgradeToAndCall(v2, "");
+    }
+
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        // The owner renounces ownership: the upgrade admin becomes address(0).
+        vm.prank(owner);
+        OwnableUpgradeable(address(router)).renounceOwnership();
+        assertEq(router.owner(), address(0));
+
+        // With no owner, _authorizeUpgrade reverts for EVERYONE — the implementation is frozen forever.
+        address v2 = address(new Access0x1RouterV2());
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, owner)
+        );
+        UUPSUpgradeable(address(router)).upgradeToAndCall(v2, "");
     }
 }
 

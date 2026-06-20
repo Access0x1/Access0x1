@@ -5,13 +5,17 @@ import { Test } from "forge-std/Test.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { ChainRegistry } from "../../src/ChainRegistry.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /// @notice Test-only harness that surfaces the registry's `internal` flag constants so the suite can
 ///         assert their exact bit values. Adds no behaviour; the constants live on `ChainRegistry`
-///         and are merely re-exported here.
+///         and are merely re-exported here. Deployed as a logic implementation and driven behind a
+///         proxy exactly like the production contract (its inherited constructor disables initializers).
 contract ChainRegistryHarness is ChainRegistry {
-    constructor(address initialOwner) ChainRegistry(initialOwner) { }
-
     function FLAG_LIVE_() external pure returns (uint16) {
         return FLAG_LIVE;
     }
@@ -33,10 +37,27 @@ contract ChainRegistryHarness is ChainRegistry {
     }
 }
 
+/// @notice A trivial v2 implementation used by the upgrade test: a {ChainRegistryHarness} subclass that
+///         adds one view function and changes nothing else, so an upgrade to it must preserve all prior
+///         state. It deliberately carries no new storage (it would consume from `__gap` if it did),
+///         proving the proxy keeps every slot across the implementation swap.
+contract ChainRegistryHarnessV2 is ChainRegistryHarness {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
+
 /// @notice ChainRegistry unit suite — the sidecar chain hash-map: upsert, the targeted live bit
 ///         flip, found/not-found reads, the flag constants, two-step ownership, and round-trip fuzz.
-///         No money path here; every write is owner-gated config, every read is pure storage.
-contract ChainRegistryTest is Test {
+///         The registry is deployed BEHIND a UUPS proxy (deploy impl → `ERC1967Proxy` with
+///         `initialize(...)` calldata → cast the proxy to the type) via the shared {ProxyDeployer}, so
+///         every behavioural test exercises the production proxy↔impl shape. No money path here; every
+///         write is owner-gated config, every read is pure storage. Tail tests cover the UUPS upgrade +
+///         the permanent freeze via `renounceOwnership`.
+contract ChainRegistryTest is Test, ProxyDeployer {
     ChainRegistryHarness internal registry;
 
     address internal owner = makeAddr("owner");
@@ -61,7 +82,10 @@ contract ChainRegistryTest is Test {
     event ChainLiveSet(uint256 indexed chainId, bool live);
 
     function setUp() public {
-        registry = new ChainRegistryHarness(owner);
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new ChainRegistryHarness());
+        address proxy = deployProxy(impl, abi.encodeCall(ChainRegistry.initialize, (owner)));
+        registry = ChainRegistryHarness(proxy);
     }
 
     function _cfg(uint16 flags) internal view returns (ChainRegistry.ChainConfig memory) {
@@ -408,5 +432,62 @@ contract ChainRegistryTest is Test {
         assertEq(after_ & ~FLAG_LIVE, expectedBase & ~FLAG_LIVE);
         // The live bit matches the requested state.
         assertEq(after_ & FLAG_LIVE, live ? FLAG_LIVE : uint16(0));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_initialize_revertOnSecondCall() public {
+        // The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        registry.initialize(owner);
+    }
+
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: a registered, live chain entry.
+        vm.startPrank(owner);
+        registry.addChain(BASE_SEPOLIA, _cfg(FLAG_TESTNET | FLAG_LIVE));
+        vm.stopPrank();
+
+        // The owner (upgrade admin) upgrades the proxy to v2.
+        address v2 = address(new ChainRegistryHarnessV2());
+        vm.prank(owner);
+        UUPSUpgradeable(address(registry)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(ChainRegistryHarnessV2(address(registry)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        ChainRegistry.ChainConfig memory got = registry.getChain(BASE_SEPOLIA);
+        assertEq(got.usdc, usdc);
+        assertEq(got.router, router);
+        assertEq(got.ccipSelector, 1234);
+        assertEq(got.flags, FLAG_TESTNET | FLAG_LIVE | FLAG_REGISTERED);
+        assertTrue(registry.isLive(BASE_SEPOLIA));
+        assertEq(registry.owner(), owner); // upgrade admin unchanged
+    }
+
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new ChainRegistryHarnessV2());
+        // A non-owner cannot upgrade — _authorizeUpgrade is onlyOwner.
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger)
+        );
+        UUPSUpgradeable(address(registry)).upgradeToAndCall(v2, "");
+    }
+
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        // The owner renounces ownership: the upgrade admin becomes address(0).
+        vm.prank(owner);
+        registry.renounceOwnership();
+        assertEq(registry.owner(), address(0));
+
+        // With no owner, _authorizeUpgrade reverts for EVERYONE — the implementation is frozen forever.
+        address v2 = address(new ChainRegistryHarnessV2());
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, owner));
+        UUPSUpgradeable(address(registry)).upgradeToAndCall(v2, "");
     }
 }

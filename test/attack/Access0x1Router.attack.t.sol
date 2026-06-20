@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice A malicious merchant payout that, on receiving its net during `payNative`, tries to
 ///         re-enter through a DIFFERENT function — `claimRescue` — to drain more than it is owed.
@@ -25,7 +26,7 @@ contract CrossFunctionReentrant {
 
 /// @notice Adversarial tests for the money path — exploit attempts, not happy-path coverage. A green
 ///         run here is the proof that the router resists the classic payments attacks.
-contract Access0x1RouterAttackTest is Test {
+contract Access0x1RouterAttackTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     MockV3Aggregator internal nativeFeed;
     MockV3Aggregator internal usdcFeed;
@@ -41,7 +42,12 @@ contract Access0x1RouterAttackTest is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
         nativeFeed = new MockV3Aggregator(8, 2000e8);
         usdcFeed = new MockV3Aggregator(8, 1e8);
         usdc = new MockUSDC();

@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 import {
     AggregatorV3Interface
 } from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
@@ -20,7 +21,7 @@ import {
 ///         `forge test --match-path test/fork/ChainlinkFeedFork.t.sol` after exporting
 ///         `BASE_SEPOLIA_RPC_URL` (the fork is created INSIDE each test, not in `setUp`, so an
 ///         unset URL never even attempts a fork).
-contract ChainlinkFeedForkTest is Test {
+contract ChainlinkFeedForkTest is Test, ProxyDeployer {
     /// @dev Canonical Chainlink ETH/USD feed on Base Sepolia (chainId 84532). Overridable via
     ///      `BASE_SEPOLIA_NATIVE_USD_FEED` so a different/updated feed can be pinned without an edit.
     ///      Source: docs.chain.link/data-feeds (Base Sepolia ETH/USD).
@@ -41,6 +42,20 @@ contract ChainlinkFeedForkTest is Test {
 
     function _feed() internal view returns (AggregatorV3Interface) {
         return AggregatorV3Interface(vm.envOr("BASE_SEPOLIA_NATIVE_USD_FEED", DEFAULT_ETH_USD_FEED));
+    }
+
+    /// @dev Deploy a fresh router behind a UUPS proxy: deploy the impl, then an `ERC1967Proxy` that runs
+    ///      `initialize(owner, treasury, fee)` in the same tx (the impl ran `_disableInitializers()` in
+    ///      its constructor). The proxy is the router every test drives — state in the proxy, logic in
+    ///      the impl — matching the production shape.
+    function _deployRouter() internal returns (Access0x1Router) {
+        address impl = address(new Access0x1Router());
+        return Access0x1Router(
+            deployProxy(
+                impl,
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
     }
 
     /// @dev The live feed answers a positive, recently-updated round (sanity on the real oracle).
@@ -64,7 +79,7 @@ contract ChainlinkFeedForkTest is Test {
     function test_fork_quoteAgainstRealFeedIsPlausible() public {
         if (!_forkOrSkip()) return;
 
-        Access0x1Router router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
+        Access0x1Router router = _deployRouter();
         vm.prank(owner);
         router.setPriceFeed(address(0), address(_feed()));
 
@@ -79,7 +94,7 @@ contract ChainlinkFeedForkTest is Test {
     function test_fork_staleGuardTriggersAfterWarp() public {
         if (!_forkOrSkip()) return;
 
-        Access0x1Router router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
+        Access0x1Router router = _deployRouter();
         vm.prank(owner);
         router.setPriceFeed(address(0), address(_feed()));
 

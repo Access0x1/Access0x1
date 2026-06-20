@@ -6,6 +6,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { HouseTokenFactory } from "../../src/HouseTokenFactory.sol";
 import { HouseToken } from "../../src/HouseToken.sol";
 import { IHouseTokenFactory } from "../../src/interfaces/IHouseTokenFactory.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  HouseTokenFactoryFuzz — Cyfrin STATELESS FUZZ suite for {HouseTokenFactory}
 /// @author Access0x1
@@ -22,11 +23,16 @@ import { IHouseTokenFactory } from "../../src/interfaces/IHouseTokenFactory.sol"
 /// @dev    Stateless by construction: each fuzz run gets a FRESH factory in {setUp}, so no run depends on
 ///         another's state (that is what separates this from the stateful-invariant layer). Mocks are
 ///         reused from test/mocks where relevant; the factory itself needs none.
-contract HouseTokenFactoryFuzzTest is Test {
+contract HouseTokenFactoryFuzzTest is Test, ProxyDeployer {
     HouseTokenFactory internal factory;
 
+    address internal admin = makeAddr("admin"); // the upgrade admin set at initialize
+
     function setUp() public {
-        factory = new HouseTokenFactory();
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new HouseTokenFactory());
+        address proxy = deployProxy(impl, abi.encodeCall(HouseTokenFactory.initialize, (admin)));
+        factory = HouseTokenFactory(proxy);
     }
 
     /// @dev Reject the inputs `deployHouseToken` is contractually allowed to reject, so a fuzz run that

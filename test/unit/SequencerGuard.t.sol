@@ -5,11 +5,12 @@ import { Test } from "forge-std/Test.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { OracleLib } from "../../src/libraries/OracleLib.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice Audit finding M-1 — the L2 Sequencer Uptime guard. `quote()` rejects pricing while an L2
 ///         sequencer is down or within its post-restart grace window. With NO sequencer feed
 ///         configured (the default, and L1 / Arc), the check is skipped and behaviour is unchanged.
-contract SequencerGuardTest is Test {
+contract SequencerGuardTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     MockV3Aggregator internal nativeFeed; // ETH/USD, 8 dec
     MockV3Aggregator internal seqFeed; // L2 Sequencer Uptime feed (answer 0 = up, 1 = down)
@@ -21,7 +22,12 @@ contract SequencerGuardTest is Test {
 
     function setUp() public {
         vm.warp(100_000); // well past the grace window, so a far-past startedAt reads as "up long enough"
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
         nativeFeed = new MockV3Aggregator(8, 2000e8); // ETH = $2000
         seqFeed = new MockV3Aggregator(0, 0);
         // Default the sequencer feed to healthy: up (answer 0), started well before the grace window.

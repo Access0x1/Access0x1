@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { StdInvariant } from "forge-std/StdInvariant.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice FABLE RED-TEAM — adversarial stateful invariant that, UNLIKE the canonical
 ///         PaymentLanesHandler, fires MISMATCHED-asset claimLane calls every step. The existing
@@ -117,7 +118,7 @@ contract PaymentLanesFirewallHandler is Test {
 
 /// @notice Per-asset conservation + cross-merchant isolation must hold even when claims are fired with
 ///         deliberately scrambled (often mismatched) assets across a long random call sequence.
-contract PaymentLanesFirewallInvariant is StdInvariant, Test {
+contract PaymentLanesFirewallInvariant is StdInvariant, Test, ProxyDeployer {
     PaymentLanes internal lanes;
     PaymentLanesFirewallHandler internal handler;
     MockUSDC internal usdc;
@@ -129,7 +130,11 @@ contract PaymentLanesFirewallInvariant is StdInvariant, Test {
         usdc = new MockUSDC();
         eurc = new MockUSDC();
         evil = new MockUSDC();
-        lanes = new PaymentLanes(admin);
+        lanes = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()), abi.encodeCall(PaymentLanes.initialize, (admin))
+            )
+        );
 
         handler = new PaymentLanesFirewallHandler(lanes, usdc, eurc, evil);
         vm.prank(admin);

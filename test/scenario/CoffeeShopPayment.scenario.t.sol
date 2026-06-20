@@ -6,6 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  CoffeeShop — the simplest real flow, told as a story
 /// @author Access0x1
@@ -27,7 +28,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 ///
 ///         This is deliberately NOT a fuzz test. It is a single, concrete, readable transaction with
 ///         realistic names and amounts, so a reviewer can follow the money by eye.
-contract CoffeeShopPaymentScenarioTest is Test {
+contract CoffeeShopPaymentScenarioTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     MockUSDC internal usdc; // 6-decimal USDC — the real shape on Base / Arc
     MockV3Aggregator internal usdcFeed; // USDC/USD, 8 decimals, pinned at $1.00
@@ -47,7 +48,14 @@ contract CoffeeShopPaymentScenarioTest is Test {
         // Pin a stable, recent timestamp so the Chainlink staleness guard (1h window) is satisfied.
         vm.warp(1_700_000_000);
 
-        router = new Access0x1Router(platformAdmin, treasury, PLATFORM_FEE_BPS);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(
+                    Access0x1Router.initialize, (platformAdmin, treasury, PLATFORM_FEE_BPS)
+                )
+            )
+        );
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1.00 / USDC
 

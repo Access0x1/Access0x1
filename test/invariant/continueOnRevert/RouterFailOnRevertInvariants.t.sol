@@ -7,6 +7,7 @@ import { Access0x1Router } from "../../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../../mocks/MockUSDC.sol";
 import { RouterHandler } from "../RouterHandler.sol";
+import { ProxyDeployer } from "../../utils/ProxyDeployer.sol";
 
 /// @notice The `failOnRevert` half of the dual invariant pair — the explicit twin that lives beside
 ///         the `continueOnRevert` suite so the gold-standard fund-me split (`StopOnRevert` bounded vs
@@ -18,7 +19,7 @@ import { RouterHandler } from "../RouterHandler.sol";
 ///         suite — proving the public view surface never reverts even on the bounded, all-valid path.
 /// @dev    No per-function natspec here: these invariants inherit the global `fail_on_revert = true`
 ///         from `[profile.default.invariant]`, which is exactly what makes this the StopOnRevert half.
-contract RouterFailOnRevertInvariants is StdInvariant, Test {
+contract RouterFailOnRevertInvariants is StdInvariant, Test, ProxyDeployer {
     Access0x1Router internal router;
     RouterHandler internal handler;
     MockV3Aggregator internal nativeFeed;
@@ -40,7 +41,12 @@ contract RouterFailOnRevertInvariants is StdInvariant, Test {
         usdcFeed = new MockV3Aggregator(8, 1e8);
         usdc = new MockUSDC();
 
-        router = new Access0x1Router(address(this), treasury, 100);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (address(this), treasury, 100))
+            )
+        );
         router.setPriceFeed(address(0), address(nativeFeed));
         router.setTokenAllowed(address(usdc), true);
         router.setPriceFeed(address(usdc), address(usdcFeed));

@@ -19,6 +19,7 @@ import { IHouseTokenFactory } from "../../src/interfaces/IHouseTokenFactory.sol"
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockForwarder } from "../mocks/MockForwarder.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  EndToEnd — the Access0x1 demo flow as ONE provable test
 /// @author Access0x1
@@ -43,7 +44,7 @@ import { MockForwarder } from "../mocks/MockForwarder.sol";
 ///
 /// @dev    `using NameMath for bytes32` so the test can show `nameHash.colorOf()` exactly as the
 ///         brand layer / SDK does (NameMath is an inlined library of `internal` pure functions).
-contract EndToEndTest is Test {
+contract EndToEndTest is Test, ProxyDeployer {
     using NameMath for bytes32;
 
     /*//////////////////////////////////////////////////////////////
@@ -119,13 +120,42 @@ contract EndToEndTest is Test {
         vm.warp(1_700_000_000);
 
         // ── 1. Deploy the stack ─────────────────────────────────────────────────────────────────
-        registry = new ChainRegistry(platformAdmin);
-        router = new Access0x1Router(platformAdmin, treasury, PLATFORM_FEE_BPS);
-        lanes = new PaymentLanes(platformAdmin);
+        registry = ChainRegistry(
+            deployProxy(
+                address(new ChainRegistry()),
+                abi.encodeCall(ChainRegistry.initialize, (platformAdmin))
+            )
+        );
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(
+                    Access0x1Router.initialize, (platformAdmin, treasury, PLATFORM_FEE_BPS)
+                )
+            )
+        );
+        lanes = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()),
+                abi.encodeCall(PaymentLanes.initialize, (platformAdmin))
+            )
+        );
         forwarder = new MockForwarder();
         receiver = new Access0x1Receiver(address(forwarder), platformAdmin);
-        factory = new HouseTokenFactory();
-        sessions = new SessionGrant("Access0x1 SessionGrant", "1");
+        factory = HouseTokenFactory(
+            deployProxy(
+                address(new HouseTokenFactory()),
+                abi.encodeCall(HouseTokenFactory.initialize, (platformAdmin))
+            )
+        );
+        sessions = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(
+                    SessionGrant.initialize, ("Access0x1 SessionGrant", "1", platformAdmin)
+                )
+            )
+        );
 
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1.00, 8-decimal feed

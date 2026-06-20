@@ -7,6 +7,7 @@ import { Access0x1Invoices } from "../../src/Access0x1Invoices.sol";
 import { IAccess0x1Invoices } from "../../src/interfaces/IAccess0x1Invoices.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  Access0x1InvoicesFuzz
 /// @author Access0x1
@@ -28,7 +29,7 @@ import { MockUSDC } from "../mocks/MockUSDC.sol";
 ///           - void          : OPEN → VOID one-way, unpayable after, over arbitrary lock/token shape.
 ///         Time is frozen at a fresh timestamp so the feeds stay inside the staleness window for every
 ///         run (a fuzzed `pay` must fail for a real reason, never an incidentally-stale feed).
-contract Access0x1InvoicesFuzz is Test {
+contract Access0x1InvoicesFuzz is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1Invoices internal invoices;
 
@@ -52,8 +53,20 @@ contract Access0x1InvoicesFuzz is Test {
         // A fixed, fresh time so every fuzzed pay sees a live feed (staleness is not what we test here).
         vm.warp(1_700_000_000);
 
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
-        invoices = new Access0x1Invoices(router);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        // Deploy the invoice contract behind its UUPS proxy (impl + ERC1967Proxy initialized in one tx);
+        // the test is the upgrade admin, which no fuzz case here exercises.
+        address invoicesImpl = address(new Access0x1Invoices());
+        invoices = Access0x1Invoices(
+            deployProxy(
+                invoicesImpl, abi.encodeCall(Access0x1Invoices.initialize, (router, address(this)))
+            )
+        );
 
         nativeFeed = new MockV3Aggregator(8, 2000e8); // ETH/USD = $2000
         usdcFeed = new MockV3Aggregator(8, 1e8); // USDC/USD = $1

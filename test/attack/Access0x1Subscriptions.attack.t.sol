@@ -15,6 +15,7 @@ import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice A malicious 6-decimal token that re-enters {Access0x1Subscriptions.renew} during its
 ///         inbound pull (`transferFrom` -> `_update`). The contract's `nonReentrant` guard must
@@ -56,7 +57,7 @@ contract ReentrantSubToken is ERC20 {
 ///         another subscriber's subscription / a foreign merchant's plan (tenant isolation),
 ///         reentrancy on the pull path, and a non-subscriber cancel. A passing test = the attack is
 ///         REJECTED (a revert or a no-op), never that it succeeds.
-contract Access0x1SubscriptionsAttackTest is Test {
+contract Access0x1SubscriptionsAttackTest is Test, ProxyDeployer {
     Access0x1Subscriptions internal subsC;
     Access0x1Router internal router;
     SessionGrant internal grant;
@@ -88,10 +89,26 @@ contract Access0x1SubscriptionsAttackTest is Test {
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8);
 
-        router = new Access0x1Router(admin, treasury, 100); // 1%
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
-        subsC = new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 3
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100)) // 1%
+            )
+        );
+        grant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
+        subsC = Access0x1Subscriptions(
+            deployProxy(
+                address(new Access0x1Subscriptions()),
+                abi.encodeCall(
+                    Access0x1Subscriptions.initialize,
+                    (admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 3)
+                )
+            )
         );
 
         vm.startPrank(admin);
