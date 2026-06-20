@@ -103,7 +103,9 @@ contract HouseTokenIntegrationTest is Test {
     ///         back at the script-deployed factory, so provenance is honest end to end.
     function test_integration_deployThroughScriptFactory_zeroCustody() public {
         vm.expectEmit(true, false, true, false, address(factory));
-        emit IHouseTokenFactory.Deployed(business, address(0), business, H_NAME, H_SYMBOL, H_SUPPLY);
+        emit IHouseTokenFactory.Deployed(
+            business, address(0), business, H_NAME, H_SYMBOL, H_DECIMALS, H_SUPPLY, block.chainid
+        );
 
         vm.prank(business);
         address token = factory.deployHouseToken(business, H_NAME, H_SYMBOL, H_DECIMALS, H_SUPPLY);
