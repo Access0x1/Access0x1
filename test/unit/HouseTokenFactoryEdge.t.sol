@@ -35,7 +35,9 @@ contract HouseTokenFactoryEdgeTest is Test, ProxyDeployer {
         address indexed caller,
         string name,
         string symbol,
-        uint256 initialSupply
+        uint8 decimals,
+        uint256 initialSupply,
+        uint256 chainId
     );
 
     function setUp() public {
@@ -58,11 +60,22 @@ contract HouseTokenFactoryEdgeTest is Test, ProxyDeployer {
         assertEq(token.totalSupply(), 7);
     }
 
-    /// @notice decimals == 255 (max uint8) round-trips intact — the factory passes the byte straight to
-    ///         the token's immutable, with no truncation or default-to-18 fallback.
-    function test_edge_decimalsMaxUint8() public {
-        HouseToken token = HouseToken(factory.deployHouseToken(business, NAME, SYMBOL, 255, 1));
-        assertEq(token.decimals(), 255, "max uint8 decimals round-trips");
+    /// @notice decimals == 18 is the inclusive ceiling the factory accepts — the standard ERC-20 width,
+    ///         which the router's quote() scaling handles exactly. The boundary value must succeed.
+    function test_edge_decimals18_isTheAcceptedCeiling() public {
+        HouseToken token = HouseToken(factory.deployHouseToken(business, NAME, SYMBOL, 18, 1));
+        assertEq(token.decimals(), 18, "18-decimal token is accepted as the ceiling");
+    }
+
+    /// @notice decimals == 255 (max uint8) is now REJECTED: the factory refuses any token above 18
+    ///         decimals because the router's USD quote() scaling cannot price it (a money-path footgun).
+    ///         The revert carries the offending value. This replaces the old "255 round-trips" behaviour,
+    ///         which {HouseToken} still supports directly but the FACTORY deliberately gates.
+    function test_edge_decimalsMaxUint8_reverts() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(IHouseTokenFactory.HouseTokenFactory__BadDecimals.selector, 255)
+        );
+        factory.deployHouseToken(business, NAME, SYMBOL, 255, 1);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -149,7 +162,7 @@ contract HouseTokenFactoryEdgeTest is Test, ProxyDeployer {
         address predicted = vm.computeCreateAddress(address(factory), 1);
 
         vm.expectEmit(true, true, true, true, address(factory));
-        emit Deployed(business, predicted, caller, NAME, SYMBOL, 1_000e18);
+        emit Deployed(business, predicted, caller, NAME, SYMBOL, 18, 1_000e18, block.chainid);
 
         vm.prank(caller);
         address token = factory.deployHouseToken(business, NAME, SYMBOL, 18, 1_000e18);

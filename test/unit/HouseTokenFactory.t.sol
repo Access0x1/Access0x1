@@ -98,8 +98,24 @@ contract HouseTokenFactoryTest is Test, ProxyDeployer {
     function test_deploy_emitsDeployedWithLockedShape() public {
         // We can't know the token address before deploy, so don't match the (indexed) token topic.
         vm.expectEmit(true, false, true, false, address(factory));
-        emit IHouseTokenFactory.Deployed(business, address(0), caller, NAME, SYMBOL, SUPPLY);
+        emit IHouseTokenFactory.Deployed(
+            business, address(0), caller, NAME, SYMBOL, DECIMALS, SUPPLY, block.chainid
+        );
         _deploy();
+    }
+
+    /// @notice The enriched `Deployed` event carries `decimals` AND `chainId` in its data payload, so a
+    ///         consumer can render an amount and place the token on its chain from the log alone — no
+    ///         extra eth_call. We match the FULL data here (every field, including the indexed token
+    ///         topic via the predicted CREATE address) to pin the new fields exactly.
+    function test_deploy_emitsDeployedWithDecimalsAndChainId() public {
+        address predicted = vm.computeCreateAddress(address(factory), 1);
+        vm.expectEmit(true, true, true, true, address(factory));
+        emit IHouseTokenFactory.Deployed(
+            business, predicted, caller, "Six DP", "SIX", 6, 1_000e6, block.chainid
+        );
+        vm.prank(caller);
+        factory.deployHouseToken(business, "Six DP", "SIX", 6, 1_000e6);
     }
 
     function test_deploy_zeroInitialSupply_mintsNothing() public {
@@ -171,6 +187,123 @@ contract HouseTokenFactoryTest is Test, ProxyDeployer {
 
     function test_isHouseToken_falseForUnknown() public view {
         assertFalse(factory.isHouseToken(address(0xBEEF)));
+    }
+
+    function test_deploy_badDecimals_reverts() public {
+        // decimals > 18 is rejected at the source: a >18-decimal token breaks the router's quote()
+        // scaling. 19 is the first illegal value.
+        vm.prank(caller);
+        vm.expectRevert(
+            abi.encodeWithSelector(IHouseTokenFactory.HouseTokenFactory__BadDecimals.selector, 19)
+        );
+        factory.deployHouseToken(business, NAME, SYMBOL, 19, SUPPLY);
+    }
+
+    function test_deploy_decimals18_isAllowed() public {
+        // 18 is the inclusive ceiling — the boundary must succeed (only > 18 reverts).
+        vm.prank(caller);
+        HouseToken token = HouseToken(factory.deployHouseToken(business, NAME, SYMBOL, 18, SUPPLY));
+        assertEq(token.decimals(), 18);
+    }
+
+    function test_deploy_badDecimals_leavesNoIndexState() public {
+        // A rejected deploy records nothing anywhere — count, enumeration, owner-index all untouched.
+        vm.prank(caller);
+        vm.expectRevert(
+            abi.encodeWithSelector(IHouseTokenFactory.HouseTokenFactory__BadDecimals.selector, 255)
+        );
+        factory.deployHouseToken(business, NAME, SYMBOL, 255, SUPPLY);
+
+        assertEq(factory.deployedCount(), 0, "reverted deploy must not bump the count");
+        assertEq(factory.allTokensLength(), 0, "reverted deploy must not extend the enumeration");
+        assertEq(factory.tokensOf(business).length, 0, "reverted deploy must not index the owner");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                       DISCOVERABILITY INDEX + VIEWS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice After a deploy the three indexes line up: the owner's `tokensOf` list holds the token, the
+    ///         global enumeration holds it at index 0, and `allTokensLength` is 1.
+    function test_index_singleDeploy_populatesAllThreeIndexes() public {
+        HouseToken token = _deploy();
+
+        address[] memory owned = factory.tokensOf(business);
+        assertEq(owned.length, 1, "owner has exactly one token");
+        assertEq(owned[0], address(token), "owner-index points at the deployed token");
+
+        assertEq(factory.allTokensLength(), 1, "global enumeration length is 1");
+        assertEq(factory.tokenAt(0), address(token), "tokenAt(0) is the deployed token");
+    }
+
+    /// @notice `tokenRecord` returns the packed provenance: owner-at-deploy, the deploy timestamp, and
+    ///         the deploy chain id (== block.chainid). The on-chain "who/when/where" with no log-scraping.
+    function test_index_tokenRecord_fieldsAreCorrect() public {
+        vm.warp(1_700_000_000); // a fixed, non-zero timestamp so deployedAt is meaningfully asserted
+        HouseToken token = _deploy();
+
+        IHouseTokenFactory.TokenRecord memory rec = factory.tokenRecord(address(token));
+        assertEq(rec.owner, business, "record owner is the supply recipient");
+        assertEq(
+            rec.deployedAt, uint64(block.timestamp), "record deployedAt is the deploy timestamp"
+        );
+        assertEq(rec.chainId, uint64(block.chainid), "record chainId is the deploy chain");
+    }
+
+    /// @notice The record for a token the factory never deployed is the zero record — distinguishable
+    ///         from a real one (whose owner is non-zero).
+    function test_index_tokenRecord_zeroForUnknown() public view {
+        IHouseTokenFactory.TokenRecord memory rec = factory.tokenRecord(address(0xBEEF));
+        assertEq(rec.owner, address(0));
+        assertEq(rec.deployedAt, 0);
+        assertEq(rec.chainId, 0);
+    }
+
+    /// @notice One owner deploying several tokens accumulates them in `tokensOf` in deploy order, while a
+    ///         different owner's list stays separate. Proves the owner-index is per-owner and additive.
+    function test_index_tokensOf_groupsByOwnerInOrder() public {
+        vm.startPrank(caller);
+        address a1 = factory.deployHouseToken(business, NAME, SYMBOL, 18, SUPPLY);
+        address a2 = factory.deployHouseToken(business, "Two", "TWO", 18, 0);
+        address b1 = factory.deployHouseToken(alice, "Alice", "ALC", 6, 0);
+        vm.stopPrank();
+
+        address[] memory bizTokens = factory.tokensOf(business);
+        assertEq(bizTokens.length, 2, "business owns two tokens");
+        assertEq(bizTokens[0], a1, "first in deploy order");
+        assertEq(bizTokens[1], a2, "second in deploy order");
+
+        address[] memory aliceTokens = factory.tokensOf(alice);
+        assertEq(aliceTokens.length, 1, "alice owns one token");
+        assertEq(aliceTokens[0], b1);
+
+        // Global enumeration sees all three, in global deploy order.
+        assertEq(factory.allTokensLength(), 3);
+        assertEq(factory.tokenAt(0), a1);
+        assertEq(factory.tokenAt(1), a2);
+        assertEq(factory.tokenAt(2), b1);
+    }
+
+    /// @notice An owner that has deployed nothing returns an empty `tokensOf` list (not a revert).
+    function test_index_tokensOf_emptyForUnknownOwner() public {
+        assertEq(factory.tokensOf(makeAddr("nobody")).length, 0);
+    }
+
+    /// @notice `tokenAt` reverts on an out-of-bounds index (the array's own bounds check). At length 1,
+    ///         index 1 is past the end.
+    function test_index_tokenAt_outOfBoundsReverts() public {
+        _deploy();
+        vm.expectRevert();
+        factory.tokenAt(1);
+    }
+
+    /// @notice The global enumeration length tracks `deployedCount` exactly across multiple deploys.
+    function test_index_allTokensLength_tracksDeployedCount() public {
+        assertEq(factory.allTokensLength(), factory.deployedCount());
+        _deploy();
+        _deploy();
+        assertEq(factory.allTokensLength(), 2);
+        assertEq(factory.allTokensLength(), factory.deployedCount());
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -281,6 +414,9 @@ contract HouseTokenFactoryTest is Test, ProxyDeployer {
         vm.assume(owner_ != address(0));
         vm.assume(owner_ != address(factory));
         supply_ = bound(supply_, 0, type(uint128).max);
+        // Stay inside the factory's accepted decimals domain (≤ 18); the > 18 revert is pinned by the
+        // dedicated BadDecimals tests, so this success-property fuzz must not stray into that path.
+        decimals_ = uint8(bound(uint256(decimals_), 0, 18));
 
         vm.prank(caller);
         HouseToken token =

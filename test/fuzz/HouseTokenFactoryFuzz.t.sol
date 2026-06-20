@@ -71,6 +71,9 @@ contract HouseTokenFactoryFuzzTest is Test, ProxyDeployer {
         // Bound supply away from the absurd 2^256 tail so balance arithmetic in the token stays sane;
         // uint128 max is already astronomically larger than any real token supply.
         supply_ = bound(supply_, 0, type(uint128).max);
+        // Stay inside the factory's contractual decimals domain (≤ 18); the > 18 revert path is the
+        // subject of its own property test below, so this success-property fuzz must not stray into it.
+        decimals_ = uint8(bound(uint256(decimals_), 0, 18));
 
         vm.prank(caller_);
         HouseToken token =
@@ -206,6 +209,66 @@ contract HouseTokenFactoryFuzzTest is Test, ProxyDeployer {
         assertEq(
             factory.deployedCount(), countBefore, "a reverted deploy must not move the counter"
         );
+    }
+
+    /// @notice ANY decimals > 18 ALWAYS reverts with BadDecimals (carrying the offending value), for any
+    ///         non-zero owner / metadata / supply, and leaves the count and enumeration untouched. Proves
+    ///         the router-scaling footgun is closed across the whole illegal decimals range, not just 19.
+    function testFuzz_deploy_decimalsAbove18AlwaysReverts(
+        address owner_,
+        uint8 decimals_,
+        uint256 supply_
+    ) public {
+        vm.assume(owner_ != address(0));
+        decimals_ = uint8(bound(uint256(decimals_), 19, 255)); // the whole illegal range
+        uint256 countBefore = factory.deployedCount();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IHouseTokenFactory.HouseTokenFactory__BadDecimals.selector, decimals_
+            )
+        );
+        factory.deployHouseToken(owner_, "Fuzz", "FZ", decimals_, supply_);
+
+        assertEq(
+            factory.deployedCount(), countBefore, "a reverted deploy must not move the counter"
+        );
+        assertEq(
+            factory.allTokensLength(), countBefore, "a reverted deploy must not extend enumeration"
+        );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+        DISCOVERABILITY INDEX — PROPERTY (asserted EVERY call)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice For any valid single deploy, all three indexes agree: the owner's `tokensOf` ends with the
+    ///         new token, the global enumeration's last entry is it, `allTokensLength == deployedCount`,
+    ///         and the `tokenRecord` names the owner + the live chain id. Proves discoverability is wired
+    ///         on EVERY deploy, not just the happy-path sample, with no field left unset.
+    function testFuzz_deploy_indexesStayConsistent(address owner_, uint8 decimals_, uint256 supply_)
+        public
+    {
+        _assumeDeployable(owner_, "Idx", "IDX");
+        decimals_ = uint8(bound(uint256(decimals_), 0, 18));
+        supply_ = bound(supply_, 0, type(uint128).max);
+
+        address token = factory.deployHouseToken(owner_, "Idx", "IDX", decimals_, supply_);
+
+        // Owner-index: last entry is the new token.
+        address[] memory owned = factory.tokensOf(owner_);
+        assertEq(owned[owned.length - 1], token, "owner-index ends with the new token");
+
+        // Global enumeration: last entry is the new token; length == count.
+        uint256 len = factory.allTokensLength();
+        assertEq(factory.tokenAt(len - 1), token, "enumeration ends with the new token");
+        assertEq(len, factory.deployedCount(), "enumeration length tracks the deploy count");
+
+        // Record: owner + chain id are set; deployedAt is the deploy time.
+        IHouseTokenFactory.TokenRecord memory rec = factory.tokenRecord(token);
+        assertEq(rec.owner, owner_, "record owner is the supply recipient");
+        assertEq(rec.chainId, uint64(block.chainid), "record chain id is the deploy chain");
+        assertEq(rec.deployedAt, uint64(block.timestamp), "record timestamp is the deploy time");
     }
 
     /*//////////////////////////////////////////////////////////////
