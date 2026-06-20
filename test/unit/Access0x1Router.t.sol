@@ -37,6 +37,19 @@ contract Access0x1RouterV2 is Access0x1Router {
     }
 }
 
+/// @notice A PaymentLanes stand-in whose `credit` always reverts — models a permanently-broken or
+///         unauthorized lanes contract. Wiring it as the router's `paymentLanes` forces every token
+///         settlement down the catch branch of `_settleNet`, so the {LanesFallback} observability event
+///         and the direct-push fallback can be asserted in one test. The signature mirrors
+///         {IPaymentLanes.credit}; the body never returns.
+contract AlwaysRevertingLanes {
+    /// @dev Always reverts, simulating a lanes contract that has not authorized the router (or is
+    ///      otherwise broken), so the router's `try/catch` takes the fallback path.
+    function credit(address, address, uint256) external pure returns (uint256) {
+        revert("lanes down");
+    }
+}
+
 /// @notice The router's unit suite — the full surface in one fixture: initializer, merchant
 ///         registry, pricing, both pay paths (with adversarial mocks), admin, and rescue. The router
 ///         is deployed BEHIND a UUPS proxy (deploy impl → `ERC1967Proxy` with `initialize(...)`
@@ -770,6 +783,35 @@ contract Access0x1RouterTest is Test, ProxyDeployer {
         assertEq(usdc.balanceOf(feeRecipient), merchantFee); // merchant surcharge → feeRecipient
         assertEq(usdc.balanceOf(address(router)), 0); // no custody — zero residual
         assertEq(net + platformFee + merchantFee, gross);
+    }
+
+    function test_payTokenEmitsLanesFallbackWhenLanesRevertsAndStillPaysNet() public {
+        _configureFeeds();
+        uint256 id = _register();
+        // Wire a lanes contract whose `credit` always reverts, so every settlement hits the catch path.
+        address lanes = address(new AlwaysRevertingLanes());
+        vm.prank(owner);
+        router.setPaymentLanes(lanes);
+
+        uint256 gross = router.quote(id, address(usdc), 20e8); // 20 USDC
+        (uint256 platformFee, uint256 merchantFee, uint256 net) = _fees(gross);
+        usdc.mint(buyer, 100e6);
+        vm.prank(buyer);
+        usdc.approve(address(router), gross);
+
+        // The lanes leg reverts; the router must (1) emit LanesFallback for observability and (2) still
+        // settle by pushing net straight to the payout — the payment is never stranded.
+        vm.expectEmit(true, true, false, true, address(router));
+        emit Access0x1Router.LanesFallback(id, address(usdc), net);
+        vm.prank(buyer);
+        router.payToken(id, address(usdc), 20e8, ORDER);
+
+        assertEq(usdc.balanceOf(payout), net); // net fell back to the direct push
+        assertEq(usdc.balanceOf(treasury), platformFee);
+        assertEq(usdc.balanceOf(feeRecipient), merchantFee);
+        assertEq(usdc.balanceOf(lanes), 0); // nothing reached the broken lanes contract
+        assertEq(usdc.allowance(address(router), lanes), 0); // dangling approval reset to 0
+        assertEq(usdc.balanceOf(address(router)), 0); // no custody — zero residual
     }
 
     function test_payTokenRevertsOnUnknownMerchant() public {
