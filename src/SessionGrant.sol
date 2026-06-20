@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    EIP712Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { ISessionGrant } from "./interfaces/ISessionGrant.sol";
@@ -35,7 +44,26 @@ import { ISessionGrant } from "./interfaces/ISessionGrant.sol";
 ///         on a successful {openSessionFor}, so a captured grant signature can never open a second
 ///         session. The session id itself = keccak256(owner, delegate, nonce), so a replayed
 ///         already-consumed grant collides with the existing session and reverts {SessionExists}.
-contract SessionGrant is ISessionGrant, EIP712 {
+///
+///         UPGRADEABILITY (the Access0x1 UUPS TEMPLATE — every system contract follows this exact shape):
+///         the contract is deployed behind an `ERC1967Proxy`; storage lives in the proxy, logic in this
+///         implementation. State is set once via {initialize} (the constructor-replacement,
+///         `initializer`-guarded); the implementation's own constructor calls `_disableInitializers()` so
+///         the logic contract can never be initialized or hijacked directly. Upgrades route through
+///         {upgradeToAndCall} and are authorized by {_authorizeUpgrade} (contract-`owner`-only — the
+///         `Ownable2StepUpgradeable` owner, which is the UPGRADE ADMIN and is DISTINCT from each per-session
+///         owner in `_ownerOf`: the upgrade admin governs the implementation; a session owner only governs
+///         their own session). Calling `renounceOwnership()` permanently freezes the implementation (no
+///         owner ⇒ no authorized upgrade ⇒ immutable forever). A trailing `__gap` reserves slots for safe
+///         future storage appends. The EIP-712 domain cache survives an upgrade because `name`/`version`
+///         are unchanged across implementations.
+contract SessionGrant is
+    ISessionGrant,
+    Initializable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    EIP712Upgradeable
+{
     /// @notice The EIP-712 typehash for an off-chain session grant.
     /// @dev    keccak256("SessionGrant(address owner,address delegate,uint256 budgetCap,uint64
     ///         expiry,uint256 nonce)"). Pins every session parameter + the replay nonce into the digest
@@ -64,9 +92,42 @@ contract SessionGrant is ISessionGrant, EIP712 {
     ///         (the agent hot path) never loads it; only {revoke} reads it.
     mapping(bytes32 sessionId => address owner) private _ownerOf;
 
-    /// @param name    EIP-712 domain name.
-    /// @param version EIP-712 domain version.
-    constructor(string memory name, string memory version) EIP712(name, version) { }
+    /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
+    ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
+    ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
+    uint256[50] private __gap;
+
+    /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
+    ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
+    ///      initializer so it can never be initialized — and therefore never owned or upgraded —
+    ///      directly, closing the classic uninitialized-implementation takeover. Runs at
+    ///      implementation-deploy time.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer — the constructor-replacement for the proxy. Sets the EIP-712 domain
+    ///         and the contract (upgrade-admin) owner. Guarded by `initializer`, so it runs exactly once
+    ///         per proxy; the typical deploy is `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
+    /// @dev    Wires every base in inheritance order: EIP-712 domain, Ownable + its 2-step extension.
+    ///         `initialOwner` becomes the UPGRADE ADMIN (the `Ownable2Step` owner) — the contract-level
+    ///         upgrade authority, DISTINCT from any per-session owner in `_ownerOf`; it must be non-zero
+    ///         (`__Ownable_init` reverts on zero). No `__UUPSUpgradeable_init()`: in OZ 5.x
+    ///         `UUPSUpgradeable` re-exports the non-upgradeable contract (it holds no initializable
+    ///         storage), so there is no such initializer to call.
+    /// @param name         EIP-712 domain name.
+    /// @param version      EIP-712 domain version.
+    /// @param initialOwner The contract owner / upgrade admin (non-zero).
+    function initialize(string memory name, string memory version, address initialOwner)
+        external
+        initializer
+    {
+        __EIP712_init(name, version);
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
+    }
 
     /*//////////////////////////////////////////////////////////////
                                   VIEWS
@@ -416,6 +477,14 @@ contract SessionGrant is ISessionGrant, EIP712 {
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
+    ///         single gate {upgradeToAndCall} consults before swapping the implementation.
+    /// @dev    Empty body: the `onlyOwner` modifier IS the policy. Once `renounceOwnership()` sets the
+    ///         owner to address(0), every call here reverts, so the implementation becomes permanently
+    ///         immutable (the on-chain "freeze"). `newImplementation` is intentionally unnamed — no
+    ///         per-target allow-listing; the owner is fully trusted to vet the target off-chain.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 
     /// @dev The deterministic session id. `abi.encode` (not packed) so the three legs each occupy a
     ///      full word and no two distinct triples can collide. Pure — recomputable off-chain for free.

@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Access0x1Router } from "./Access0x1Router.sol";
@@ -26,16 +35,35 @@ import { IAccess0x1Invoices } from "./interfaces/IAccess0x1Invoices.sol";
 ///         reverts `Access0x1Invoices__NotOpen` (the on-chain UNIQUE-index / ON-CONFLICT-DO-NOTHING).
 ///         CEI + `nonReentrant` + `SafeERC20` guard every value path; tenant isolation is inherited
 ///         from the router (a pay against invoice X routes only to invoice X's immutable `merchantId`).
-contract Access0x1Invoices is IAccess0x1Invoices, ReentrancyGuard {
+///
+///         UPGRADEABILITY (the Access0x1 UUPS TEMPLATE — every system contract follows this exact
+///         shape): the contract is deployed behind an `ERC1967Proxy`; storage lives in the proxy, logic
+///         in this implementation. State is set once via {initialize} (the constructor-replacement,
+///         `initializer`-guarded); the implementation's own constructor calls `_disableInitializers()`
+///         so the logic contract can never be initialized or hijacked directly. Upgrades route through
+///         {upgradeToAndCall} and are authorized by {_authorizeUpgrade} (contract-`owner`-only — the
+///         `Ownable2StepUpgradeable` owner, which is the UPGRADE ADMIN; it is the ONLY admin surface
+///         here and is DISTINCT from the per-merchant owners read live from the router). Calling
+///         `renounceOwnership()` permanently freezes the implementation (no owner ⇒ no authorized
+///         upgrade ⇒ immutable forever). A trailing `__gap` reserves slots for safe future appends.
+///         `router` is NOT `immutable` (an immutable lives in impl bytecode, not proxy storage); it is
+///         set once in {initialize} and there is no setter, so it is effectively immutable per proxy.
+contract Access0x1Invoices is
+    IAccess0x1Invoices,
+    Initializable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    ReentrancyGuardTransient
+{
     using SafeERC20 for IERC20;
 
     /// @notice The native-token sentinel: `address(0)` as a token means the chain's native coin.
     address private constant NATIVE = address(0);
 
-    /// @notice The shared, audited payments router this contract composes. Immutable — the fee-split,
-    ///         pricing, merchant registry, and zero-custody push are all delegated to it, so there is
-    ///         no admin surface here to repoint it (a new router = a new Invoices deployment).
-    Access0x1Router public immutable router;
+    /// @notice The shared, audited payments router this contract composes. Set once in {initialize} and
+    ///         never repointed (no setter) — the fee-split, pricing, merchant registry, and zero-custody
+    ///         push are all delegated to it (a new router = a new Invoices proxy / fresh initialize).
+    Access0x1Router public router;
 
     /// @notice invoiceId ⇒ the request record. Public getter for the frontend/SDK; {invoiceOf}
     ///         returns the same data as a struct for typed callers.
@@ -45,9 +73,36 @@ contract Access0x1Invoices is IAccess0x1Invoices, ReentrancyGuard {
     ///         (matching the router's `nextMerchantId` convention).
     uint256 public nextInvoiceId;
 
-    /// @param router_ The deployed {Access0x1Router} this contract settles every payment through.
-    constructor(Access0x1Router router_) {
+    /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
+    ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
+    ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
+    uint256[50] private __gap;
+
+    /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
+    ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
+    ///      initializer so it can never be initialized — and therefore never owned or upgraded —
+    ///      directly, closing the classic uninitialized-implementation takeover. Runs at
+    ///      implementation-deploy time.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer — the constructor-replacement for the proxy. Sets the composed
+    ///         router, the starting invoice id, and the contract (upgrade-admin) owner. Guarded by
+    ///         `initializer`, so it runs exactly once per proxy; the typical deploy is
+    ///         `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
+    /// @dev    Wires every base: the reentrancy guard, then Ownable + its 2-step extension. `initialOwner`
+    ///         becomes the UPGRADE ADMIN (the `Ownable2Step` owner) — distinct from the per-merchant
+    ///         owners; it must be non-zero (`__Ownable_init` reverts on zero). There is no
+    ///         `__UUPSUpgradeable_init()` in OZ 5.x (the UUPS base holds no initializable storage).
+    /// @param router_      The deployed {Access0x1Router} this contract settles every payment through.
+    /// @param initialOwner The contract owner / upgrade admin (non-zero).
+    function initialize(Access0x1Router router_, address initialOwner) external initializer {
         if (address(router_) == address(0)) revert Access0x1Invoices__ZeroAddress();
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
         router = router_;
         nextInvoiceId = 1;
     }
@@ -213,6 +268,14 @@ contract Access0x1Invoices is IAccess0x1Invoices, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
+    ///         single gate {upgradeToAndCall} consults before swapping the implementation.
+    /// @dev    Empty body: the `onlyOwner` modifier IS the policy. Once `renounceOwnership()` sets the
+    ///         owner to address(0), every call here reverts, so the implementation becomes permanently
+    ///         immutable (the on-chain "freeze"). `newImplementation` is intentionally unnamed — no
+    ///         per-target allow-listing; the owner is fully trusted to vet the target off-chain.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 
     /// @dev Read a router merchant's owner. A never-registered merchant returns `address(0)`, which is
     ///      how an unknown merchant is rejected by every owner-equality check (no caller is address(0)).
