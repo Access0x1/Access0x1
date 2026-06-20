@@ -115,6 +115,15 @@ contract HelperConfig is Script {
     ///         on the testnet yet either — `usdc` stays blank. Blockscout explorer.
     uint256 internal constant ROBINHOOD_TESTNET_CHAIN_ID = 46_630;
 
+    /// @notice 0G Galileo testnet (0G's V3 testnet, chainId 16602). Native gas token = 0G (18 dec) — NOT
+    ///         USDC, so there is no native-gas peg to a dollar. Chainlink Data Feeds are NOT deployed on
+    ///         0G, so `nativeUsdFeed` stays address(0) and same-chain native `quote()` is unavailable
+    ///         (NEVER invent a 0G/USD feed). Where a REAL ERC-20 USDC exists, deploy a $1.00 USDC/USD
+    ///         MockV3Aggregator first (`make deploy-usd-mock-feed RPC=$GALILEO_RPC_URL`, the Arc pattern)
+    ///         and set `GALILEO_USDC_USD_FEED` — the router then prices REAL USDC (the "no demo token" law
+    ///         holds). Blockscout-style explorer (chainscan-galileo.0g.ai). Confirmed live via cast 2026-06-20.
+    uint256 internal constant GALILEO_TESTNET_CHAIN_ID = 16_602;
+
     // ─────────────────────────────────────────────────────────────────────────────────────────────
     // MAINNET chain ids — AUDIT-GATED, NOT DEPLOYED.
     //
@@ -277,6 +286,8 @@ contract HelperConfig is Script {
             activeConfig = _celoSepoliaConfig();
         } else if (block.chainid == ROBINHOOD_TESTNET_CHAIN_ID) {
             activeConfig = _robinhoodTestnetConfig();
+        } else if (block.chainid == GALILEO_TESTNET_CHAIN_ID) {
+            activeConfig = _galileoTestnetConfig();
         } else if (block.chainid == ETHEREUM_MAINNET_CHAIN_ID) {
             // ── MAINNET arms (AUDIT-GATED, NOT DEPLOYED) — each reads only its own `<CHAIN>_MAINNET_*`
             //    env (default address(0)); selecting a branch never deploys. See the mainnet-id block.
@@ -678,6 +689,32 @@ contract HelperConfig is Script {
                 vm.envOr("ROBINHOOD_TESTNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
             ),
             creForwarder: vm.envOr("ROBINHOOD_TESTNET_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev 0G Galileo testnet (chainId 16602, 0G V3 testnet). Reads only `GALILEO_`-prefixed env. Native
+    ///      gas token = 0G (18 dec) — NOT USDC, so there is no native-gas dollar peg and no native/USD
+    ///      feed exists; `nativeUsdFeed` stays address(0), DeployAll skips wiring it, and same-chain native
+    ///      `quote()` is unavailable (NEVER invent a 0G/USD feed). 0G has NO Chainlink Data Feeds at all,
+    ///      so the USDC/USD feed must be a $1.00 MockV3Aggregator deployed FIRST (the Arc pattern:
+    ///      `make deploy-usd-mock-feed RPC=$GALILEO_RPC_URL`, then set `GALILEO_USDC_USD_FEED`). The token
+    ///      stays REAL ERC-20 USDC where one exists (the "no demo token" law holds — the mock is only the
+    ///      missing PRICE feed); leave `GALILEO_USDC_ADDRESS` blank until confirmed. Blockscout verifier.
+    ///      `treasury` required; everything else skipped (address(0)) until set.
+    function _galileoTestnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("GALILEO_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("GALILEO_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("GALILEO_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("GALILEO_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("GALILEO_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("GALILEO_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("GALILEO_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("GALILEO_CRE_FORWARDER", address(0))
         });
     }
 
