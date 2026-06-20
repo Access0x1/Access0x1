@@ -60,28 +60,6 @@ export VERIFY_RESULTS
 # retry when a flaky explorer 504'd the verify poll AFTER the deploy already landed.
 RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
 
-# ── Make hygiene (ADDED) ────────────────────────────────────────────────────────
-# .DELETE_ON_ERROR: if a recipe that writes a file (coverage-lcov → lcov.info) dies
-# mid-write, delete the half-written file instead of leaving a corrupt artifact.
-# --no-print-directory: kill the "Entering/Leaving directory" noise the verify-all-*
-# sub-makes would otherwise interleave into the one-line-per-contract digest.
-.DELETE_ON_ERROR:
-MAKEFLAGS += --no-print-directory
-
-# ── forge_deploy — the ONE deploy command every keystore chain-target shares (ADDED, DRY) ──
-# Before: 50+ targets each repeated the identical `forge script … --account … --sender …`
-# line, so a single flag change meant editing 50 lines. Now a target is just
-#   $(call forge_deploy,<RPC_URL>,<EXTRA_FLAGS>)
-# where EXTRA_FLAGS is the per-chain verify clause (and `--zksync` where the zkEVM needs it).
-# Fail-fast: aborts BEFORE broadcast if DEPLOYER or the RPC URL is unset — forge would
-# otherwise pass an empty --sender and only fail after a full compile. Mirrors the proven
-# MAINNET_GATE canned-recipe pattern below (tab-indented body, invoked via $(call …)).
-define forge_deploy
-	@test -n "$(strip $(DEPLOYER))" || { echo "==> DEPLOYER is unset. Set the deployer ADDRESS in .env (the one your keystore signs with — see: cast wallet list). Aborting before any broadcast."; exit 1; }
-	@test -n "$(strip $(1))" || { echo "==> RPC URL is empty for this target. Set the matching <CHAIN>_RPC_URL in .env. Aborting."; exit 1; }
-	forge script script/DeployAll.s.sol --rpc-url $(1) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(2) -vvvv
-endef
-
 .DEFAULT_GOAL := help
 
 .PHONY: help install build test test-gas test-scenario coverage coverage-lcov snapshot \
@@ -96,19 +74,12 @@ endef
         deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
         vyper-build vyper-test \
-        cre-build cre-sim zksync-build all \
-        deploy-galileo deploy-usd-mock-feed doctor rpc-check deployments env-check
+        cre-build cre-sim zksync-build all
 
-# help: auto-discovers targets from their `## ` docs, and renders `##@ ` lines as bold
-# section headers so 90+ targets read as grouped sections instead of one flat wall.
-# Column widened 15→28 so long names (deploy-filecoin-calibration) no longer truncate.
-# OLD recipe (kept for reference):
-#   @grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
-help: ## Show every command, grouped by section
-	@awk 'BEGIN {FS = ":.*## "} /^##@/ {printf "\n\033[1m\033[33m%s\033[0m\n", substr($$0, 5)} /^[a-zA-Z0-9_%-]+:.*## / {printf "  \033[36m%-28s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+help: ## Show every command
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
-##@ Setup
 install: ## Install all deps: forge submodules + npm (@chainlink) + web + sdk
 	git submodule update --init --recursive
 	npm install
@@ -116,7 +87,6 @@ install: ## Install all deps: forge submodules + npm (@chainlink) + web + sdk
 	cd packages/react && npm install
 
 # ── Contracts (Foundry) ─────────────────────────────────────────────────────────
-##@ Contracts — build · test · coverage
 build: ## Compile the contracts (forge build)
 	forge build
 
@@ -161,12 +131,10 @@ clean: ## Remove build artifacts (forge clean)
 	forge clean
 
 # ── The gate (run before any commit) ────────────────────────────────────────────
-##@ The gate (run before every commit)
 gate: build test fmt-check web-gate ## FULL GREEN GATE: contracts build+test+fmt AND web typecheck+test
 	@echo "==> GATE GREEN"
 
 # ── Security / audit ─────────────────────────────────────────────────────────────
-##@ Security & audit
 aderyn: ## Static analysis (aderyn — auto-skips on the foundry-zksync fork, which aderyn 0.1.9 can't parse)
 	@if forge --version 2>/dev/null | grep -qi zksync; then \
 		echo "==> aderyn SKIPPED: the active forge is the foundry-zksync fork ('$$(forge --version | head -1)')."; \
@@ -234,12 +202,10 @@ audit: aderyn slither coverage sizes ## Full audit pass — then see audit/REPOR
 	@echo "==> read audit/REPORT.md + audit/FINDINGS.md + audit/CHECKLIST.md"
 
 # ── Local chain ───────────────────────────────────────────────────────────────────
-##@ Local chain
 anvil: ## Run a local anvil node
 	anvil
 
 # ── Deploy (keystore `deployer`; set RPC + DEPLOYER in .env; mainnet is NOT here) ──
-##@ Deploy — testnets (keystore: deployer)
 deploy-dry: ## Deploy DRY-RUN — simulation only, no broadcast, no keys
 	forge script script/DeployAll.s.sol
 
@@ -286,7 +252,6 @@ zksync-build: ## forge build --zksync (zksolc) — zkEVM build check; see docs/Z
 	fi
 
 # ── Web app (Next.js) ─────────────────────────────────────────────────────────────
-##@ Web · SDK · extras
 web-install: ## Install the web app deps
 	cd web && npm install
 
@@ -337,7 +302,6 @@ cre-sim: ## Simulate the CRE workflow (the demoable artifact; deploy is Early-Ac
 all: install gate ## Install everything, then run the full green gate
 
 # ── More test networks (keystore `deployer`; set each RPC + *SCAN_API_KEY in .env) ──
-##@ Deploy — more testnets
 deploy-ethereum-sepolia: ## Deploy to Ethereum Sepolia (etherscan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 
@@ -373,7 +337,6 @@ deploy-robinhood-testnet: ## Deploy to Robinhood Chain testnet (CCIP-lane endpoi
 # the exact constructor args, then submits source to the Blockscout verifier. Use this when the deploy
 # itself ran WITHOUT --verify — e.g. a private / direct-to-sequencer submission that bypasses forge's
 # inline auto-verify. RH Blockscout is flaky (503s); just re-run until it sticks. No Etherscan key.
-##@ Verify (post-deploy, standalone — no keystore)
 verify-robinhood-testnet: ## Verify deployed RH Chain contracts on Blockscout (standalone; no keystore)
 	./script/verify-blockscout.sh 46630 $(ROBINHOOD_TESTNET_RPC_URL) https://explorer.testnet.chain.robinhood.com/api/
 
@@ -433,7 +396,6 @@ deploy-unichain-sepolia: ## Deploy to Unichain Sepolia (uniscan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(UNICHAIN_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 
 # ── Even more test networks (the faucet list: blockscout/sourcify/etherscan-family verify per chain) ──
-##@ Deploy — even more testnets
 deploy-zora-sepolia: ## Deploy to Zora Sepolia (chainId 999999999, ETH; blockscout verify)
 	forge script script/DeployAll.s.sol --rpc-url $(ZORA_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ZORA_SEPOLIA_VERIFIER_URL)) -vvvv
 
@@ -489,7 +451,6 @@ define MAINNET_GATE
 	@echo "⚠️  MAINNET deploy proceeding with MAINNET_AUDITED=yes — real funds on a live chain."
 endef
 
-##@ Deploy — MAINNET (⛔ audit-gated · real funds)
 deploy-ethereum-mainnet: ## ⛔ AUDIT-GATED: deploy to Ethereum mainnet (etherscan verify) — real funds
 	$(MAINNET_GATE)
 	forge script script/DeployAll.s.sol --rpc-url $(ETHEREUM_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
