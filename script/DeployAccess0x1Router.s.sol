@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Script, console2 } from "forge-std/Script.sol";
 import { Access0x1Router } from "../src/Access0x1Router.sol";
 import { HelperConfig } from "./HelperConfig.s.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title  DeployAccess0x1Router
 /// @author Access0x1
@@ -24,7 +25,20 @@ contract DeployAccess0x1Router is Script {
         address owner = vm.envOr("ROUTER_OWNER", msg.sender);
 
         vm.startBroadcast();
-        router = new Access0x1Router(owner, cfg.treasury, cfg.platformFeeBps);
+        // UUPS: deploy the logic implementation, then put an ERC1967 proxy in front of it and run
+        // `initialize(...)` in the same tx. The proxy address is the router every caller uses (state
+        // lives in the proxy, logic in the impl); the impl ran `_disableInitializers()` in its
+        // constructor so it can never be initialized directly.
+        address impl = address(new Access0x1Router());
+        address proxy = address(
+            new ERC1967Proxy(
+                impl,
+                abi.encodeCall(
+                    Access0x1Router.initialize, (owner, cfg.treasury, cfg.platformFeeBps)
+                )
+            )
+        );
+        router = Access0x1Router(proxy);
         vm.stopBroadcast();
 
         console2.log("Access0x1Router deployed:", address(router));

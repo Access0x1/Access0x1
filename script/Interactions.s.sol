@@ -5,6 +5,7 @@ import { Script, console2 } from "forge-std/Script.sol";
 import { Access0x1Router } from "../src/Access0x1Router.sol";
 import { MockUSDC } from "../test/mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../test/mocks/MockV3Aggregator.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title  Interactions — drive the coffee-shop money flow against a LOCAL anvil
 /// @author Access0x1
@@ -40,8 +41,20 @@ contract DriveCoffeeShopLocal is Script {
 
         address operator = msg.sender; // the broadcaster doubles as treasury + merchant for a local run
 
-        // 1. Stand up the spine + a mock token and feed (6-dec USDC at $1.00, like Base/Arc).
-        Access0x1Router router = new Access0x1Router(operator, operator, PLATFORM_FEE_BPS);
+        // 1. Stand up the spine + a mock token and feed (6-dec USDC at $1.00, like Base/Arc). The
+        //    router is UUPS: deploy the impl, then an ERC1967 proxy that runs `initialize(...)` in the
+        //    same broadcast; drive the proxy from here on (state in the proxy, logic in the impl).
+        address routerImpl = address(new Access0x1Router());
+        Access0x1Router router = Access0x1Router(
+            address(
+                new ERC1967Proxy(
+                    routerImpl,
+                    abi.encodeCall(
+                        Access0x1Router.initialize, (operator, operator, PLATFORM_FEE_BPS)
+                    )
+                )
+            )
+        );
         MockUSDC usdc = new MockUSDC();
         MockV3Aggregator usdcFeed = new MockV3Aggregator(8, 1e8);
 
