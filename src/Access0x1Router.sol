@@ -195,6 +195,13 @@ contract Access0x1Router is
     /// @notice The optional PaymentLanes receipt contract was set or cleared (`address(0)` disables it).
     event PaymentLanesSet(address indexed oldLanes, address indexed newLanes);
 
+    /// @notice A configured PaymentLanes credit reverted, so settlement fell back to the direct push:
+    ///         the merchant was paid `amount` of `asset` straight to its payout (the payment still
+    ///         settled — this is pure observability). A burst of these signals a broken or unauthorized
+    ///         lanes contract silently disabling the "receive in any coin" seam; indexers/operators key
+    ///         on it. `merchantId` and `asset` are indexed so an operator can filter per merchant/token.
+    event LanesFallback(uint256 indexed merchantId, address indexed asset, uint256 amount);
+
     /// @notice A zero address was supplied where a non-zero one is required.
     error Access0x1__ZeroAddress();
 
@@ -732,7 +739,7 @@ contract Access0x1Router is
             0
         );
 
-        _settleNet(token, m.payout, net);
+        _settleNet(merchantId, token, m.payout, net);
         if (platformFee > 0) IERC20(token).safeTransfer(platformTreasury, platformFee);
         if (merchantFee > 0) IERC20(token).safeTransfer(merchantFeeDest, merchantFee);
     }
@@ -746,8 +753,9 @@ contract Access0x1Router is
     ///      lanes problem can never strand or roll back a settled payment (law #5). The router holds
     ///      no token after either branch (zero custody): on the lanes path the approval is consumed by
     ///      PaymentLanes' `safeTransferFrom`; on failure the leftover approval is reset to 0 and net is
-    ///      pushed out directly.
-    function _settleNet(address token, address payout, uint256 net) private {
+    ///      pushed out directly, and a {LanesFallback} event is emitted so a permanently-reverting lanes
+    ///      contract surfaces (rather than silently disabling the "receive in any coin" seam).
+    function _settleNet(uint256 merchantId, address token, address payout, uint256 net) private {
         address lanes = paymentLanes;
         if (lanes == address(0)) {
             IERC20(token).safeTransfer(payout, net);
@@ -763,9 +771,11 @@ contract Access0x1Router is
         // Net is now held by PaymentLanes, backing the merchant's lane receipt. Done.
         }
         catch {
-            // Lanes leg failed: reset the dangling approval and fall back to the direct push.
+            // Lanes leg failed: reset the dangling approval and fall back to the direct push. Emit so a
+            // broken/unauthorized lanes contract is observable instead of silently non-functional.
             IERC20(token).forceApprove(lanes, 0);
             IERC20(token).safeTransfer(payout, net);
+            emit LanesFallback(merchantId, token, net);
         }
     }
 
