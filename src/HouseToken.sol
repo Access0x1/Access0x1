@@ -7,7 +7,7 @@ import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title  HouseToken
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice A business's OWN ERC-20 — loyalty / credit / closed-loop currency — deployed THROUGH the
 ///         Access0x1 {HouseTokenFactory} but OWNED by the business. At construction the full initial
 ///         supply is minted to `owner` and Ownable's owner is SET to `owner`, so the deploying factory

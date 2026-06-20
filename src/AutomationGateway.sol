@@ -17,7 +17,7 @@ import { IAccess0x1Subscriptions } from "./interfaces/IAccess0x1Subscriptions.so
 import { IAutomationGateway } from "./interfaces/IAutomationGateway.sol";
 
 /// @title  AutomationGateway
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice The permissionless Chainlink Automation FRONT-DOOR for {Access0x1Subscriptions} — the
 ///         self-driving keeper that makes recurring billing run itself with NO centralized cron. The
 ///         Subscriptions money path already settles each period through the PERMISSIONLESS

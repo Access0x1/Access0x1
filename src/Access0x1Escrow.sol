@@ -24,7 +24,7 @@ import { Access0x1Router } from "./Access0x1Router.sol";
 import { IAccess0x1Escrow } from "./interfaces/IAccess0x1Escrow.sol";
 
 /// @title  Access0x1Escrow
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice The CONDITIONAL-SETTLEMENT leg of Access0x1 — the deposit-hold primitive the instant-push
 ///         {Access0x1Router} structurally cannot do. The router settles atomically (pull → split →
 ///         push in one tx, no hold); an escrow HOLDS a buyer's deposit until a condition resolves, then
