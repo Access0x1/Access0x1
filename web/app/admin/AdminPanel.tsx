@@ -44,8 +44,8 @@ const IDLE: ActionState = { phase: 'idle' }
  * allowed testnets, and runs each owner-gated step as a button they sign in their
  * own wallet — NO keystore, NO server, NO private key in the app:
  *   1. Deploy Access0x1ProvenanceRegistry (viem deployContract).
- *   2. Claim Example's repo — claimRepo(repoId).
- *   3. Anchor a Example release — anchorRelease(repoId, cid, tag, merkleRoot).
+ *   2. Claim the example repo — claimRepo(repoId).
+ *   3. Anchor an example release — anchorRelease(repoId, cid, tag, merkleRoot).
  *
  * Every action shows pending → tx hash → explorer link, and surfaces revert
  * reasons cleanly. The deployed address is held in state for the later steps and
@@ -116,7 +116,7 @@ export function AdminPanel(): ReactNode {
     }
   }
 
-  // ── Action 2: claim Example's repo ─────────────────────────────────────────
+  // ── Action 2: claim the example repo ───────────────────────────────────────
   async function handleClaim(): Promise<void> {
     setClaimState({ phase: 'pending' })
     try {
@@ -130,7 +130,7 @@ export function AdminPanel(): ReactNode {
     }
   }
 
-  // ── Action 3: anchor a Example release ─────────────────────────────────────
+  // ── Action 3: anchor an example release ────────────────────────────────────
   async function handleAnchor(): Promise<void> {
     setAnchorState({ phase: 'pending' })
     try {
@@ -260,11 +260,11 @@ export function AdminPanel(): ReactNode {
         <ActionStatus chainId={chainId} state={deployState} pendingLabel="Waiting for the deploy to mine…" />
       </ActionCard>
 
-      {/* Step 2 — Claim the Example repo */}
+      {/* Step 2 — Claim the example repo */}
       <ActionCard
         step={2}
-        title="Claim the Example repo"
-        description="Calls claimRepo(repoId) so this wallet owns Example's provenance. First-claim-wins."
+        title="Claim the example repo"
+        description="Calls claimRepo(repoId) so this wallet owns the example repo's provenance. First-claim-wins."
       >
         <dl className="flex flex-col gap-1 text-xs text-muted-foreground">
           <div className="flex flex-col gap-0.5">
@@ -292,7 +292,7 @@ export function AdminPanel(): ReactNode {
       {/* Step 3 — Anchor a release */}
       <ActionCard
         step={3}
-        title="Anchor a Example release"
+        title="Anchor an example release"
         description="Calls anchorRelease(repoId, cid, tag, merkleRoot) under the claimed repo."
       >
         <label className="flex flex-col gap-1 text-sm">

@@ -127,8 +127,8 @@ export function isOnrampPublicConfigured(): boolean {
  * sets the percentage" baseline. It is `0`: the public, open-source SDK imposes NO
  * fee of its own (a hidden fee baked into shared code would be a footgun for every
  * integrator that drops the SDK in). A specific DEPLOYMENT sets its OWN cut via
- * `NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT` — that is the "then example the app sets
- * it" layer. The fee is collected by whichever ramp the deployment's API key
+ * `NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT` — that is the "then the app sets it"
+ * layer. The fee is collected by whichever ramp the deployment's API key
  * belongs to (configured in that provider's partner dashboard, and passed to the
  * provider's session where it accepts one); open-source cannot route a third
  * party's ramp fee to us, so this value is a single source of truth + a
@@ -142,7 +142,7 @@ export const RAMP_DEFAULT_PARTNER_FEE_PERCENT = 0
  * The partner-fee percentage for THIS deployment: `NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT`
  * parsed as a finite number in [0, 100], else the protocol default. PUBLIC (it may
  * accompany a provider session). Two layers, one knob: the constant is the
- * Access0x1 default ("access sets it"), the env is the app's override ("example
+ * Access0x1 default ("access sets it"), the env is the app's override ("the app
  * sets it"). A blank, malformed, or out-of-range value falls back to the default
  * rather than charging a guessed rate (law #4 — never invent a money number).
  */

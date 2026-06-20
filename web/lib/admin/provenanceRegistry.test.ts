@@ -2,9 +2,10 @@
  * @file provenanceRegistry.test.ts — locks the pure admin helpers.
  *
  * The load-bearing assertion: the `repoId` this admin page derives MUST equal the
- * exact bytes32 Example's `lib/provenance.ts` derives — otherwise a claim made
- * from the admin page would not match what Example reads back. We pin both the
- * source string and the derived hash so a drift in either fails CI loudly.
+ * exact bytes32 an integrating app derives from the same documented string —
+ * otherwise a claim made from the admin page would not match what that app reads
+ * back. We pin both the source string and the derived hash so a drift in either
+ * fails CI loudly.
  *
  * Also covers the testnet-only gate, the cid / bytes32 validators, and the revert
  * humanizer — all pure, no network, no wallet.
@@ -28,18 +29,18 @@ import {
   adminAddressUrl,
 } from './provenanceRegistry'
 
-describe('Example repoId derivation', () => {
-  // The exact string Example's lib/provenance.ts hashes — duplicated here so a
-  // change to either copy is caught.
-  const EXPECTED_STRING = 'github.com/doble196/fleet#apps/example'
+describe('example repoId derivation', () => {
+  // The exact documented repo string — pinned here so a change to either copy is
+  // caught (an integrating app derives its repoId from its OWN such string).
+  const EXPECTED_STRING = 'github.com/example-org/example-repo'
   // keccak256(toBytes(EXPECTED_STRING)) — the bytes32 the registry stores under.
-  const EXPECTED_ID = '0x226f19ebabfb9d4f91a21e574d06c87dbfceeeadd28a550bfd93dbfe06057067'
+  const EXPECTED_ID = '0x83b33ca70b4337482f60f99a01a6ae33ff3534ca7b94036d9d3ffb20b2acd119'
 
-  it('uses the same documented repo string as Example', () => {
+  it('uses the documented example repo string', () => {
     expect(EXAMPLE_REPO_STRING).toBe(EXPECTED_STRING)
   })
 
-  it('derives the stable, Example-matching repoId', () => {
+  it('derives the stable repoId', () => {
     expect(deriveExampleRepoId()).toBe(EXPECTED_ID)
     expect(EXAMPLE_REPO_ID).toBe(EXPECTED_ID)
   })
