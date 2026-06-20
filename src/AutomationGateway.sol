@@ -72,7 +72,8 @@ contract AutomationGateway is
 
     /// @notice The maximum number of watched ids the off-chain {checkUpkeep} scan reads in one pass.
     ///         Caps the simulation's work so it stays gas-sane even with a large registry; ids beyond
-    ///         this index are simply checked on a later round (the set order rotates as ids are removed).
+    ///         the window are covered on a LATER round as the {scanCursor} rotates forward over the whole
+    ///         registry — so no id can ever be permanently starved out of the scan (see {scanCursor}).
     uint256 public constant MAX_SCAN = 50;
 
     /// @notice The maximum number of due ids {checkUpkeep} returns and {performUpkeep} renews in one
@@ -89,6 +90,19 @@ contract AutomationGateway is
     /// @notice The enumerable set of subscription ids watched for automated renewal. An `EnumerableSet`
     ///         gives O(1) add/remove/contains plus the indexed enumeration {checkUpkeep} pages over.
     EnumerableSet.UintSet private _watched;
+
+    /// @notice The rotating start offset of the {MAX_SCAN}-wide {checkUpkeep} window — the LIVENESS guard
+    ///         against registration-stuffing starvation. Without it, {checkUpkeep} would always scan the
+    ///         fixed front of the set (indices `0..MAX_SCAN-1`) and {performUpkeep} removes nothing, so an
+    ///         attacker could permissionlessly {register} {MAX_SCAN} cheap never-due ids to pin the window
+    ///         and starve every genuinely-due id at a higher index forever. Instead the window scans
+    ///         {MAX_SCAN} ids STARTING at this cursor (wrapping around the set), and {performUpkeep}
+    ///         advances the cursor by the scanned count (mod the set length) so successive rounds sweep
+    ///         the WHOLE registry — every due id is reached within `ceil(length / MAX_SCAN)` rounds.
+    /// @dev    Read by the off-chain {checkUpkeep} (which also reports the scanned count in `performData`)
+    ///         and advanced ONLY by {performUpkeep}; bounded into range against the live set length on
+    ///         every read, so it is always safe to index even after removals shrink the set.
+    uint256 public scanCursor;
 
     /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
     ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
@@ -153,9 +167,15 @@ contract AutomationGateway is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IAutomationGateway
-    /// @dev Off-chain simulation. Scans at most {MAX_SCAN} watched ids, collects the DUE ones (capped at
-    ///      {MAX_BATCH}) into a right-sized array, and abi-encodes it into `performData`. Bounded on both
-    ///      the scan and the batch so the simulation never grows unbounded with the registry. `checkData`
+    /// @dev Off-chain simulation. Scans at most {MAX_SCAN} watched ids STARTING at {scanCursor} and
+    ///      WRAPPING around the set, collects the DUE ones (capped at {MAX_BATCH}) into a right-sized
+    ///      array, and abi-encodes `(uint256[] dueIds, uint256 scanned)` into `performData` — `scanned`
+    ///      is the window width {performUpkeep} advances the cursor by, so the next round resumes where
+    ///      this one stopped and successive rounds sweep the WHOLE registry (no id is ever starved out of
+    ///      the scan by a stuffed front). Bounded on both the scan and the batch so the simulation never
+    ///      grows unbounded with the registry. `upkeepNeeded` is true when at least one window id is due
+    ///      OR the registry exceeds the window (so the cursor must still rotate to reach the rest);
+    ///      either way {performUpkeep} runs and the cursor marches forward, defeating the pin. `checkData`
     ///      is ignored — this gateway watches one shared registry, not per-upkeep slices.
     ///      `AutomationCompatibleInterface.checkUpkeep` is non-`view` by spec (keepers simulate it), but
     ///      this implementation only reads state.
@@ -169,13 +189,16 @@ contract AutomationGateway is
     {
         uint256 total = _watched.length();
         uint256 scan = total < MAX_SCAN ? total : MAX_SCAN;
+        // Resume from the rotating cursor, bounded into range against the LIVE length (removals may have
+        // shrunk the set since the cursor was last advanced); an empty set leaves start == 0.
+        uint256 start = total == 0 ? 0 : scanCursor % total;
 
-        // First pass: count the due ids within the scan window (capped at MAX_BATCH) so the result
-        // array is allocated EXACTLY the right length — a Chainlink registry rejects trailing zero
+        // First pass: count the due ids within the rotating scan window (capped at MAX_BATCH) so the
+        // result array is allocated EXACTLY the right length — a Chainlink registry rejects trailing zero
         // padding as extra ids, and an oversized array wastes perform gas.
         uint256 dueCount;
         for (uint256 i = 0; i < scan; ++i) {
-            if (isDue(_watched.at(i))) {
+            if (isDue(_watched.at((start + i) % total))) {
                 unchecked {
                     ++dueCount;
                 }
@@ -184,11 +207,11 @@ contract AutomationGateway is
         }
 
         uint256[] memory dueIds = new uint256[](dueCount);
-        // Second pass: fill the array with the same ids (identical predicate + scan window in the same
+        // Second pass: fill the array with the same ids (identical predicate + window in the same
         // simulation, so the two passes see the same state and agree exactly).
         uint256 w;
         for (uint256 i = 0; i < scan && w < dueCount; ++i) {
-            uint256 id = _watched.at(i);
+            uint256 id = _watched.at((start + i) % total);
             if (isDue(id)) {
                 dueIds[w] = id;
                 unchecked {
@@ -197,26 +220,43 @@ contract AutomationGateway is
             }
         }
 
-        upkeepNeeded = dueCount > 0;
-        performData = abi.encode(dueIds);
+        // Run the upkeep when there is work OR when the registry is larger than one window (so the cursor
+        // still needs to rotate to reach the un-scanned tail) — the latter is what makes a stuffed front
+        // unable to pin the window: perform keeps firing and the cursor keeps advancing past the stuffers.
+        upkeepNeeded = dueCount > 0 || total > scan;
+        performData = abi.encode(dueIds, scan);
     }
 
     /// @inheritdoc IAutomationGateway
     /// @dev On-chain execution. PERMISSIONLESS + input-UNTRUSTED (Chainlink guarantees nothing about the
-    ///      `performData`, so it is re-validated, never trusted). For each decoded id: re-check {isDue}
-    ///      against LIVE state (the off-chain {checkUpkeep} is stale by now — periods advance, other
-    ///      callers renew, statuses change) and skip any that is no longer due; then call the
-    ///      permissionless {renew} inside a try/catch so a SYSTEM-side revert (router paused / oracle
-    ///      stale / sequencer down — which {Access0x1Subscriptions.renew} deliberately re-reverts) on one
-    ///      id can never block the rest of the batch. A subscriber-attributable failure does NOT revert
-    ///      {renew} (it duns and returns 0), so that path lands in the success branch with `chargedToken
-    ///      == 0`. The decoded length is capped at {MAX_BATCH} so a malicious caller cannot pass an
-    ///      oversized array to grief the perform gas.
+    ///      `performData`, so it is re-validated, never trusted). Decodes `(uint256[] ids, uint256
+    ///      scanned)` and FIRST rotates {scanCursor} forward by `scanned` (mod the live set length) — the
+    ///      liveness step: it runs on EVERY perform, before any renew and regardless of whether any id is
+    ///      due, so the {MAX_SCAN} window marches over the whole registry and a stuffed front can never
+    ///      pin it. `scanned` is bounded to {MAX_SCAN} so a malicious caller cannot over-advance the
+    ///      cursor to skip the tail. Then for each decoded id: re-check {isDue} against LIVE state (the
+    ///      off-chain {checkUpkeep} is stale by now — periods advance, other callers renew, statuses
+    ///      change) and skip any that is no longer due; then call the permissionless {renew} inside a
+    ///      try/catch so a SYSTEM-side revert (router paused / oracle stale / sequencer down — which
+    ///      {Access0x1Subscriptions.renew} deliberately re-reverts) on one id can never block the rest of
+    ///      the batch. A subscriber-attributable failure does NOT revert {renew} (it duns and returns 0),
+    ///      so that path lands in the success branch with `chargedToken == 0`. The decoded length is
+    ///      capped at {MAX_BATCH} so a malicious caller cannot pass an oversized array to grief the gas.
     function performUpkeep(bytes calldata performData)
         external
         override(IAutomationGateway, AutomationCompatibleInterface)
     {
-        uint256[] memory ids = abi.decode(performData, (uint256[]));
+        (uint256[] memory ids, uint256 scanned) = abi.decode(performData, (uint256[], uint256));
+
+        // Liveness: advance the rotating scan cursor first, on every perform, so the next round resumes
+        // past this window and the whole registry is swept over successive rounds. Clamp the untrusted
+        // `scanned` to MAX_SCAN, then take it mod the live length so the cursor always lands in range.
+        uint256 total = _watched.length();
+        if (total != 0) {
+            uint256 advance = scanned < MAX_SCAN ? scanned : MAX_SCAN;
+            scanCursor = (scanCursor + advance) % total;
+        }
+
         uint256 n = ids.length < MAX_BATCH ? ids.length : MAX_BATCH;
 
         IAccess0x1Subscriptions subs = subscriptionsContract;
@@ -311,6 +351,7 @@ contract AutomationGateway is
     /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
     ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes one
     ///      slot from the head of this gap; shrink `__gap` by exactly the number of slots added so the
-    ///      total stays 50. NEVER reorder or insert a variable above this gap — only append.
-    uint256[50] private __gap;
+    ///      total stays 50. The `scanCursor` liveness cursor consumed one slot, so this gap is 49.
+    ///      NEVER reorder or insert a variable above this gap — only append.
+    uint256[49] private __gap;
 }

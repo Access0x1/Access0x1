@@ -186,6 +186,12 @@ interface IAccess0x1Bookings {
     ///         immediately/near-immediately expirable, enabling slot-cycling griefing.
     error Access0x1Bookings__HoldTooShort(uint64 holdSecs, uint64 minHoldSecs);
 
+    /// @notice `slotTimestamp` is not in the future (`<= now`). A past/zero slot moment floors the
+    ///         cancel window at the epoch, forcing EVERY cancel into the late branch — a late fee on a
+    ///         free-cancel booking, or (with `lateFeeUsd8 == 0`) a permanently BLOCKED cancel that traps
+    ///         a CONFIRMED escrow. A zero `slotTimestamp` is rejected so the window math is well-formed.
+    error Access0x1Bookings__ZeroSlotTimestamp();
+
     /// @notice A late cancel was attempted under a policy that blocks late cancellation
     ///         (`lateFeeUsd8 == 0` inside the cancel window).
     error Access0x1Bookings__CancellationWindowActive(uint256 id);
@@ -226,7 +232,8 @@ interface IAccess0x1Bookings {
     /// @notice Hold a slot by escrowing a USD-priced deposit. Permissionless — anyone may reserve.
     /// @param merchantId    The Router merchant the booking belongs to.
     /// @param slotKey       The opaque slot key (e.g. keccak256 of the vertical's slot identity).
-    /// @param slotTimestamp The service moment the slot is for.
+    /// @param slotTimestamp The service moment the slot is for. A `0` value reverts {ZeroSlotTimestamp}
+    ///                      so the cancel-window math is well-formed.
     /// @param token         The allowlisted ERC-20 to escrow.
     /// @param depositUsd8   The deposit price in USD (8 decimals).
     /// @param balanceDueUsd8 The in-person remainder asserted at service time; 0 for a full deposit.

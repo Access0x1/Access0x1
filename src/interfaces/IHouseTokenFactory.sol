@@ -106,9 +106,31 @@ interface IHouseTokenFactory {
 
     /// @notice Every house token `owner` has deployed through the factory, in deploy order. The on-chain
     ///         answer to "which tokens does business X own?" — no log-scraping, one call.
+    /// @dev    ⚠️ UNBOUNDED: returns the owner's WHOLE list in one read. `owner` is caller-supplied, so a
+    ///         third party can grow ANY address's list by deploying tokens to it ({deployHouseToken} is
+    ///         permissionless and the recipient never consents) — an attacker can inflate a victim's array
+    ///         until this view exceeds the block gas limit (a gas-griefing / index-poisoning DoS on the
+    ///         convenience read). Kept for the small-list common case and ABI stability; for any
+    ///         attacker-influenced or large owner, page with {tokensOfLength} + {tokenOfOwnerAt} instead,
+    ///         which load one entry at a time and CANNOT be griefed into reverting.
     /// @param owner The owner / supply recipient to look up.
     /// @return tokens The owner's deployed token addresses (empty if it has deployed none).
     function tokensOf(address owner) external view returns (address[] memory tokens);
+
+    /// @notice The number of house tokens deployed to `owner` — the length of its owner-index, so a caller
+    ///         can page the list with {tokenOfOwnerAt} for `0 .. tokensOfLength(owner)-1` WITHOUT loading
+    ///         the whole (caller-influenceable, unbounded) array {tokensOf} returns.
+    /// @param owner The owner / supply recipient to look up.
+    /// @return The count of tokens deployed to `owner` (0 if it has deployed none).
+    function tokensOfLength(address owner) external view returns (uint256);
+
+    /// @notice The `i`-th house token deployed to `owner`, in deploy order. The O(1), gas-bounded
+    ///         alternative to {tokensOf}: pair with {tokensOfLength} to page over an owner's tokens one at
+    ///         a time, so a poisoned (attacker-inflated) owner index can never gas-DoS the read.
+    /// @param owner The owner / supply recipient to look up.
+    /// @param i     The zero-based index (must be `< tokensOfLength(owner)` or this reverts on out-of-bounds).
+    /// @return The token address at index `i` in `owner`'s deploy-ordered list.
+    function tokenOfOwnerAt(address owner, uint256 i) external view returns (address);
 
     /// @notice The number of house tokens the factory has ever deployed — the length of the global
     ///         enumeration ({tokenAt} is valid for `0 .. allTokensLength()-1`). Equals {deployedCount}.

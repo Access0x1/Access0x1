@@ -396,7 +396,8 @@ contract Access0x1Subscriptions is
         } catch (bytes memory err) {
             // Dun ONLY for subscriber/token-attributable failures; re-revert SYSTEM-side ones (audit
             // L-1). A system-side failure — the router being paused, the oracle stale / sequencer-down /
-            // reporting an invalid price, or a raw out-of-gas — is NOT the subscriber's fault, so we
+            // reporting an invalid price, the MERCHANT deactivating itself, the platform de-allowlisting
+            // the settlement token, or a raw out-of-gas — is NOT the subscriber's fault, so we
             // bubble the original revert verbatim and the keeper simply retries once the window clears,
             // instead of penalizing (and, permissionlessly, amplifying the dunning of) a fully-funded,
             // in-budget subscriber. Everything else — the never-negative meter rejecting the spend, or
@@ -417,13 +418,23 @@ contract Access0x1Subscriptions is
     }
 
     /// @dev Classify a `chargeViaSelf` revert by its 4-byte selector: is the failure SYSTEM-side (the
-    ///      router/oracle infrastructure, not the subscriber) so {renew} re-reverts for a later keeper
-    ///      retry — or attributable to the subscriber/their token so dunning advances? System-side =
-    ///      the router being paused (`EnforcedPause`), the oracle being stale / the L2 sequencer being
-    ///      down or in its grace period, or the feed reporting an invalid (zero/negative) price. A
-    ///      bare/empty revert (a raw out-of-gas carries no selector) is also treated as system-side so a
-    ///      gas-griefer can never silently amplify dunning. Anything else (the SessionGrant meter, a
+    ///      router/oracle infrastructure or a platform/merchant admin action, not the subscriber) so
+    ///      {renew} re-reverts for a later keeper retry — or attributable to the subscriber/their token
+    ///      so dunning advances? System-side =
+    ///        - the router being paused (`EnforcedPause`);
+    ///        - the oracle being stale / the L2 sequencer being down or in its grace period;
+    ///        - the feed reporting an invalid (zero/negative) price (`Access0x1__InvalidPrice`);
+    ///        - the MERCHANT deactivating itself on the router (`Access0x1__MerchantInactive`) — a
+    ///          merchant pausing its own billing must not dun a blameless subscriber; and
+    ///        - the platform DE-ALLOWLISTING the settlement token, or removing its feed
+    ///          (`Access0x1__TokenNotAllowed`) — a platform-side action, never the subscriber's fault.
+    ///      A bare/empty revert (a raw out-of-gas carries no selector) is also treated as system-side so
+    ///      a gas-griefer can never silently amplify dunning. Anything else (the SessionGrant meter, a
     ///      token-pull failure, a fee-on-transfer skim, a reentrant token) is the subscriber's fault.
+    ///      Both `Access0x1__MerchantInactive` and `Access0x1__TokenNotAllowed` are reachable from the
+    ///      charge: `router.quote` reverts {TokenNotAllowed} on a de-allowlisted / feedless token, and
+    ///      `router.payToken` reverts {MerchantInactive} on a deactivated merchant — so omitting them
+    ///      would DUN a fully-funded, in-budget subscriber toward irreversible UNPAID for an admin's act.
     /// @param err The raw revert returndata from the failed self-call.
     /// @return systemSide True if the failure is infrastructure-side and {renew} should re-revert.
     function _isSystemSideFailure(bytes memory err) private pure returns (bool systemSide) {
@@ -438,7 +449,9 @@ contract Access0x1Subscriptions is
             || sel == OracleLib.OracleLib__StalePrice.selector
             || sel == OracleLib.OracleLib__SequencerDown.selector
             || sel == OracleLib.OracleLib__SequencerGracePeriodNotOver.selector
-            || sel == IAccess0x1Router.Access0x1__InvalidPrice.selector;
+            || sel == IAccess0x1Router.Access0x1__InvalidPrice.selector
+            || sel == IAccess0x1Router.Access0x1__MerchantInactive.selector
+            || sel == IAccess0x1Router.Access0x1__TokenNotAllowed.selector;
     }
 
     /// @notice Internal charge wrapped as an external self-call so {renew} can try/catch it. Reverts
@@ -580,6 +593,14 @@ contract Access0x1Subscriptions is
     ///      UNPAID demotion. The period is NOT advanced, so the next {renew} charges the outstanding
     ///      period. CANCELED is a deliberate, subscriber-driven terminal state and stays terminal — only
     ///      UNPAID is curable.
+    /// @dev THROTTLE RE-ARM (do NOT zero `_lastDunBucket`). The period is deliberately not advanced, so
+    ///      the cured sub is still in the SAME elapsed-period bucket it was last dunned in. Zeroing the
+    ///      throttle there would let a permissionless {renew} in that very window re-dun IMMEDIATELY —
+    ///      undoing the cure in one block. Instead we STAMP the throttle to mark the CURRENT bucket as
+    ///      already-dunned (`bucket + 1`, the same encoding {_markRenewalFailed} writes), so a same-window
+    ///      retry is a no-op while a genuinely missed NEXT period (a new, higher bucket as real time
+    ///      passes) still advances dunning. `failCount` is reset to 0 so the cured sub gets a full fresh
+    ///      grace window of real periods before it can return to UNPAID.
     function reactivate(uint256 subId) external nonReentrant {
         Subscription storage s = _subs[subId];
         if (s.status == SubStatus.NONE) revert Access0x1Subs__SubUnknown(subId);
@@ -592,7 +613,15 @@ contract Access0x1Subscriptions is
         }
 
         s.failCount = 0;
-        delete _lastDunBucket[subId]; // a cured sub starts a clean grace window
+        // Re-arm the throttle on the CURRENT elapsed-period bucket so a same-window {renew} cannot
+        // immediately re-dun the just-cured sub. `bucket = (now - periodEnd) / periodSecs`, matching the
+        // {renew} failure path; stored as `bucket + 1` (the "already dunned this bucket" encoding). A
+        // not-yet-due sub (now < periodEnd) has bucket 0, which is exactly the window the next {renew}
+        // would target, so stamping it is still correct.
+        uint32 periodSecs = _plans[s.merchantId][s.planKey].periodSecs;
+        uint256 bucket =
+            block.timestamp > s.periodEnd ? (block.timestamp - s.periodEnd) / periodSecs : 0;
+        _lastDunBucket[subId] = bucket + 1;
         s.status = SubStatus.PAST_DUE;
         emit Reactivated(subId, msg.sender);
     }

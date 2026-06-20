@@ -1020,6 +1020,149 @@ contract Access0x1SubscriptionsTest is Test, ProxyDeployer {
         subsC.reactivate(99);
     }
 
+    /// @dev HIGH regression: a renewal attempted while the MERCHANT has DEACTIVATED itself on the router
+    ///      must NOT dun a blameless, fully-funded, in-budget subscriber. `router.payToken` reverts
+    ///      {Access0x1__MerchantInactive} — a SYSTEM-side failure: {renew} re-reverts it so the keeper
+    ///      retries once the merchant reactivates, never advancing dunning.
+    function test_renew_whileMerchantInactive_doesNotDun() public {
+        (uint256 subId, bytes32 sessionId) = _subscribeNoTrial();
+        uint256 remAfterP1 = grant.remaining(sessionId);
+
+        _warpAndRefresh(subsC.subs(subId).periodEnd); // exactly due, fresh feed
+
+        // The merchant deactivates its own billing on the router (a temporary operational halt).
+        vm.prank(merchantOwner);
+        router.updateMerchant(merchantId, payout, feeRecipient, MERCHANT_FEE_BPS, false);
+
+        // The pay-in reverts {MerchantInactive} inside payToken; {renew} bubbles it (system-side).
+        vm.prank(keeper);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Router.Access0x1__MerchantInactive.selector, merchantId
+            )
+        );
+        subsC.renew(subId);
+
+        // The subscriber is NOT penalized: still ACTIVE, no dunning, no budget spent.
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
+        assertEq(
+            uint8(s.status),
+            uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE),
+            "no dun while merchant inactive"
+        );
+        assertEq(s.failCount, 0, "no dunning bump while the merchant was inactive");
+        assertEq(
+            grant.remaining(sessionId), remAfterP1, "no budget consumed during the deactivation"
+        );
+
+        // Once the merchant reactivates, the honest keeper retries and the renewal SUCCEEDS.
+        vm.prank(merchantOwner);
+        router.updateMerchant(merchantId, payout, feeRecipient, MERCHANT_FEE_BPS, true);
+        vm.prank(keeper);
+        uint256 charged = subsC.renew(subId);
+        assertEq(
+            charged, router.quote(merchantId, address(usdc), PRICE_USD8), "retry charges in full"
+        );
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE));
+    }
+
+    /// @dev HIGH regression: a renewal attempted while the PLATFORM has DE-ALLOWLISTED the settlement
+    ///      token must NOT dun a blameless, fully-funded, in-budget subscriber. `router.quote` reverts
+    ///      {Access0x1__TokenNotAllowed} — a SYSTEM-side (platform-side) failure: {renew} re-reverts it
+    ///      so the keeper retries once the token is re-allowlisted, never advancing dunning.
+    function test_renew_whileTokenDeAllowlisted_doesNotDun() public {
+        (uint256 subId, bytes32 sessionId) = _subscribeNoTrial();
+        uint256 remAfterP1 = grant.remaining(sessionId);
+
+        _warpAndRefresh(subsC.subs(subId).periodEnd); // exactly due, fresh feed
+
+        // The platform de-allowlists the settlement token (a platform-side action, not the subscriber's).
+        vm.prank(admin);
+        router.setTokenAllowed(address(usdc), false);
+
+        // The quote reverts {TokenNotAllowed} inside the charge; {renew} bubbles it (system-side).
+        vm.prank(keeper);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Router.Access0x1__TokenNotAllowed.selector, address(usdc)
+            )
+        );
+        subsC.renew(subId);
+
+        // The subscriber is NOT penalized: still ACTIVE, no dunning, no budget spent.
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
+        assertEq(
+            uint8(s.status),
+            uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE),
+            "no dun while token de-allowlisted"
+        );
+        assertEq(s.failCount, 0, "no dunning bump while the token was de-allowlisted");
+        assertEq(
+            grant.remaining(sessionId), remAfterP1, "no budget consumed during the de-allowlisting"
+        );
+
+        // Once re-allowlisted, the honest keeper retries and the renewal SUCCEEDS.
+        vm.prank(admin);
+        router.setTokenAllowed(address(usdc), true);
+        vm.prank(keeper);
+        uint256 charged = subsC.renew(subId);
+        assertEq(
+            charged, router.quote(merchantId, address(usdc), PRICE_USD8), "retry charges in full"
+        );
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE));
+    }
+
+    /// @dev MED regression: a freshly REACTIVATED (cured) subscription must NOT be re-dunned by a
+    ///      permissionless {renew} in the SAME due window. The period is intentionally not advanced on
+    ///      cure, so the sub sits in the same elapsed-period bucket it was last dunned in; reactivate
+    ///      re-arms the throttle on THAT bucket so a same-window retry is a no-op (the sub stays
+    ///      PAST_DUE), while real time passing into a NEW period still advances dunning normally.
+    function test_reactivate_notImmediatelyReDunnedInSameWindow() public {
+        // Drive a subscription to UNPAID across DISTINCT periods (budget exhausted after period 1).
+        bytes32 sessionId = _openSession(PRICE_USD8);
+        vm.prank(subscriber);
+        uint256 subId = subsC.subscribe(merchantId, PLAN_KEY, address(usdc), sessionId, false);
+        for (uint256 i = 0; i < GRACE; i++) {
+            _warpAndRefresh(block.timestamp + PERIOD); // a genuinely new period each iteration
+            vm.prank(keeper);
+            subsC.renew(subId);
+        }
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.UNPAID));
+
+        // Cure it. The period is NOT advanced, so we remain in the current due window.
+        vm.prank(admin);
+        subsC.reactivate(subId);
+        assertEq(
+            uint8(subsC.subs(subId).status),
+            uint8(IAccess0x1Subscriptions.SubStatus.PAST_DUE),
+            "cured to PAST_DUE"
+        );
+        assertEq(subsC.subs(subId).failCount, 0, "dunning reset on cure");
+
+        // A permissionless keeper hammers {renew} in the SAME window (still budget-exhausted): the
+        // throttle was re-armed on this bucket, so each call is a no-op — the sub is NOT re-dunned.
+        for (uint256 i = 0; i < GRACE + 5; i++) {
+            vm.prank(keeper);
+            subsC.renew(subId);
+        }
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
+        assertEq(s.failCount, 0, "cured sub not re-dunned by same-window renews");
+        assertEq(
+            uint8(s.status),
+            uint8(IAccess0x1Subscriptions.SubStatus.PAST_DUE),
+            "cure survives the same-window renew storm (no bounce back to UNPAID)"
+        );
+        assertEq(subsC.effectiveTier(subId), PLAN_KEY + 1, "tier survives in the grace window");
+
+        // A genuinely NEW period (a new bucket as real time passes) STILL advances dunning, exactly once.
+        _warpAndRefresh(block.timestamp + PERIOD);
+        vm.prank(keeper);
+        subsC.renew(subId);
+        assertEq(
+            subsC.subs(subId).failCount, 1, "a real next period still duns the cured sub (one bump)"
+        );
+    }
+
     /*//////////////////////////////////////////////////////////////
                           UUPS UPGRADE / FREEZE
     //////////////////////////////////////////////////////////////*/
