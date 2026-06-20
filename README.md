@@ -567,11 +567,11 @@ operator guide.
 | zkSync Sepolia (300) | `Access0x1GiftCards` | — | — |
 | zkSync Sepolia (300) | `ChainRegistry` | — | — |
 
-> **Live multi-tenant demo.** The Base Sepolia router (`platformFeeBps = 100`, i.e. 1%) already carries
-> a registered merchant — **NFTeria, merchant `#1`** — and powers a hosted, USD-priced crypto checkout at
-> **[access0x1.nfteria.click](https://access0x1.nfteria.click)**. A second business joins the exact same
-> way: one permissionless `registerMerchant` call with its own payout wallet and surcharge — no contract
-> code, no redeploy. That self-serve, one-router-for-everyone path *is* the thesis, proven on-chain.
+> **Multi-tenant, on-chain.** The Base Sepolia router (`platformFeeBps = 100`, i.e. 1%) already carries
+> a registered merchant (`#1`) — registered with its own payout wallet, fee config, and name hash. A
+> second business joins the exact same way: one permissionless `registerMerchant` call with its own
+> payout wallet and surcharge — no contract code, no redeploy. That self-serve, one-router-for-everyone
+> path *is* the thesis, proven on-chain.
 
 ---
 
