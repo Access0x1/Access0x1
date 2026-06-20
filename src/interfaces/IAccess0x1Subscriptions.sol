@@ -15,6 +15,19 @@ interface IAccess0x1Router {
     ///         SYSTEM-side failure (re-revert for a keeper retry, never dun the subscriber).
     error Access0x1__InvalidPrice(int256 answer);
 
+    /// @notice The merchant exists but is not accepting payments (its owner deactivated it on the
+    ///         router). Surfaced here so the subscriptions {renew} catch recognizes a merchant
+    ///         deactivation as a SYSTEM-side failure: a merchant pausing its own billing is not the
+    ///         subscriber's fault, so {renew} re-reverts for a keeper retry instead of dunning a
+    ///         blameless, fully-funded subscriber toward irreversible UNPAID.
+    error Access0x1__MerchantInactive(uint256 id);
+
+    /// @notice The settlement token is not on the router pay-in allowlist (or has no price feed).
+    ///         Surfaced here so the subscriptions {renew} catch recognizes a platform de-allowlisting
+    ///         (or feed removal) as a SYSTEM-side failure: it is a platform-side action, not the
+    ///         subscriber's fault, so {renew} re-reverts for a keeper retry instead of dunning.
+    error Access0x1__TokenNotAllowed(address token);
+
     /// @notice Convert a USD amount (8 decimals) into the token amount required, via the token's
     ///         Chainlink <token>/USD feed read THROUGH the staleness guard, in-tx.
     /// @param merchantId Reserved for future per-merchant pricing (ignored by the current router).
