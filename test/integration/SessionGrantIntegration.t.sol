@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
@@ -64,6 +65,7 @@ contract SessionGrantIntegrationTest is Test {
 
     /// @notice Run the REAL deploy script and capture the live addresses it produced.
     function setUp() public {
+        CreateXEtch.enable(vm);
         // A stable, non-zero timestamp (well inside any feed staleness window the spine uses).
         vm.warp(1_700_000_000);
         vm.chainId(LOCAL); // HelperConfig → local mocks branch

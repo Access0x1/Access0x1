@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { DeployAccess0x1Router } from "../../script/DeployAccess0x1Router.s.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
@@ -33,6 +34,11 @@ import { Access0x1ProvenanceRegistry } from "../../src/Access0x1ProvenanceRegist
 ///         default sender while `run()`'s `msg.sender` is the test contract — so the tests pin
 ///         `ROUTER_OWNER` to the broadcaster to reproduce the real-run match.
 contract DeployAllTest is Test {
+
+    /// @dev Make CreateX available in the local EVM so DeployAll's CREATE3 deploys work.
+    function setUp() public {
+        CreateXEtch.enable(vm);
+    }
     // Chain ids mirrored from HelperConfig (those constants are `internal`).
     uint256 internal constant ARC = 5_042_002;
     uint256 internal constant BASE_SEPOLIA = 84_532;
@@ -364,6 +370,12 @@ contract DeployAllTest is Test {
         vm.chainId(LOCAL);
         _ownerIsBroadcaster();
 
+        // The whole surface deploys at deterministic CREATE3 (mirror) addresses, so a SECOND run() in
+        // this same EVM state would collide on the (config-independent) implementations. Snapshot the
+        // clean state and revert to it before the lanes-OFF re-run, so each scenario deploys fresh — the
+        // on-chain reality is one deploy per chain, exactly what the mirror guarantees.
+        uint256 cleanState = vm.snapshotState();
+
         // Multi-token env: LINK fully configured (addr + feed), DAI allowlisted-but-unfed (addr only),
         // WBTC + the rest left UNSET so the deploy SKIPS them (never a guessed address).
         address link = makeAddr("link");
@@ -407,8 +419,11 @@ contract DeployAllTest is Test {
         vm.setEnv("TOKEN_LINK_USD_FEED", "");
         vm.setEnv("TOKEN_DAI_ADDR", "");
 
-        // Lanes OFF: the optional ledger is not deployed; router stays in direct-push mode.
+        // Lanes OFF: the optional ledger is not deployed; router stays in direct-push mode. Revert to
+        // the clean state first so the deterministic CREATE3 re-deploy lands fresh (env changes survive
+        // the EVM revert — they are forge-level, not on-chain state).
         vm.setEnv("DEPLOY_PAYMENT_LANES", "false");
+        vm.revertToState(cleanState);
         (Access0x1Router routerOff, PaymentLanes lanesOff,) = new DeployAll().run();
         assertEq(address(lanesOff), address(0));
         // With the TOKEN_* env cleared, the extra-token loop is a clean no-op (nothing allowlisted).
@@ -470,6 +485,12 @@ contract DeployAllTest is Test {
         vm.chainId(BASE_SEPOLIA);
         _ownerIsBroadcaster();
 
+        // The mirror surface deploys at deterministic CREATE3 addresses, so each bad-config run() below
+        // must start from clean state — a re-deploy of the config-independent impl would otherwise
+        // collide with an empty revert, masking the real ZeroAddress / FeeTooHigh. Snapshot once (env
+        // changes survive the EVM revert, being forge-level), then revert to it per case.
+        uint256 cleanState = vm.snapshotState();
+
         // 1. Branch selection: reads BASE_SEPOLIA_*; fee defaults to 100 when unset-but-set-here.
         vm.setEnv("BASE_SEPOLIA_PLATFORM_TREASURY", vm.toString(treasury));
         vm.setEnv("BASE_SEPOLIA_PLATFORM_FEE_BPS", "100");
@@ -489,23 +510,27 @@ contract DeployAllTest is Test {
         assertEq(router.priceFeedOf(address(0)), address(0)); // native feed left unset (skipped)
         assertFalse(router.tokenAllowed(usdc));
 
-        // 3. Zero treasury → router constructor reverts Access0x1__ZeroAddress (bad config can't deploy).
-        //    The revert fires after run()'s vm.startBroadcast() but before its stopBroadcast(); the
-        //    broadcast flag is a cheatcode flag (not EVM state), so it does NOT roll back on revert —
-        //    clear it explicitly before the next run() or the second startBroadcast() would throw.
+        // 3. Zero treasury → the router proxy's init reverts Access0x1__ZeroAddress, so the deploy
+        //    produces NOTHING (bad config can't ship a live router). Via CreateX CREATE3 the inner
+        //    constructor revert is wrapped as FailedContractCreation (the factory does not forward the
+        //    reason), so this deploy-path test asserts that the deploy reverts; the SPECIFIC
+        //    Access0x1__ZeroAddress is asserted directly against `initialize` in Access0x1Router.t.sol.
+        //    Revert to clean state first so the impl deploy doesn't collide before the init revert; the
+        //    broadcast flag is a cheatcode flag (not EVM state) — clear it explicitly after.
         vm.setEnv("BASE_SEPOLIA_PLATFORM_TREASURY", vm.toString(address(0)));
+        vm.revertToState(cleanState);
         DeployAll d1 = new DeployAll();
-        vm.expectRevert(Access0x1Router.Access0x1__ZeroAddress.selector);
+        vm.expectRevert(); // factory-wrapped revert; specific error unit-tested
         d1.run();
         vm.stopBroadcast();
 
-        // 4. Fee 1001 > MAX_FEE_BPS (1000) → router constructor reverts Access0x1__FeeTooHigh.
+        // 4. Fee 1001 > MAX_FEE_BPS (1000) → the router proxy's init reverts Access0x1__FeeTooHigh;
+        //    same factory-wrapped revert as case 3 (specific error asserted in Access0x1Router.t.sol).
         vm.setEnv("BASE_SEPOLIA_PLATFORM_TREASURY", vm.toString(treasury));
         vm.setEnv("BASE_SEPOLIA_PLATFORM_FEE_BPS", "1001");
+        vm.revertToState(cleanState);
         DeployAll d2 = new DeployAll();
-        vm.expectRevert(
-            abi.encodeWithSelector(Access0x1Router.Access0x1__FeeTooHigh.selector, 1001, 1000)
-        );
+        vm.expectRevert(); // factory-wrapped revert; specific error unit-tested
         d2.run();
         vm.stopBroadcast();
     }

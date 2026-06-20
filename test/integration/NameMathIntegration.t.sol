@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { NameMath } from "../../src/NameMath.sol";
@@ -58,6 +59,7 @@ contract NameMathIntegrationTest is Test {
     /// @notice Deploy the full estate through the REAL `DeployAll` script (so the deploy is tested,
     ///         not re-implemented here), then capture the live router for the brand-math assertions.
     function setUp() public {
+        CreateXEtch.enable(vm);
         // Run on the local chain id so HelperConfig provisions mocks and DeployAll runs offline.
         vm.chainId(LOCAL_CHAIN_ID);
         // A non-zero, stable timestamp (matches the EndToEnd setup convention).
