@@ -19,7 +19,7 @@ import { ISessionGrant } from "./interfaces/ISessionGrant.sol";
 import { IAccess0x1Bookings } from "./interfaces/IAccess0x1Bookings.sol";
 
 /// @title  Access0x1Bookings
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice A vertical-agnostic deposit-escrow primitive with a GUARANTEED, never-blockable refund. A
 ///         payer escrows a USD-priced deposit against a unique opaque `slotKey` with a hold deadline;
 ///         the booking then resolves through exactly one lifecycle transition — confirm (release to
