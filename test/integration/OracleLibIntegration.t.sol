@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
@@ -61,6 +62,7 @@ contract OracleLibIntegrationTest is Test {
     /// @notice Deploy the whole suite via the REAL script, then capture the script-deployed router +
     ///         its resolved config (which carries the freshly-deployed mock feed addresses).
     function setUp() public {
+        CreateXEtch.enable(vm);
         // A realistic, stable "now" so the in-broadcast mock feeds (updatedAt = block.timestamp) start
         // comfortably inside the 1-hour window, and warping forward is meaningful.
         vm.warp(1_700_000_000);

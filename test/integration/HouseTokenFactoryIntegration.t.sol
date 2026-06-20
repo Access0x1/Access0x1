@@ -6,6 +6,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { HouseTokenFactory } from "../../src/HouseTokenFactory.sol";
@@ -48,6 +49,7 @@ contract HouseTokenFactoryIntegrationTest is Test {
     ///         produced. This is the integration seam: every assertion below runs against the
     ///         script-built factory, so the deploy script is under test alongside the contract.
     function setUp() public {
+        CreateXEtch.enable(vm);
         vm.chainId(LOCAL);
         // Pin the owner to the broadcaster so DeployAll's owner-only configure calls are authorized
         // (reproduces the real `--sender $DEPLOYER` run where `owner` defaults to the signer).

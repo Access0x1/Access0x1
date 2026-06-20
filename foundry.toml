@@ -27,6 +27,9 @@ remappings = [
 fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./out" },
+    # CreateX runtime bytecode fixture — etched into the local test EVM so DeployAll's CREATE3 deploys
+    # work without forking (test/helpers/CreateXEtch.sol).
+    { access = "read", path = "./test/fixtures" },
 ]
 
 [profile.default.fuzz]
