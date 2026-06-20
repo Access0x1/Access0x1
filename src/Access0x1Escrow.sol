@@ -347,6 +347,32 @@ contract Access0x1Escrow is
         }
     }
 
+    /// @inheritdoc IAccess0x1Escrow
+    /// @dev Pull-pattern redirect — the anti-strand escape hatch. A credited party whose OWN address can
+    ///      never receive (a permanently-reverting `receive`, a blocklisted account) would see {withdraw}
+    ///      revert forever, permanently stranding the credit; {withdrawTo} lets that party pull THEIR OWN
+    ///      balance to a receivable address. Authorization is structural: it ONLY ever reads and zeroes
+    ///      `_withdrawable[msg.sender][asset]`, so no caller can move another party's credit. Same CEI +
+    ///      `nonReentrant` as {withdraw}: the credit is zeroed BEFORE the send, so a re-entrant call finds
+    ///      nothing owed. A failed send (native call or a `false`/reverting token) reverts the whole call,
+    ///      restoring the credit — the claimant can never zero their balance without `to` receiving, and
+    ///      may retry to a different address.
+    function withdrawTo(address asset, address to) external nonReentrant {
+        if (to == address(0)) revert Access0x1Escrow__ZeroAddress();
+        uint256 amount = _withdrawable[msg.sender][asset];
+        if (amount == 0) revert Access0x1Escrow__NothingToWithdraw(asset);
+        _withdrawable[msg.sender][asset] = 0; // effect before interaction
+        emit WithdrawnTo(msg.sender, to, asset, amount);
+
+        if (asset == NATIVE) {
+            // slither-disable-next-line low-level-calls
+            (bool ok,) = to.call{ value: amount }("");
+            if (!ok) revert Access0x1Escrow__WithdrawToFailed(to, amount);
+        } else {
+            IERC20(asset).safeTransfer(to, amount);
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
     //////////////////////////////////////////////////////////////*/
