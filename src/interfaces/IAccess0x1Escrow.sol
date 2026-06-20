@@ -99,6 +99,17 @@ interface IAccess0x1Escrow {
     /// @param amount  The amount paid out.
     event Withdrawn(address indexed account, address indexed asset, uint256 amount);
 
+    /// @notice The owed party redirected THEIR OWN queued payout to a different receivable address. The
+    ///         credit moves from the claimant to `to`, never another party's — only `msg.sender`'s own
+    ///         balance can be redirected.
+    /// @param account The claimant whose own credit was redirected (`msg.sender`).
+    /// @param to      The receivable address the funds were sent to.
+    /// @param asset   The token withdrawn (address(0) = native).
+    /// @param amount  The amount paid out to `to`.
+    event WithdrawnTo(
+        address indexed account, address indexed to, address indexed asset, uint256 amount
+    );
+
     // ──────────────────────── errors ────────────────────────
 
     /// @notice A zero address was supplied where a non-zero one is required.
@@ -134,6 +145,10 @@ interface IAccess0x1Escrow {
     /// @notice A native {withdraw} send to the claimant failed (their `receive` reverted); the
     ///         withdrawable credit is restored by the revert so it can be claimed once they can receive.
     error Access0x1Escrow__WithdrawFailed(address account, uint256 amount);
+
+    /// @notice A {withdrawTo} redirect send to the chosen `to` address failed; the credit is restored by
+    ///         the revert so the claimant can retry to a receivable address (their balance is never lost).
+    error Access0x1Escrow__WithdrawToFailed(address to, uint256 amount);
 
     /// @notice The EIP-712 release authorization signature did not recover to the escrow's buyer.
     error Access0x1Escrow__BadSignature(uint256 id);
@@ -216,4 +231,14 @@ interface IAccess0x1Escrow {
     ///         pull-pattern: you claim, the contract never decides when you are paid.
     /// @param asset The token to withdraw (address(0) = native).
     function withdraw(address asset) external;
+
+    /// @notice Redirect YOUR OWN queued payout for `asset` to a different, receivable address. The
+    ///         anti-strand escape hatch: a credited party whose own address can never receive (a
+    ///         permanently-reverting `receive`, a blocklisted account) would otherwise see {withdraw}
+    ///         revert forever, locking the credit. {withdrawTo} lets that party send THEIR balance to an
+    ///         address that can receive. Only the CREDITED party (`msg.sender`) can move `msg.sender`'s
+    ///         credit — no caller can ever touch another party's balance.
+    /// @param asset The token to withdraw (address(0) = native).
+    /// @param to    The receivable destination (non-zero).
+    function withdrawTo(address asset, address to) external;
 }
