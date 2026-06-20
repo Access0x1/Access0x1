@@ -43,3 +43,35 @@ resolve_target() {
   # 3. Last resort: hand forge the bare name and let it resolve from out/ (errors loudly if ambiguous).
   printf '%s\n' "$name"
 }
+
+# verify_with_retry <maxAttempts> <forge verify-contract args...> — run `forge verify-contract`, retrying
+# the WHOLE invocation when the explorer's HTTP gateway flakes on the initial SUBMISSION (a 504/503/502
+# "Gateway Time-out", connection reset, "Failed to submit", or response-deserialize error). forge's own
+# --retries/--delay only re-polls the verification STATUS *after* a successful submit, so a 504 on the
+# submit itself slips straight through to a hard FAIL — that is the flakiness this closes.
+#
+# Safe to retry: verification is idempotent (an already-verified contract returns success immediately, so
+# a retry never double-submits) and sends no transaction. Retries fire ONLY on transient-gateway patterns
+# — a genuine verification error (source mismatch, bad constructor args) fails fast on the first attempt,
+# unretried. Backoff grows linearly (10s, 20s, …) to give an overloaded testnet explorer room to recover.
+# Output is streamed live (tee) so the caller still sees forge's progress while it is captured for the
+# transient-vs-genuine pattern match.
+verify_with_retry() {
+  local max="$1"; shift
+  local attempt=0 rc log
+  log=$(mktemp "${TMPDIR:-/tmp}/verify.XXXXXX")
+  while :; do
+    attempt=$((attempt + 1))
+    forge verify-contract "$@" 2>&1 | tee "$log"
+    rc=${PIPESTATUS[0]}
+    if [ "$rc" -eq 0 ]; then rm -f "$log"; return 0; fi
+    # Stop on the last attempt, or when the failure is NOT a transient gateway/network hiccup.
+    if [ "$attempt" -ge "$max" ] || ! grep -qiE \
+        '50[234]|gateway time-?out|timed? out|failed to submit|connection (reset|refused|closed)|deserialize|temporarily|try again' "$log"; then
+      rm -f "$log"
+      return "$rc"
+    fi
+    echo "    transient explorer/gateway error — retry $((attempt + 1))/${max} after $((attempt * 10))s backoff" >&2
+    sleep $((attempt * 10))
+  done
+}
