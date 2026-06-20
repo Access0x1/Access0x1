@@ -318,7 +318,7 @@ reference, grouped by what you're doing.
 | `make web-build` | Production build of the web app (`next build`). |
 | `make cre-build` | Build the CRE workflow (needs the CRE CLI). |
 | `make cre-sim` | Simulate the CRE workflow (the demoable artifact; deploy is Early-Access). |
-| `make vyper-build` | Compile the Vyper `NameMath` demonstrator (cancun); no-op if vyper not installed. |
+| `make vyper-build` | Compile the Vyper `NameMath` + `NameDie` demonstrators (cancun); no-op if vyper not installed. |
 | `make vyper-test` | Run the Vyper==Solidity byte-for-byte conformance test; no-op if mox not installed. |
 | `make zksync-build` | `forge build --zksync` (zksolc) — zkEVM build check; see `docs/ZKSYNC-TESTING.md`. |
 | `make deploy-usd-mock-feed` | Deploy a $1 USDC/USD mock feed to a chain that lacks one — `make deploy-usd-mock-feed RPC=<url>`. |

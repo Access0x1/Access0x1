@@ -276,7 +276,7 @@ sdk-build: ## Typecheck the @access0x1/react SDK
 # Toolchain: `uv tool install moccasin` + `uv tool install vyper` (Python 3.13). See vyper/README.md.
 vyper-build: ## Compile the Vyper NameMath demonstrator (cancun); no-op if vyper not installed
 	@if command -v vyper >/dev/null 2>&1; then \
-		vyper --evm-version cancun vyper/src/NameMath.vy >/dev/null && echo "==> vyper-build OK (cancun)"; \
+		vyper --evm-version cancun vyper/src/NameMath.vy vyper/src/NameDie.vy >/dev/null && echo "==> vyper-build OK (cancun)"; \
 	else \
 		echo "vyper not installed — skipping (see vyper/README.md: uv tool install vyper)"; \
 	fi
