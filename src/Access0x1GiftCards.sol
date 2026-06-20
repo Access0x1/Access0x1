@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Access0x1Router } from "./Access0x1Router.sol";
@@ -34,15 +39,39 @@ import { IAccess0x1GiftCards } from "./interfaces/IAccess0x1GiftCards.sol";
 ///         CEI + `nonReentrant` guard every balance-mutating path even though no external call is
 ///         made on them, as belt-and-suspenders against any future asset-bearing extension; coupon
 ///         consumption is an atomic read-modify-write that can never let the count exceed the cap.
-contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuard {
+///
+///         UPGRADEABILITY (the Access0x1 UUPS TEMPLATE — every system contract follows this exact shape):
+///         the contract is deployed behind an `ERC1967Proxy`; storage lives in the proxy, logic in this
+///         implementation. State is set once via {initialize} (the constructor-replacement,
+///         `initializer`-guarded); the implementation's own constructor calls `_disableInitializers()`
+///         so the logic contract can never be initialized or hijacked directly. Upgrades route through
+///         {upgradeToAndCall} and are authorized by {_authorizeUpgrade} (`owner`-only — the
+///         `Ownable2StepUpgradeable` owner, which is the UPGRADE ADMIN; DISTINCT from the per-merchant
+///         owners the Router authorizes). Calling `renounceOwnership()` permanently freezes the
+///         implementation (no owner ⇒ no authorized upgrade ⇒ immutable forever). A trailing `__gap`
+///         reserves slots for safe future storage appends. `ReentrancyGuard` is the (non-upgradeable)
+///         OZ 5.x guard: it is `stateless` — its status lives in a fixed ERC-7201 namespaced
+///         slot, not a sequential state variable, so it adds NOTHING to the layout and needs no
+///         initializer (OZ 5.x ships no `ReentrancyGuardTransient` for this reason); an uninitialized
+///         proxy slot reads as the zero "not entered" sentinel, so the guard is correct from the first call.
+contract Access0x1GiftCards is
+    IAccess0x1GiftCards,
+    Initializable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    ReentrancyGuard
+{
     using Math for uint256;
 
     /// @notice Basis for percent discounts: `value` is a whole-percent figure, so 100% == `value 100`.
     uint256 private constant PERCENT_DENOMINATOR = 100;
 
     /// @notice The Access0x1 Router whose merchant registry authorizes card issuance + coupon writes.
-    ///         Immutable: the authorization source can never be swapped out from under live cards.
-    Access0x1Router public immutable router;
+    ///         Set ONCE in {initialize} and never reassigned, so the authorization source can never be
+    ///         swapped out from under live cards. A plain storage var (not `immutable`): an upgradeable
+    ///         contract reads state from the proxy, while an `immutable` is baked into the implementation
+    ///         bytecode — so the binding must live in proxy storage to survive an implementation swap.
+    Access0x1Router public router;
 
     /// @notice holder ⇒ cardId ⇒ USD (8-dec) prepaid balance. The whole prepaid accounting state.
     mapping(address holder => mapping(uint256 cardId => uint256 balanceUsd8)) private _balanceOf;
@@ -74,10 +103,30 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     ///         against merchant A can never mutate merchant B's registry (tenant isolation).
     mapping(uint256 merchantId => mapping(bytes32 couponId => Coupon)) private _coupons;
 
+    /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
+    ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
+    ///      initializer so it can never be initialized — and therefore never owned or upgraded —
+    ///      directly, closing the classic uninitialized-implementation takeover. Runs at
+    ///      implementation-deploy time.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer — the constructor-replacement for the proxy. Sets the contract
+    ///         (upgrade-admin) owner and binds the Router whose registry authorizes every card/coupon
+    ///         write. Guarded by `initializer`, so it runs exactly once per proxy; the typical deploy is
+    ///         `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
+    /// @dev    Wires the access bases in inheritance order: `Ownable` + its 2-step extension; the OZ 5.x
+    ///         `ReentrancyGuard` needs no init (stateless namespaced-slot guard). `initialOwner` becomes
+    ///         the admin / upgrade admin and must be non-zero (`__Ownable_init` reverts on zero). The old
+    ///         constructor body is preserved byte-for-byte: a zero Router is rejected, then bound.
     /// @param initialOwner The admin (Ownable2Step) — holds NO authority over any holder's card
     ///                     balance or any merchant's coupons; reserved for future global config only.
     /// @param router_      The Access0x1 Router whose merchant registry authorizes issuance.
-    constructor(address initialOwner, Access0x1Router router_) Ownable(initialOwner) {
+    function initialize(address initialOwner, Access0x1Router router_) external initializer {
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
         if (address(router_) == address(0)) revert GiftCards__ZeroAddress();
         router = router_;
     }
@@ -363,6 +412,14 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
                                 INTERNAL
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
+    ///         single gate {upgradeToAndCall} consults before swapping the implementation.
+    /// @dev    Empty body: the `onlyOwner` modifier IS the policy. Once `renounceOwnership()` sets the
+    ///         owner to address(0), every call here reverts, so the implementation becomes permanently
+    ///         immutable (the on-chain "freeze"). `newImplementation` is intentionally unnamed — no
+    ///         per-target allow-listing; the owner is fully trusted to vet the target off-chain.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
+
     /// @dev The clamped discount for a sale. PERCENT ⇒ `amount * value / 100`; AMOUNT ⇒ flat `value`.
     ///      Both are clamped to `[0, amount]` so a discount can never exceed the sale. An unrecognized
     ///      type returns zero (never reverts) — the "unknown discount ⇒ no discount" rule;
@@ -400,4 +457,10 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     function _cardId(uint256 merchantId, bytes32 code) private pure returns (uint256) {
         return uint256(keccak256(abi.encode(merchantId, code)));
     }
+
+    /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
+    ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
+    ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
+    uint256[50] private __gap;
 }
