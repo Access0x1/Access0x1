@@ -3,7 +3,7 @@
 # @license MIT
 """
 @title NameMath (Vyper conformance demonstrator)
-@author Access0x1
+@author Rensley R. @vyperpilleddev
 @notice ISOLATED, ADDITIVE Vyper port of `src/NameMath.sol`. It reproduces the SAME ENS
         "name -> math" brand layer byte-for-byte: from an ENS namehash (`node`) derive a stable
         brand color AND a unique 5x5 identicon, ON-CHAIN, deterministically, with NO storage and
