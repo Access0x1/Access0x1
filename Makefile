@@ -50,6 +50,10 @@ VERIFY_ZK := $(if $(strip $(ZKSYNC_VERIFIER_URL)),--verify --verifier zksync --v
 # later (RESUME=1). Usage in a recipe: $(call bs_verify,$(<CHAIN>_VERIFIER_URL))
 bs_verify = $(if $(strip $(1)),--verify --verifier blockscout --verifier-url $(1),)
 
+# Robinhood Chain testnet (Blockscout) — known public explorer; defaulted so `make deploy-robinhood-testnet`
+# auto-verifies out of the box (broadcast still lands first if the explorer hiccups). Override in .env.
+ROBINHOOD_TESTNET_VERIFIER_URL ?= https://explorer.testnet.chain.robinhood.com/api/
+
 # Where the verify-* scripts log one PASS/FAIL line per contract. The verify-all-* targets truncate it
 # at the start and print a compact one-line-per-contract digest at the end (copy just that block — no
 # verbose forge output). Exported so sub-makes + the scripts share the same path; override with
@@ -329,7 +333,7 @@ deploy-scroll-sepolia: ## Deploy to Scroll Sepolia (scrollscan verify)
 # CCIP cross-chain LANE endpoint (selector 2032988798112970440). Set ROBINHOOD_TESTNET_RPC_URL +
 # ROBINHOOD_TESTNET_PLATFORM_TREASURY in .env first; the deployer keystore signs.
 deploy-robinhood-testnet: ## Deploy to Robinhood Chain testnet (CCIP-lane endpoint; no price feed yet)
-	forge script script/DeployAll.s.sol --rpc-url $(ROBINHOOD_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
+	forge script script/DeployAll.s.sol --rpc-url $(ROBINHOOD_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ROBINHOOD_TESTNET_VERIFIER_URL)) -vvvv
 
 # Verify the ALREADY-DEPLOYED Robinhood Chain contracts on Blockscout — standalone + deploy-path-
 # INDEPENDENT (no --broadcast, no keystore: it only uploads source). --resume re-reads the last
@@ -338,7 +342,7 @@ deploy-robinhood-testnet: ## Deploy to Robinhood Chain testnet (CCIP-lane endpoi
 # itself ran WITHOUT --verify — e.g. a private / direct-to-sequencer submission that bypasses forge's
 # inline auto-verify. RH Blockscout is flaky (503s); just re-run until it sticks. No Etherscan key.
 verify-robinhood-testnet: ## Verify deployed RH Chain contracts on Blockscout (standalone; no keystore)
-	./script/verify-blockscout.sh 46630 $(ROBINHOOD_TESTNET_RPC_URL) https://explorer.testnet.chain.robinhood.com/api/
+	./script/verify-blockscout.sh 46630 $(ROBINHOOD_TESTNET_RPC_URL) $(ROBINHOOD_TESTNET_VERIFIER_URL)
 
 # Post-hoc verification for the OTHER deployed testnets. Same standalone, no-keystore, no-tx model —
 # reads each chain's recorded broadcast and uploads source. Etherscan-family chains use the one
