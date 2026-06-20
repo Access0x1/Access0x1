@@ -7,6 +7,10 @@ import { DeployAccess0x1Router } from "../../script/DeployAccess0x1Router.s.sol"
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
+import { Access0x1Subscriptions } from "../../src/Access0x1Subscriptions.sol";
+import { Access0x1Escrow } from "../../src/Access0x1Escrow.sol";
+import { AutomationGateway } from "../../src/AutomationGateway.sol";
+import { Access0x1ProvenanceRegistry } from "../../src/Access0x1ProvenanceRegistry.sol";
 
 /// @notice deploy-multichain unit suite. Two halves:
 ///         (1) HelperConfig per-chain branch selection — `vm.chainId` forces each branch and proves
@@ -409,6 +413,50 @@ contract DeployAllTest is Test {
         assertEq(address(lanesOff), address(0));
         // With the TOKEN_* env cleared, the extra-token loop is a clean no-op (nothing allowlisted).
         assertFalse(routerOff.tokenAllowed(link));
+    }
+
+    /// @dev Owns `ROUTER_OWNER` for its own LOCAL run (reads no TOKEN_*/lanes keys another test owns —
+    ///      it leaves DEPLOY_PAYMENT_LANES untouched and never sets a TOKEN_* var, so the extra-token
+    ///      loop + lanes leg behave per whatever default is live; this test asserts ONLY the three
+    ///      newly-wired proxies). Proves the one-command deploy lands the WHOLE first-party surface:
+    ///      {Access0x1ProvenanceRegistry} (no deps), {Access0x1Escrow} (composes the Router), and
+    ///      {AutomationGateway} (composes Subscriptions) are all deployed AND wired to the right spine,
+    ///      so `make deploy-<chain>` is no longer false for them.
+    function test_deployAll_local_deploysAndWiresProvenanceEscrowAndGateway() public {
+        vm.chainId(LOCAL);
+        _ownerIsBroadcaster();
+
+        DeployAll deployer = new DeployAll();
+        (Access0x1Router router,,) = deployer.run();
+
+        // ProvenanceRegistry — no on-chain deps; deployed + owner-wired to the broadcaster, with a
+        // non-empty EIP-712 domain (the signed-attestation surface the SDK reads is live).
+        Access0x1ProvenanceRegistry registry = deployer.provenanceRegistry();
+        assertTrue(address(registry) != address(0), "provenance registry not deployed");
+        assertEq(registry.owner(), BROADCASTER, "provenance registry owner not wired");
+        (, string memory regName, string memory regVersion,,,,) = registry.eip712Domain();
+        assertEq(regName, "Access0x1ProvenanceRegistry", "EIP-712 name not initialized");
+        assertEq(regVersion, "1", "EIP-712 version not initialized");
+
+        // Escrow — composes the freshly deployed Router (so the release leg mirrors the live fee-split)
+        // and is owner-wired to the broadcaster.
+        Access0x1Escrow escrow = deployer.escrow();
+        assertTrue(address(escrow) != address(0), "escrow not deployed");
+        assertEq(address(escrow.router()), address(router), "escrow not wired to the Router spine");
+        assertEq(escrow.owner(), BROADCASTER, "escrow owner not wired");
+
+        // AutomationGateway — composes the freshly deployed Subscriptions proxy (its permissionless
+        // renew driver) and is owner-wired to the broadcaster.
+        AutomationGateway gateway = deployer.automationGateway();
+        Access0x1Subscriptions subscriptions = deployer.subscriptions();
+        assertTrue(address(gateway) != address(0), "automation gateway not deployed");
+        assertTrue(address(subscriptions) != address(0), "subscriptions (gateway dep) not deployed");
+        assertEq(
+            address(gateway.subscriptionsContract()),
+            address(subscriptions),
+            "gateway not wired to the Subscriptions it drives"
+        );
+        assertEq(gateway.owner(), BROADCASTER, "automation gateway owner not wired");
     }
 
     /*//////////////////////////////////////////////////////////////
