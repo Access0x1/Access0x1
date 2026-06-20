@@ -7,6 +7,7 @@ import { Access0x1Router } from "../../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../../mocks/MockUSDC.sol";
 import { RouterContinueHandler } from "./RouterContinueHandler.sol";
+import { ProxyDeployer } from "../../utils/ProxyDeployer.sol";
 
 /// @notice The `continueOnRevert` TWIN of `Access0x1RouterInvariant`. The bounded suite proves "no
 ///         VALID input ever reverts and conservation holds on the accepted-input space"; this one
@@ -22,7 +23,7 @@ import { RouterContinueHandler } from "./RouterContinueHandler.sol";
 ///         only on a SUCCESSFUL call, so the recompute stays exact across the accepted-and-rejected
 ///         union. (The literal directive marker is deliberately omitted from this prose: Foundry's
 ///         inline-config scanner would otherwise try to parse this sentence as a config line.)
-contract RouterContinueInvariants is StdInvariant, Test {
+contract RouterContinueInvariants is StdInvariant, Test, ProxyDeployer {
     Access0x1Router internal router;
     RouterContinueHandler internal handler;
     MockV3Aggregator internal nativeFeed;
@@ -49,7 +50,12 @@ contract RouterContinueInvariants is StdInvariant, Test {
         usdcFeed = new MockV3Aggregator(8, 1e8); // USDC/USD = $1
         usdc = new MockUSDC();
 
-        router = new Access0x1Router(address(this), treasury, 100); // 1% platform fee
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (address(this), treasury, 100))
+            )
+        ); // 1% platform fee
         router.setPriceFeed(address(0), address(nativeFeed));
         router.setTokenAllowed(address(usdc), true);
         router.setPriceFeed(address(usdc), address(usdcFeed));

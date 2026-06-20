@@ -7,6 +7,7 @@ import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { RouterHandler } from "./RouterHandler.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice The router's six money invariants under a bounded, handler-driven fuzzer — the security
 ///         floor for a zero-custody payments contract. Every property is asserted against an
@@ -15,7 +16,7 @@ import { RouterHandler } from "./RouterHandler.sol";
 ///         payNative/payToken. A frozen "canary" merchant (id 1, never touched by the handler) backs
 ///         the isolation invariant: if any operation on another merchant corrupted its slot, the
 ///         snapshot comparison would catch it.
-contract Access0x1RouterInvariant is StdInvariant, Test {
+contract Access0x1RouterInvariant is StdInvariant, Test, ProxyDeployer {
     Access0x1Router internal router;
     RouterHandler internal handler;
     MockV3Aggregator internal nativeFeed;
@@ -38,7 +39,12 @@ contract Access0x1RouterInvariant is StdInvariant, Test {
         usdcFeed = new MockV3Aggregator(8, 1e8); // USDC/USD = $1
         usdc = new MockUSDC();
 
-        router = new Access0x1Router(address(this), treasury, 100); // 1% platform fee
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (address(this), treasury, 100))
+            )
+        ); // 1% platform fee
         router.setPriceFeed(address(0), address(nativeFeed));
         router.setTokenAllowed(address(usdc), true);
         router.setPriceFeed(address(usdc), address(usdcFeed));

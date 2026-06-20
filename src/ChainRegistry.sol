@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /// @title  ChainRegistry — Access0x1 multi-chain reference
 /// @author Access0x1
@@ -17,7 +22,18 @@ import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 ///         money-path re-audit and add SLOAD cost to a contract that has no use for it). This
 ///         contract holds NO assets — no escrow, no payable functions, no token movement — so there
 ///         is no CEI or reentrancy concern; it is `Ownable2Step` config storage only.
-contract ChainRegistry is Ownable2Step {
+///
+///         UPGRADEABILITY (the Access0x1 UUPS TEMPLATE — every system contract follows this exact
+///         shape): the registry is deployed behind an `ERC1967Proxy`; storage lives in the proxy,
+///         logic in this implementation. State is set once via {initialize} (the constructor-
+///         replacement, `initializer`-guarded); the implementation's own constructor calls
+///         `_disableInitializers()` so the logic contract can never be initialized or hijacked
+///         directly. Upgrades route through {upgradeToAndCall} and are authorized by
+///         {_authorizeUpgrade} (`Ownable2StepUpgradeable` owner only — the upgrade admin). Calling
+///         `renounceOwnership()` permanently freezes the implementation (no owner ⇒ no authorized
+///         upgrade ⇒ immutable forever). A trailing `__gap` reserves slots for safe future storage
+///         appends.
+contract ChainRegistry is Initializable, UUPSUpgradeable, Ownable2StepUpgradeable {
     /// @notice One chain's facts. `usdc` is the native (Circle) USDC and default payout token on
     ///         that chain; `router` is the `Access0x1Router` deployed there (`address(0)` until one
     ///         is wired); `ccipSelector` is the Chainlink CCIP chain selector (`0` = no live lane);
@@ -91,10 +107,29 @@ contract ChainRegistry is Ownable2Step {
     ///         shared error for any consumer that wants to enforce non-zero before use.
     error ChainRegistry__ZeroAddress();
 
-    /// @notice Deploy the registry owned by `initialOwner` (the deployer, a burner at the event, or
-    ///         a multisig in production). Two-step ownership transfer applies thereafter.
-    /// @param  initialOwner The first owner; reverts via OZ `Ownable` if it is the zero address.
-    constructor(address initialOwner) Ownable(initialOwner) { }
+    /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
+    ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
+    ///      initializer so it can never be initialized — and therefore never owned or upgraded —
+    ///      directly, closing the classic uninitialized-implementation takeover. Runs at
+    ///      implementation-deploy time.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer — the constructor-replacement for the proxy. Sets the contract
+    ///         (upgrade-admin) owner to `initialOwner` (the deployer, a burner at the event, or a
+    ///         multisig in production); two-step ownership transfer applies thereafter. Guarded by
+    ///         `initializer`, so it runs exactly once per proxy; the typical deploy is
+    ///         `new ERC1967Proxy(impl, abi.encodeCall(initialize, (initialOwner)))`.
+    /// @dev    Wires the bases in inheritance order: Ownable + its 2-step extension (the UUPS
+    ///         machinery in OZ 5.x has no initializer to call). `initialOwner` becomes the UPGRADE
+    ///         ADMIN; it must be non-zero (`__Ownable_init` reverts on zero).
+    /// @param  initialOwner The first owner / upgrade admin (non-zero).
+    function initialize(address initialOwner) external initializer {
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
+    }
 
     /// @notice Upsert a chain entry. Owner-only. Calling again for the same `chainId` overwrites the
     ///         stored config (so a single tx can correct any field) and emits a fresh `ChainAdded`.
@@ -161,4 +196,18 @@ contract ChainRegistry is Ownable2Step {
     function _exists(uint256 chainId) internal view returns (bool exists) {
         return chains[chainId].flags & FLAG_REGISTERED != 0;
     }
+
+    /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
+    ///         single gate {upgradeToAndCall} consults before swapping the implementation.
+    /// @dev    Empty body: the `onlyOwner` modifier IS the policy. Once `renounceOwnership()` sets the
+    ///         owner to address(0), every call here reverts, so the implementation becomes permanently
+    ///         immutable (the on-chain "freeze"). `newImplementation` is intentionally unnamed — no
+    ///         per-target allow-listing; the owner is fully trusted to vet the target off-chain.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
+
+    /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
+    ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
+    ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
+    uint256[50] private __gap;
 }

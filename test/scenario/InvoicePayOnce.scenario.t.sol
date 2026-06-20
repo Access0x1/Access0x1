@@ -9,6 +9,7 @@ import { IAccess0x1Invoices } from "../../src/interfaces/IAccess0x1Invoices.sol"
 
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  InvoicePayOnce — a payment request that can be paid EXACTLY once
 /// @author Access0x1
@@ -24,7 +25,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 ///              invoice contract holds ~zero token after (zero custody).
 ///           3. A locked invoice can only be paid by its named payer.
 ///           4. An unpaid invoice can be voided by the merchant, and a voided invoice is unpayable.
-contract InvoicePayOnceScenarioTest is Test {
+contract InvoicePayOnceScenarioTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1Invoices internal invoices;
 
@@ -45,8 +46,22 @@ contract InvoicePayOnceScenarioTest is Test {
     function setUp() public {
         vm.warp(1_700_000_000);
 
-        router = new Access0x1Router(platformAdmin, treasury, PLATFORM_FEE_BPS);
-        invoices = new Access0x1Invoices(router);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(
+                    Access0x1Router.initialize, (platformAdmin, treasury, PLATFORM_FEE_BPS)
+                )
+            )
+        );
+        // Deploy the invoice contract behind its UUPS proxy (impl + ERC1967Proxy initialized in one tx);
+        // the platform admin is the upgrade admin, mirroring the production deploy.
+        address invoicesImpl = address(new Access0x1Invoices());
+        invoices = Access0x1Invoices(
+            deployProxy(
+                invoicesImpl, abi.encodeCall(Access0x1Invoices.initialize, (router, platformAdmin))
+            )
+        );
 
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8);

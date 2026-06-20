@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -36,7 +45,26 @@ import { Access0x1Router } from "./Access0x1Router.sol";
 ///         the listing direction, and a malicious NFT/token callback cannot re-enter to double-spend.
 ///         A {cancelListing} (refund-of-asset) is NEVER blocked by a pause — the seller can always
 ///         retrieve an unsold NFT (no hostage assets, the asset-side analogue of law #5).
-contract Access0x1Nft is Ownable2Step, Pausable, ReentrancyGuard, IERC721Receiver {
+///
+///         UPGRADEABILITY (the Access0x1 UUPS TEMPLATE — every other system contract follows this exact
+///         shape): the contract is deployed behind an `ERC1967Proxy`; storage lives in the proxy, logic
+///         in this implementation. State is set once via {initialize} (the constructor-replacement,
+///         `initializer`-guarded) — including the {router} reference, which is therefore PROXY storage,
+///         not a logic-bytecode immutable (an immutable would read from the impl, not the proxy). The
+///         implementation's own constructor calls `_disableInitializers()` so the logic contract can
+///         never be initialized or hijacked directly. Upgrades route through {upgradeToAndCall} and are
+///         authorized by {_authorizeUpgrade} (`onlyOwner` — the `Ownable2StepUpgradeable` owner / upgrade
+///         admin). Calling `renounceOwnership()` permanently freezes the implementation (no owner ⇒ no
+///         authorized upgrade ⇒ immutable forever). A trailing `__gap` reserves slots for safe future
+///         storage appends.
+contract Access0x1Nft is
+    Initializable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    PausableUpgradeable,
+    ReentrancyGuardTransient,
+    IERC721Receiver
+{
     using SafeERC20 for IERC20;
 
     /// @notice A live NFT listing, laid out for tight packing — 6 storage slots, not 7. Slot 0 co-packs
@@ -63,9 +91,11 @@ contract Access0x1Nft is Ownable2Step, Pausable, ReentrancyGuard, IERC721Receive
     }
 
     /// @notice The Access0x1 Router that prices, fee-splits, and settles every purchase, and whose
-    ///         merchant registry authorizes listings. Immutable: the money + auth source can never be
-    ///         swapped out from under live listings.
-    Access0x1Router public immutable router;
+    ///         merchant registry authorizes listings. Set ONCE in {initialize} and never reassigned, so
+    ///         the money + auth source can never be swapped out from under live listings — the upgradeable
+    ///         analogue of the original `immutable` (it lives in PROXY storage, since an `immutable` would
+    ///         read from the implementation bytecode, not the proxy). It is the FIRST storage slot.
+    Access0x1Router public router;
 
     /// @notice listingId ⇒ its record. listingId is assigned sequentially from {nextListingId}.
     mapping(uint256 listingId => Listing) public listings;
@@ -131,9 +161,30 @@ contract Access0x1Nft is Ownable2Step, Pausable, ReentrancyGuard, IERC721Receive
     ///         ERC-721 whose `safeTransferFrom` does not move ownership is rejected).
     error Access0x1Nft__EscrowFailed(address collection, uint256 tokenId);
 
+    /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
+    ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
+    ///      initializer so it can never be initialized — and therefore never owned or upgraded — directly,
+    ///      closing the classic uninitialized-implementation takeover. Runs at implementation-deploy time.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer — the constructor-replacement for the proxy. Wires the upgradeable
+    ///         bases (Ownable + its 2-step extension, Pausable, ReentrancyGuard, and the UUPS machinery),
+    ///         then runs the old constructor body verbatim. Guarded by `initializer`, so it runs exactly
+    ///         once per proxy; the typical deploy is
+    ///         `new ERC1967Proxy(impl, abi.encodeCall(initialize, (initialOwner, router_)))`.
+    /// @dev    No `__UUPSUpgradeable_init()`: in OZ 5.x `UUPSUpgradeable` re-exports the non-upgradeable
+    ///         contract (it holds no initializable storage), so there is no such initializer to call.
+    ///         `initialOwner` becomes the admin / upgrade owner; it must be non-zero (`__Ownable_init`
+    ///         reverts on zero). The remaining body is byte-for-byte the old constructor's.
     /// @param initialOwner The admin (Ownable2Step) — can pause new pay-ins, nothing custodial.
     /// @param router_      The Access0x1 Router used for pricing, fee-split, settlement, and auth.
-    constructor(address initialOwner, Access0x1Router router_) Ownable(initialOwner) {
+    function initialize(address initialOwner, Access0x1Router router_) external initializer {
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
+        __Pausable_init();
         if (address(router_) == address(0)) revert Access0x1Nft__ZeroAddress();
         router = router_;
         nextListingId = 1;
@@ -326,6 +377,14 @@ contract Access0x1Nft is Ownable2Step, Pausable, ReentrancyGuard, IERC721Receive
                             INTERNAL: AUTH
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
+    ///         single gate {upgradeToAndCall} consults before swapping the implementation.
+    /// @dev    Empty body: the `onlyOwner` modifier IS the policy. Once `renounceOwnership()` sets the
+    ///         owner to address(0), every call here reverts, so the implementation becomes permanently
+    ///         immutable (the on-chain "freeze"). `newImplementation` is intentionally unnamed — no
+    ///         per-target allow-listing; the owner is fully trusted to vet the target off-chain.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
+
     /// @dev Authorize `caller` as the Router owner of `merchantId`. The Router merchant registry is the
     ///      single source of truth (same composition pattern as the sibling ledgers). `merchants`
     ///      returns the full record tuple; `owner == address(0)` means the merchant was never
@@ -335,4 +394,10 @@ contract Access0x1Nft is Ownable2Step, Pausable, ReentrancyGuard, IERC721Receive
         if (merchantOwner == address(0)) revert Access0x1Nft__MerchantNotFound(merchantId);
         if (caller != merchantOwner) revert Access0x1Nft__NotMerchantOwner(merchantId, caller);
     }
+
+    /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
+    ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
+    ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
+    uint256[50] private __gap;
 }

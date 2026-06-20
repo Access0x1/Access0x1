@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockERC777 } from "../mocks/MockERC777.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  Access0x1Router777AttackTest
 /// @author Access0x1
@@ -18,7 +19,7 @@ import { MockERC777 } from "../mocks/MockERC777.sol";
 ///              propagates and rolls back the ENTIRE outer payment (atomic — no phantom receipt);
 ///           3. the money invariants hold on the surviving (non-attacking) happy path: every leg
 ///              conserves (net + platformFee + merchantFee == gross) and the router keeps ZERO custody.
-contract Access0x1Router777AttackTest is Test {
+contract Access0x1Router777AttackTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     MockV3Aggregator internal tokenFeed;
     MockERC777 internal token;
@@ -39,7 +40,12 @@ contract Access0x1Router777AttackTest is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
 
         token = new MockERC777();
         tokenFeed = new MockV3Aggregator(8, 1e8); // $1 per token, like USDC

@@ -4,13 +4,14 @@ pragma solidity 0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ChainRegistry } from "../../src/ChainRegistry.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice Adversarial suite for ChainRegistry. The registry holds NO assets — it is owner-gated
 ///         config storage the SDK/frontend/CCIP sender read — so the threat model is (1) ADMIN ABUSE:
 ///         a non-owner mutating chain facts, or seizing ownership; and (2) FLAG / ENTRY CORRUPTION:
 ///         malformed writes that desync `_exists`, clobber the live bit, or smuggle undocumented flag
 ///         bits. A passing test means the abuse is REJECTED or the corruption is contained/observable.
-contract ChainRegistryAttackTest is Test {
+contract ChainRegistryAttackTest is Test, ProxyDeployer {
     ChainRegistry internal registry;
 
     address internal owner = makeAddr("owner");
@@ -30,7 +31,10 @@ contract ChainRegistryAttackTest is Test {
     uint256 internal constant ARC_TESTNET = 5_042_002;
 
     function setUp() public {
-        registry = new ChainRegistry(owner);
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new ChainRegistry());
+        address proxy = deployProxy(impl, abi.encodeCall(ChainRegistry.initialize, (owner)));
+        registry = ChainRegistry(proxy);
     }
 
     function _cfg(uint16 flags) internal view returns (ChainRegistry.ChainConfig memory) {

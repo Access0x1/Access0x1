@@ -6,6 +6,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
 import { IPaymentLanes } from "../../src/interfaces/IPaymentLanes.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  PaymentLanesFuzz
 /// @author Access0x1
@@ -30,7 +31,7 @@ import { MockUSDC } from "../mocks/MockUSDC.sol";
 ///         per-call laws hold across the whole input domain, not just the unit suite's hand-picked points.
 /// @dev    Reuses the canonical {MockUSDC} (6-decimal) mock — a second instance (`eurc`) stands in for
 ///         "any other coin" so cross-asset isolation is exercised. No new mocks are introduced.
-contract PaymentLanesFuzzTest is Test {
+contract PaymentLanesFuzzTest is Test, ProxyDeployer {
     PaymentLanes internal lanes;
     MockUSDC internal usdc;
     MockUSDC internal eurc; // a second 6dp asset — a distinct lane id from usdc
@@ -48,7 +49,11 @@ contract PaymentLanesFuzzTest is Test {
     uint256 internal constant MAX_AMT = 1_000_000_000e6;
 
     function setUp() public {
-        lanes = new PaymentLanes(admin);
+        lanes = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()), abi.encodeCall(PaymentLanes.initialize, (admin))
+            )
+        );
         usdc = new MockUSDC();
         eurc = new MockUSDC();
 

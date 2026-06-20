@@ -9,6 +9,7 @@ import { IAccess0x1Invoices } from "../../src/interfaces/IAccess0x1Invoices.sol"
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { InvoicesHandler } from "./InvoicesHandler.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice The invoice contract's six money invariants under a bounded, handler-driven fuzzer. Every
 ///         property is asserted against an INDEPENDENT ghost recomputation in the handler (or a frozen
@@ -19,7 +20,7 @@ import { InvoicesHandler } from "./InvoicesHandler.sol";
 ///         VOID — invariant 6), and both also prove tenant isolation (invariant 4). The suite runs
 ///         under `fail_on_revert = true`, so the handler's early-returns ARE the single-settlement
 ///         proof (a replay would revert and fail the run).
-contract Access0x1InvoicesInvariant is StdInvariant, Test {
+contract Access0x1InvoicesInvariant is StdInvariant, Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1Invoices internal invoices;
     InvoicesHandler internal handler;
@@ -43,12 +44,24 @@ contract Access0x1InvoicesInvariant is StdInvariant, Test {
         usdcFeed = new MockV3Aggregator(8, 1e8);
         usdc = new MockUSDC();
 
-        router = new Access0x1Router(address(this), treasury, 100); // 1% platform fee
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (address(this), treasury, 100))
+            )
+        ); // 1% platform fee
         router.setPriceFeed(address(0), address(nativeFeed));
         router.setTokenAllowed(address(usdc), true);
         router.setPriceFeed(address(usdc), address(usdcFeed));
 
-        invoices = new Access0x1Invoices(router);
+        // Deploy the invoice contract behind its UUPS proxy (impl + ERC1967Proxy initialized in one tx);
+        // the test is the upgrade admin, though no invariant here exercises an upgrade.
+        address invoicesImpl = address(new Access0x1Invoices());
+        invoices = Access0x1Invoices(
+            deployProxy(
+                invoicesImpl, abi.encodeCall(Access0x1Invoices.initialize, (router, address(this)))
+            )
+        );
 
         // A canary merchant owned by the test (ownerB), used only for the frozen canary invoices. The
         // handler registers its OWN two merchants in its constructor (it must be their owner to create

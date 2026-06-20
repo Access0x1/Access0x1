@@ -14,6 +14,7 @@ import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  SaasSubscription — "sign once, then auto-renew within a budget you set"
 /// @author Access0x1
@@ -37,7 +38,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 ///              keeps it ACTIVE.
 ///
 ///         This composes the REAL Router + SessionGrant + a Chainlink-fed MockUSDC. Nothing is stubbed.
-contract SaasSubscriptionScenarioTest is Test {
+contract SaasSubscriptionScenarioTest is Test, ProxyDeployer {
     Access0x1Subscriptions internal subs;
     Access0x1Router internal router;
     SessionGrant internal grant;
@@ -77,10 +78,35 @@ contract SaasSubscriptionScenarioTest is Test {
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8);
 
-        router = new Access0x1Router(platformAdmin, treasury, PLATFORM_FEE_BPS);
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
-        subs = new Access0x1Subscriptions(
-            platformAdmin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), GRACE
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(
+                    Access0x1Router.initialize, (platformAdmin, treasury, PLATFORM_FEE_BPS)
+                )
+            )
+        );
+        grant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(
+                    SessionGrant.initialize, ("Access0x1 SessionGrant", "1", platformAdmin)
+                )
+            )
+        );
+        subs = Access0x1Subscriptions(
+            deployProxy(
+                address(new Access0x1Subscriptions()),
+                abi.encodeCall(
+                    Access0x1Subscriptions.initialize,
+                    (
+                        platformAdmin,
+                        IAccess0x1Router(address(router)),
+                        ISessionGrant(address(grant)),
+                        GRACE
+                    )
+                )
+            )
         );
 
         vm.startPrank(platformAdmin);

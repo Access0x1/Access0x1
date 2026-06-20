@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Access0x1GiftCards } from "../../src/Access0x1GiftCards.sol";
 import { IAccess0x1GiftCards } from "../../src/interfaces/IAccess0x1GiftCards.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice FABLE RED-TEAM adversarial suite for Access0x1GiftCards. Every test here is an EXPLOIT
 ///         ATTEMPT, not happy-path coverage. The unit MUST resist:
@@ -16,7 +17,7 @@ import { Access0x1Router } from "../../src/Access0x1Router.sol";
 ///           - card-id / coupon-id collision / forgery
 /// @dev    A green run is the proof the unit holds. A FAILING assertion documenting a real loss is a
 ///         BREAK that proc-contracts must fix in src/ (red-team never edits src/).
-contract Access0x1GiftCardsAttackTest is Test {
+contract Access0x1GiftCardsAttackTest is Test, ProxyDeployer {
     Access0x1GiftCards internal cards;
     Access0x1Router internal router;
 
@@ -33,8 +34,19 @@ contract Access0x1GiftCardsAttackTest is Test {
     uint256 internal constant FACE = 100e8;
 
     function setUp() public {
-        router = new Access0x1Router(admin, treasury, 100);
-        cards = new Access0x1GiftCards(admin, router);
+        // Both contracts run behind UUPS proxies (storage in the proxy, logic in the impl).
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100))
+            )
+        );
+        cards = Access0x1GiftCards(
+            deployProxy(
+                address(new Access0x1GiftCards()),
+                abi.encodeCall(Access0x1GiftCards.initialize, (admin, router))
+            )
+        );
 
         vm.prank(ownerA);
         merchantA = router.registerMerchant(makeAddr("payoutA"), address(0), 0, keccak256("A"));

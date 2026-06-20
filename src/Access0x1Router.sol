@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -22,10 +31,27 @@ import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 ///         no contract code. Each payment prices USD→token via a Chainlink feed read INSIDE the
 ///         settlement tx, splits an exact fee, and pushes net→merchant + fee→treasury in the same
 ///         tx — the contract never holds merchant funds.
-/// @dev    `Ownable2Step` (fat-finger-safe admin) + `Pausable` (gate new pay-ins only, never an
-///         in-flight settlement) + `ReentrancyGuard` (belt-and-suspenders with CEI on the pay
-///         paths). Native token is the zero-address sentinel; its feed lives at `priceFeedOf[0]`.
-contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
+/// @dev    `Ownable2StepUpgradeable` (fat-finger-safe admin) + `PausableUpgradeable` (gate new
+///         pay-ins only, never an in-flight settlement) + `ReentrancyGuardTransient`
+///         (belt-and-suspenders with CEI on the pay paths). Native token is the zero-address
+///         sentinel; its feed lives at `priceFeedOf[0]`.
+///
+///         UPGRADEABILITY (the Access0x1 UUPS TEMPLATE — every system contract follows this exact
+///         shape): the router is deployed behind an `ERC1967Proxy`; storage lives in the proxy, logic
+///         in this implementation. State is set once via {initialize} (the constructor-replacement,
+///         `initializer`-guarded); the implementation's own constructor calls `_disableInitializers()`
+///         so the logic contract can never be initialized or hijacked directly. Upgrades route through
+///         {upgradeToAndCall} and are authorized by {_authorizeUpgrade} (`onlyOwner` — the
+///         `Ownable2StepUpgradeable` owner / upgrade admin). Calling `renounceOwnership()` permanently
+///         freezes the implementation (no owner ⇒ no authorized upgrade ⇒ immutable forever). A
+///         trailing `__gap` reserves slots for safe future storage appends.
+contract Access0x1Router is
+    Initializable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    PausableUpgradeable,
+    ReentrancyGuardTransient
+{
     using SafeERC20 for IERC20;
     using OracleLib for AggregatorV3Interface;
 
@@ -209,12 +235,36 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice A zero amount was supplied where a positive one is required.
     error Access0x1__ZeroAmount();
 
-    /// @param initialOwner   The admin (Ownable2Step) — burner at the event, multisig in prod.
-    /// @param treasury       Where the platform fee leg settles.
+    /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
+    ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
+    ///      initializer so it can never be initialized — and therefore never owned or upgraded —
+    ///      directly, closing the classic uninitialized-implementation takeover. Runs at
+    ///      implementation-deploy time.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer — the constructor-replacement for the proxy. Wires the upgradeable
+    ///         bases (Ownable + its 2-step extension, Pausable, ReentrancyGuard) then sets the platform
+    ///         treasury + fee and seeds the merchant-id counter. Guarded by `initializer`, so it runs
+    ///         exactly once per proxy; the typical deploy is
+    ///         `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
+    /// @dev    No `__UUPSUpgradeable_init()`: in OZ 5.x `UUPSUpgradeable` holds no initializable
+    ///         storage, so there is no such initializer to call. `initialOwner` becomes the
+    ///         `Ownable2Step` owner / upgrade admin; it must be non-zero (`__Ownable_init` reverts on
+    ///         zero). The remaining body is byte-for-byte the old constructor's.
+    /// @param initialOwner    The admin (Ownable2Step) — burner at the event, multisig in prod.
+    /// @param treasury        Where the platform fee leg settles.
     /// @param platformFeeBps_ The initial platform fee in bps (≤ `MAX_FEE_BPS`).
-    constructor(address initialOwner, address treasury, uint16 platformFeeBps_)
-        Ownable(initialOwner)
+    function initialize(address initialOwner, address treasury, uint16 platformFeeBps_)
+        external
+        initializer
     {
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
+        __Pausable_init();
+
         if (treasury == address(0)) revert Access0x1__ZeroAddress();
         if (platformFeeBps_ > MAX_FEE_BPS) {
             revert Access0x1__FeeTooHigh(platformFeeBps_, MAX_FEE_BPS);
@@ -739,4 +789,22 @@ contract Access0x1Router is Ownable2Step, Pausable, ReentrancyGuard {
         (bool ok,) = msg.sender.call{ value: amount }("");
         if (!ok) revert Access0x1__NativePushFailed(msg.sender, amount);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                UPGRADE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
+    ///         single gate {upgradeToAndCall} consults before swapping the implementation.
+    /// @dev    Empty body: the `onlyOwner` modifier IS the policy. Once `renounceOwnership()` sets the
+    ///         owner to address(0), every call here reverts, so the implementation becomes permanently
+    ///         immutable (the on-chain "freeze"). `newImplementation` is intentionally unnamed — no
+    ///         per-target allow-listing; the owner is fully trusted to vet the target off-chain.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
+
+    /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
+    ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
+    ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
+    uint256[50] private __gap;
 }

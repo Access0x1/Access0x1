@@ -6,12 +6,13 @@ import { StdInvariant } from "forge-std/StdInvariant.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { PaymentLanesHandler } from "./PaymentLanesHandler.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice PaymentLanes' two invariants under a bounded, handler-driven fuzzer:
 ///         (1) cross-merchant lane isolation — a frozen canary lane never moves; and
 ///         (2) conservation — for every asset, the ERC-20 held by PaymentLanes equals the sum of
 ///         unclaimed lane balances (Σ credited − Σ claimed), recomputed INDEPENDENTLY in the handler.
-contract PaymentLanesInvariant is StdInvariant, Test {
+contract PaymentLanesInvariant is StdInvariant, Test, ProxyDeployer {
     PaymentLanes internal lanes;
     PaymentLanesHandler internal handler;
     MockUSDC internal usdc;
@@ -21,7 +22,11 @@ contract PaymentLanesInvariant is StdInvariant, Test {
     function setUp() public {
         usdc = new MockUSDC();
         eurc = new MockUSDC();
-        lanes = new PaymentLanes(admin);
+        lanes = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()), abi.encodeCall(PaymentLanes.initialize, (admin))
+            )
+        );
 
         handler = new PaymentLanesHandler(lanes, usdc, eurc);
         // Authorize the handler as the router so its credits succeed, then seed the frozen canary.

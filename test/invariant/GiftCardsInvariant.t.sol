@@ -7,6 +7,7 @@ import { Access0x1GiftCards } from "../../src/Access0x1GiftCards.sol";
 import { IAccess0x1GiftCards } from "../../src/interfaces/IAccess0x1GiftCards.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { GiftCardsHandler } from "./GiftCardsHandler.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice Access0x1GiftCards' money invariants under a bounded, handler-driven fuzzer — the security
 ///         floor for the prepaid-balance ledger. Every property is asserted against an INDEPENDENT
@@ -24,7 +25,7 @@ import { GiftCardsHandler } from "./GiftCardsHandler.sol";
 ///           4. Coupon cap — `redemptionsCount` never exceeds `maxRedemptions`.
 ///           5. Tenant isolation — a frozen canary card (never touched by any action) keeps its exact
 ///              balance no matter what happens on other cards / coupons.
-contract Access0x1GiftCardsInvariant is StdInvariant, Test {
+contract Access0x1GiftCardsInvariant is StdInvariant, Test, ProxyDeployer {
     Access0x1GiftCards internal cards;
     Access0x1Router internal router;
     GiftCardsHandler internal handler;
@@ -35,8 +36,19 @@ contract Access0x1GiftCardsInvariant is StdInvariant, Test {
     uint256 internal merchantId;
 
     function setUp() public {
-        router = new Access0x1Router(admin, treasury, 100);
-        cards = new Access0x1GiftCards(admin, router);
+        // Both contracts run behind UUPS proxies (storage in the proxy, logic in the impl).
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100))
+            )
+        );
+        cards = Access0x1GiftCards(
+            deployProxy(
+                address(new Access0x1GiftCards()),
+                abi.encodeCall(Access0x1GiftCards.initialize, (admin, router))
+            )
+        );
 
         vm.prank(merchantOwner);
         merchantId = router.registerMerchant(

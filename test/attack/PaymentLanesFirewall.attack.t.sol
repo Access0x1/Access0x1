@@ -6,6 +6,7 @@ import { PaymentLanes } from "../../src/PaymentLanes.sol";
 import { IPaymentLanes } from "../../src/interfaces/IPaymentLanes.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { ReentrantClaimToken } from "../mocks/ReentrantClaimToken.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice FABLE RED-TEAM — SECOND PASS on the cross-asset firewall fix.
 ///
@@ -30,7 +31,7 @@ import { ReentrantClaimToken } from "../mocks/ReentrantClaimToken.sol";
 ///              mismatched claim has multiple foreign pools to (fail to) reach.
 ///
 /// @dev    Red-team NEVER edits src/. A failing assertion here that documents real loss is a BREAK.
-contract PaymentLanesFirewallAttackTest is Test {
+contract PaymentLanesFirewallAttackTest is Test, ProxyDeployer {
     PaymentLanes internal lanes;
     MockUSDC internal usdc; // valuable asset (6dp)
     MockUSDC internal eurc; // second real asset (6dp)
@@ -47,7 +48,11 @@ contract PaymentLanesFirewallAttackTest is Test {
     uint256 internal constant NET = 1_000e6;
 
     function setUp() public {
-        lanes = new PaymentLanes(admin);
+        lanes = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()), abi.encodeCall(PaymentLanes.initialize, (admin))
+            )
+        );
         usdc = new MockUSDC();
         eurc = new MockUSDC();
         evil = new MockUSDC();

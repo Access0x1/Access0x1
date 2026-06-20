@@ -5,6 +5,7 @@ import { Script } from "forge-std/Script.sol";
 import { MockV3Aggregator } from "../test/mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../test/mocks/MockUSDC.sol";
 import { ChainRegistry } from "../src/ChainRegistry.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title  HelperConfig
 /// @author Access0x1
@@ -1324,7 +1325,17 @@ contract HelperConfig is Script {
         MockV3Aggregator nativeFeed = new MockV3Aggregator(8, 2000e8);
         MockV3Aggregator usdcFeed = new MockV3Aggregator(8, 1e8);
         MockUSDC usdc = new MockUSDC();
-        ChainRegistry chainRegistry = new ChainRegistry(msg.sender);
+        // UUPS: deploy the registry impl, then an ERC1967 proxy that runs `initialize(msg.sender)` in
+        // the same broadcast block, so the local estate owns a fully initialized registry (state in the
+        // proxy, logic in the impl); the impl ran `_disableInitializers()` in its constructor.
+        address chainRegistryImpl = address(new ChainRegistry());
+        ChainRegistry chainRegistry = ChainRegistry(
+            address(
+                new ERC1967Proxy(
+                    chainRegistryImpl, abi.encodeCall(ChainRegistry.initialize, (msg.sender))
+                )
+            )
+        );
         vm.stopBroadcast();
 
         return NetworkConfig({

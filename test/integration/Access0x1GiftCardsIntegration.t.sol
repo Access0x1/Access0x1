@@ -11,6 +11,7 @@ import { IAccess0x1GiftCards } from "../../src/interfaces/IAccess0x1GiftCards.so
 
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  Access0x1GiftCardsIntegration — the prepaid ledger composed with the REAL money spine.
 /// @author Access0x1
@@ -35,7 +36,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 ///         (the agent-mandate spine the production deploy stands up alongside the ledger) so the composed
 ///         surface mirrors the real deployment, even though the gift-card flow itself is delegate-free.
 ///         USD amounts are 8-decimal (`usdAmount8`, $1 == 1e8); USDC is 6-decimal.
-contract Access0x1GiftCardsIntegrationTest is Test {
+contract Access0x1GiftCardsIntegrationTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1GiftCards internal cards;
     PaymentLanes internal lanes;
@@ -72,10 +73,30 @@ contract Access0x1GiftCardsIntegrationTest is Test {
         usdcFeed = new MockV3Aggregator(8, 1e8); // USDC/USD = $1.00, 8-decimal answer
 
         // ── Deploy the estate DIRECTLY (race-free: no vm.setEnv, no DeployAll.run()).
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE_BPS);
-        lanes = new PaymentLanes(admin);
-        sessions = new SessionGrant("Access0x1SessionGrant", "1");
-        cards = new Access0x1GiftCards(admin, router);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        lanes = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()), abi.encodeCall(PaymentLanes.initialize, (admin))
+            )
+        );
+        sessions = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1SessionGrant", "1", admin))
+            )
+        );
+        // GiftCards is UUPS: deploy its implementation, then the ERC1967 proxy that runs initialize.
+        cards = Access0x1GiftCards(
+            deployProxy(
+                address(new Access0x1GiftCards()),
+                abi.encodeCall(Access0x1GiftCards.initialize, (admin, router))
+            )
+        );
 
         // ── Owner-only wiring, all signed by the single admin (the in-broadcast owner of a real deploy).
         vm.startPrank(admin);
