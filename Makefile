@@ -224,6 +224,9 @@ drive-local: ## Deploy + DRIVE the coffee-shop money flow on a local anvil (run 
 deploy-pick: ## Interactive: pick which chains to mirror-deploy (shows gas + mirror status per chain)
 	@./script/deploy-pick.sh
 
+mirror-manifest: ## Compute every contract's CREATE3 mirror address from its salt (no deploy) -> script/mirror-manifest.json
+	@./script/mirror-manifest.sh
+
 deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
 
