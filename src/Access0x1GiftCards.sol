@@ -8,7 +8,9 @@ import {
 import {
     Ownable2StepUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Access0x1Router } from "./Access0x1Router.sol";
 import { IAccess0x1GiftCards } from "./interfaces/IAccess0x1GiftCards.sol";
@@ -49,17 +51,16 @@ import { IAccess0x1GiftCards } from "./interfaces/IAccess0x1GiftCards.sol";
 ///         `Ownable2StepUpgradeable` owner, which is the UPGRADE ADMIN; DISTINCT from the per-merchant
 ///         owners the Router authorizes). Calling `renounceOwnership()` permanently freezes the
 ///         implementation (no owner ⇒ no authorized upgrade ⇒ immutable forever). A trailing `__gap`
-///         reserves slots for safe future storage appends. `ReentrancyGuard` is the (non-upgradeable)
-///         OZ 5.x guard: it is `stateless` — its status lives in a fixed ERC-7201 namespaced
-///         slot, not a sequential state variable, so it adds NOTHING to the layout and needs no
-///         initializer (OZ 5.x ships no `ReentrancyGuardTransient` for this reason); an uninitialized
-///         proxy slot reads as the zero "not entered" sentinel, so the guard is correct from the first call.
+///         reserves slots for safe future storage appends. `ReentrancyGuardTransient` (OZ 5.x) holds its
+///         guard flag in TRANSIENT storage (EIP-1153, cancun): it occupies NO persistent storage slot
+///         and needs no initializer, so it adds NOTHING to the layout and is upgrade-safe by
+///         construction — the transient flag auto-clears at the end of every tx.
 contract Access0x1GiftCards is
     IAccess0x1GiftCards,
     Initializable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
-    ReentrancyGuard
+    ReentrancyGuardTransient
 {
     using Math for uint256;
 
@@ -118,7 +119,7 @@ contract Access0x1GiftCards is
     ///         write. Guarded by `initializer`, so it runs exactly once per proxy; the typical deploy is
     ///         `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
     /// @dev    Wires the access bases in inheritance order: `Ownable` + its 2-step extension; the OZ 5.x
-    ///         `ReentrancyGuard` needs no init (stateless namespaced-slot guard). `initialOwner` becomes
+    ///         `ReentrancyGuardTransient` needs no init (its flag is transient storage, EIP-1153). `initialOwner` becomes
     ///         the admin / upgrade admin and must be non-zero (`__Ownable_init` reverts on zero). The old
     ///         constructor body is preserved byte-for-byte: a zero Router is rejected, then bound.
     /// @param initialOwner The admin (Ownable2Step) — holds NO authority over any holder's card

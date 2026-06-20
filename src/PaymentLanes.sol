@@ -8,7 +8,9 @@ import {
 import {
     Ownable2StepUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
@@ -37,18 +39,16 @@ import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 ///         {upgradeToAndCall} and are authorized by {_authorizeUpgrade} (`owner`-only — the
 ///         `Ownable2StepUpgradeable` owner, which is the UPGRADE ADMIN). Calling `renounceOwnership()`
 ///         permanently freezes the implementation (no owner ⇒ no authorized upgrade ⇒ immutable forever).
-///         A trailing `__gap` reserves slots for safe future storage appends. `ReentrancyGuard` is the
-///         (non-upgradeable) OZ 5.x guard: it is `stateless` — its status lives in a fixed
-///         ERC-7201 namespaced slot, not a sequential state variable, so it adds NOTHING to the layout
-///         and needs no initializer (OZ 5.x ships no `ReentrancyGuardTransient` for this reason); an
-///         uninitialized proxy slot reads as the zero "not entered" sentinel, so the guard is correct
-///         from the first call.
+///         A trailing `__gap` reserves slots for safe future storage appends. `ReentrancyGuardTransient`
+///         (OZ 5.x) holds its guard flag in TRANSIENT storage (EIP-1153, cancun): it occupies NO
+///         persistent storage slot and needs no initializer, so it adds NOTHING to the layout and is
+///         upgrade-safe by construction — the transient flag auto-clears at the end of every tx.
 contract PaymentLanes is
     IPaymentLanes,
     Initializable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
-    ReentrancyGuard
+    ReentrancyGuardTransient
 {
     using SafeERC20 for IERC20;
 
@@ -85,8 +85,8 @@ contract PaymentLanes is
     /// @notice One-time initializer — the constructor-replacement for the proxy. Sets the contract
     ///         (allowlist-admin / upgrade-admin) owner. Guarded by `initializer`, so it runs exactly once
     ///         per proxy; the typical deploy is `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
-    /// @dev    Wires the access bases in inheritance order: `Ownable` + its 2-step extension. `ReentrancyGuard`
-    ///         needs no init (OZ 5.x stateless namespaced-slot guard). `initialOwner` becomes the admin and
+    /// @dev    Wires the access bases in inheritance order: `Ownable` + its 2-step extension. `ReentrancyGuardTransient`
+    ///         needs no init (its flag is transient storage, EIP-1153). `initialOwner` becomes the admin and
     ///         must be non-zero — `__Ownable_init` reverts with `OwnableInvalidOwner(0)` first; the explicit
     ///         {PaymentLanes__ZeroAddress} guard preserves the original constructor body for parity.
     /// @param initialOwner The admin that manages the router allowlist (multisig in prod). Holds NO
