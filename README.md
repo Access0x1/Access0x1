@@ -505,17 +505,18 @@ operator guide.
 
 | Chain | Contract | Address | Tx |
 | --- | --- | --- | --- |
-| Arc Testnet (5042002) | `Access0x1Router` | [`0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad`](https://testnet.arcscan.app/address/0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad) | — |
-| Arc Testnet (5042002) | `SessionGrant` | [`0xFd75F29369a29800FAD5A5172cD8A8C4b9cC0F1B`](https://testnet.arcscan.app/address/0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b) | — |
-| Arc Testnet (5042002) | `PaymentLanes` | [`0x89f904a7328eaB1Fd8Ea422A5e635344766fBF4d`](https://testnet.arcscan.app/address/0x89f904a7328eab1fd8ea422a5e635344766fbf4d) | — |
-| Arc Testnet (5042002) | `HouseTokenFactory` | [`0x3A43171f6d503ab314366d19b7ddc7Aa861125f2`](https://testnet.arcscan.app/address/0x3a43171f6d503ab314366d19b7ddc7aa861125f2) | — |
-| Arc Testnet (5042002) | `Access0x1Subscriptions` | [`0x1dB513eC23bc7De46AFD6DAE5133dE14D8A62BF8`](https://testnet.arcscan.app/address/0x1db513ec23bc7de46afd6dae5133de14d8a62bf8) | — |
-| Arc Testnet (5042002) | `Access0x1Bookings` | [`0x4e099b81a9A46A99378Ac70cAd195Bf8E25F0c82`](https://testnet.arcscan.app/address/0x4e099b81a9a46a99378ac70cad195bf8e25f0c82) | — |
-| Arc Testnet (5042002) | `Access0x1Invoices` | [`0x1001dc04da8706D53b24389c3348Ca512A5bA6b7`](https://testnet.arcscan.app/address/0x1001dc04da8706d53b24389c3348ca512a5ba6b7) | — |
-| Arc Testnet (5042002) | `Access0x1GiftCards` | [`0xBe1a9c1E8194928215045Cf186283d41470ABDcd`](https://testnet.arcscan.app/address/0xbe1a9c1e8194928215045cf186283d41470abdcd) | — |
-| Arc Testnet (5042002) | `USDC/USD feed` _(MockV3Aggregator — no live Chainlink DON on Arc testnet)_ | [`0x60eb647D166b70662e0567551Af7E575f13e8008`](https://testnet.arcscan.app/address/0x60eb647d166b70662e0567551af7e575f13e8008) | — |
-| Arc Testnet (5042002) | `Access0x1Receiver` | — (sidecar, not deployed) | — |
-| Arc Testnet (5042002) | `ChainRegistry` | — (sidecar, not deployed) | — |
+| Arc Testnet (5042002) | `Access0x1Router` | [`0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e`](https://testnet.arcscan.app/address/0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e) | — |
+| Arc Testnet (5042002) | `SessionGrant` | [`0x065311fa0170422ee6025c2c4baa5724a5886bf0`](https://testnet.arcscan.app/address/0x065311fa0170422ee6025c2c4baa5724a5886bf0) | — |
+| Arc Testnet (5042002) | `PaymentLanes` | [`0x1fecfe4781e9a38b4291b681751e048cc6d1eac5`](https://testnet.arcscan.app/address/0x1fecfe4781e9a38b4291b681751e048cc6d1eac5) | — |
+| Arc Testnet (5042002) | `HouseTokenFactory` | [`0x5b2c1857c65c7daa672985fc9c3aaf2050b42288`](https://testnet.arcscan.app/address/0x5b2c1857c65c7daa672985fc9c3aaf2050b42288) | — |
+| Arc Testnet (5042002) | `Access0x1ProvenanceRegistry` | [`0xd682f77d0ae016838d89b4f673f17acd93102231`](https://testnet.arcscan.app/address/0xd682f77d0ae016838d89b4f673f17acd93102231) | — |
+| Arc Testnet (5042002) | `Access0x1Escrow` | [`0xec89c9ee28af42ae2b917bb0bae245eaad6e8e57`](https://testnet.arcscan.app/address/0xec89c9ee28af42ae2b917bb0bae245eaad6e8e57) | — |
+| Arc Testnet (5042002) | `Access0x1Subscriptions` | [`0x5578929702b0158682286982e3f82d04a08f3b92`](https://testnet.arcscan.app/address/0x5578929702b0158682286982e3f82d04a08f3b92) | — |
+| Arc Testnet (5042002) | `AutomationGateway` | [`0x41e63263a6d78f85458dc50c9a9ea4298ed1cdfe`](https://testnet.arcscan.app/address/0x41e63263a6d78f85458dc50c9a9ea4298ed1cdfe) | — |
+| Arc Testnet (5042002) | `Access0x1Bookings` | [`0xd3ac71914d01a8229d00c2cf9abc7f93237a253d`](https://testnet.arcscan.app/address/0xd3ac71914d01a8229d00c2cf9abc7f93237a253d) | — |
+| Arc Testnet (5042002) | `Access0x1Invoices` | [`0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909`](https://testnet.arcscan.app/address/0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909) | — |
+| Arc Testnet (5042002) | `Access0x1GiftCards` | [`0x70606850d07fe7257805e8533594494dca02dcd2`](https://testnet.arcscan.app/address/0x70606850d07fe7257805e8533594494dca02dcd2) | — |
+| Arc Testnet (5042002) | `Access0x1Nft` | [`0xc93bd2808fadfe87ea40a90db8fded3e09d266a4`](https://testnet.arcscan.app/address/0xc93bd2808fadfe87ea40a90db8fded3e09d266a4) | — |
 | 0G Galileo (16602) | `Access0x1Router` | [`0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad`](https://chainscan-galileo.0g.ai/address/0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad) | — |
 | 0G Galileo (16602) | `SessionGrant` | [`0x89f904a7328eaB1Fd8Ea422A5e635344766fBF4d`](https://chainscan-galileo.0g.ai/address/0x89f904a7328eaB1Fd8Ea422A5e635344766fBF4d) | — |
 | 0G Galileo (16602) | `PaymentLanes` | [`0x3D5247B4D5d1947c7b9c82b27f20246da9923238`](https://chainscan-galileo.0g.ai/address/0x3D5247B4D5d1947c7b9c82b27f20246da9923238) | — |
