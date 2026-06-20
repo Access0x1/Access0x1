@@ -10,7 +10,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /// @title  ChainRegistry — Access0x1 multi-chain reference
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice The canonical, on-chain hash-map of per-chain facts (native USDC, the local router,
 ///         the Chainlink CCIP selector, and a packed flag word) keyed by `chainId`. It is a READ
 ///         reference for the SDK, the frontend, the (future) CCIP sender, and `HelperConfig` —

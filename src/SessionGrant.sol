@@ -16,7 +16,7 @@ import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { ISessionGrant } from "./interfaces/ISessionGrant.sol";
 
 /// @title  SessionGrant
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice An Access0x1-owned implementation of the "sign once → time-bounded, budget-scoped
 ///         delegated agent session" pattern enabled by ERC-7702 (Final, Pectra), with ERC-6492
 ///         (Final) validation of grant signatures from wallets that are not yet deployed on-chain.

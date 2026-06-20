@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IAccess0x1Router (consumed surface)
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice The minimal Access0x1Router surface Access0x1Subscriptions calls into — the USD->token
 ///         quote, the ERC-20 fee-split settlement, and the merchant-owner lookup. Declared here (not
 ///         imported from the concrete router) so the subscriptions contract depends on a NARROW
@@ -65,7 +65,7 @@ interface IAccess0x1Router {
 }
 
 /// @title  IAccess0x1Subscriptions
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice Surface for Access0x1Subscriptions — recurring, USD-priced, tiered billing built as a
 ///         COMPOSITION of SessionGrant (the sign-once, budget-scoped, time-bounded recurring
 ///         authorization — a subscription IS a SessionGrant), Access0x1Router (the fee-split applied

@@ -6,7 +6,7 @@ import {
 } from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 /// @title OracleLib
-/// @author Access0x1 — staleness guard adapted from the Cyfrin / Patrick Collins
+/// @author Rensley R. @vyperpilleddev — staleness guard adapted from the Cyfrin / Patrick Collins
 ///         `foundry-defi-stablecoin` pattern (MIT).
 /// @notice Wraps a Chainlink feed's `latestRoundData()` with a freshness + completed-round
 ///         check, so the router never prices a payment against a stale or never-finished round;
