@@ -45,7 +45,7 @@ while read -r NAME ADDR; do
   [ -n "$NAME" ] && [ "$NAME" != "null" ] || { echo "skip (unnamed CREATE) $ADDR"; continue; }
   echo "==> verifying ${NAME} @ ${ADDR}"
   TARGET=$(resolve_target "$NAME")
-  if forge verify-contract "$ADDR" "$TARGET" \
+  if verify_with_retry 5 "$ADDR" "$TARGET" \
       --verifier blockscout --verifier-url "$VERIFIER_URL" --skip-is-verified-check \
       --rpc-url "$RPC" --guess-constructor-args --watch --retries 15 --delay 6; then
     echo "    OK ${NAME}"
