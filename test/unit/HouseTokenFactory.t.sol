@@ -289,6 +289,60 @@ contract HouseTokenFactoryTest is Test, ProxyDeployer {
         assertEq(factory.tokensOf(makeAddr("nobody")).length, 0);
     }
 
+    /// @notice The paginated owner-index pair ({tokensOfLength} + {tokenOfOwnerAt}) returns the SAME
+    ///         tokens, in the SAME order, as the unbounded {tokensOf} — so a consumer can page an owner's
+    ///         list one entry at a time (gas-bounded, un-grief-able) instead of loading the whole array.
+    function test_index_tokenOfOwnerAt_pagesSameAsTokensOf() public {
+        vm.startPrank(caller);
+        address a1 = factory.deployHouseToken(business, NAME, SYMBOL, 18, SUPPLY);
+        address a2 = factory.deployHouseToken(business, "Two", "TWO", 18, 0);
+        address a3 = factory.deployHouseToken(business, "Three", "THR", 6, 0);
+        vm.stopPrank();
+
+        // Length matches the unbounded list...
+        assertEq(factory.tokensOfLength(business), 3, "length is the owner's token count");
+        address[] memory whole = factory.tokensOf(business);
+        assertEq(whole.length, factory.tokensOfLength(business), "length agrees with tokensOf");
+
+        // ...and paging entry-by-entry reproduces it exactly, in deploy order.
+        assertEq(factory.tokenOfOwnerAt(business, 0), a1, "first in deploy order");
+        assertEq(factory.tokenOfOwnerAt(business, 1), a2, "second in deploy order");
+        assertEq(factory.tokenOfOwnerAt(business, 2), a3, "third in deploy order");
+        assertEq(factory.tokenOfOwnerAt(business, 0), whole[0]);
+        assertEq(factory.tokenOfOwnerAt(business, 1), whole[1]);
+        assertEq(factory.tokenOfOwnerAt(business, 2), whole[2]);
+    }
+
+    /// @notice An owner that has deployed nothing has length 0 (not a revert), so a pager reads zero
+    ///         entries and never touches {tokenOfOwnerAt} — the empty case is safe without loading an array.
+    function test_index_tokensOfLength_zeroForUnknownOwner() public {
+        assertEq(factory.tokensOfLength(makeAddr("nobody")), 0);
+    }
+
+    /// @notice {tokenOfOwnerAt} reverts on an out-of-bounds index (the array's own bounds check). With one
+    ///         token at index 0, index 1 is past the end — callers must bound `i` with {tokensOfLength}.
+    function test_index_tokenOfOwnerAt_outOfBoundsReverts() public {
+        _deploy(); // business now owns exactly one token (index 0 valid, index 1 out of bounds)
+        vm.expectRevert();
+        factory.tokenOfOwnerAt(business, 1);
+    }
+
+    /// @notice The per-owner index is isolated: paging one owner never sees another owner's tokens, and
+    ///         each owner's length counts only its own. Proves {tokenOfOwnerAt} keys on `owner`, not a
+    ///         shared global cursor — so a third party deploying to a victim cannot poison a DIFFERENT
+    ///         owner's paged view.
+    function test_index_tokenOfOwnerAt_isolatesOwners() public {
+        vm.startPrank(caller);
+        address a1 = factory.deployHouseToken(business, NAME, SYMBOL, 18, SUPPLY);
+        address b1 = factory.deployHouseToken(alice, "Alice", "ALC", 6, 0);
+        vm.stopPrank();
+
+        assertEq(factory.tokensOfLength(business), 1, "business sees only its own token");
+        assertEq(factory.tokensOfLength(alice), 1, "alice sees only her own token");
+        assertEq(factory.tokenOfOwnerAt(business, 0), a1);
+        assertEq(factory.tokenOfOwnerAt(alice, 0), b1);
+    }
+
     /// @notice `tokenAt` reverts on an out-of-bounds index (the array's own bounds check). At length 1,
     ///         index 1 is past the end.
     function test_index_tokenAt_outOfBoundsReverts() public {
