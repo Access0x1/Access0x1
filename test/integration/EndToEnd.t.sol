@@ -408,7 +408,14 @@ contract EndToEndTest is Test, ProxyDeployer {
 
         vm.expectEmit(false, false, false, false, address(factory));
         emit IHouseTokenFactory.Deployed(
-            merchantOwner, address(0), address(this), "Acme Points", "ACME", supply
+            merchantOwner,
+            address(0),
+            address(this),
+            "Acme Points",
+            "ACME",
+            18,
+            supply,
+            block.chainid
         );
         vm.prank(merchantOwner);
         address token = factory.deployHouseToken(merchantOwner, "Acme Points", "ACME", 18, supply);

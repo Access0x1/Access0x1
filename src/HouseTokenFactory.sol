@@ -53,11 +53,31 @@ contract HouseTokenFactory is
     ///         provenance is permanent. The factory cannot gain authority over a token by flipping it.
     mapping(address token => bool deployed) private _isHouseToken;
 
+    // ─── DISCOVERABILITY INDEX (appended after the original layout; see the `__gap` shrink below) ───
+    // Three on-chain indexes so a house token is fully discoverable without log-scraping: who owns it,
+    // the global set, and a packed per-token record. All are written ONCE per token inside
+    // {deployHouseToken}, alongside the original provenance writes, and never mutated afterwards.
+
+    /// @notice owner ⇒ the house tokens it has deployed, in deploy order. Answers "which tokens does
+    ///         business X own?" in one call — the index the bare `_isHouseToken` boolean could not.
+    mapping(address owner => address[] tokens) private _tokensOf;
+
+    /// @notice Global, deploy-ordered enumeration of every house token the factory has minted. Paged via
+    ///         {allTokensLength} + {tokenAt}; its length tracks {deployedCount} exactly.
+    address[] private _allTokens;
+
+    /// @notice token ⇒ its {TokenRecord} (owner-at-deploy, deploy timestamp, deploy chain id). The
+    ///         single-read provenance answer; a zeroed record means the token was never deployed here.
+    mapping(address token => TokenRecord record) private _records;
+
     /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
     ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
     ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
-    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
-    uint256[50] private __gap;
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append. SHRUNK
+    ///      from 50 → 47: the three discoverability indexes above each consume one declaration slot
+    ///      (`_tokensOf`, `_allTokens`, `_records` — a mapping/dynamic-array head is one slot; their
+    ///      contents live in hashed/array regions outside this contiguous range), so 47 + 3 == 50.
+    uint256[47] private __gap;
 
     /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
     ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
@@ -97,29 +117,61 @@ contract HouseTokenFactory is
         if (bytes(name).length == 0 || bytes(symbol).length == 0) {
             revert HouseTokenFactory__EmptyMetadata();
         }
+        // Reject >18-decimal tokens: the router's USD quote() scales by the token's decimals, and a
+        // token above 18 breaks that scaling (a money-path footgun). Refuse to mint one at the source.
+        if (decimals > 18) revert HouseTokenFactory__BadDecimals(decimals);
 
         // Deploy the token. Its constructor assigns ownership + the full supply to `owner` — the
         // factory is `msg.sender` to the token but receives NO authority and NO balance.
         HouseToken deployed = new HouseToken(owner, name, symbol, decimals, initialSupply);
         token = address(deployed);
 
-        // Record provenance only. Effects before the event; no external call follows, so ordering is
-        // CEI-clean and re-entrancy-irrelevant (the only external "call" is the `new` deploy above,
-        // whose constructor cannot call back into a factory function that mutates shared state in a
-        // harmful order — state below is independent per-token).
+        // Record provenance + discoverability indexes. Effects before the event; no external call
+        // follows, so ordering is CEI-clean and re-entrancy-irrelevant (the only external "call" is the
+        // `new` deploy above, whose constructor cannot call back into a factory function that mutates
+        // shared state in a harmful order — state below is independent per-token).
         _isHouseToken[token] = true;
+        _tokensOf[owner].push(token); // owner ⇒ tokens (answers "which tokens does X own?")
+        _allTokens.push(token); // global enumeration
+        _records[token] = TokenRecord({
+            owner: owner, deployedAt: uint64(block.timestamp), chainId: uint64(block.chainid)
+        });
         unchecked {
             // deployedCount is bounded by the gas needed to deploy a full ERC-20 each call; it can
             // never realistically approach 2^256, so the increment cannot overflow.
             ++deployedCount;
         }
 
-        emit Deployed(owner, token, msg.sender, name, symbol, initialSupply);
+        emit Deployed(
+            owner, token, msg.sender, name, symbol, decimals, initialSupply, block.chainid
+        );
     }
 
     /// @inheritdoc IHouseTokenFactory
     function isHouseToken(address token) external view returns (bool) {
         return _isHouseToken[token];
+    }
+
+    /// @inheritdoc IHouseTokenFactory
+    function tokensOf(address owner) external view returns (address[] memory tokens) {
+        return _tokensOf[owner];
+    }
+
+    /// @inheritdoc IHouseTokenFactory
+    function allTokensLength() external view returns (uint256) {
+        return _allTokens.length;
+    }
+
+    /// @inheritdoc IHouseTokenFactory
+    /// @dev Reverts on out-of-bounds via the array's own index check (no custom error needed — callers
+    ///      bound `i` with {allTokensLength}).
+    function tokenAt(uint256 i) external view returns (address) {
+        return _allTokens[i];
+    }
+
+    /// @inheritdoc IHouseTokenFactory
+    function tokenRecord(address token) external view returns (TokenRecord memory) {
+        return _records[token];
     }
 
     /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
