@@ -6,8 +6,8 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { getWalletClient } from '@/lib/wallet'
 import {
   ADMIN_TESTNET_CHAINS,
-  NFTERIA_REPO_STRING,
-  deriveNfteriaRepoId,
+  EXAMPLE_REPO_STRING,
+  deriveExampleRepoId,
   getAdminChain,
   getAdminPublicClient,
   isAdminTestnetChain,
@@ -44,8 +44,8 @@ const IDLE: ActionState = { phase: 'idle' }
  * allowed testnets, and runs each owner-gated step as a button they sign in their
  * own wallet — NO keystore, NO server, NO private key in the app:
  *   1. Deploy Access0x1ProvenanceRegistry (viem deployContract).
- *   2. Claim NFTeria's repo — claimRepo(repoId).
- *   3. Anchor a NFTeria release — anchorRelease(repoId, cid, tag, merkleRoot).
+ *   2. Claim the example repo — claimRepo(repoId).
+ *   3. Anchor an example release — anchorRelease(repoId, cid, tag, merkleRoot).
  *
  * Every action shows pending → tx hash → explorer link, and surfaces revert
  * reasons cleanly. The deployed address is held in state for the later steps and
@@ -71,7 +71,7 @@ export function AdminPanel(): ReactNode {
   const [claimState, setClaimState] = useState<ActionState>(IDLE)
   const [anchorState, setAnchorState] = useState<ActionState>(IDLE)
 
-  const repoId: Hex = useMemo(() => deriveNfteriaRepoId(), [])
+  const repoId: Hex = useMemo(() => deriveExampleRepoId(), [])
   const onTestnet = isAdminTestnetChain(chainId)
   const activeChain = getAdminChain(chainId)
   const explorer = activeChain?.chain.blockExplorers?.default?.url ?? null
@@ -116,7 +116,7 @@ export function AdminPanel(): ReactNode {
     }
   }
 
-  // ── Action 2: claim NFTeria's repo ─────────────────────────────────────────
+  // ── Action 2: claim the example repo ───────────────────────────────────────
   async function handleClaim(): Promise<void> {
     setClaimState({ phase: 'pending' })
     try {
@@ -130,7 +130,7 @@ export function AdminPanel(): ReactNode {
     }
   }
 
-  // ── Action 3: anchor a NFTeria release ─────────────────────────────────────
+  // ── Action 3: anchor an example release ────────────────────────────────────
   async function handleAnchor(): Promise<void> {
     setAnchorState({ phase: 'pending' })
     try {
@@ -260,16 +260,16 @@ export function AdminPanel(): ReactNode {
         <ActionStatus chainId={chainId} state={deployState} pendingLabel="Waiting for the deploy to mine…" />
       </ActionCard>
 
-      {/* Step 2 — Claim the NFTeria repo */}
+      {/* Step 2 — Claim the example repo */}
       <ActionCard
         step={2}
-        title="Claim the NFTeria repo"
-        description="Calls claimRepo(repoId) so this wallet owns NFTeria's provenance. First-claim-wins."
+        title="Claim the example repo"
+        description="Calls claimRepo(repoId) so this wallet owns the example repo's provenance. First-claim-wins."
       >
         <dl className="flex flex-col gap-1 text-xs text-muted-foreground">
           <div className="flex flex-col gap-0.5">
             <dt className="font-medium text-foreground">Repo string</dt>
-            <dd className="break-all font-mono">{NFTERIA_REPO_STRING}</dd>
+            <dd className="break-all font-mono">{EXAMPLE_REPO_STRING}</dd>
           </div>
           <div className="flex flex-col gap-0.5">
             <dt className="font-medium text-foreground">repoId (keccak256)</dt>
@@ -292,7 +292,7 @@ export function AdminPanel(): ReactNode {
       {/* Step 3 — Anchor a release */}
       <ActionCard
         step={3}
-        title="Anchor a NFTeria release"
+        title="Anchor an example release"
         description="Calls anchorRelease(repoId, cid, tag, merkleRoot) under the claimed repo."
       >
         <label className="flex flex-col gap-1 text-sm">

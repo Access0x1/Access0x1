@@ -143,7 +143,7 @@ describe('partner-fee % seam (access default, deployment override)', () => {
     if (r.ok) expect(r.partnerFeePercent).toBe(RAMP_DEFAULT_PARTNER_FEE_PERCENT)
   })
 
-  it('honours a deployment override (the nfteria-sets-it layer)', () => {
+  it('honours a deployment override (the app-sets-it layer)', () => {
     process.env.NEXT_PUBLIC_RAMP_PARTNER_FEE_PERCENT = '1.5'
     const r = buildOnrampSession({ address: ADDR })
     expect(r.ok).toBe(true)

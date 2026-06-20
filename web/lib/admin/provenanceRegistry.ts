@@ -2,11 +2,11 @@
  * The OWNER-ADMIN helper surface for the Access0x1ProvenanceRegistry.
  *
  * This module backs the wallet-connected `/admin` page: the owner runs every
- * owner-gated, on-chain step (deploy the registry, claim the NFTeria repo, anchor
+ * owner-gated, on-chain step (deploy the registry, claim an example repo, anchor
  * a release) as a button they sign in their OWN browser wallet — NO keystore, NO
  * server, NO private key ever in the app. All it does here is:
- *   - derive NFTeria's `repoId` from the EXACT same documented string NFTeria's
- *     `lib/provenance.ts` hashes (so a claim made here matches what NFTeria reads),
+ *   - derive the example `repoId` from a documented, host-qualified repo string
+ *     (so a claim made here matches what an integrating app reads back),
  *   - validate the human inputs (cid, bytes32 merkleRoot) before they hit a tx,
  *   - wrap viem's `deployContract` / `writeContract` for the three actions, and
  *   - turn a thrown viem error into a clean, human revert reason.
@@ -38,34 +38,34 @@ import {
   PROVENANCE_REGISTRY_BYTECODE,
 } from '@/lib/artifacts/Access0x1ProvenanceRegistry'
 
-// ── NFTeria repo identity (MUST match NFTeria's lib/provenance.ts) ────────────
+// ── Example repo identity (the placeholder the /admin demo claims + anchors) ──
 //
-// NFTeria keys its on-chain claim by `keccak256(toBytes(NFTERIA_REPO_STRING))`.
-// We re-derive the SAME id from the SAME string here so a claim the owner makes
-// from this admin page is the exact bytes32 NFTeria's /provenance page reads
-// back. The string is duplicated verbatim (the two apps are separate bundles, so
-// it can't be imported); a test asserts the derivation is stable.
+// The registry keys an on-chain claim by `keccak256(toBytes(EXAMPLE_REPO_STRING))`.
+// An integrating app derives the SAME id from the SAME documented string, so a
+// claim the owner makes from this admin page is the exact bytes32 that app reads
+// back. The string here is a neutral placeholder an integrator swaps for its own
+// host-qualified repo identifier; a test asserts the derivation is stable.
 
 /**
- * The canonical, host-qualified repo string NFTeria's on-chain provenance is
- * keyed by — byte-for-byte identical to `NFTERIA_REPO_STRING` in
- * `fleet/apps/nfteria/lib/provenance.ts`. Changing it changes the on-chain
- * identity, so it is a single, deliberate source of truth.
+ * A placeholder, host-qualified repo string the admin demo claims provenance for.
+ * An integrating app keys its on-chain claim by `keccak256(toBytes(...))` of its
+ * OWN repo string; this is the documented example. Changing it changes the
+ * on-chain identity, so it is a single, deliberate source of truth.
  */
-export const NFTERIA_REPO_STRING = 'github.com/doble196/fleet#apps/nfteria' as const
+export const EXAMPLE_REPO_STRING = 'github.com/example-org/example-repo' as const
 
 /**
- * Derive NFTeria's `repoId` — `keccak256(toBytes(NFTERIA_REPO_STRING))` — the
+ * Derive the example `repoId` — `keccak256(toBytes(EXAMPLE_REPO_STRING))` — the
  * bytes32 the registry stores the claim + anchors under. Derived (never a
  * hard-coded literal) so it is provably the hash of the documented string and
- * can never silently drift from what NFTeria reads.
+ * can never silently drift from what an integrating app reads.
  */
-export function deriveNfteriaRepoId(): Hex {
-  return keccak256(toBytes(NFTERIA_REPO_STRING))
+export function deriveExampleRepoId(): Hex {
+  return keccak256(toBytes(EXAMPLE_REPO_STRING))
 }
 
-/** NFTeria's repoId, derived once at module load (convenience constant). */
-export const NFTERIA_REPO_ID: Hex = deriveNfteriaRepoId()
+/** The example repoId, derived once at module load (convenience constant). */
+export const EXAMPLE_REPO_ID: Hex = deriveExampleRepoId()
 
 // ── The testnet chain allowlist (TESTNET ONLY) ───────────────────────────────
 //

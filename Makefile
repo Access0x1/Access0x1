@@ -226,6 +226,9 @@ deploy-base-sepolia: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 deploy-zksync-sepolia: ## Deploy to zkSync Sepolia (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --zksync $(VERIFY_ZK) -vvvv
 
+deploy-galileo: ## Deploy to 0G Galileo testnet 16602 (keystore `deployer`) — set GALILEO_RPC_URL + GALILEO_PLATFORM_TREASURY first; 0G has no Chainlink feed, run `make deploy-usd-mock-feed RPC=$(GALILEO_RPC_URL)` for $1 USDC pricing
+	forge script script/DeployAll.s.sol --rpc-url $(GALILEO_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
+
 # Deploy a $1.00 USDC/USD mock feed to ANY chain that has real Circle USDC but no Chainlink USDC/USD
 # feed (Linea/Unichain/World Chain/Celo/Optimism Sepolia). Real USDC stays the token; this is the
 # missing PRICE feed only (the Arc pattern). Set <CHAIN>_USDC_USD_FEED to the printed address, then
