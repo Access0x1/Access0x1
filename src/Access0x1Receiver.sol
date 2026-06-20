@@ -7,7 +7,7 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 import { IReceiver } from "./interfaces/IReceiver.sol";
 
 /// @title Access0x1Receiver — Forwarder-trusting CRE audit consumer ("Notified Settlement")
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice The on-chain half of the "Notified Settlement" feature. A Chainlink CRE workflow
 ///         (EVM-log trigger on the router's `PaymentReceived`) HTTP-notifies the merchant and
 ///         then writes an immutable audit entry HERE via `evmClient.writeReport` → the
@@ -87,6 +87,11 @@ contract Access0x1Receiver is IReceiver, Ownable2Step {
     /// @notice The report metadata is shorter than the 62 bytes the fixed-offset decode needs.
     error ShortMetadata();
 
+    /// @notice Deploy the CRE report consumer, pinning the one trusted KeystoneForwarder (immutable —
+    ///         never changeable post-deploy) and seating the initial owner who manages the workflow
+    ///         allowlist. Deploy shape: `new Access0x1Receiver(forwarderAddr, ownerAddr)`.
+    /// @dev    Reverts `ZeroForwarder` if `forwarder` is the zero address — a consumer with no trusted
+    ///         forwarder could never authenticate a report, so it is rejected at construction.
     /// @param forwarder The KeystoneForwarder address this consumer will trust for `onReport`.
     /// @param initialOwner The owner that may manage the workflow allowlist (Ownable2Step).
     constructor(address forwarder, address initialOwner) Ownable(initialOwner) {
