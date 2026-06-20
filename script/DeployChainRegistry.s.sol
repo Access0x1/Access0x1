@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import { Script, console2 } from "forge-std/Script.sol";
 import { ChainRegistry } from "../src/ChainRegistry.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title  DeployChainRegistry
 /// @author Access0x1
@@ -55,7 +56,13 @@ contract DeployChainRegistry is Script {
         // Owned by the broadcaster so it can seed; tx.origin is the broadcast signer under both a
         // live `--account` run and a `forge script` / test broadcast.
         address seeder = tx.origin;
-        registry = new ChainRegistry(seeder);
+        // UUPS: deploy the logic impl, then an ERC1967 proxy that runs `initialize(seeder)` in the same
+        // tx — the proxy is owned by the broadcaster so the seed `addChain` calls below succeed. The
+        // proxy address is the registry the SDK references; the impl ran `_disableInitializers()`.
+        address impl = address(new ChainRegistry());
+        registry = ChainRegistry(
+            address(new ERC1967Proxy(impl, abi.encodeCall(ChainRegistry.initialize, (seeder))))
+        );
 
         // Arc testnet: Circle-native USDC (native gas), testnet. No router/CCIP yet (zeros).
         registry.addChain(
