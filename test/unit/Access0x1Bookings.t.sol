@@ -273,6 +273,19 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         );
     }
 
+    /// @notice A `slotTimestamp` of 0 reverts {ZeroSlotTimestamp} at reserve. A zero slot moment floors
+    ///         the cancel window at the epoch, forcing every cancel into the late branch — a late fee on
+    ///         a free-cancel booking, or a permanently BLOCKED cancel (lateFee 0) that traps a CONFIRMED
+    ///         escrow. Rejecting it keeps the cancel-window math well-formed.
+    function test_reserveRevertsOnZeroSlotTimestamp() public {
+        IAccess0x1Bookings.Policy memory p = _policy(2 hours, 10e8, 20e8);
+        vm.prank(payer);
+        vm.expectRevert(IAccess0x1Bookings.Access0x1Bookings__ZeroSlotTimestamp.selector);
+        bookings.reserve(
+            merchantId, SLOT_KEY, 0, address(usdc), DEPOSIT_USD8, 0, p, HOLD_SECS, keccak256("n")
+        );
+    }
+
     /// @notice O-2: a `holdSecs` below `MIN_HOLD_SECS` (here 0) reverts at reserve — a too-short hold
     ///         would be immediately/near-immediately expirable, enabling slot-cycling griefing.
     function test_reserveRevertsOnZeroHold() public {

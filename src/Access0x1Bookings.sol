@@ -211,12 +211,12 @@ contract Access0x1Bookings is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IAccess0x1Bookings
-    /// @dev CEI + `nonReentrant`. Checks (token set, non-zero deposit, merchant exists, nonce fresh,
-    ///      slot free) → effects (write the immutable record + snapshot, occupy the slot, consume the
-    ///      nonce, bump the escrow ledger) → interaction (pull the deposit in, verifying the balance
-    ///      delta to reject fee-on-transfer / rebasing tokens). The deposit token amount is quoted from
-    ///      USD via the Router IN-TX (OracleLib staleness guard), so a stale feed reverts the reserve
-    ///      rather than escrowing a bad amount.
+    /// @dev CEI + `nonReentrant`. Checks (token set, non-zero deposit, hold long enough, slot moment in
+    ///      the future, merchant exists, nonce fresh, slot free) → effects (write the immutable record +
+    ///      snapshot, occupy the slot, consume the nonce, bump the escrow ledger) → interaction (pull the
+    ///      deposit in, verifying the balance delta to reject fee-on-transfer / rebasing tokens). The
+    ///      deposit token amount is quoted from USD via the Router IN-TX (OracleLib staleness guard), so a
+    ///      stale feed reverts the reserve rather than escrowing a bad amount.
     function reserve(
         uint256 merchantId,
         bytes32 slotKey,
@@ -234,6 +234,13 @@ contract Access0x1Bookings is
         // immediately expirable, enabling reserve→expire slot-cycling griefing of the calendar (O-2).
         if (holdSecs < MIN_HOLD_SECS) {
             revert Access0x1Bookings__HoldTooShort(holdSecs, MIN_HOLD_SECS);
+        }
+        // `slotTimestamp` is opaque, but a ZERO value floors `_windowStart` at the epoch, forcing EVERY
+        // cancel into the late branch (a late fee on a free-cancel booking, or — with `lateFeeUsd8 == 0`
+        // — a permanently BLOCKED cancel trapping a CONFIRMED escrow). Rejecting zero keeps the
+        // cancel-window math well-formed; a non-zero past slot is left to the merchant's chosen policy.
+        if (slotTimestamp == 0) {
+            revert Access0x1Bookings__ZeroSlotTimestamp();
         }
         _requireMerchantExists(merchantId);
         if (nonceUsed[clientNonce]) revert Access0x1Bookings__NonceUsed(clientNonce);
