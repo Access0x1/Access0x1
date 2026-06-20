@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IAccess0x1Bookings
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice Surface for Access0x1Bookings — a vertical-agnostic deposit-escrow primitive with a
 ///         GUARANTEED, never-blockable refund. A caller holds a USD-priced deposit against a unique,
 ///         opaque `slotKey` with a hold deadline, then the booking resolves through one of the

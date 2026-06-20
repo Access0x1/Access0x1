@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IAccess0x1Escrow
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice The external surface of {Access0x1Escrow} — the CONDITIONAL-SETTLEMENT leg the instant-push
 ///         {Access0x1Router} structurally cannot do. The router settles a payment atomically: pull →
 ///         split → push, all in one tx, no hold. An escrow instead HOLDS a buyer's deposit until a

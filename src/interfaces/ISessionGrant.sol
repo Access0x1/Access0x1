@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  ISessionGrant
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice Surface for SessionGrant — an Access0x1-owned implementation of the ERC-7702 "sign once,
 ///         delegate a budget-scoped, time-bounded agent session" pattern, with ERC-6492 signature
 ///         validation so the granting wallet need not yet be deployed on-chain.
