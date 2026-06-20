@@ -165,9 +165,10 @@ contract AutomationGatewayTest is Test, ProxyDeployer {
         usdcFeed.updateAnswer(1e8); // re-stamp updatedAt = now, $1.00/USDC
     }
 
-    /// @dev Decode a checkUpkeep result's performData into the due-id array.
-    function _decode(bytes memory performData) internal pure returns (uint256[] memory) {
-        return abi.decode(performData, (uint256[]));
+    /// @dev Decode a checkUpkeep result's performData into the due-id array (dropping the trailing
+    ///      `scanned` window width that {performUpkeep} uses to advance the rotating cursor).
+    function _decode(bytes memory performData) internal pure returns (uint256[] memory ids) {
+        (ids,) = abi.decode(performData, (uint256[], uint256));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -469,7 +470,7 @@ contract AutomationGatewayTest is Test, ProxyDeployer {
         uint256[] memory ids = new uint256[](2);
         ids[0] = subId; // canceled
         ids[1] = 777_777; // never existed
-        bytes memory performData = abi.encode(ids);
+        bytes memory performData = abi.encode(ids, uint256(0)); // 0 scanned → cursor untouched
 
         vm.recordLogs();
         vm.prank(keeper);
@@ -481,8 +482,107 @@ contract AutomationGatewayTest is Test, ProxyDeployer {
         uint256[] memory ids = new uint256[](0);
         vm.recordLogs();
         vm.prank(keeper);
-        gw.performUpkeep(abi.encode(ids));
+        gw.performUpkeep(abi.encode(ids, uint256(0)));
         assertEq(vm.getRecordedLogs().length, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          LIVENESS / ANTI-STARVATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice The registration-stuffing starvation guard. An attacker permissionlessly {register}s
+    ///         {MAX_SCAN} cheap NEVER-DUE ids (non-existent subscriptions — status NONE, free to spam) to
+    ///         fill the entire front of the watch set, then a genuine due subscription lands at index
+    ///         {MAX_SCAN}. With a FIXED window (always indices 0..MAX_SCAN-1) the due id would sit just
+    ///         past the window forever and never be renewed. With the rotating {scanCursor}, {performUpkeep}
+    ///         advances the window each round, so the due id is reached and renewed within a bounded number
+    ///         of rounds — proving stuffing cannot starve a high-index due id.
+    function test_liveness_registrationStuffing_cannotStarveDueId() public {
+        uint256 scan = gw.MAX_SCAN();
+
+        // Attacker stuffs the front with MAX_SCAN never-due junk ids (non-existent subs → status NONE).
+        for (uint256 i = 0; i < scan; ++i) {
+            uint256 junk = 1_000_000 + i;
+            vm.prank(stranger);
+            gw.register(junk);
+            assertFalse(gw.isDue(junk), "junk id is never due");
+        }
+        assertEq(gw.watchedCount(), scan, "registry filled with stuffers");
+
+        // The genuine subscription is registered AFTER the stuffers, so it sits at index MAX_SCAN — just
+        // beyond a fixed front window.
+        uint256 victim = _subscribe();
+        vm.prank(subscriber);
+        gw.register(victim);
+        assertEq(gw.watchedAt(scan), victim, "victim sits at index MAX_SCAN, past a fixed window");
+        assertEq(gw.watchedCount(), scan + 1);
+
+        // Make the victim due.
+        uint64 firstEnd = subsC.subs(victim).periodEnd;
+        _warpAndRefresh(firstEnd);
+        assertTrue(gw.isDue(victim), "victim is genuinely due");
+
+        // Round 1: the cursor starts at 0, so the window covers the MAX_SCAN stuffers (none due) and stops
+        // exactly before the victim. checkUpkeep still reports upkeepNeeded (registry > one window) so
+        // performUpkeep runs and ROTATES the cursor past the stuffers — without rotation it would loop here
+        // forever.
+        (bool needed1, bytes memory pd1) = gw.checkUpkeep("");
+        assertTrue(needed1, "round 1 needs upkeep to rotate the cursor past the stuffers");
+        assertEq(_decode(pd1).length, 0, "round 1 window is all never-due stuffers");
+        vm.prank(keeper);
+        gw.performUpkeep(pd1);
+        assertEq(gw.scanCursor(), scan, "cursor advanced past the stuffer window");
+        assertTrue(
+            gw.isDue(victim), "victim still unrenewed after round 1 (it was outside the window)"
+        );
+
+        // Round 2: the rotated window now reaches the victim → checkUpkeep collects it → performUpkeep
+        // renews it. The stuffing did NOT starve the high-index due id.
+        (bool needed2, bytes memory pd2) = gw.checkUpkeep("");
+        assertTrue(needed2, "round 2 finds the victim now in the rotated window");
+        uint256[] memory due2 = _decode(pd2);
+        assertEq(due2.length, 1, "exactly the victim is due in the rotated window");
+        assertEq(due2[0], victim, "the rotated window reached the victim");
+
+        vm.prank(keeper);
+        gw.performUpkeep(pd2);
+
+        IAccess0x1Subscriptions.Subscription memory s = subsC.subs(victim);
+        assertEq(
+            s.periodEnd, firstEnd + PERIOD, "victim renewed exactly one period despite the stuffing"
+        );
+        assertFalse(gw.isDue(victim), "victim no longer due - starvation defeated");
+    }
+
+    /// @notice The cursor wraps and stays in range after removals shrink the set below its value.
+    ///         {checkUpkeep} bounds the start `mod length` and {performUpkeep} advances `mod length`, so a
+    ///         cursor left high by a large registry never indexes out of bounds once the set shrinks.
+    function test_liveness_cursorWrapsAfterDeregistration() public {
+        uint256 scan = gw.MAX_SCAN();
+
+        // Fill past one window and rotate the cursor near the end of the set.
+        for (uint256 i = 0; i < scan + 2; ++i) {
+            vm.prank(stranger);
+            gw.register(2_000_000 + i);
+        }
+        (, bytes memory pd) = gw.checkUpkeep("");
+        vm.prank(keeper);
+        gw.performUpkeep(pd);
+        assertEq(gw.scanCursor(), scan, "cursor advanced to MAX_SCAN");
+
+        // Deregister almost everything so the live length drops far below the cursor.
+        for (uint256 i = 0; i < scan + 1; ++i) {
+            vm.prank(stranger);
+            gw.deregister(2_000_000 + i);
+        }
+        assertEq(gw.watchedCount(), 1, "one id left");
+
+        // checkUpkeep must not revert (start bounded mod length) and performUpkeep keeps the cursor in
+        // range (advance mod length) — no out-of-bounds index into the shrunken set.
+        (, bytes memory pd2) = gw.checkUpkeep("");
+        vm.prank(keeper);
+        gw.performUpkeep(pd2);
+        assertLt(gw.scanCursor(), gw.watchedCount(), "cursor stays within the shrunken set");
     }
 
     /*//////////////////////////////////////////////////////////////
