@@ -78,23 +78,32 @@ interface IAutomationGateway {
 
     // ──────────────────────── automation ────────────────────────
 
-    /// @notice Chainlink Automation simulation entrypoint. Scans up to {MAX_SCAN} watched ids, collects
-    ///         those currently DUE for renewal (`block.timestamp >= periodEnd` and the status is
-    ///         renewable), caps the batch at {MAX_BATCH}, and abi-encodes them into `performData`.
+    /// @notice Chainlink Automation simulation entrypoint. Scans up to {MAX_SCAN} watched ids starting at
+    ///         the rotating {scanCursor} (wrapping around the registry), collects those currently DUE for
+    ///         renewal (`block.timestamp >= periodEnd` and the status is renewable), caps the batch at
+    ///         {MAX_BATCH}, and abi-encodes `(uint256[] dueIds, uint256 scanned)` into `performData` —
+    ///         `scanned` is the window width {performUpkeep} advances the cursor by so successive rounds
+    ///         sweep the WHOLE registry and no id is ever starved out of the scan by a stuffed front.
     ///         Off-chain only — never trust its output on-chain; {performUpkeep} re-validates every id.
     /// @param checkData Registration-time bytes (unused — this gateway watches a single shared registry).
-    /// @return upkeepNeeded True iff at least one watched subscription is due.
-    /// @return performData  `abi.encode(uint256[] dueIds)` — the due ids to renew (empty when none).
+    /// @return upkeepNeeded True when at least one window id is due OR the registry is larger than one
+    ///                      scan window (so the cursor must still rotate to reach the un-scanned tail).
+    /// @return performData  `abi.encode(uint256[] dueIds, uint256 scanned)` — the due ids to renew (empty
+    ///                      when none) plus the scanned window width to advance the cursor by.
     function checkUpkeep(bytes calldata checkData)
         external
         returns (bool upkeepNeeded, bytes memory performData);
 
-    /// @notice Chainlink Automation execution entrypoint. Decodes the due ids from `performData` and
-    ///         calls {Access0x1Subscriptions.renew} on each, RE-VALIDATING due-ness on-chain first
-    ///         (checkUpkeep ran off-chain and is stale by now) and wrapping each renew in try/catch so
-    ///         one failing renewal never blocks the batch. PERMISSIONLESS + input-untrusted, exactly as
-    ///         Chainlink requires: the data is not trusted, every id is re-checked against live state.
-    /// @param performData `abi.encode(uint256[] dueIds)` from {checkUpkeep} (untrusted — re-validated).
+    /// @notice Chainlink Automation execution entrypoint. Decodes `(uint256[] dueIds, uint256 scanned)`
+    ///         from `performData`, FIRST advances the rotating {scanCursor} by `scanned` (the liveness
+    ///         step — runs every perform so the scan window marches over the whole registry and a stuffed
+    ///         front can never pin it), then calls {Access0x1Subscriptions.renew} on each id,
+    ///         RE-VALIDATING due-ness on-chain first (checkUpkeep ran off-chain and is stale by now) and
+    ///         wrapping each renew in try/catch so one failing renewal never blocks the batch.
+    ///         PERMISSIONLESS + input-untrusted, exactly as Chainlink requires: the data is not trusted,
+    ///         `scanned` is clamped to {MAX_SCAN}, and every id is re-checked against live state.
+    /// @param performData `abi.encode(uint256[] dueIds, uint256 scanned)` from {checkUpkeep} (untrusted —
+    ///                    re-validated; `scanned` clamped before it advances the cursor).
     function performUpkeep(bytes calldata performData) external;
 
     // ──────────────────────── views ────────────────────────

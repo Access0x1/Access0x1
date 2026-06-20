@@ -153,8 +153,26 @@ contract HouseTokenFactory is
     }
 
     /// @inheritdoc IHouseTokenFactory
+    /// @dev ⚠️ UNBOUNDED read: `owner` is caller-supplied and {deployHouseToken} is permissionless, so any
+    ///      third party can grow ANY owner's `_tokensOf` list without consent — a large/attacker-inflated
+    ///      list makes this view exceed the block gas limit (a gas-griefing DoS). Kept for the small-list
+    ///      case + ABI stability; prefer the gas-bounded {tokensOfLength} + {tokenOfOwnerAt} pair, which
+    ///      load one entry at a time and cannot be griefed into reverting.
     function tokensOf(address owner) external view returns (address[] memory tokens) {
         return _tokensOf[owner];
+    }
+
+    /// @inheritdoc IHouseTokenFactory
+    function tokensOfLength(address owner) external view returns (uint256) {
+        return _tokensOf[owner].length;
+    }
+
+    /// @inheritdoc IHouseTokenFactory
+    /// @dev Reverts on out-of-bounds via the array's own index check (no custom error needed — callers
+    ///      bound `i` with {tokensOfLength}). O(1): loads exactly one entry, so it cannot be gas-DoS'd by a
+    ///      poisoned (attacker-inflated) owner index the way the unbounded {tokensOf} can.
+    function tokenOfOwnerAt(address owner, uint256 i) external view returns (address) {
+        return _tokensOf[owner][i];
     }
 
     /// @inheritdoc IHouseTokenFactory
