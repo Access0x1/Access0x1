@@ -1,8 +1,13 @@
-# NameMath.vy — isolated Vyper conformance demonstrator
+# Vyper conformance demonstrators — NameMath + NameDie
 
-A standalone **Vyper** port of the canonical Solidity `src/NameMath.sol`, proving the ENS
-"name → math" brand layer (deterministic brand color + 5×5 identicon SVG) reproduces **byte-for-byte
-identically** in a second, independent compiler and language.
+Standalone **Vyper** twins of the canonical Solidity brand layer, proving the ENS "name → math"
+algorithms reproduce **byte-for-byte identically** in a second, independent compiler and language:
+
+- **`NameMath.vy`** — port of `src/NameMath.sol`: deterministic brand color + 5×5 identicon SVG.
+- **`NameDie.vy`** — the ENS-name → **die** twin: the SAME keccak brand color (so a name's die and
+  identicon always match, the background nudge included), with **rarity by name length** as die sides —
+  3 (legendary, ≤3 chars), 6 (rare, 4), 9 (standard, 5+) — mirroring ENS's own inverse-length pricing.
+  Pure: the VRF "roll" and the off-chain normalized char-length live in the router, so it stays oracle-free.
 
 This is **additive and isolated**, not a production replacement:
 
@@ -25,9 +30,11 @@ That makes it the ideal, low-risk surface to demonstrate a second toolchain.
 vyper/
   moccasin.toml            # mox project config (src/, out/)
   src/NameMath.vy          # the Vyper port (@external @pure; pragma version ~=0.4.0, evm-version cancun)
+  src/NameDie.vy           # the ENS-name → die twin (same brand color, sides by name length)
   tests/
-    conftest.py            # boa fixture that deploys NameMath.vy
-    test_conformance.py    # asserts Vyper output == pinned Solidity output, byte-for-byte
+    conftest.py            # boa fixtures that deploy NameMath.vy + NameDie.vy
+    test_conformance.py    # NameMath: asserts Vyper output == pinned Solidity output, byte-for-byte
+    test_namedie.py        # NameDie: color conforms to NameMath ground truth + die SVG byte-for-byte
   README.md
 ```
 
