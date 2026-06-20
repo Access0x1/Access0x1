@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    EIP712Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IAccess0x1ProvenanceRegistry } from "./interfaces/IAccess0x1ProvenanceRegistry.sol";
 
@@ -24,7 +33,24 @@ import { IAccess0x1ProvenanceRegistry } from "./interfaces/IAccess0x1ProvenanceR
 ///         functions follow CEI — validate the signature, then consume the nonce, then write + emit.
 ///         `repoId` is a CALLER-CHOSEN id (typically `keccak256("github.com/owner/repo")`), so the
 ///         registry is host-agnostic and never parses a string at write time.
-contract Access0x1ProvenanceRegistry is IAccess0x1ProvenanceRegistry, EIP712 {
+///
+///         UPGRADEABILITY (the Access0x1 UUPS TEMPLATE — every other system contract follows this exact
+///         shape): the contract is deployed behind an `ERC1967Proxy`; storage lives in the proxy, logic
+///         in this implementation. State is set once via {initialize} (the constructor-replacement,
+///         `initializer`-guarded); the implementation's own constructor calls `_disableInitializers()`
+///         so the logic contract can never be initialized or hijacked directly. Upgrades route through
+///         {upgradeToAndCall} and are authorized by {_authorizeUpgrade} (contract-`owner`-only — the
+///         `Ownable2StepUpgradeable` owner, which is the UPGRADE ADMIN and is DISTINCT from the per-repo
+///         owners). Calling `renounceOwnership()` permanently freezes the implementation (no owner ⇒ no
+///         authorized upgrade ⇒ immutable forever). A trailing `__gap` reserves slots for safe future
+///         storage appends.
+contract Access0x1ProvenanceRegistry is
+    IAccess0x1ProvenanceRegistry,
+    Initializable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    EIP712Upgradeable
+{
     /// @notice The EIP-712 typehash for a relayed snapshot anchor.
     /// @dev    keccak256("AnchorSnapshot(bytes32 repoId,bytes32 merkleRoot,string commit,uint256
     ///         nonce,uint256 deadline)"). Pins every snapshot field + the replay nonce + the deadline
@@ -60,9 +86,40 @@ contract Access0x1ProvenanceRegistry is IAccess0x1ProvenanceRegistry, EIP712 {
     ///         per-OWNER (not per-repo) so one monotonic counter covers every repo an account owns.
     mapping(address owner => uint256 nonce) private _nonces;
 
-    /// @param name    EIP-712 domain name.
-    /// @param version EIP-712 domain version.
-    constructor(string memory name, string memory version) EIP712(name, version) { }
+    /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
+    ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
+    ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
+    uint256[50] private __gap;
+
+    /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
+    ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
+    ///      initializer so it can never be initialized — and therefore never owned or upgraded — directly,
+    ///      closing the classic uninitialized-implementation takeover. Runs at implementation-deploy time.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer — the constructor-replacement for the proxy. Sets the EIP-712 domain
+    ///         and the contract (upgrade-admin) owner. Guarded by `initializer`, so it runs exactly once
+    ///         per proxy; the typical deploy is `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
+    /// @dev    Wires every base in inheritance order: EIP-712 domain, Ownable + its 2-step extension, and
+    ///         the UUPS machinery. `initialOwner` becomes the UPGRADE ADMIN (the `Ownable2Step` owner) —
+    ///         distinct from the per-repo owners; it must be non-zero (`__Ownable_init` reverts on zero).
+    /// @param name         EIP-712 domain name.
+    /// @param version      EIP-712 domain version.
+    /// @param initialOwner The contract owner / upgrade admin (non-zero).
+    function initialize(string memory name, string memory version, address initialOwner)
+        external
+        initializer
+    {
+        __EIP712_init(name, version);
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
+        // No `__UUPSUpgradeable_init()`: in OZ 5.x `UUPSUpgradeable` re-exports the non-upgradeable
+        // contract (it holds no initializable storage), so there is no such initializer to call.
+    }
 
     /*//////////////////////////////////////////////////////////////
                                   VIEWS
@@ -318,6 +375,14 @@ contract Access0x1ProvenanceRegistry is IAccess0x1ProvenanceRegistry, EIP712 {
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
+    ///         single gate {upgradeToAndCall} consults before swapping the implementation.
+    /// @dev    Empty body: the `onlyOwner` modifier IS the policy. Once `renounceOwnership()` sets the
+    ///         owner to address(0), every call here reverts, so the implementation becomes permanently
+    ///         immutable (the on-chain "freeze"). `newImplementation` is intentionally unnamed — no
+    ///         per-target allow-listing; the owner is fully trusted to vet the target off-chain.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 
     /// @dev Resolve `repoId`'s owner or revert if the repo was never claimed. The shared existence guard
     ///      for every repo-scoped action.

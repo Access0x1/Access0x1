@@ -6,12 +6,37 @@ import { Access0x1ProvenanceRegistry } from "../../src/Access0x1ProvenanceRegist
 import {
     IAccess0x1ProvenanceRegistry
 } from "../../src/interfaces/IAccess0x1ProvenanceRegistry.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior state. It deliberately
+///         carries no new storage (it would consume from `__gap` if it did), proving the proxy keeps
+///         every slot across the implementation swap.
+contract Access0x1ProvenanceRegistryV2 is Access0x1ProvenanceRegistry {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
 
 /// @notice The Access0x1ProvenanceRegistry unit suite — claim (first-wins + double-claim revert), the
 ///         per-repo two-step ownership transfer, the direct + relayed (EIP-712) snapshot/release anchors
-///         with event + history/latest correctness, and every view. Signature paths use `vm.sign`
-///         against the contract's own typed-data digest; deadline liveness is driven with `vm.warp`.
-contract Access0x1ProvenanceRegistryTest is Test {
+///         with event + history/latest correctness, and every view. The registry is deployed BEHIND a
+///         UUPS proxy (deploy impl → `ERC1967Proxy` with `initialize(...)` calldata → cast the proxy to
+///         the type) via the shared {ProxyDeployer}, so every behavioural test exercises the production
+///         proxy↔impl shape. Signature paths use `vm.sign` against the contract's own typed-data digest;
+///         deadline liveness is driven with `vm.warp`. Tail tests cover the UUPS upgrade + the permanent
+///         freeze via `renounceOwnership`.
+contract Access0x1ProvenanceRegistryTest is Test, ProxyDeployer {
     Access0x1ProvenanceRegistry internal reg;
 
     uint256 internal ownerPk;
@@ -19,6 +44,10 @@ contract Access0x1ProvenanceRegistryTest is Test {
     address internal newOwner = makeAddr("newOwner");
     address internal relayer = makeAddr("relayer");
     address internal stranger = makeAddr("stranger");
+
+    /// @dev The contract (upgrade-admin) owner — the `Ownable2Step` owner, DISTINCT from the per-repo
+    ///      owners. Authorizes UUPS upgrades; renouncing it freezes the implementation forever.
+    address internal admin = makeAddr("admin");
 
     bytes32 internal constant REPO = keccak256("github.com/Access0x1/Access0x1");
     bytes32 internal constant ROOT = keccak256("merkle-root-1");
@@ -30,7 +59,15 @@ contract Access0x1ProvenanceRegistryTest is Test {
     uint256 internal deadline;
 
     function setUp() public {
-        reg = new Access0x1ProvenanceRegistry("Access0x1 ProvenanceRegistry", "1");
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new Access0x1ProvenanceRegistry());
+        address proxy = deployProxy(
+            impl,
+            abi.encodeCall(
+                Access0x1ProvenanceRegistry.initialize, ("Access0x1 ProvenanceRegistry", "1", admin)
+            )
+        );
+        reg = Access0x1ProvenanceRegistry(proxy);
         (owner, ownerPk) = makeAddrAndKey("owner");
         deadline = block.timestamp + 1 days;
     }
@@ -638,5 +675,73 @@ contract Access0x1ProvenanceRegistryTest is Test {
             )
         );
         reg.claimRepo(id);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_initialize_setsAdminOwner() public view {
+        // The contract owner is the upgrade admin set at initialize — independent of any repo owner.
+        assertEq(OwnableUpgradeable(address(reg)).owner(), admin);
+    }
+
+    function test_initialize_revertOnSecondCall() public {
+        // The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        reg.initialize("x", "1", admin);
+    }
+
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: a claimed repo with one snapshot + one release.
+        _claim();
+        vm.startPrank(owner);
+        reg.anchorSnapshot(REPO, ROOT, COMMIT);
+        reg.anchorRelease(REPO, CID, TAG, ROOT2);
+        vm.stopPrank();
+
+        // The admin (contract owner) upgrades the proxy to v2.
+        address v2 = address(new Access0x1ProvenanceRegistryV2());
+        vm.prank(admin);
+        UUPSUpgradeable(address(reg)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(Access0x1ProvenanceRegistryV2(address(reg)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        assertEq(reg.repoOwnerOf(REPO), owner);
+        assertEq(reg.snapshotCount(REPO), 1);
+        assertEq(reg.getSnapshot(REPO, 0).commit, COMMIT);
+        assertEq(reg.releaseCount(REPO), 1);
+        (string memory cid, string memory tag, bytes32 root,) = reg.latestRelease(REPO);
+        assertEq(cid, CID);
+        assertEq(tag, TAG);
+        assertEq(root, ROOT2);
+        assertEq(OwnableUpgradeable(address(reg)).owner(), admin); // upgrade admin unchanged
+    }
+
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new Access0x1ProvenanceRegistryV2());
+        // A non-admin (even a repo owner) cannot upgrade — _authorizeUpgrade is onlyOwner.
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, stranger)
+        );
+        UUPSUpgradeable(address(reg)).upgradeToAndCall(v2, "");
+    }
+
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        // The admin renounces ownership: the upgrade admin becomes address(0).
+        vm.prank(admin);
+        OwnableUpgradeable(address(reg)).renounceOwnership();
+        assertEq(OwnableUpgradeable(address(reg)).owner(), address(0));
+
+        // With no owner, _authorizeUpgrade reverts for EVERYONE — the implementation is frozen forever.
+        address v2 = address(new Access0x1ProvenanceRegistryV2());
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, admin)
+        );
+        UUPSUpgradeable(address(reg)).upgradeToAndCall(v2, "");
     }
 }
