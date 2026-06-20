@@ -12,7 +12,13 @@ import { Access0x1Bookings } from "../src/Access0x1Bookings.sol";
 import { Access0x1Invoices } from "../src/Access0x1Invoices.sol";
 import { Access0x1GiftCards } from "../src/Access0x1GiftCards.sol";
 import { Access0x1Nft } from "../src/Access0x1Nft.sol";
-import { IAccess0x1Router } from "../src/interfaces/IAccess0x1Subscriptions.sol";
+import { Access0x1Escrow } from "../src/Access0x1Escrow.sol";
+import { AutomationGateway } from "../src/AutomationGateway.sol";
+import { Access0x1ProvenanceRegistry } from "../src/Access0x1ProvenanceRegistry.sol";
+import {
+    IAccess0x1Router,
+    IAccess0x1Subscriptions
+} from "../src/interfaces/IAccess0x1Subscriptions.sol";
 import { ISessionGrant } from "../src/interfaces/ISessionGrant.sol";
 import { HelperConfig } from "./HelperConfig.s.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -23,21 +29,28 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 ///         single broadcast so judges (and the owner) get one replayable path per chain. From the
 ///         money spine outward, on the CURRENT chain it deploys:
 ///
-///           1. {Access0x1Router}       — the shared, zero-custody money spine (fee-split + in-tx quote).
-///           2. {SessionGrant}          — the ERC-7702/6492 "sign once" agent-authorization ledger.
-///           3. {PaymentLanes}          — the ERC-6909 receipt ledger (optional; wired into the router).
-///           4. {Access0x1Receiver}     — the Chainlink-CRE audit consumer (optional; off the money path).
-///           5. {HouseTokenFactory}     — the non-custodial house-ERC-20 factory (deploys {HouseToken}s).
-///           6. {Access0x1Subscriptions}— recurring USD billing over the Router + SessionGrant spine.
-///           7. {Access0x1Bookings}     — deposit-escrow with a never-blockable refund, over the spine.
-///           8. {Access0x1Invoices}     — pay-once USD payment requests over the Router.
-///           9. {Access0x1GiftCards}    — prepaid USD balances + coupons over the Router.
+///           1.  {Access0x1Router}        — the shared, zero-custody money spine (fee-split + in-tx quote).
+///           2.  {SessionGrant}           — the ERC-7702/6492 "sign once" agent-authorization ledger.
+///           3.  {PaymentLanes}           — the ERC-6909 receipt ledger (optional; wired into the router).
+///           4.  {Access0x1Receiver}      — the Chainlink-CRE audit consumer (optional; off the money path).
+///           5.  {HouseTokenFactory}      — the non-custodial house-ERC-20 factory (deploys {HouseToken}s).
+///           6.  {Access0x1ProvenanceRegistry} — the EIP-712 signed-attestation/provenance ledger (no deps).
+///           7.  {Access0x1Escrow}        — milestone deposit-escrow that mirrors the Router's live fee-split.
+///           8.  {Access0x1Subscriptions} — recurring USD billing over the Router + SessionGrant spine.
+///           9.  {AutomationGateway}      — the permissionless keeper front door driving Subscriptions.renew.
+///           10. {Access0x1Bookings}      — deposit-escrow with a never-blockable refund, over the spine.
+///           11. {Access0x1Invoices}      — pay-once USD payment requests over the Router.
+///           12. {Access0x1GiftCards}     — prepaid USD balances + coupons over the Router.
+///           13. {Access0x1Nft}           — merchant NFT minting paid through the Router.
 ///
-///         The commerce quartet (6–9) COMPOSES the spine: each is constructed with the freshly
-///         deployed Router (and, for Subscriptions/Bookings, the SessionGrant), so `net + fee == gross`,
-///         the OracleLib staleness guard, the never-negative meter, and tenant isolation are all
-///         inherited from the audited spine, never re-derived. They need NO router-side registration —
-///         the Router's merchant registry is their single source of truth for owner-authorization.
+///         The commerce surface (8–13) plus {Access0x1Escrow} COMPOSES the spine: each is constructed
+///         with the freshly deployed Router (and, for Subscriptions/Bookings, the SessionGrant), so
+///         `net + fee == gross`, the OracleLib staleness guard, the never-negative meter, and tenant
+///         isolation are all inherited from the audited spine, never re-derived. {AutomationGateway}
+///         composes {Access0x1Subscriptions} (its permissionless renew driver). They need NO router-side
+///         registration — the Router's merchant registry is their single source of truth for
+///         owner-authorization. {Access0x1ProvenanceRegistry} has no on-chain deps (a standalone
+///         EIP-712 attestation surface the SDK reads).
 ///
 ///         {ChainRegistry} is the twelfth first-party contract; it is a read-only SDK/cross-chain
 ///         sidecar deployed once per chain by {DeployChainRegistry} and carried here in
@@ -91,6 +104,13 @@ contract DeployAll is Script {
     /// @notice The default EIP-712 domain version for {SessionGrant}.
     string private constant DEFAULT_SESSION_GRANT_VERSION = "1";
 
+    /// @notice The EIP-712 domain name for {Access0x1ProvenanceRegistry} (matches its own initializer
+    ///         default + the test suite, so a signed attestation verifies under one stable domain).
+    string private constant PROVENANCE_REGISTRY_NAME = "Access0x1ProvenanceRegistry";
+
+    /// @notice The EIP-712 domain version for {Access0x1ProvenanceRegistry}.
+    string private constant PROVENANCE_REGISTRY_VERSION = "1";
+
     /// @notice The rest of the first-party surface, recorded as public state so a test / the SDK / the
     ///         frontend can read every wired address after `run()` without widening the return tuple
     ///         (the tuple stays `(router, lanes, helperConfig)` — the historical shape downstream relies
@@ -103,6 +123,9 @@ contract DeployAll is Script {
     Access0x1Invoices public invoices;
     Access0x1GiftCards public giftCards;
     Access0x1Nft public nft;
+    Access0x1Escrow public escrow;
+    AutomationGateway public automationGateway;
+    Access0x1ProvenanceRegistry public provenanceRegistry;
 
     /// @notice Deploy an `ERC1967Proxy` in front of an already-deployed UUPS implementation and run its
     ///         `initialize(...)` in the same broadcast — the one helper every UUPS deploy below uses, so
@@ -212,7 +235,34 @@ contract DeployAll is Script {
         );
         console2.log("HouseTokenFactory     :", address(houseFactory));
 
-        // 6-10. The commerce quintet — each COMPOSES the spine above. They take the freshly deployed
+        // 6. Provenance registry — the EIP-712 signed-attestation ledger. No deps (it composes nothing
+        //    on-chain): a standalone identity/provenance surface the SDK reads, so it deploys on its own
+        //    stable EIP-712 domain. Holds no funds; its `owner` exists solely to authorize a UUPS upgrade.
+        provenanceRegistry = Access0x1ProvenanceRegistry(
+            _deployProxy(
+                address(new Access0x1ProvenanceRegistry()),
+                abi.encodeCall(
+                    Access0x1ProvenanceRegistry.initialize,
+                    (PROVENANCE_REGISTRY_NAME, PROVENANCE_REGISTRY_VERSION, owner)
+                )
+            )
+        );
+        console2.log("Access0x1ProvenanceRegistry:", address(provenanceRegistry));
+
+        // 7. Escrow — milestone deposit-escrow that COMPOSES the Router (constructed with the freshly
+        //    deployed Router proxy) so the release leg mirrors the audited live fee-split rather than
+        //    re-deriving it. Deployed AFTER the Router (step 1) so the dependency exists. Reverts loudly
+        //    on a zero router (its own custom error) — a misconfigured spine can never deploy a bad escrow.
+        escrow = Access0x1Escrow(
+            _deployProxy(
+                address(new Access0x1Escrow()),
+                abi.encodeCall(Access0x1Escrow.initialize, (owner, router))
+            )
+        );
+        console2.log("Access0x1Escrow       :", address(escrow));
+        console2.log("  router (spine)      :", address(router));
+
+        // 8-12. The commerce quintet — each COMPOSES the spine above. They take the freshly deployed
         //      Router (and, for Subscriptions/Bookings, the SessionGrant) so the fee-split, the in-tx
         //      USD quote (OracleLib staleness guard), the never-negative budget, and tenant isolation
         //      are all inherited, never re-derived. No router-side registration is needed: the Router's
@@ -235,6 +285,22 @@ contract DeployAll is Script {
         console2.log("  router (spine)      :", address(router));
         console2.log("  sessionGrant        :", address(sessionGrant));
         console2.log("  graceFailThreshold  :", cfg.graceFailThreshold);
+
+        // AutomationGateway — the permissionless keeper front door that drives Subscriptions.renew. It
+        // COMPOSES Subscriptions (constructed with the freshly deployed Subscriptions proxy), so it is
+        // deployed AFTER step 8 once that dependency exists. Holds no funds; its only on-chain reach is
+        // the already-permissionless renew path. Reverts loudly on a zero subscriptions address.
+        automationGateway = AutomationGateway(
+            _deployProxy(
+                address(new AutomationGateway()),
+                abi.encodeCall(
+                    AutomationGateway.initialize,
+                    (owner, IAccess0x1Subscriptions(address(subscriptions)))
+                )
+            )
+        );
+        console2.log("AutomationGateway     :", address(automationGateway));
+        console2.log("  subscriptions       :", address(subscriptions));
 
         bookings = Access0x1Bookings(
             _deployProxy(
