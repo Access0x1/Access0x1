@@ -25,7 +25,7 @@ import { OracleLib } from "./libraries/OracleLib.sol";
 import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 
 /// @title  Access0x1Router
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice One shared, multi-tenant, ZERO-custody payments router. A business registers once
 ///         (`registerMerchant` → `merchantId`) and accepts USD-priced crypto with one link and
 ///         no contract code. Each payment prices USD→token via a Chainlink feed read INSIDE the
@@ -476,11 +476,16 @@ contract Access0x1Router is
     /// @notice Halt new pay-ins: `payNative` and `payToken` revert `EnforcedPause` while paused.
     ///         A circuit breaker for a feed/token incident. Deliberately does NOT gate `claimRescue`
     ///         — funds already owed must remain withdrawable even during a pause (no hostage funds).
+    /// @dev    OWNER ONLY (`onlyOwner`). Takes no args, returns nothing; flips the OZ `Pausable` flag.
+    ///         Call shape: `router.pause()` from the platform owner. Emits OZ `Paused(owner)`.
     function pause() external onlyOwner {
         _pause();
     }
 
-    /// @notice Resume pay-ins after a `pause`.
+    /// @notice Resume pay-ins after a `pause` — `payNative`/`payToken` accept value again. The inverse
+    ///         circuit-breaker switch; call once the feed/token incident that triggered the pause clears.
+    /// @dev    OWNER ONLY (`onlyOwner`). Takes no args, returns nothing; clears the OZ `Pausable` flag.
+    ///         Call shape: `router.unpause()` from the platform owner. Emits OZ `Unpaused(owner)`.
     function unpause() external onlyOwner {
         _unpause();
     }

@@ -16,7 +16,7 @@ import { Access0x1Router } from "./Access0x1Router.sol";
 import { IAccess0x1GiftCards } from "./interfaces/IAccess0x1GiftCards.sol";
 
 /// @title  Access0x1GiftCards
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice A USD-priced PREPAID-BALANCE primitive (gift cards / credit packs) plus a minimal,
 ///         merchant-scoped COUPON registry — the on-chain expression of a mature commerce app's strongest
 ///         money invariant: a prepaid balance debit that can NEVER drive the balance negative

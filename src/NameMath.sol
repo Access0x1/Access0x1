@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title NameMath
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice The ENS "name → math" brand layer: from an ENS namehash (`node`), derive a stable
 ///         brand color AND a unique identicon — ON-CHAIN, deterministically, with NO storage and
 ///         NO oracle. Just keccak. The business never picks a color or uploads an avatar; its

@@ -3,7 +3,7 @@
 # @license MIT
 """
 @title NameDie (Vyper) -- ENS name -> premium die, tiered by name LENGTH
-@author Access0x1
+@author Rensley R. @vyperpilleddev
 @notice ISOLATED, ADDITIVE companion to `NameMath`. Where `NameMath` turns an ENS namehash into a
         deterministic brand color + identicon, `NameDie` turns an ENS name into a DIE whose number
         of visible sides encodes RARITY by NAME LENGTH:

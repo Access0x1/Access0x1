@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IPaymentLanes
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice Minimal ERC-6909 surface for Access0x1 PaymentLanes plus the credit/claim receipt
 ///         extensions. A "lane" is a deterministic ERC-6909 token id derived from a
 ///         (chainId, asset, recipient) triple — see {laneId}. A lane balance is a non-custodial
