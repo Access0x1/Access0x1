@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IAccess0x1Invoices
-/// @author Access0x1
+/// @author Rensley R. @vyperpilleddev
 /// @notice The external surface of {Access0x1Invoices} — a USD-priced, pay-once payment request that
 ///         composes {Access0x1Router}'s fee-split and {OracleLib}'s in-tx USD→token pricing. An
 ///         operator issues a request (`amountUsd8`, optional `dueBy`, optional `payer` lock); anyone
