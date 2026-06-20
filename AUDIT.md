@@ -33,7 +33,7 @@ the USD feed are deployed and **verified on arcscan**, with gas paid in **native
 | Access0x1GiftCards | `0x2ba5411803bc7734652afa292bc97f39ae409f76` |
 
 - **Deploy tx:** `0x099628a160499382d6d62a8bf70808313abf31b9a19926ae625d71c054a44611`
-- **A real merchant is registered + live** (Example, merchant #1), tx `0x3e61932ae31dc04c188802d5a3acf203e83df5ae895ffe0fa0b4544bcccfa620` — the live checkout at `access0x1.example.click` has taken a real on-chain USDC payment.
+- **A merchant is registered on-chain** (merchant #1), tx `0x3e61932ae31dc04c188802d5a3acf203e83df5ae895ffe0fa0b4544bcccfa620` — registered permissionlessly via `registerMerchant` with its own payout wallet, fee config, and name hash.
 - **Chainlink feeds wired in the broadcast:** native/USD `0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1`, USDC/USD `0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165`.
 
 **Still one-command ready (not broadcast):** zkSync Sepolia (300) — `make deploy-zksync-sepolia`, no tx hash yet.
@@ -96,7 +96,7 @@ the USD feed are deployed and **verified on arcscan**, with gas paid in **native
 - **Circle x402 / Gateway** — gas-free USDC settlement via EIP-3009. **This is x402/Gateway, NOT CCTP** —
   there is zero burn-and-mint code in this repo.
 - **OIDC/JWT identity layer**, **MetaMask Snap** (payment insight in the signing dialog), **`@access0x1/react`
-  SDK** (drop-in `<PayButton>`, 15/15 tests, deployed at `sdk.example.click`), and the `create-access0x1` scaffolder.
+  SDK** (drop-in `<PayButton>`, 15/15 tests, published to npm), and the `create-access0x1` scaffolder.
 
 **Seam (code present, NOT exercised in the live demo path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),
@@ -126,7 +126,7 @@ make test                       # 920 contract tests
 forge coverage --ir-minimum     # the real coverage number
 make anvil && make deploy-local && make drive-local   # real local payment, no keys
 ```
-Then open the verified router on Blockscout (link above) and the live checkout at `access0x1.example.click`.
+Then open the verified router on Blockscout (link above) and inspect the on-chain merchant registration + payment events directly.
 
 ---
 

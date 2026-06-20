@@ -3,8 +3,8 @@
 A [The Graph](https://thegraph.com) subgraph that indexes the **public**
 `Access0x1Router.PaymentReceived` event into a queryable payment history +
 per-merchant totals. It is **protocol-level, open infrastructure**: anyone
-integrating Access0x1 can query it; the Access0x1 dashboard (and example) read
-it for a payments view.
+integrating Access0x1 can query it; the Access0x1 dashboard (and any integrating
+app) reads it for a payments view.
 
 ## Why it's safe to depend on (and why it isn't a dependency)
 
@@ -20,8 +20,8 @@ it for a payments view.
 
 Deploying via **Subgraph Studio is free**; querying is **free up to 100,000
 queries/month**, then usage-based (~$2 / 100k). For the dashboard's traffic that
-is effectively free; past the free tier the cost is passed through by example's
-pricing (the business layer), not the open protocol.
+is effectively free; past the free tier the cost is passed through by the
+integrating app's pricing (the business layer), not the open protocol.
 
 ## Layout
 
