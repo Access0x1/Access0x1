@@ -236,6 +236,9 @@ deploy-base-sepolia: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 deploy-zksync-sepolia: ## Deploy to zkSync Sepolia (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --zksync $(VERIFY_ZK) -vvvv
 
+bootstrap-createx-galileo: ## Status + runbook to put CreateX on 0G Galileo (16602) so the mirror can deploy there (pre-signed keyless tx; owner funds 0xeD456e... once)
+	@./script/bootstrap-createx-galileo.sh
+
 deploy-galileo: ## Deploy to 0G Galileo testnet 16602 (keystore `deployer`) — set GALILEO_RPC_URL + GALILEO_PLATFORM_TREASURY first; 0G has no Chainlink feed, run `make deploy-usd-mock-feed RPC=$(GALILEO_RPC_URL)` for $1 USDC pricing
 	forge script script/DeployAll.s.sol --rpc-url $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --priority-gas-price 2000000000 -vvvv
 
