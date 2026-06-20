@@ -20,3 +20,13 @@ _SRC = os.path.normpath(os.path.join(_HERE, "..", "src", "NameMath.vy"))
 def name_math():
     """The deployed Vyper NameMath demonstrator."""
     return boa.load(_SRC)
+
+
+# NameDie: the ENS-name -> die twin (same brand color as NameMath, rarity by name length).
+_NAMEDIE = os.path.normpath(os.path.join(_HERE, "..", "src", "NameDie.vy"))
+
+
+@pytest.fixture(scope="module")
+def name_die():
+    """The deployed Vyper NameDie twin (same keccak brand color as NameMath; sides by name length)."""
+    return boa.load(_NAMEDIE)
