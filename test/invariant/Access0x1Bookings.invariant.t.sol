@@ -9,6 +9,7 @@ import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { BookingsHandler } from "./BookingsHandler.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice The Access0x1Bookings money invariants under a bounded, handler-driven fuzzer — the
 ///         security floor for the deposit-escrow primitive. Every property is asserted against an
@@ -17,7 +18,7 @@ import { BookingsHandler } from "./BookingsHandler.sol";
 ///         reserve/confirm/complete/expireHold/cancel/markNoShow/claimRefund as a real merchant owner
 ///         and three EOA payers. A FROZEN CANARY reservation (seeded once, never touched) backs the
 ///         isolation + policy-immutability invariants.
-contract Access0x1BookingsInvariant is StdInvariant, Test {
+contract Access0x1BookingsInvariant is StdInvariant, Test, ProxyDeployer {
     Access0x1Bookings internal bookings;
     Access0x1Router internal router;
     BookingsHandler internal handler;
@@ -37,7 +38,12 @@ contract Access0x1BookingsInvariant is StdInvariant, Test {
     function setUp() public {
         vm.warp(1_700_000_000); // fixed, fresh time held constant by the fuzzer
 
-        router = new Access0x1Router(admin, treasury, 100); // 1% platform fee
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100))
+            )
+        ); // 1% platform fee
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1
         eurcFeed = new MockV3Aggregator(8, 11e7); // $1.10
         usdc = new MockUSDC();
@@ -50,7 +56,15 @@ contract Access0x1BookingsInvariant is StdInvariant, Test {
         router.setPriceFeed(address(eurc), address(eurcFeed));
         vm.stopPrank();
 
-        bookings = new Access0x1Bookings(admin, address(router), address(0));
+        // Deploy behind a UUPS proxy (impl → ERC1967Proxy running initialize → cast): the production
+        // shape, so the invariant suite exercises the real proxy↔impl storage path.
+        address bookingsImpl = address(new Access0x1Bookings());
+        bookings = Access0x1Bookings(
+            deployProxy(
+                bookingsImpl,
+                abi.encodeCall(Access0x1Bookings.initialize, (admin, address(router), address(0)))
+            )
+        );
 
         vm.prank(merchantOwner);
         merchantId = router.registerMerchant(payout, feeRecipient, 50, keccak256("inv_m")); // 0.5%

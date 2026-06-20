@@ -20,6 +20,7 @@ import { MockERC721 } from "../mocks/MockERC721.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @dev A minimal ERC-721 that silently no-ops safeTransferFrom (4-arg, which is virtual)
 ///      so the marketplace cannot verify the NFT actually landed in escrow.
@@ -57,7 +58,7 @@ contract LyingERC721 is ERC721 {
 ///           src/Access0x1Router.sol 373        — quote() native branch (token == NATIVE)
 ///           src/SessionGrant.sol 210           — SessionExists defensive revert
 ///           src/SessionGrant.sol 315           — effectiveSig assignment (non-6492 path)
-contract CoverageGapTest is Test {
+contract CoverageGapTest is Test, ProxyDeployer {
     // ── shared infrastructure ────────────────────────────────────────────────
 
     Access0x1Router internal router;
@@ -79,8 +80,18 @@ contract CoverageGapTest is Test {
     function setUp() public virtual {
         vm.warp(1_700_000_000);
 
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE);
-        sessionGrant = new SessionGrant("Access0x1 SessionGrant", "1");
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE))
+            )
+        );
+        sessionGrant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
 
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1
@@ -97,6 +108,28 @@ contract CoverageGapTest is Test {
             router.registerMerchant(payout, address(0), MERCHANT_FEE, keccak256("merchant"));
     }
 
+    /// @dev Deploy Access0x1Bookings behind a UUPS proxy (impl → `ERC1967Proxy` running
+    ///      `initialize(...)` → cast). The production shape: storage in the proxy, logic in the impl.
+    function _deployBookings(address owner_, address router_, address sessionGrant_)
+        internal
+        returns (Access0x1Bookings)
+    {
+        address impl = address(new Access0x1Bookings());
+        address proxy = deployProxy(
+            impl, abi.encodeCall(Access0x1Bookings.initialize, (owner_, router_, sessionGrant_))
+        );
+        return Access0x1Bookings(proxy);
+    }
+
+    /// @dev Deploy Access0x1Nft behind a UUPS proxy (impl → `ERC1967Proxy` running `initialize(...)` →
+    ///      cast). The production shape: storage in the proxy, logic in the impl.
+    function _deployNft(address owner_, Access0x1Router router_) internal returns (Access0x1Nft) {
+        address impl = address(new Access0x1Nft());
+        address proxy =
+            deployProxy(impl, abi.encodeCall(Access0x1Nft.initialize, (owner_, router_)));
+        return Access0x1Nft(proxy);
+    }
+
     // =========================================================================
     //  Access0x1Bookings — slotKeyOf() (lines 128-129)
     // =========================================================================
@@ -104,8 +137,7 @@ contract CoverageGapTest is Test {
     /// @notice slotKeyOf() returns zero for an id that was never reserved, and the
     ///         expected slotKey after a reservation is created. Exercises lines 128-129.
     function test_bookings_slotKeyOf_returnsZeroAndThenKey() public {
-        Access0x1Bookings bookings =
-            new Access0x1Bookings(admin, address(router), address(sessionGrant));
+        Access0x1Bookings bookings = _deployBookings(admin, address(router), address(sessionGrant));
 
         // For an id that never existed, slotKeyOf must return 0.
         assertEq(bookings.slotKeyOf(9999), bytes32(0), "unknown id => bytes32(0)");
@@ -138,8 +170,7 @@ contract CoverageGapTest is Test {
     /// @notice Calling cancel() on a reservation that is already CANCELLED triggers
     ///         the _cancel() wrong-status guard (line 368).
     function test_bookings_cancel_wrongStatusRevert() public {
-        Access0x1Bookings bookings =
-            new Access0x1Bookings(admin, address(router), address(sessionGrant));
+        Access0x1Bookings bookings = _deployBookings(admin, address(router), address(sessionGrant));
 
         usdc.mint(address(this), 1_000_000e6);
         usdc.approve(address(bookings), type(uint256).max);
@@ -184,7 +215,12 @@ contract CoverageGapTest is Test {
     ///         (line 324). The else branch (line 326) is unreachable with the current
     ///         two-variant enum; this test covers the reachable AMOUNT path.
     function test_giftcards_discountFor_amountBranch() public {
-        Access0x1GiftCards cards = new Access0x1GiftCards(admin, router);
+        Access0x1GiftCards cards = Access0x1GiftCards(
+            deployProxy(
+                address(new Access0x1GiftCards()),
+                abi.encodeCall(Access0x1GiftCards.initialize, (admin, router))
+            )
+        );
         vm.prank(merchantOwner);
         merchantId = router.registerMerchant(payout, address(0), 0, keccak256("gc-m"));
 
@@ -202,7 +238,12 @@ contract CoverageGapTest is Test {
     ///         `return raw > amount ? amount : raw` clamp on line 328, confirming the
     ///         AMOUNT branch succeeds even when the raw value overshoots.
     function test_giftcards_discountFor_amountClamped() public {
-        Access0x1GiftCards cards = new Access0x1GiftCards(admin, router);
+        Access0x1GiftCards cards = Access0x1GiftCards(
+            deployProxy(
+                address(new Access0x1GiftCards()),
+                abi.encodeCall(Access0x1GiftCards.initialize, (admin, router))
+            )
+        );
         vm.prank(merchantOwner);
         uint256 mid = router.registerMerchant(payout, address(0), 0, keccak256("gc-m2"));
 
@@ -223,7 +264,7 @@ contract CoverageGapTest is Test {
     /// @notice Calls both pause() and unpause() on the NFT marketplace, exercising
     ///         their respective internal _pause/_unpause body lines.
     function test_nft_pauseAndUnpause() public {
-        Access0x1Nft nftMarket = new Access0x1Nft(admin, router);
+        Access0x1Nft nftMarket = _deployNft(admin, router);
 
         assertFalse(nftMarket.paused(), "initially unpaused");
 
@@ -243,7 +284,7 @@ contract CoverageGapTest is Test {
     /// @notice list() with a lying ERC-721 that no-ops safeTransferFrom triggers the
     ///         EscrowFailed guard (line 199).
     function test_nft_list_escrowFailedRevert() public {
-        Access0x1Nft nftMarket = new Access0x1Nft(admin, router);
+        Access0x1Nft nftMarket = _deployNft(admin, router);
         LyingERC721 lying = new LyingERC721();
 
         vm.prank(merchantOwner);

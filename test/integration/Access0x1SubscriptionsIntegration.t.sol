@@ -15,6 +15,7 @@ import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  Access0x1SubscriptionsIntegration
 /// @author Access0x1
@@ -34,7 +35,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 ///         suite before); deploying the real contracts inline keeps this suite fully deterministic and
 ///         isolated while still exercising the real cross-contract composition. The {DeployAll} script
 ///         itself is covered separately by `test/unit/DeployAll.t.sol`.
-contract Access0x1SubscriptionsIntegrationTest is Test {
+contract Access0x1SubscriptionsIntegrationTest is Test, ProxyDeployer {
     Access0x1Subscriptions internal subsC;
     Access0x1Router internal router;
     SessionGrant internal grant;
@@ -78,11 +79,31 @@ contract Access0x1SubscriptionsIntegrationTest is Test {
         usdcFeed = new MockV3Aggregator(8, 1e8);
 
         // 2. The real spine + authorization ledger + lane settlement, deployed directly.
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE_BPS);
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
-        lanes = new PaymentLanes(admin);
-        subsC = new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), GRACE
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        grant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
+        lanes = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()), abi.encodeCall(PaymentLanes.initialize, (admin))
+            )
+        );
+        subsC = Access0x1Subscriptions(
+            deployProxy(
+                address(new Access0x1Subscriptions()),
+                abi.encodeCall(
+                    Access0x1Subscriptions.initialize,
+                    (admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), GRACE)
+                )
+            )
         );
 
         // 3. Wire: allow + price USDC on the router, authorize the router on PaymentLanes, and route the

@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -44,7 +51,27 @@ import { IAccess0x1Bookings } from "./interfaces/IAccess0x1Bookings.sol";
 ///         preserving the Router's isolation invariant. `slotKey`, `slotTimestamp`, and `clientNonce`
 ///         are opaque, so a booking app, a rental window, a ticketed seat, or a partner's vertical all
 ///         reuse the SAME contract.
-contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard {
+///
+///         UPGRADEABILITY (the Access0x1 UUPS TEMPLATE — every system contract follows this exact
+///         shape): the contract is deployed behind an `ERC1967Proxy`; storage lives in the proxy, logic
+///         in this implementation. State is set once via {initialize} (the constructor-replacement,
+///         `initializer`-guarded — `router`, `sessionGrant`, the admin owner, and `nextReservationId`);
+///         the implementation's own constructor calls `_disableInitializers()` so the logic contract can
+///         never be initialized or hijacked directly. Upgrades route through {upgradeToAndCall} and are
+///         authorized by {_authorizeUpgrade} (contract-`owner`-only — the `Ownable2StepUpgradeable`
+///         owner, the UPGRADE ADMIN, which holds NO authority over any escrow or refund). Calling
+///         `renounceOwnership()` permanently freezes the implementation (no owner ⇒ no authorized
+///         upgrade ⇒ immutable forever). A trailing `__gap` reserves slots for safe future storage
+///         appends. NOTE: `router` and `sessionGrant` are no longer Solidity `immutable`s — an
+///         upgradeable contract cannot read immutables (they live in the implementation's bytecode, not
+///         the proxy's storage) — so they are plain storage set ONCE in {initialize} and never mutated.
+contract Access0x1Bookings is
+    IAccess0x1Bookings,
+    Initializable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    ReentrancyGuardTransient
+{
     using SafeERC20 for IERC20;
 
     /// @notice The floor on a reservation's hold window. A `holdSecs` below this reverts at {reserve},
@@ -57,12 +84,16 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     uint64 public constant MIN_HOLD_SECS = 60;
 
     /// @notice The audited money spine the release/fee legs flow through (fee-split + in-tx pricing).
-    Access0x1Router public immutable router;
+    /// @dev    Set ONCE in {initialize} and never mutated (the upgradeable equivalent of `immutable` —
+    ///         an upgradeable contract cannot use Solidity `immutable`s, which read from the impl
+    ///         bytecode rather than the proxy's storage).
+    Access0x1Router public router;
 
     /// @notice The optional manage-token authority: a payer may open a scoped session delegating a
     ///         relayer to {cancelWithSession} their own booking without full wallet auth. `address(0)`
     ///         disables the relayed-cancel path entirely (payer/merchant-owner cancel still work).
-    ISessionGrant public immutable sessionGrant;
+    /// @dev    Set ONCE in {initialize} and never mutated (see {router} for why it is not `immutable`).
+    ISessionGrant public sessionGrant;
 
     /// @notice reservationId ⇒ the reservation record.
     mapping(uint256 id => Reservation reservation) private _reservations;
@@ -99,15 +130,44 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     /// @notice The id assigned to the next {reserve}. Starts at 1, so 0 is the unset/free sentinel.
     uint256 public nextReservationId;
 
+    /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
+    ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
+    ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
+    uint256[50] private __gap;
+
+    /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
+    ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
+    ///      initializer so it can never be initialized — and therefore never owned or upgraded —
+    ///      directly, closing the classic uninitialized-implementation takeover. Runs at
+    ///      implementation-deploy time.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer — the constructor-replacement for the proxy. Wires the admin
+    ///         (upgrade-admin) owner and the two composed singletons, and seeds the reservation
+    ///         counter. Guarded by `initializer`, so it runs exactly once per proxy; the typical deploy
+    ///         is `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
+    /// @dev    Wires every base in inheritance order: Ownable + its 2-step extension and the reentrancy
+    ///         guard. `initialOwner` becomes the UPGRADE ADMIN (the `Ownable2Step` owner); it must be
+    ///         non-zero (`__Ownable_init` reverts on zero). Then the old constructor body runs verbatim.
     /// @param initialOwner  The admin (Ownable2Step) — burner at the event, multisig in prod. Holds NO
     ///                       authority over any escrow or refund; the admin surface is intentionally
     ///                       empty beyond ownership (the contract is non-custodial).
     /// @param router_        The Access0x1Router that prices and fee-splits the release/fee legs.
     /// @param sessionGrant_  The SessionGrant manage-token authority, or `address(0)` to disable the
     ///                       relayed-cancel path.
-    constructor(address initialOwner, address router_, address sessionGrant_)
-        Ownable(initialOwner)
+    function initialize(address initialOwner, address router_, address sessionGrant_)
+        external
+        initializer
     {
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
+        // No `__UUPSUpgradeable_init()`: in OZ 5.x `UUPSUpgradeable` re-exports the non-upgradeable
+        // contract (it holds no initializable storage), so there is no such initializer to call.
+
         if (router_ == address(0)) revert Access0x1Bookings__ZeroAddress();
         router = Access0x1Router(router_);
         // sessionGrant_ == address(0) is a DELIBERATE sentinel ("no relayed cancels"); not an error.
@@ -407,6 +467,14 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
+    ///         single gate {upgradeToAndCall} consults before swapping the implementation.
+    /// @dev    Empty body: the `onlyOwner` modifier IS the policy. Once `renounceOwnership()` sets the
+    ///         owner to address(0), every call here reverts, so the implementation becomes permanently
+    ///         immutable (the on-chain "freeze"). `newImplementation` is intentionally unnamed — no
+    ///         per-target allow-listing; the owner is fully trusted to vet the target off-chain.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 
     /// @dev Shared cancel body (used by {cancel} and {cancelWithSession}). The status must be HELD or
     ///      CONFIRMED — both hold escrow. Free policy outside the window; clamped late fee inside it;

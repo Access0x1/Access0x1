@@ -6,12 +6,14 @@ import { SessionGrant } from "../../src/SessionGrant.sol";
 import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 import { SmartWallet1271, WalletFactory } from "../mocks/SmartWallet1271.sol";
 import { ReentrantSessionFactory } from "../mocks/ReentrantSessionFactory.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice Adversarial suite for SessionGrant. Each test is an ATTACK the contract must defeat:
 ///         budget overspend (incl. salami / round-trip), expiry bypass, signed-grant replay, session-id
 ///         collision, delegate/owner confusion, and ERC-6492 signature forgery. A passing test means
-///         the attack is REJECTED (a revert or a no-op), never that it succeeds.
-contract SessionGrantAttackTest is Test {
+///         the attack is REJECTED (a revert or a no-op), never that it succeeds. The grant runs behind a
+///         UUPS proxy (the production proxy↔impl shape), deployed via the shared {ProxyDeployer}.
+contract SessionGrantAttackTest is Test, ProxyDeployer {
     SessionGrant internal grant;
     WalletFactory internal factory;
 
@@ -21,14 +23,27 @@ contract SessionGrantAttackTest is Test {
     address internal attacker;
     address internal delegate = makeAddr("delegate");
 
+    /// @dev The contract (upgrade-admin) owner — the `Ownable2Step` owner, DISTINCT from any per-session
+    ///      owner. Required by {initialize}; not otherwise exercised by these attacks.
+    address internal admin = makeAddr("admin");
+
     uint256 internal constant BUDGET = 1_000e6;
     uint64 internal expiry;
 
     bytes32 internal constant ERC6492_MAGIC =
         0x6492649264926492649264926492649264926492649264926492649264926492;
 
+    /// @dev Deploy a fresh SessionGrant behind a UUPS proxy with the standard domain + admin.
+    function _deployGrant() internal returns (SessionGrant) {
+        address impl = address(new SessionGrant());
+        address proxy = deployProxy(
+            impl, abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+        );
+        return SessionGrant(proxy);
+    }
+
     function setUp() public {
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
+        grant = _deployGrant();
         factory = new WalletFactory();
         (owner, ownerPk) = makeAddrAndKey("owner");
         (attacker, attackerPk) = makeAddrAndKey("attacker");
@@ -145,7 +160,7 @@ contract SessionGrantAttackTest is Test {
     ///      with a different domain separator (EIP-712 domain binding).
     function test_attack_replay_crossDomain() public {
         bytes memory sig = _signGrant(ownerPk, owner, delegate, BUDGET, expiry, 0);
-        SessionGrant other = new SessionGrant("Access0x1 SessionGrant", "1"); // diff address → diff domain
+        SessionGrant other = _deployGrant(); // diff proxy address → diff domain separator
         vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
         other.openSessionFor(owner, delegate, BUDGET, expiry, sig);
     }
@@ -363,7 +378,7 @@ contract SessionGrantAttackTest is Test {
     function test_domainSeparator_isUniquePerDeployment() public {
         bytes32 ds = grant.domainSeparator();
         assertTrue(ds != bytes32(0));
-        SessionGrant other = new SessionGrant("Access0x1 SessionGrant", "1"); // diff address
+        SessionGrant other = _deployGrant(); // diff proxy address → diff domain separator
         assertTrue(
             other.domainSeparator() != ds, "domain separators must differ across deployments"
         );

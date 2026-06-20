@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -23,7 +28,28 @@ import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 ///         and returns the underlying with `SafeERC20`. CEI + `nonReentrant` guard every value path:
 ///         balances are written BEFORE any external token call, so a malicious asset that re-enters on
 ///         transfer finds the balance already settled.
-contract PaymentLanes is IPaymentLanes, Ownable2Step, ReentrancyGuard {
+///
+///         UPGRADEABILITY (the Access0x1 UUPS TEMPLATE — every system contract follows this exact shape):
+///         the contract is deployed behind an `ERC1967Proxy`; storage lives in the proxy, logic in this
+///         implementation. State is set once via {initialize} (the constructor-replacement,
+///         `initializer`-guarded); the implementation's own constructor calls `_disableInitializers()`
+///         so the logic contract can never be initialized or hijacked directly. Upgrades route through
+///         {upgradeToAndCall} and are authorized by {_authorizeUpgrade} (`owner`-only — the
+///         `Ownable2StepUpgradeable` owner, which is the UPGRADE ADMIN). Calling `renounceOwnership()`
+///         permanently freezes the implementation (no owner ⇒ no authorized upgrade ⇒ immutable forever).
+///         A trailing `__gap` reserves slots for safe future storage appends. `ReentrancyGuard` is the
+///         (non-upgradeable) OZ 5.x guard: it is `stateless` — its status lives in a fixed
+///         ERC-7201 namespaced slot, not a sequential state variable, so it adds NOTHING to the layout
+///         and needs no initializer (OZ 5.x ships no `ReentrancyGuardTransient` for this reason); an
+///         uninitialized proxy slot reads as the zero "not entered" sentinel, so the guard is correct
+///         from the first call.
+contract PaymentLanes is
+    IPaymentLanes,
+    Initializable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
+    ReentrancyGuard
+{
     using SafeERC20 for IERC20;
 
     /// @notice owner ⇒ lane id ⇒ credited-but-unclaimed balance. The whole accounting state.
@@ -46,12 +72,31 @@ contract PaymentLanes is IPaymentLanes, Ownable2Step, ReentrancyGuard {
     /// @notice router ⇒ may call {credit}. An admin-settable allowlist, never a secret.
     mapping(address router => bool authorized) public isRouter;
 
+    /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
+    ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
+    ///      initializer so it can never be initialized — and therefore never owned or upgraded —
+    ///      directly, closing the classic uninitialized-implementation takeover. Runs at
+    ///      implementation-deploy time.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer — the constructor-replacement for the proxy. Sets the contract
+    ///         (allowlist-admin / upgrade-admin) owner. Guarded by `initializer`, so it runs exactly once
+    ///         per proxy; the typical deploy is `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
+    /// @dev    Wires the access bases in inheritance order: `Ownable` + its 2-step extension. `ReentrancyGuard`
+    ///         needs no init (OZ 5.x stateless namespaced-slot guard). `initialOwner` becomes the admin and
+    ///         must be non-zero — `__Ownable_init` reverts with `OwnableInvalidOwner(0)` first; the explicit
+    ///         {PaymentLanes__ZeroAddress} guard preserves the original constructor body for parity.
     /// @param initialOwner The admin that manages the router allowlist (multisig in prod). Holds NO
     ///                     authority over any merchant's lane balance — only over {setRouter}. Admin is
     ///                     `Ownable2Step` (fat-finger-safe): a handover is a two-tx
     ///                     {transferOwnership} → {acceptOwnership}, so a mistyped successor never seizes
     ///                     the allowlist and can never permanently brick router governance.
-    constructor(address initialOwner) Ownable(initialOwner) {
+    function initialize(address initialOwner) external initializer {
+        __Ownable_init(initialOwner);
+        __Ownable2Step_init();
         if (initialOwner == address(0)) revert PaymentLanes__ZeroAddress();
     }
 
@@ -281,4 +326,18 @@ contract PaymentLanes is IPaymentLanes, Ownable2Step, ReentrancyGuard {
     {
         return uint256(keccak256(abi.encode(chainId_, asset, recipient)));
     }
+
+    /// @notice Authorize a UUPS upgrade. Restricted to the contract `owner` (the upgrade admin) — the
+    ///         single gate {upgradeToAndCall} consults before swapping the implementation.
+    /// @dev    Empty body: the `onlyOwner` modifier IS the policy. Once `renounceOwnership()` sets the
+    ///         owner to address(0), every call here reverts, so the implementation becomes permanently
+    ///         immutable (the on-chain "freeze"). `newImplementation` is intentionally unnamed — no
+    ///         per-target allow-listing; the owner is fully trusted to vet the target off-chain.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
+
+    /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
+    ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
+    ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
+    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
+    uint256[50] private __gap;
 }

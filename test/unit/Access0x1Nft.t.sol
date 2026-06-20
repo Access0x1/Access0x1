@@ -8,14 +8,38 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockERC721 } from "../mocks/MockERC721.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior state. It deliberately
+///         carries no new storage (it would consume from `__gap` if it did), proving the proxy keeps
+///         every slot across the implementation swap.
+contract Access0x1NftV2 is Access0x1Nft {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
 
 /// @title  Access0x1NftTest
 /// @author Access0x1
 /// @notice Happy-path + access-control unit coverage for the NFT commerce escrow. Proves the listing
 ///         lifecycle, the atomic USD-priced purchase (NFT for token, fee-split by the Router, zero
 ///         custody), the buyer-consent price guard, cancel-returns-the-NFT, and that pause never
-///         blocks a cancel.
-contract Access0x1NftTest is Test {
+///         blocks a cancel. The marketplace is deployed BEHIND a UUPS proxy (impl → `ERC1967Proxy` with
+///         `initialize(...)` calldata → cast) via the shared {ProxyDeployer}, so every test exercises the
+///         production proxy↔impl shape; tail tests cover the UUPS upgrade + the permanent freeze via
+///         `renounceOwnership`.
+contract Access0x1NftTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1Nft internal nftMarket;
     MockV3Aggregator internal usdcFeed;
@@ -38,8 +62,15 @@ contract Access0x1NftTest is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE_BPS);
-        nftMarket = new Access0x1Nft(admin, router);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        address impl = address(new Access0x1Nft());
+        address proxy = deployProxy(impl, abi.encodeCall(Access0x1Nft.initialize, (admin, router)));
+        nftMarket = Access0x1Nft(proxy);
 
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1
@@ -288,9 +319,82 @@ contract Access0x1NftTest is Test {
         nftMarket.pause();
     }
 
-    /// @notice Constructor rejects a zero router.
-    function test_constructor_zeroRouterReverts() public {
+    /// @notice The initializer rejects a zero router (the constructor-revert, now in {initialize}). The
+    ///         revert surfaces from inside the proxy's atomic deploy-and-initialize call.
+    function test_initialize_zeroRouterReverts() public {
+        address impl = address(new Access0x1Nft());
         vm.expectRevert(Access0x1Nft.Access0x1Nft__ZeroAddress.selector);
-        new Access0x1Nft(admin, Access0x1Router(payable(address(0))));
+        deployProxy(
+            impl,
+            abi.encodeCall(Access0x1Nft.initialize, (admin, Access0x1Router(payable(address(0)))))
+        );
+    }
+
+    /// @notice The proxy was already initialized in setUp; a second call must revert (one-time
+    ///         initializer guard).
+    function test_initialize_revertOnSecondCall() public {
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        nftMarket.initialize(admin, router);
+    }
+
+    /// @notice The admin (contract owner / upgrade admin) upgrades the proxy to a v2 implementation: the
+    ///         new logic goes live AND every prior storage slot survives (a live listing is intact), since
+    ///         storage lives in the proxy, not the swapped implementation.
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under v1: a live listing escrowing the seller's NFT.
+        vm.prank(seller);
+        uint256 listingId =
+            nftMarket.list(merchantId, address(collection), tokenId, address(usdc), PRICE_USD8);
+
+        // The admin upgrades the proxy to v2.
+        address v2 = address(new Access0x1NftV2());
+        vm.prank(admin);
+        UUPSUpgradeable(address(nftMarket)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(Access0x1NftV2(address(nftMarket)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        (address ls,, address lc, address lpt, uint256 ltid, uint256 lmid, uint256 lprice) =
+            nftMarket.listings(listingId);
+        assertEq(ls, seller, "seller preserved");
+        assertEq(lc, address(collection), "collection preserved");
+        assertEq(lpt, address(usdc), "paymentToken preserved");
+        assertEq(ltid, tokenId, "tokenId preserved");
+        assertEq(lmid, merchantId, "merchantId preserved");
+        assertEq(lprice, PRICE_USD8, "priceUsd8 preserved");
+        assertEq(address(nftMarket.router()), address(router), "router reference preserved");
+        assertEq(nftMarket.nextListingId(), 2, "nextListingId preserved");
+        assertEq(OwnableUpgradeable(address(nftMarket)).owner(), admin, "upgrade admin unchanged");
+        assertEq(
+            IERC721(collection).ownerOf(tokenId),
+            address(nftMarket),
+            "NFT still escrowed post-upgrade"
+        );
+    }
+
+    /// @notice A non-owner cannot upgrade — {_authorizeUpgrade} is `onlyOwner`.
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new Access0x1NftV2());
+        vm.prank(buyer);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, buyer)
+        );
+        UUPSUpgradeable(address(nftMarket)).upgradeToAndCall(v2, "");
+    }
+
+    /// @notice Renouncing ownership freezes the implementation forever: with no owner,
+    ///         {_authorizeUpgrade} reverts for EVERYONE, so a later upgrade can never land.
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        vm.prank(admin);
+        OwnableUpgradeable(address(nftMarket)).renounceOwnership();
+        assertEq(OwnableUpgradeable(address(nftMarket)).owner(), address(0), "owner renounced");
+
+        address v2 = address(new Access0x1NftV2());
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, admin)
+        );
+        UUPSUpgradeable(address(nftMarket)).upgradeToAndCall(v2, "");
     }
 }

@@ -12,6 +12,7 @@ import { SessionGrant } from "../../src/SessionGrant.sol";
 import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 contract GasKeeper {
     Access0x1Subscriptions public immutable subs;
@@ -30,7 +31,7 @@ contract GasKeeper {
 ///         griefer demote a funded, in-budget subscriber to PAST_DUE/UNPAID at will. We assert the
 ///         money safety net holds in EVERY outcome: a successful-but-dunned outer call must have spent
 ///         NO budget and delivered NOTHING (retriable), and the honest keeper always completes.
-contract GasGriefProbeTest is Test {
+contract GasGriefProbeTest is Test, ProxyDeployer {
     Access0x1Subscriptions internal subsC;
     Access0x1Router internal router;
     SessionGrant internal grant;
@@ -53,10 +54,26 @@ contract GasGriefProbeTest is Test {
         subscriber = makeAddr("subscriber");
         usdc = new MockUSDC();
         feed = new MockV3Aggregator(8, 1e8);
-        router = new Access0x1Router(admin, treasury, 100);
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
-        subsC = new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 3
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100))
+            )
+        );
+        grant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
+        subsC = Access0x1Subscriptions(
+            deployProxy(
+                address(new Access0x1Subscriptions()),
+                abi.encodeCall(
+                    Access0x1Subscriptions.initialize,
+                    (admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 3)
+                )
+            )
         );
         vm.startPrank(admin);
         router.setTokenAllowed(address(usdc), true);

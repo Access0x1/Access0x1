@@ -2,7 +2,6 @@
 pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Access0x1Bookings } from "../../src/Access0x1Bookings.sol";
 import { IAccess0x1Bookings } from "../../src/interfaces/IAccess0x1Bookings.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
@@ -12,12 +11,36 @@ import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { FeeOnTransferToken } from "../mocks/FeeOnTransferToken.sol";
 import { BlocklistToken } from "../mocks/BlocklistToken.sol";
 import { MockReturnsNothingToken } from "../mocks/MockReturnsNothingToken.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior escrow/reservation
+///         state. It carries no new storage (it would consume from `__gap` if it did), proving the proxy
+///         keeps every slot across the implementation swap.
+contract Access0x1BookingsV2 is Access0x1Bookings {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
 
 /// @notice The Access0x1Bookings unit suite — the full lifecycle in one fixture: reserve, confirm,
 ///         complete, expire, cancel (free / late-fee / blocked), no-show, and the refund pull-map. The
 ///         escrow flows through a real Router (composed, never mocked), so every release/fee leg is the
-///         actual fee-split.
-contract Access0x1BookingsTest is Test {
+///         actual fee-split. The contract is deployed BEHIND a UUPS proxy (deploy impl → `ERC1967Proxy`
+///         with `initialize(...)` calldata → cast the proxy to the type) via the shared {ProxyDeployer},
+///         so every behavioural test exercises the production proxy↔impl shape. Tail tests cover the
+///         UUPS upgrade + the permanent freeze via `renounceOwnership`.
+contract Access0x1BookingsTest is Test, ProxyDeployer {
     Access0x1Bookings internal bookings;
     Access0x1Router internal router;
     SessionGrant internal sessionGrant;
@@ -45,7 +68,12 @@ contract Access0x1BookingsTest is Test {
     function setUp() public virtual {
         vm.warp(1_700_000_000);
 
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE_BPS);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE_BPS))
+            )
+        );
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1
         usdc = new MockUSDC();
 
@@ -54,8 +82,13 @@ contract Access0x1BookingsTest is Test {
         router.setPriceFeed(address(usdc), address(usdcFeed));
         vm.stopPrank();
 
-        sessionGrant = new SessionGrant("Access0x1 SessionGrant", "1");
-        bookings = new Access0x1Bookings(admin, address(router), address(sessionGrant));
+        sessionGrant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
+        bookings = _deployBookings(admin, address(router), address(sessionGrant));
 
         vm.prank(merchantOwner);
         merchantId = router.registerMerchant(payout, feeRecipient, MERCHANT_FEE_BPS, keccak256("m"));
@@ -102,6 +135,21 @@ contract Access0x1BookingsTest is Test {
         net = gross - platformFee - merchantFee;
     }
 
+    /// @dev Deploy a fresh Access0x1Bookings behind a UUPS proxy: implementation → `ERC1967Proxy`
+    ///      atomically running `initialize(owner, router, sessionGrant)` → cast the proxy to the type.
+    ///      This is the production shape (storage in the proxy, logic in the impl); every construction
+    ///      in this suite goes through it.
+    function _deployBookings(address owner_, address router_, address sessionGrant_)
+        internal
+        returns (Access0x1Bookings)
+    {
+        address impl = address(new Access0x1Bookings());
+        address proxy = deployProxy(
+            impl, abi.encodeCall(Access0x1Bookings.initialize, (owner_, router_, sessionGrant_))
+        );
+        return Access0x1Bookings(proxy);
+    }
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -114,12 +162,17 @@ contract Access0x1BookingsTest is Test {
     }
 
     function test_constructorRevertsOnZeroRouter() public {
+        // The zero-router guard now fires inside {initialize}; the revert bubbles up through the proxy.
+        address impl = address(new Access0x1Bookings());
         vm.expectRevert(IAccess0x1Bookings.Access0x1Bookings__ZeroAddress.selector);
-        new Access0x1Bookings(admin, address(0), address(sessionGrant));
+        deployProxy(
+            impl,
+            abi.encodeCall(Access0x1Bookings.initialize, (admin, address(0), address(sessionGrant)))
+        );
     }
 
     function test_constructorAllowsZeroSessionGrant() public {
-        Access0x1Bookings b = new Access0x1Bookings(admin, address(router), address(0));
+        Access0x1Bookings b = _deployBookings(admin, address(router), address(0));
         assertEq(address(b.sessionGrant()), address(0));
     }
 
@@ -825,7 +878,7 @@ contract Access0x1BookingsTest is Test {
 
     function test_cancelWithSessionRevertsWhenDisabled() public {
         // A bookings instance with NO session grant configured rejects the relayed-cancel path.
-        Access0x1Bookings noSession = new Access0x1Bookings(admin, address(router), address(0));
+        Access0x1Bookings noSession = _deployBookings(admin, address(router), address(0));
         vm.prank(payer);
         usdc.approve(address(noSession), type(uint256).max);
         IAccess0x1Bookings.Policy memory p = _policy(2 hours, 10e8, 20e8);
@@ -998,5 +1051,70 @@ contract Access0x1BookingsTest is Test {
         uint256 queued = bookings.refundRescueOf(payer, address(noData));
         assertGt(paidOut + queued, 0, "remainder neither paid nor queued");
         assertLt(paidOut + queued, escrow, "remainder should be escrow minus the no-show fee");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_initialize_revertOnSecondCall() public {
+        // The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        bookings.initialize(admin, address(router), address(sessionGrant));
+    }
+
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: a live HELD reservation with escrow backing it.
+        (uint256 id, uint256 escrow) = _reserve(SLOT_KEY, keccak256("upgrade-n"));
+        assertEq(bookings.escrowedOf(address(usdc)), escrow);
+
+        // The admin (contract owner / upgrade admin) upgrades the proxy to v2.
+        address v2 = address(new Access0x1BookingsV2());
+        vm.prank(admin);
+        UUPSUpgradeable(address(bookings)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(Access0x1BookingsV2(address(bookings)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        assertEq(address(bookings.router()), address(router));
+        assertEq(address(bookings.sessionGrant()), address(sessionGrant));
+        assertEq(bookings.escrowedOf(address(usdc)), escrow);
+        assertEq(bookings.occupant(SLOT_KEY), id);
+        assertEq(uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.HELD));
+        assertEq(bookings.reservationOf(id).escrowAmount, escrow);
+        assertEq(bookings.owner(), admin); // upgrade admin unchanged
+
+        // The escrow still settles cleanly through the upgraded logic.
+        vm.prank(merchantOwner);
+        bookings.confirm(id);
+        vm.prank(merchantOwner);
+        bookings.complete(id);
+        assertEq(bookings.escrowedOf(address(usdc)), 0);
+    }
+
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new Access0x1BookingsV2());
+        // A non-admin cannot upgrade — _authorizeUpgrade is onlyOwner.
+        vm.prank(payer);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, payer)
+        );
+        UUPSUpgradeable(address(bookings)).upgradeToAndCall(v2, "");
+    }
+
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        // The admin renounces ownership: the upgrade admin becomes address(0).
+        vm.prank(admin);
+        bookings.renounceOwnership();
+        assertEq(bookings.owner(), address(0));
+
+        // With no owner, _authorizeUpgrade reverts for EVERYONE — the implementation is frozen forever.
+        address v2 = address(new Access0x1BookingsV2());
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, admin)
+        );
+        UUPSUpgradeable(address(bookings)).upgradeToAndCall(v2, "");
     }
 }

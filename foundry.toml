@@ -16,6 +16,10 @@ bytecode_hash = "none"      # clean, reproducible bytecode for aderyn/slither + 
 cbor_metadata = false
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    # UUPS-upgradeable twins (Initializable, UUPSUpgradeable, Ownable2StepUpgradeable, EIP712Upgradeable).
+    # Must track the SAME 5.6.x line as openzeppelin-contracts above — the upgradeable package re-exports
+    # the non-upgradeable proxy/UUPS impl, so a version skew between the two would silently misresolve.
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
     "@chainlink/contracts/=node_modules/@chainlink/contracts/",  # npm dep — chainlink-brownie is deprecated
     "forge-std/=lib/forge-std/src/",
 ]

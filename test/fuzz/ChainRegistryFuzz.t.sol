@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ChainRegistry } from "../../src/ChainRegistry.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  ChainRegistryFuzz — stateless (per-call) fuzz suite for the chain hash-map sidecar
 /// @author Access0x1
@@ -21,7 +22,7 @@ import { ChainRegistry } from "../../src/ChainRegistry.sol";
 /// @dev    No handler / no state continuity — this is the stateless tier (one constrained call per
 ///         run), deliberately separate from the stateful invariant tier. Owner-gated writes are
 ///         pranked as `owner`; reads need no prank.
-contract ChainRegistryFuzzTest is Test {
+contract ChainRegistryFuzzTest is Test, ProxyDeployer {
     ChainRegistry internal registry;
 
     address internal owner = makeAddr("owner");
@@ -35,7 +36,10 @@ contract ChainRegistryFuzzTest is Test {
     uint16 internal constant FLAG_REGISTERED = 0x8000;
 
     function setUp() public {
-        registry = new ChainRegistry(owner);
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new ChainRegistry());
+        address proxy = deployProxy(impl, abi.encodeCall(ChainRegistry.initialize, (owner)));
+        registry = ChainRegistry(proxy);
     }
 
     /// @dev Build a config with at least one PUBLIC field non-zero so the round-trip fuzzes assert a

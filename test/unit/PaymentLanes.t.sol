@@ -11,11 +11,36 @@ import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { ReentrantClaimToken } from "../mocks/ReentrantClaimToken.sol";
 import { ReentrantCreditToken } from "../mocks/ReentrantCreditToken.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior state. It deliberately
+///         carries no new storage (it would consume from `__gap` if it did), proving the proxy keeps
+///         every slot across the implementation swap.
+contract PaymentLanesV2 is PaymentLanes {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
 
 /// @notice The PaymentLanes unit suite — the full ERC-6909 receipt surface plus the credit/claim
 ///         extensions and the router integration, with adversarial reentrancy mocks. A second
 ///         6-decimal token (`eurc`) stands in for "any coin" so cross-asset isolation is exercised.
-contract PaymentLanesTest is Test {
+///         PaymentLanes is deployed BEHIND a UUPS proxy (deploy impl → `ERC1967Proxy` with
+///         `initialize(...)` calldata → cast the proxy to the type) via the shared {ProxyDeployer}, so
+///         every behavioural test exercises the production proxy↔impl shape. Tail tests cover the UUPS
+///         upgrade + the permanent freeze via `renounceOwnership`.
+contract PaymentLanesTest is Test, ProxyDeployer {
     PaymentLanes internal lanes;
     MockUSDC internal usdc;
     MockUSDC internal eurc; // a second asset (also 6dp) — different lane id than usdc
@@ -29,7 +54,10 @@ contract PaymentLanesTest is Test {
     uint256 internal constant NET = 1_000e6; // $1,000 of a 6-dp asset
 
     function setUp() public {
-        lanes = new PaymentLanes(admin);
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new PaymentLanes());
+        address proxy = deployProxy(impl, abi.encodeCall(PaymentLanes.initialize, (admin)));
+        lanes = PaymentLanes(proxy);
         usdc = new MockUSDC();
         eurc = new MockUSDC();
 
@@ -367,10 +395,14 @@ contract PaymentLanesTest is Test {
         lanes.setRouter(address(0), true);
     }
 
-    function test_constructor_revertsOnZeroOwner() public {
-        // Ownable's own zero-owner guard fires first.
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
-        new PaymentLanes(address(0));
+    function test_initialize_revertsOnZeroOwner() public {
+        // The zero-owner guard now lives in initialize; `__Ownable_init`'s own check fires first,
+        // bubbling out of the proxy's constructor when it delegatecalls initialize.
+        address impl = address(new PaymentLanes());
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableInvalidOwner.selector, address(0))
+        );
+        deployProxy(impl, abi.encodeCall(PaymentLanes.initialize, (address(0))));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -589,12 +621,22 @@ contract PaymentLanesTest is Test {
     {
         address rOwner = makeAddr(string.concat("rOwner_", salt));
         w.rTreasury = makeAddr(string.concat("rTreasury_", salt));
-        w.r = new Access0x1Router(rOwner, w.rTreasury, 100); // 1% platform fee
+        w.r = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (rOwner, w.rTreasury, 100)) // 1% platform fee
+            )
+        );
 
         vm.warp(1_700_000_000);
         MockV3Aggregator usdcFeed = new MockV3Aggregator(8, 1e8); // USDC/USD = $1
         w.payUsdc = new MockUSDC();
-        w.l = new PaymentLanes(rOwner);
+        // PaymentLanes behind its UUPS proxy, owned (allowlist + upgrade admin) by rOwner.
+        w.l = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()), abi.encodeCall(PaymentLanes.initialize, (rOwner))
+            )
+        );
 
         vm.startPrank(rOwner);
         w.r.setTokenAllowed(address(w.payUsdc), true);
@@ -669,9 +711,80 @@ contract PaymentLanesTest is Test {
     }
 
     function test_setPaymentLanes_onlyOwner() public {
-        Access0x1Router r = new Access0x1Router(admin, makeAddr("t"), 100);
+        Access0x1Router r = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, makeAddr("t"), 100))
+            )
+        );
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, bob));
         r.setPaymentLanes(address(lanes));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_initialize_setsAdminOwner() public view {
+        // The contract owner is the upgrade admin set at initialize.
+        assertEq(OwnableUpgradeable(address(lanes)).owner(), admin);
+    }
+
+    function test_initialize_revertOnSecondCall() public {
+        // The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        lanes.initialize(admin);
+    }
+
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: a credited lane + a router on the allowlist.
+        uint256 id = _credit(merchantA, address(usdc), NET);
+        assertEq(lanes.balanceOf(merchantA, id), NET);
+        assertTrue(lanes.isRouter(router));
+
+        // The admin (contract owner) upgrades the proxy to v2.
+        address v2 = address(new PaymentLanesV2());
+        vm.prank(admin);
+        UUPSUpgradeable(address(lanes)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(PaymentLanesV2(address(lanes)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        assertEq(lanes.balanceOf(merchantA, id), NET);
+        assertTrue(lanes.isRouter(router));
+        assertEq(OwnableUpgradeable(address(lanes)).owner(), admin); // upgrade admin unchanged
+
+        // The lane is still fully claimable post-upgrade (the underlying is untouched in the proxy).
+        assertEq(usdc.balanceOf(address(lanes)), NET);
+        vm.prank(merchantA);
+        lanes.claim(address(usdc));
+        assertEq(usdc.balanceOf(merchantA), NET);
+    }
+
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new PaymentLanesV2());
+        // A non-admin cannot upgrade — _authorizeUpgrade is onlyOwner.
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, bob)
+        );
+        UUPSUpgradeable(address(lanes)).upgradeToAndCall(v2, "");
+    }
+
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        // The admin renounces ownership: the upgrade admin becomes address(0).
+        vm.prank(admin);
+        OwnableUpgradeable(address(lanes)).renounceOwnership();
+        assertEq(OwnableUpgradeable(address(lanes)).owner(), address(0));
+
+        // With no owner, _authorizeUpgrade reverts for EVERYONE — the implementation is frozen forever.
+        address v2 = address(new PaymentLanesV2());
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, admin)
+        );
+        UUPSUpgradeable(address(lanes)).upgradeToAndCall(v2, "");
     }
 }

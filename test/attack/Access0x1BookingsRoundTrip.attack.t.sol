@@ -7,6 +7,7 @@ import { Access0x1Bookings } from "../../src/Access0x1Bookings.sol";
 import { IAccess0x1Bookings } from "../../src/interfaces/IAccess0x1Bookings.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice An ERC-20 with caller-set decimals, so the quote round-trip can be stressed across the
 ///         full Arc/USDC decimal range (0..27) and a wide price range — proving the USD→token→USD
@@ -69,7 +70,7 @@ contract ReenterBookings is ERC20 {
 ///         at resolution, escrow clamp) and the reentrancy/conservation guarantees, fuzzed across the
 ///         decimal/price space the Router can price. Every property is checked against the escrow that
 ///         was actually held, never the contract's own bookkeeping.
-contract Access0x1BookingsRoundTripAttackTest is Test {
+contract Access0x1BookingsRoundTripAttackTest is Test, ProxyDeployer {
     Access0x1Bookings internal bookings;
     Access0x1Router internal router;
 
@@ -84,8 +85,20 @@ contract Access0x1BookingsRoundTripAttackTest is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        router = new Access0x1Router(admin, treasury, 100); // 1%
-        bookings = new Access0x1Bookings(admin, address(router), address(0));
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100)) // 1%
+            )
+        );
+        // Deploy Bookings behind a UUPS proxy (impl → ERC1967Proxy running initialize → cast).
+        address bookingsImpl = address(new Access0x1Bookings());
+        bookings = Access0x1Bookings(
+            deployProxy(
+                bookingsImpl,
+                abi.encodeCall(Access0x1Bookings.initialize, (admin, address(router), address(0)))
+            )
+        );
         vm.prank(mo);
         mid = router.registerMerchant(payout, fr, 50, keccak256("m")); // 0.5%
     }

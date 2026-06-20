@@ -2,16 +2,40 @@
 pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Access0x1GiftCards } from "../../src/Access0x1GiftCards.sol";
 import { IAccess0x1GiftCards } from "../../src/interfaces/IAccess0x1GiftCards.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior state. It deliberately
+///         carries no new storage (it would consume from `__gap` if it did), proving the proxy keeps
+///         every slot across the implementation swap.
+contract Access0x1GiftCardsV2 is Access0x1GiftCards {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
 
 /// @notice The Access0x1GiftCards unit suite — the full prepaid-balance surface (issue / redeem /
 ///         reverse / transfer) plus the merchant-scoped coupon registry, all authorized through the
 ///         live Router merchant registry it composes (no duplicated owner store). USD amounts are
-///         8-decimal (the estate's `usdAmount8`); $1 == 1e8.
-contract Access0x1GiftCardsTest is Test {
+///         8-decimal (the estate's `usdAmount8`); $1 == 1e8. The contract is deployed BEHIND a UUPS
+///         proxy (deploy impl → `ERC1967Proxy` with `initialize(...)` calldata → cast the proxy to the
+///         type) via the shared {ProxyDeployer}, so every behavioural test exercises the production
+///         proxy↔impl shape. Tail tests cover the UUPS upgrade + the permanent freeze via
+///         `renounceOwnership`.
+contract Access0x1GiftCardsTest is Test, ProxyDeployer {
     Access0x1GiftCards internal cards;
     Access0x1Router internal router;
 
@@ -26,8 +50,20 @@ contract Access0x1GiftCardsTest is Test {
     uint256 internal constant FACE = 100e8; // $100 face value
 
     function setUp() public {
-        router = new Access0x1Router(admin, treasury, 100); // 1% platform fee (unused here)
-        cards = new Access0x1GiftCards(admin, router);
+        // Deploy the Router behind its own UUPS proxy (1% platform fee, unused here).
+        address routerImpl = address(new Access0x1Router());
+        router = Access0x1Router(
+            deployProxy(
+                routerImpl, abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100))
+            )
+        );
+
+        // Deploy the GiftCards implementation, then the ERC1967 proxy that initializes it, then drive
+        // the proxy — exactly the production shape (storage in the proxy, logic in the impl).
+        address impl = address(new Access0x1GiftCards());
+        cards = Access0x1GiftCards(
+            deployProxy(impl, abi.encodeCall(Access0x1GiftCards.initialize, (admin, router)))
+        );
 
         // Register a merchant; the caller becomes its owner — the only address that may issue cards
         // / write coupons for it.
@@ -52,14 +88,27 @@ contract Access0x1GiftCardsTest is Test {
         assertEq(cards.owner(), admin);
     }
 
+    /// @dev The constructor-replacement {initialize} rejects a zero Router (the old constructor's guard,
+    ///      preserved). Exercised through a fresh proxy: the revert bubbles up from the delegatecall.
     function test_constructor_revertsOnZeroRouter() public {
+        address impl = address(new Access0x1GiftCards());
         vm.expectRevert(IAccess0x1GiftCards.GiftCards__ZeroAddress.selector);
-        new Access0x1GiftCards(admin, Access0x1Router(payable(address(0))));
+        deployProxy(
+            impl,
+            abi.encodeCall(
+                Access0x1GiftCards.initialize, (admin, Access0x1Router(payable(address(0))))
+            )
+        );
     }
 
+    /// @dev {initialize} rejects a zero owner (via `__Ownable_init`, which mirrors the old
+    ///      `Ownable(initialOwner)` constructor's `OwnableInvalidOwner(0)` revert).
     function test_constructor_revertsOnZeroOwner() public {
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
-        new Access0x1GiftCards(address(0), router);
+        address impl = address(new Access0x1GiftCards());
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableInvalidOwner.selector, address(0))
+        );
+        deployProxy(impl, abi.encodeCall(Access0x1GiftCards.initialize, (address(0), router)));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -603,5 +652,70 @@ contract Access0x1GiftCardsTest is Test {
     ) public view {
         vm.assume(m1 != m2 || c1 != c2);
         assertTrue(cards.cardId(m1, c1) != cards.cardId(m2, c2));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+    function test_initialize_revertOnSecondCall() public {
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        cards.initialize(admin, router);
+    }
+
+    /// @dev An upgrade to a v2 implementation preserves ALL prior state (storage lives in the proxy) and
+    ///      makes the new logic live. The admin (contract owner) is the only one authorized.
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: an issued card with a partial redemption + a coupon.
+        uint256 id = _issue(alice, FACE);
+        vm.prank(alice);
+        cards.redeem(id, 40e8, keccak256("r1"));
+        bytes32 cid = keccak256("SAVE10");
+        vm.prank(merchantOwner);
+        cards.setCoupon(merchantId, cid, IAccess0x1GiftCards.DiscountType.PERCENT, 10, 0, 5);
+
+        // The admin (contract owner) upgrades the proxy to v2.
+        address v2 = address(new Access0x1GiftCardsV2());
+        vm.prank(admin);
+        UUPSUpgradeable(address(cards)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(Access0x1GiftCardsV2(address(cards)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        assertEq(address(cards.router()), address(router));
+        assertEq(cards.owner(), admin); // upgrade admin unchanged
+        assertEq(cards.balanceOf(alice, id), FACE - 40e8);
+        assertEq(cards.cardMerchant(id), merchantId);
+        assertEq(cards.coupons(merchantId, cid).value, 10);
+        assertEq(cards.coupons(merchantId, cid).maxRedemptions, 5);
+    }
+
+    /// @dev A non-owner (even a merchant owner) cannot upgrade — `_authorizeUpgrade` is `onlyOwner`.
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new Access0x1GiftCardsV2());
+        vm.prank(merchantOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableUpgradeable.OwnableUnauthorizedAccount.selector, merchantOwner
+            )
+        );
+        UUPSUpgradeable(address(cards)).upgradeToAndCall(v2, "");
+    }
+
+    /// @dev `renounceOwnership()` sets the upgrade admin to address(0), so `_authorizeUpgrade` reverts
+    ///      for EVERYONE thereafter — the implementation is frozen forever.
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        vm.prank(admin);
+        cards.renounceOwnership();
+        assertEq(cards.owner(), address(0));
+
+        address v2 = address(new Access0x1GiftCardsV2());
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, admin)
+        );
+        UUPSUpgradeable(address(cards)).upgradeToAndCall(v2, "");
     }
 }

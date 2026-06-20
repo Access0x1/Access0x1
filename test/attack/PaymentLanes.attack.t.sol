@@ -6,6 +6,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
 import { IPaymentLanes } from "../../src/interfaces/IPaymentLanes.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice FABLE RED-TEAM adversarial suite for the ERC-6909 PaymentLanes unit. Every test here is an
 ///         EXPLOIT ATTEMPT, not happy-path coverage. The unit MUST resist:
@@ -19,7 +20,7 @@ import { MockUSDC } from "../mocks/MockUSDC.sol";
 ///           - zero / dust edge cases
 /// @dev    A green run is the proof the unit holds. A FAILING assertion in here that documents a real
 ///         loss is a BREAK that proc-contracts must fix in src/ (red-team never edits src/).
-contract PaymentLanesAttackTest is Test {
+contract PaymentLanesAttackTest is Test, ProxyDeployer {
     PaymentLanes internal lanes;
     MockUSDC internal usdc; // the valuable asset (real USDC stand-in, 6dp)
     MockUSDC internal evil; // a second 6dp asset the attacker can mint freely (worthless coin)
@@ -33,7 +34,11 @@ contract PaymentLanesAttackTest is Test {
     uint256 internal constant NET = 1_000e6;
 
     function setUp() public {
-        lanes = new PaymentLanes(admin);
+        lanes = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()), abi.encodeCall(PaymentLanes.initialize, (admin))
+            )
+        );
         usdc = new MockUSDC();
         evil = new MockUSDC();
 

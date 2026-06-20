@@ -8,11 +8,12 @@ import { IAccess0x1Invoices } from "../../src/interfaces/IAccess0x1Invoices.sol"
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { ReentrantInvoicePayer } from "../mocks/ReentrantInvoicePayer.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice Adversarial tests for the invoice money path — exploit attempts, not happy-path coverage.
 ///         A green run here proves the pay-once primitive resists double-settlement (replay + reentry),
 ///         payer-lock bypass, terminal-state violations, and settling on a stale price.
-contract Access0x1InvoicesAttackTest is Test {
+contract Access0x1InvoicesAttackTest is Test, ProxyDeployer {
     Access0x1Router internal router;
     Access0x1Invoices internal invoices;
     MockV3Aggregator internal nativeFeed;
@@ -34,8 +35,20 @@ contract Access0x1InvoicesAttackTest is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        router = new Access0x1Router(owner, treasury, PLATFORM_FEE_BPS);
-        invoices = new Access0x1Invoices(router);
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (owner, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        // Deploy the invoice contract behind its UUPS proxy (impl + ERC1967Proxy initialized in one tx);
+        // the test is the upgrade admin, which no attack case here exercises.
+        address invoicesImpl = address(new Access0x1Invoices());
+        invoices = Access0x1Invoices(
+            deployProxy(
+                invoicesImpl, abi.encodeCall(Access0x1Invoices.initialize, (router, address(this)))
+            )
+        );
         nativeFeed = new MockV3Aggregator(8, 2000e8);
         usdcFeed = new MockV3Aggregator(8, 1e8);
         usdc = new MockUSDC();

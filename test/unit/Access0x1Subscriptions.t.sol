@@ -17,14 +17,42 @@ import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { WalletFactory } from "../mocks/SmartWallet1271.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior state. It carries no new
+///         storage (it would consume from `__gap` if it did), proving the proxy keeps every slot across
+///         the implementation swap.
+contract Access0x1SubscriptionsV2 is Access0x1Subscriptions {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic is
+    ///         live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
 
 /// @notice The Access0x1Subscriptions unit suite — the full setPlan/subscribe/subscribeFor/renew/
 ///         cancel lifecycle, the trial-once + dunning rules, the read-time {effectiveTier} entitlement,
 ///         and every external revert path. Composes the REAL Access0x1Router + SessionGrant + a
 ///         MockV3Aggregator-fed MockUSDC, so each renewal exercises the genuine fee-split + in-tx
-///         USD->token quote, never a stub.
-contract Access0x1SubscriptionsTest is Test {
+///         USD->token quote, never a stub. The contract is deployed BEHIND a UUPS proxy (deploy impl →
+///         `ERC1967Proxy` with `initialize(...)` calldata → cast the proxy to the type) via the shared
+///         {ProxyDeployer}, so every behavioural test exercises the production proxy↔impl shape. Tail
+///         tests cover the UUPS upgrade + the permanent freeze via `renounceOwnership`.
+contract Access0x1SubscriptionsTest is Test, ProxyDeployer {
     Access0x1Subscriptions internal subsC;
+    /// @dev The shared Subscriptions implementation, deployed ONCE in setUp. The revert tests reuse it
+    ///      so the only call inside the `vm.expectRevert` window is the proxy's `initialize` (the call
+    ///      that must revert) — never an impl `new` (a non-reverting CREATE that would consume the cheat).
+    address internal subsImpl;
     Access0x1Router internal router;
     SessionGrant internal grant;
     WalletFactory internal factory;
@@ -64,11 +92,28 @@ contract Access0x1SubscriptionsTest is Test {
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1.00/USDC
 
-        router = new Access0x1Router(admin, treasury, PLATFORM_FEE_BPS);
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, PLATFORM_FEE_BPS))
+            )
+        );
+        grant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+            )
+        );
         factory = new WalletFactory();
-        subsC = new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), GRACE
+        subsImpl = address(new Access0x1Subscriptions());
+        subsC = Access0x1Subscriptions(
+            deployProxy(
+                subsImpl,
+                abi.encodeCall(
+                    Access0x1Subscriptions.initialize,
+                    (admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), GRACE)
+                )
+            )
         );
 
         vm.startPrank(admin);
@@ -130,6 +175,20 @@ contract Access0x1SubscriptionsTest is Test {
                              CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Deploy a fresh proxy over a fresh impl with the given init args — the revert tests assert the
+    ///      validation in {initialize} fires as the proxy runs it.
+    function _deployWith(IAccess0x1Router router_, ISessionGrant grant_, uint16 grace_)
+        internal
+        returns (address)
+    {
+        // Reuse the impl deployed in setUp: the only call here is the proxy `initialize`, so a preceding
+        // `vm.expectRevert` lands on it (not on a non-reverting impl `new`).
+        return deployProxy(
+            subsImpl,
+            abi.encodeCall(Access0x1Subscriptions.initialize, (admin, router_, grant_, grace_))
+        );
+    }
+
     function test_constructor_setsState() public view {
         assertEq(address(subsC.router()), address(router));
         assertEq(address(subsC.sessionGrant()), address(grant));
@@ -140,23 +199,17 @@ contract Access0x1SubscriptionsTest is Test {
 
     function test_constructor_revertZeroRouter() public {
         vm.expectRevert(IAccess0x1Subscriptions.Access0x1Subs__ZeroAddress.selector);
-        new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(0)), ISessionGrant(address(grant)), GRACE
-        );
+        _deployWith(IAccess0x1Router(address(0)), ISessionGrant(address(grant)), GRACE);
     }
 
     function test_constructor_revertZeroSessionGrant() public {
         vm.expectRevert(IAccess0x1Subscriptions.Access0x1Subs__ZeroAddress.selector);
-        new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(router)), ISessionGrant(address(0)), GRACE
-        );
+        _deployWith(IAccess0x1Router(address(router)), ISessionGrant(address(0)), GRACE);
     }
 
     function test_constructor_revertZeroGrace() public {
         vm.expectRevert(IAccess0x1Subscriptions.Access0x1Subs__ZeroValue.selector);
-        new Access0x1Subscriptions(
-            admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 0
-        );
+        _deployWith(IAccess0x1Router(address(router)), ISessionGrant(address(grant)), 0);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -965,5 +1018,66 @@ contract Access0x1SubscriptionsTest is Test {
             abi.encodeWithSelector(IAccess0x1Subscriptions.Access0x1Subs__SubUnknown.selector, 99)
         );
         subsC.reactivate(99);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_initialize_revertOnSecondCall() public {
+        // The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        subsC.initialize(
+            admin, IAccess0x1Router(address(router)), ISessionGrant(address(grant)), GRACE
+        );
+    }
+
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: an active subscription + a tuned grace threshold.
+        (uint256 subId,) = _subscribeNoTrial();
+        vm.prank(admin);
+        subsC.setGraceFailThreshold(5);
+
+        // The admin (contract owner / upgrade admin) upgrades the proxy to v2.
+        address v2 = address(new Access0x1SubscriptionsV2());
+        vm.prank(admin);
+        UUPSUpgradeable(address(subsC)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(Access0x1SubscriptionsV2(address(subsC)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        assertEq(address(subsC.router()), address(router));
+        assertEq(address(subsC.sessionGrant()), address(grant));
+        assertEq(subsC.graceFailThreshold(), 5);
+        assertEq(subsC.nextSubId(), 2); // one subscribe consumed id 1
+        assertEq(uint8(subsC.subs(subId).status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE));
+        assertEq(subsC.subs(subId).subscriber, subscriber);
+        assertEq(subsC.owner(), admin); // upgrade admin unchanged
+    }
+
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new Access0x1SubscriptionsV2());
+        // A non-admin cannot upgrade — _authorizeUpgrade is onlyOwner.
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, stranger)
+        );
+        UUPSUpgradeable(address(subsC)).upgradeToAndCall(v2, "");
+    }
+
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        // The admin renounces ownership: the upgrade admin becomes address(0).
+        vm.prank(admin);
+        subsC.renounceOwnership();
+        assertEq(subsC.owner(), address(0));
+
+        // With no owner, _authorizeUpgrade reverts for EVERYONE — the implementation is frozen forever.
+        address v2 = address(new Access0x1SubscriptionsV2());
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, admin)
+        );
+        UUPSUpgradeable(address(subsC)).upgradeToAndCall(v2, "");
     }
 }

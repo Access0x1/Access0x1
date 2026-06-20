@@ -8,9 +8,10 @@ import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { BlocklistToken } from "../mocks/BlocklistToken.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @notice Adversarial tests for Access0x1Bookings — exploit attempts, not happy-path coverage.
-contract Access0x1BookingsAttackTest is Test {
+contract Access0x1BookingsAttackTest is Test, ProxyDeployer {
     Access0x1Bookings internal bookings;
     Access0x1Router internal router;
     MockV3Aggregator internal usdcFeed;
@@ -31,14 +32,26 @@ contract Access0x1BookingsAttackTest is Test {
 
     function setUp() public {
         vm.warp(1_700_000_000);
-        router = new Access0x1Router(admin, treasury, 100); // 1%
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(Access0x1Router.initialize, (admin, treasury, 100)) // 1%
+            )
+        );
         usdcFeed = new MockV3Aggregator(8, 1e8);
         usdc = new MockUSDC();
         vm.startPrank(admin);
         router.setTokenAllowed(address(usdc), true);
         router.setPriceFeed(address(usdc), address(usdcFeed));
         vm.stopPrank();
-        bookings = new Access0x1Bookings(admin, address(router), address(0));
+        // Deploy behind a UUPS proxy (impl → ERC1967Proxy running initialize → cast).
+        address bookingsImpl = address(new Access0x1Bookings());
+        bookings = Access0x1Bookings(
+            deployProxy(
+                bookingsImpl,
+                abi.encodeCall(Access0x1Bookings.initialize, (admin, address(router), address(0)))
+            )
+        );
         vm.prank(merchantOwner);
         merchantId = router.registerMerchant(payout, feeRecipient, 50, keccak256("m"));
         usdc.mint(payer, 1_000_000e6);

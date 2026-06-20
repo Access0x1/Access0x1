@@ -10,6 +10,7 @@ import { PaymentLanes } from "../../src/PaymentLanes.sol";
 import { OracleLib } from "../../src/libraries/OracleLib.sol";
 import { MockUSDC } from "../mocks/MockUSDC.sol";
 import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  Access0x1BookingsIntegration
 /// @author Access0x1
@@ -38,7 +39,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 ///              fee re-quote fails, the full escrow refunds, no sink is touched.
 ///           4. reserve → relayed cancel over the wired SessionGrant: a delegate the payer authorized
 ///              cancels without the payer's wallet, and the deposit refunds to the payer.
-contract Access0x1BookingsIntegrationTest is Test {
+contract Access0x1BookingsIntegrationTest is Test, ProxyDeployer {
     /*//////////////////////////////////////////////////////////////
                                  ESTATE
     //////////////////////////////////////////////////////////////*/
@@ -90,10 +91,39 @@ contract Access0x1BookingsIntegrationTest is Test {
         slotTimestamp = uint64(block.timestamp) + 1 days;
 
         // ── Deploy the real estate directly ──────────────────────────────────────────────────────
-        router = new Access0x1Router(platformAdmin, treasury, PLATFORM_FEE_BPS);
-        sessionGrant = new SessionGrant("Access0x1 SessionGrant", "1");
-        lanes = new PaymentLanes(platformAdmin);
-        bookings = new Access0x1Bookings(platformAdmin, address(router), address(sessionGrant));
+        router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(
+                    Access0x1Router.initialize, (platformAdmin, treasury, PLATFORM_FEE_BPS)
+                )
+            )
+        );
+        sessionGrant = SessionGrant(
+            deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(
+                    SessionGrant.initialize, ("Access0x1 SessionGrant", "1", platformAdmin)
+                )
+            )
+        );
+        lanes = PaymentLanes(
+            deployProxy(
+                address(new PaymentLanes()),
+                abi.encodeCall(PaymentLanes.initialize, (platformAdmin))
+            )
+        );
+        // Deploy Bookings behind a UUPS proxy (impl → ERC1967Proxy running initialize → cast).
+        address bookingsImpl = address(new Access0x1Bookings());
+        bookings = Access0x1Bookings(
+            deployProxy(
+                bookingsImpl,
+                abi.encodeCall(
+                    Access0x1Bookings.initialize,
+                    (platformAdmin, address(router), address(sessionGrant))
+                )
+            )
+        );
 
         usdc = new MockUSDC();
         usdcFeed = new MockV3Aggregator(8, 1e8); // $1.00, 8-decimal feed

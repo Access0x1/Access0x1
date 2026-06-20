@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { SessionGrant } from "../../src/SessionGrant.sol";
 import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  SessionBudgetSymbolic — prove the never-negative spend meter SYMBOLICALLY (Halmos)
 /// @author Access0x1
@@ -18,15 +19,23 @@ import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 ///
 ///         RUN: `make halmos`. The file also compiles + runs under `forge test` via the concrete
 ///         `test_` wrappers, so the gate never depends on Halmos being installed.
-contract SessionBudgetSymbolic is Test {
+contract SessionBudgetSymbolic is Test, ProxyDeployer {
     SessionGrant internal grant;
 
     address internal owner = address(0xA11CE);
     address internal delegate = address(0xBEEF);
+
+    /// @dev The contract (upgrade-admin) owner — required by {initialize}; not exercised by the proof.
+    address internal admin = address(0xAD314);
     uint64 internal expiry;
 
     function setUp() public {
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
+        // The proof runs against the production proxy↔impl shape: deploy the impl, then its proxy.
+        address impl = address(new SessionGrant());
+        address proxy = deployProxy(
+            impl, abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+        );
+        grant = SessionGrant(proxy);
         vm.warp(1_700_000_000);
         expiry = uint64(block.timestamp + 365 days);
     }

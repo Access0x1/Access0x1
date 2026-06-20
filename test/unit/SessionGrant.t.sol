@@ -5,11 +5,36 @@ import { Test } from "forge-std/Test.sol";
 import { SessionGrant } from "../../src/SessionGrant.sol";
 import { ISessionGrant } from "../../src/interfaces/ISessionGrant.sol";
 import { SmartWallet1271, WalletFactory } from "../mocks/SmartWallet1271.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+/// @notice A trivial v2 implementation used by the upgrade test: a subclass that adds one view function
+///         and changes nothing else, so an upgrade to it must preserve all prior state. It deliberately
+///         carries no new storage (it would consume from `__gap` if it did), proving the proxy keeps
+///         every slot across the implementation swap.
+contract SessionGrantV2 is SessionGrant {
+    /// @notice A marker the original implementation does not expose — lets the test prove the new logic
+    ///         is live after {upgradeToAndCall}.
+    /// @return The constant string identifying this as the v2 implementation.
+    function version2Marker() external pure returns (string memory) {
+        return "v2";
+    }
+}
 
 /// @notice The SessionGrant unit suite — the full open/spend/revoke lifecycle, the per-owner replay
 ///         nonce, and signature validation across EOA / ERC-1271 / ERC-6492. Every external function's
-///         revert paths are exercised. Time-based liveness is driven with `vm.warp`.
-contract SessionGrantTest is Test {
+///         revert paths are exercised. Time-based liveness is driven with `vm.warp`. The grant is deployed
+///         BEHIND a UUPS proxy (deploy impl → `ERC1967Proxy` with `initialize(...)` calldata → cast the
+///         proxy to the type) via the shared {ProxyDeployer}, so every behavioural test exercises the
+///         production proxy↔impl shape. Tail tests cover the UUPS upgrade + the permanent freeze via
+///         `renounceOwnership`.
+contract SessionGrantTest is Test, ProxyDeployer {
     SessionGrant internal grant;
     WalletFactory internal factory;
 
@@ -19,6 +44,10 @@ contract SessionGrantTest is Test {
     address internal relayer = makeAddr("relayer");
     address internal stranger = makeAddr("stranger");
 
+    /// @dev The contract (upgrade-admin) owner — the `Ownable2Step` owner, DISTINCT from any per-session
+    ///      owner. Authorizes UUPS upgrades; renouncing it freezes the implementation forever.
+    address internal admin = makeAddr("admin");
+
     uint256 internal constant BUDGET = 1_000e6; // $1,000, 6-dp unit
     uint64 internal expiry;
 
@@ -26,7 +55,12 @@ contract SessionGrantTest is Test {
         0x6492649264926492649264926492649264926492649264926492649264926492;
 
     function setUp() public {
-        grant = new SessionGrant("Access0x1 SessionGrant", "1");
+        // Deploy the implementation, then the ERC1967 proxy that initializes it, then drive the proxy.
+        address impl = address(new SessionGrant());
+        address proxy = deployProxy(
+            impl, abi.encodeCall(SessionGrant.initialize, ("Access0x1 SessionGrant", "1", admin))
+        );
+        grant = SessionGrant(proxy);
         factory = new WalletFactory();
         (owner, ownerPk) = makeAddrAndKey("owner");
         expiry = uint64(block.timestamp + 1 days);
@@ -370,5 +404,67 @@ contract SessionGrantTest is Test {
         }
         vm.stopPrank();
         assertLe(grant.sessionOf(id).spent, BUDGET);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          UUPS UPGRADE / FREEZE
+    //////////////////////////////////////////////////////////////*/
+
+    function test_initialize_setsAdminOwner() public view {
+        // The contract owner is the upgrade admin set at initialize — independent of any session owner.
+        assertEq(OwnableUpgradeable(address(grant)).owner(), admin);
+    }
+
+    function test_initialize_revertOnSecondCall() public {
+        // The proxy was already initialized in setUp; a second call must revert (one-time initializer).
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        grant.initialize("x", "1", admin);
+    }
+
+    function test_upgrade_preservesStateAndAddsFn() public {
+        // Seed state under the v1 implementation: an open session, partly spent.
+        bytes32 id = _open();
+        vm.prank(delegate);
+        grant.spend(id, 400e6);
+
+        // The admin (contract owner) upgrades the proxy to v2.
+        address v2 = address(new SessionGrantV2());
+        vm.prank(admin);
+        UUPSUpgradeable(address(grant)).upgradeToAndCall(v2, "");
+
+        // The new logic is live...
+        assertEq(SessionGrantV2(address(grant)).version2Marker(), "v2");
+
+        // ...and ALL prior state survived the implementation swap (storage lives in the proxy).
+        assertEq(grant.ownerOf(id), owner);
+        assertEq(grant.sessionOf(id).spent, 400e6);
+        assertEq(grant.remaining(id), BUDGET - 400e6);
+        assertEq(grant.nonces(owner), 1);
+        assertEq(OwnableUpgradeable(address(grant)).owner(), admin); // upgrade admin unchanged
+    }
+
+    function test_upgrade_revertNonOwner() public {
+        address v2 = address(new SessionGrantV2());
+        // A non-admin cannot upgrade — _authorizeUpgrade is onlyOwner.
+        vm.prank(stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, stranger)
+        );
+        UUPSUpgradeable(address(grant)).upgradeToAndCall(v2, "");
+    }
+
+    function test_freeze_renounceOwnershipBlocksUpgradeForever() public {
+        // The admin renounces ownership: the upgrade admin becomes address(0).
+        vm.prank(admin);
+        OwnableUpgradeable(address(grant)).renounceOwnership();
+        assertEq(OwnableUpgradeable(address(grant)).owner(), address(0));
+
+        // With no owner, _authorizeUpgrade reverts for EVERYONE — the implementation is frozen forever.
+        address v2 = address(new SessionGrantV2());
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, admin)
+        );
+        UUPSUpgradeable(address(grant)).upgradeToAndCall(v2, "");
     }
 }

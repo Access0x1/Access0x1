@@ -7,6 +7,7 @@ import { DeployChainRegistry } from "../../script/DeployChainRegistry.s.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { ChainRegistry } from "../../src/ChainRegistry.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
+import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
 /// @title  ChainRegistryIntegration — the registry, deployed and composed via the REAL scripts
 /// @author Access0x1
@@ -36,7 +37,7 @@ import { Access0x1Router } from "../../src/Access0x1Router.sol";
 ///         test sets (they resolve to the zero placeholder, law #4), and the `HelperConfig` LOCAL
 ///         branch (chainId 31337) reads no env (it deploys fresh mocks). So this file is provably
 ///         race-free and collides with no other suite.
-contract ChainRegistryIntegrationTest is Test {
+contract ChainRegistryIntegrationTest is Test, ProxyDeployer {
     /// @notice The chain id of a local Anvil/Foundry node (mirrors HelperConfig's internal constant).
     uint256 internal constant LOCAL_CHAIN_ID = 31_337;
 
@@ -216,7 +217,14 @@ contract ChainRegistryIntegrationTest is Test {
         // A real money spine, deployed with the config's treasury + platform fee (the spine the
         // registry will point this chain at). We own it here so we can register a merchant + quote.
         address routerAdmin = makeAddr("routerAdmin");
-        Access0x1Router router = new Access0x1Router(routerAdmin, cfg.treasury, cfg.platformFeeBps);
+        Access0x1Router router = Access0x1Router(
+            deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(
+                    Access0x1Router.initialize, (routerAdmin, cfg.treasury, cfg.platformFeeBps)
+                )
+            )
+        );
 
         // Operator records the local chain's live facts in the registry (the SDK source of truth).
         vm.startPrank(registryOwner);

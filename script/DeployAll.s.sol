@@ -15,6 +15,7 @@ import { Access0x1Nft } from "../src/Access0x1Nft.sol";
 import { IAccess0x1Router } from "../src/interfaces/IAccess0x1Subscriptions.sol";
 import { ISessionGrant } from "../src/interfaces/ISessionGrant.sol";
 import { HelperConfig } from "./HelperConfig.s.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title  DeployAll
 /// @author Access0x1
@@ -103,6 +104,22 @@ contract DeployAll is Script {
     Access0x1GiftCards public giftCards;
     Access0x1Nft public nft;
 
+    /// @notice Deploy an `ERC1967Proxy` in front of an already-deployed UUPS implementation and run its
+    ///         `initialize(...)` in the same broadcast — the one helper every UUPS deploy below uses, so
+    ///         the impl+proxy shape is written once, not re-typed per contract. The returned proxy is the
+    ///         address every caller (SDK/frontend/the commerce quintet) drives: state lives in the proxy,
+    ///         logic in the impl. The impl ran `_disableInitializers()` in its constructor, so it can
+    ///         never be initialized directly.
+    /// @param  impl         The freshly deployed implementation (logic) contract address.
+    /// @param  initCalldata The ABI-encoded initializer (use `abi.encodeCall(C.initialize, (..))`).
+    /// @return proxy        The deployed `ERC1967Proxy` address — cast it to the contract type to use it.
+    function _deployProxy(address impl, bytes memory initCalldata)
+        internal
+        returns (address proxy)
+    {
+        return address(new ERC1967Proxy(impl, initCalldata));
+    }
+
     /// @notice Deploy + wire the full first-party surface (and optionally the lanes ledger + the CRE
     ///         consumer) on the current chain. The commerce quartet, the SessionGrant, the house-token
     ///         factory, and (when configured) the CRE consumer are recorded in this contract's public
@@ -130,7 +147,14 @@ contract DeployAll is Script {
 
         // 1. Router. Reverts loudly on a zero treasury or a fee > MAX_FEE_BPS (the router's own
         //    custom errors) — a misconfigured env can never deploy a bad router.
-        router = new Access0x1Router(owner, cfg.treasury, cfg.platformFeeBps);
+        router = Access0x1Router(
+            _deployProxy(
+                address(new Access0x1Router()),
+                abi.encodeCall(
+                    Access0x1Router.initialize, (owner, cfg.treasury, cfg.platformFeeBps)
+                )
+            )
+        );
         console2.log("Access0x1Router       :", address(router));
         console2.log("  chain               :", block.chainid);
         console2.log("  owner               :", owner);
@@ -138,9 +162,15 @@ contract DeployAll is Script {
         console2.log("  platformFeeBps      :", cfg.platformFeeBps);
 
         // 2. SessionGrant — the recurring/agent authorization ledger. Holds NO funds (pure accounting),
-        //    so it has no owner and nothing to custody; the commerce quartet spends against it but can
-        //    only spend, never bypass the budget cap (the never-negative meter lives here).
-        sessionGrant = new SessionGrant(sgName, sgVersion);
+        //    so it custodies nothing; the commerce quartet spends against it but can only spend, never
+        //    bypass the budget cap (the never-negative meter lives here). Its `owner` exists solely to
+        //    authorize a UUPS upgrade (`_authorizeUpgrade`), not to touch any balance.
+        sessionGrant = SessionGrant(
+            _deployProxy(
+                address(new SessionGrant()),
+                abi.encodeCall(SessionGrant.initialize, (sgName, sgVersion, owner))
+            )
+        );
         console2.log("SessionGrant          :", address(sessionGrant));
 
         // 3. Optional lanes ledger (ERC-6909). Authorize the zero-custody router on the ledger, then
@@ -151,7 +181,11 @@ contract DeployAll is Script {
         //    or burner run). With a separate `ROUTER_OWNER` they revert by design and the admin wires
         //    the lanes from its own key — fail-loud, never a silent half-wire.
         if (deployLanes) {
-            lanes = new PaymentLanes(owner);
+            lanes = PaymentLanes(
+                _deployProxy(
+                    address(new PaymentLanes()), abi.encodeCall(PaymentLanes.initialize, (owner))
+                )
+            );
             lanes.setRouter(address(router), true);
             router.setPaymentLanes(address(lanes));
             console2.log("PaymentLanes          :", address(lanes));
@@ -167,9 +201,15 @@ contract DeployAll is Script {
             console2.log("  CRE forwarder       :", cfg.creForwarder);
         }
 
-        // 5. House-token factory — no constructor args, no owner, no custody. Businesses deploy their
-        //    own ERC-20 THROUGH it later; recorded here so the SDK can trust house-token provenance.
-        houseFactory = new HouseTokenFactory();
+        // 5. House-token factory — no custody. Businesses deploy their own ERC-20 THROUGH it later;
+        //    recorded here so the SDK can trust house-token provenance. Its `owner` exists solely to
+        //    authorize a UUPS upgrade; it never touches a token or a balance.
+        houseFactory = HouseTokenFactory(
+            _deployProxy(
+                address(new HouseTokenFactory()),
+                abi.encodeCall(HouseTokenFactory.initialize, (owner))
+            )
+        );
         console2.log("HouseTokenFactory     :", address(houseFactory));
 
         // 6-10. The commerce quintet — each COMPOSES the spine above. They take the freshly deployed
@@ -177,31 +217,61 @@ contract DeployAll is Script {
         //      USD quote (OracleLib staleness guard), the never-negative budget, and tenant isolation
         //      are all inherited, never re-derived. No router-side registration is needed: the Router's
         //      merchant registry is their single source of truth for owner-authorization.
-        subscriptions = new Access0x1Subscriptions(
-            owner,
-            IAccess0x1Router(address(router)),
-            ISessionGrant(address(sessionGrant)),
-            cfg.graceFailThreshold
+        subscriptions = Access0x1Subscriptions(
+            _deployProxy(
+                address(new Access0x1Subscriptions()),
+                abi.encodeCall(
+                    Access0x1Subscriptions.initialize,
+                    (
+                        owner,
+                        IAccess0x1Router(address(router)),
+                        ISessionGrant(address(sessionGrant)),
+                        cfg.graceFailThreshold
+                    )
+                )
+            )
         );
         console2.log("Access0x1Subscriptions:", address(subscriptions));
         console2.log("  router (spine)      :", address(router));
         console2.log("  sessionGrant        :", address(sessionGrant));
         console2.log("  graceFailThreshold  :", cfg.graceFailThreshold);
 
-        bookings = new Access0x1Bookings(owner, address(router), address(sessionGrant));
+        bookings = Access0x1Bookings(
+            _deployProxy(
+                address(new Access0x1Bookings()),
+                abi.encodeCall(
+                    Access0x1Bookings.initialize, (owner, address(router), address(sessionGrant))
+                )
+            )
+        );
         console2.log("Access0x1Bookings     :", address(bookings));
         console2.log("  router (spine)      :", address(router));
         console2.log("  sessionGrant        :", address(sessionGrant));
 
-        invoices = new Access0x1Invoices(router);
+        invoices = Access0x1Invoices(
+            _deployProxy(
+                address(new Access0x1Invoices()),
+                abi.encodeCall(Access0x1Invoices.initialize, (router, owner))
+            )
+        );
         console2.log("Access0x1Invoices     :", address(invoices));
         console2.log("  router (spine)      :", address(router));
 
-        giftCards = new Access0x1GiftCards(owner, router);
+        giftCards = Access0x1GiftCards(
+            _deployProxy(
+                address(new Access0x1GiftCards()),
+                abi.encodeCall(Access0x1GiftCards.initialize, (owner, router))
+            )
+        );
         console2.log("Access0x1GiftCards    :", address(giftCards));
         console2.log("  router (spine)      :", address(router));
 
-        nft = new Access0x1Nft(owner, router);
+        nft = Access0x1Nft(
+            _deployProxy(
+                address(new Access0x1Nft()),
+                abi.encodeCall(Access0x1Nft.initialize, (owner, router))
+            )
+        );
         console2.log("Access0x1Nft          :", address(nft));
         console2.log("  router (spine)      :", address(router));
 
