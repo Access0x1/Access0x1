@@ -221,6 +221,9 @@ drive-local: ## Deploy + DRIVE the coffee-shop money flow on a local anvil (run 
 		--rpc-url http://localhost:8545 --broadcast --unlocked \
 		--sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 -vvvv
 
+deploy-pick: ## Interactive: pick which chains to mirror-deploy (shows gas + mirror status per chain)
+	@./script/deploy-pick.sh
+
 deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
 
