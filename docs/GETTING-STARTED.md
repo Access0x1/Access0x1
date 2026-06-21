@@ -103,7 +103,9 @@ const { status, quote, error, pay, txHash, receipt, reset } = usePayment({
   usdAmount: 29.0,
   orderId: 'order-1234',
 });
-// status: 'idle' | 'quoting' | 'approving' | 'paying' | 'success' | 'error'
+// status: 'idle' | 'quoting' | 'confirm' | 'pending' | 'success' | 'error'
+//   confirm = awaiting wallet signature(s) (approve and/or pay);
+//   pending = tx broadcast, awaiting inclusion
 // quote:  the token amount (bigint) the router will charge for $29.00
 // pay():  runs approve-if-needed then the single pay tx
 ```
