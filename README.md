@@ -41,6 +41,8 @@
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
 > and on a public branch from commit #1. **Deployed on eight testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Ethereum Hoodi (560048), and 0G Galileo (16602 — full 12-contract stack); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). Source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
 
+> 🚀 **New to Access0x1?** Start with the **[Getting Started guide](docs/GETTING-STARTED.md)** — zero to a working payment in three copy-paste paths — then the **[Architecture deep-dive](docs/ARCHITECTURE.md)** for the money spine, line by line.
+
 ---
 
 ## What it is
