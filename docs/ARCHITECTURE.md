@@ -75,7 +75,7 @@ settlement. Two mechanisms keep it honest:
 
 - **Fee-on-transfer reject:** token pulls measure the *actual* received amount by
   balance delta and revert if a token skimmed it —
-  [`received != amount ⇒ Access0x1__FeeOnTransferToken`](../src/Access0x1Router.sol#L647).
+  [`received != amount ⇒ Access0x1__FeeOnTransferToken`](../src/Access0x1Router.sol#L650).
   A deflationary token can't desync the fee math.
 - **Rescue, not custody:** a failed native push is credited to a pull-map and
   reclaimed via [`claimRescue()`](../src/Access0x1Router.sol#L798), which follows
