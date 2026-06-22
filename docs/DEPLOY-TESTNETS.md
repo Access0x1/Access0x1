@@ -326,20 +326,24 @@ After deploy, copy the logged `ChainRegistry deployed:` address into
 
 ## 7. After any deploy: record from the broadcast log
 
-Every deployed address is logged to `broadcast/<chainId>/DeployAll.s.sol/run-latest.json`.
+Every deployed address is logged to `broadcast/DeployAll.s.sol/<chainId>/run-latest.json`.
 Record the addresses in the README Deployments table:
 
 ```sh
-# Extract Access0x1Router address from the broadcast log
+# Extract the Access0x1Router address from the broadcast log (legacy per-chain deploy)
 jq '.transactions[] | select(.contractName == "Access0x1Router") | .contractAddress' \
-  broadcast/84532/DeployAll.s.sol/run-latest.json
+  broadcast/DeployAll.s.sol/84532/run-latest.json
 ```
 
 Replace `84532` with the chain ID of the chain you deployed to (Arc = 5042002,
 zkSync Sepolia = 300, etc.).
 
 Fill in the README table from the log output — never hand-enter an address that
-is not in a broadcast receipt.
+is not in a broadcast receipt. **CREATE3 mirror deploy:** the contracts land as the
+CreateX call's `additionalContracts` (no top-level CREATE, so the jq above returns
+nothing) and `DeployAll` writes `deployments/<chainId>.json`; for a mirrored chain
+read the address set from `deployments/<chainId>.json` or `web/lib/deployments.ts`
+(both broadcast-derived) — see [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md).
 
 ---
 
@@ -356,7 +360,7 @@ settlement hot paths:
 | `registerMerchant` | 122 209 | One-time onboarding write |
 
 Deployment cost for the full surface: `Access0x1Router` alone ~1.74 M gas;
-full `DeployAll` (all 9 contracts + configure) is additive.
+full `DeployAll` (the full first-party surface + configure) is additive.
 
 ### Chain-specific gas notes
 

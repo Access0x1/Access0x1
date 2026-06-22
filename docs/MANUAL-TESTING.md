@@ -6,7 +6,7 @@ block, run it, and check the result against the **Expected** line under it.
 
 Everything here runs **locally** against a throwaway [Anvil](https://book.getfoundry.sh/anvil/)
 chain. No real money, no real keys, no testnet, nothing to lose. The same flows
-the automated suite proves (920 contract tests + the web gate) you will drive by
+the automated suite proves (1,382 contract tests + the web gate) you will drive by
 hand, so you can see the money move and the guards bite.
 
 > **Naming note.** This document only uses public, standard names: Anvil, Arc,
@@ -27,7 +27,7 @@ hand, so you can see the money move and the guards bite.
   - [B7. SessionGrant — openSession → spend → revoke](#b7-sessiongrant--opensession--spend--revoke)
   - [B8. Nft — list → buy](#b8-nft--list--buy)
 - [C. Web app — onboarding, checkout, verify, dashboard](#c-web-app--onboarding-checkout-verify-dashboard)
-- [D. The test suites (920 + web gate)](#d-the-test-suites-920--web-gate)
+- [D. The test suites (1,382 + web gate)](#d-the-test-suites-1382--web-gate)
 - [E. Pre-demo smoke checklist](#e-pre-demo-smoke-checklist)
 
 ---
@@ -325,12 +325,12 @@ third hit the wall.
 > the subscriber's own key (no signature needed), which is what we do here.
 
 **1. Define the plan.** As the merchant owner from B1 (`$MID = 1`), set plan key
-`1` to `$29.00` (`2900000000` in 8-dp) on a 30-day period (`2592000` seconds),
+`1` to `$29.00` (`2900000000` in 8-dp) on a 30-day period (`251,38200` seconds),
 active:
 
 ```bash
 cast send $SUBS "setPlan(uint256,uint8,uint256,uint32,bool)" \
-  $MID 1 2900000000 2592000 true \
+  $MID 1 2900000000 251,38200 true \
   --rpc-url $RPC --private-key $PK
 ```
 
@@ -867,19 +867,19 @@ the `cast` walkthroughs in Section B prove the contracts.)
 
 ---
 
-## D. The test suites (920 + web gate)
+## D. The test suites (1,382 + web gate)
 
 The automated suites are the ground truth behind every manual flow above. Run
 them to confirm a clean tree.
 
-### D1. The contract suite — 920 tests
+### D1. The contract suite — 1,382 tests
 
 ```bash
 make test          # or: forge test
 ```
 
 **Expected:** the final summary line reads roughly
-`Ran <N> test suites: 920 tests passed; 0 failed; 0 skipped`. This is the union of:
+`Ran <N> test suites: 1,382 tests passed; 0 failed; 0 skipped`. This is the union of:
 
 - **`test/unit/`** — per-function correctness.
 - **`test/attack/`** — adversarial / exploit attempts that must fail.
@@ -918,7 +918,7 @@ failure — run `cd web && npm install` and re-run the gate.
 make gate
 ```
 
-**Expected:** contracts build + 920 tests + `forge fmt --check`, then the web
+**Expected:** contracts build + 1,382 tests + `forge fmt --check`, then the web
 gate, ending in `==> GATE GREEN`. This is the single command that proves the
 whole repo is healthy before a commit.
 
@@ -933,8 +933,8 @@ fails, stop and fix it before showing anyone.
       all print (Section A1).
 - [ ] **Deps installed.** `make install` completed; a bare `make build` exits
       green (Section A3).
-- [ ] **Contracts green.** `make test` → `920 passed; 0 failed` (Section D1).
-- [ ] **Web green.** `cd web && npm run gate` → all four steps pass, ~768 tests
+- [ ] **Contracts green.** `make test` → `1,382 passed; 0 failed` (Section D1).
+- [ ] **Web green.** `cd web && npm run gate` → all four steps pass, ~965 tests
       (Section D2).
 - [ ] **Anvil up.** `make anvil` is running in its own terminal, "Listening on
       127.0.0.1:8545" (Section A4).
