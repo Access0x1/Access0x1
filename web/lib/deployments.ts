@@ -244,56 +244,100 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
     "rpc": "https://sepolia.base.org",
     "deployments": [
       {
-        "contractName": "Access0x1Bookings",
-        "address": "0xa0c5cc4fc6a6446a6f532942ecb6eeef91ae8901"
+        "contractName": "Access0x1Bookings.impl",
+        "address": "0xad3dbc884d29ea749f2ac16178b0fdac66acb6b4"
       },
       {
-        "contractName": "Access0x1Escrow",
-        "address": "0x60a4d48a982a28b288522e899669024f33f03314"
+        "contractName": "Access0x1Bookings.proxy",
+        "address": "0xa7230ddd55c6bfc3479636fa320e46889a8b1863"
       },
       {
-        "contractName": "Access0x1GiftCards",
-        "address": "0x84e567892074518770f40a34fb7994c34e3614c8"
+        "contractName": "Access0x1Escrow.impl",
+        "address": "0xf87c5619d8906811fcd3945b56bfb6d45d2f3730"
       },
       {
-        "contractName": "Access0x1Invoices",
-        "address": "0xca3f99fff5fb0b53766d2a0c14f989c8d6bc087f"
+        "contractName": "Access0x1Escrow.proxy",
+        "address": "0x3459e890516a29d406fcbdc9b4cd99ce8114da0d"
       },
       {
-        "contractName": "Access0x1Nft",
-        "address": "0x8cdddf8a426ac79a2accc83e6b63fb16eb7580e2"
+        "contractName": "Access0x1GiftCards.impl",
+        "address": "0x7d591535d56da5ca1b178553a443b49084a78f55"
       },
       {
-        "contractName": "Access0x1ProvenanceRegistry",
-        "address": "0xb2764d719364b4abc8bf22ef1015e95545ab963c"
+        "contractName": "Access0x1GiftCards.proxy",
+        "address": "0xf94df7293e48e69f91a1e2c4f48580c6901d6c2c"
       },
       {
-        "contractName": "Access0x1Router",
-        "address": "0xba90ca4c50eb571c855a1b8a1eb6bae3bcb9129d"
+        "contractName": "Access0x1Invoices.impl",
+        "address": "0x16188291f27bb820da27c64b852277a62a6475fa"
       },
       {
-        "contractName": "Access0x1Subscriptions",
-        "address": "0x5e23ca4299a4728ae8e55ffe9b707046d38eb19d"
+        "contractName": "Access0x1Invoices.proxy",
+        "address": "0x902382d472aaf6bd90e000c315a861f6b493bcea"
       },
       {
-        "contractName": "AutomationGateway",
-        "address": "0x51cebbf9ab3ee6effd3b67e3972af58c7d04df89"
+        "contractName": "Access0x1Nft.impl",
+        "address": "0x13a80b7543a0caed7e64281109b2c1ac25677d07"
       },
       {
-        "contractName": "ERC1967Proxy",
-        "address": "0x6f7c77bc50fe6e062390ddb50052d88b1fe9f2cf"
+        "contractName": "Access0x1Nft.proxy",
+        "address": "0x9625bec5e2ed53b48e4cbcbbbe9287c00db31178"
       },
       {
-        "contractName": "HouseTokenFactory",
-        "address": "0x06dcae57da4e774748865d734097c69bf484b788"
+        "contractName": "Access0x1ProvenanceRegistry.impl",
+        "address": "0xacc0a130e1366a2e3a9fe7932a7b424d906487bb"
       },
       {
-        "contractName": "PaymentLanes",
-        "address": "0xcd59d70551e438cc0ef859f86c8c12c5e6007728"
+        "contractName": "Access0x1ProvenanceRegistry.proxy",
+        "address": "0x899b9e0b633bc46f56d7ec34ad667147d8e68ceb"
       },
       {
-        "contractName": "SessionGrant",
-        "address": "0x545c2d5a8170b8a34b85fe4e24cbaa200398b373"
+        "contractName": "Access0x1Router.impl",
+        "address": "0x3336ec82d865e8bd1f9054856ac22b45a71207db"
+      },
+      {
+        "contractName": "Access0x1Router.proxy",
+        "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+      },
+      {
+        "contractName": "Access0x1Subscriptions.impl",
+        "address": "0xd0f21319739cfd94989ab68d69a4268ff141f1ee"
+      },
+      {
+        "contractName": "Access0x1Subscriptions.proxy",
+        "address": "0x787d2d97f7b0b0a7afe1ecd97032912fefe8e0ba"
+      },
+      {
+        "contractName": "AutomationGateway.impl",
+        "address": "0x39e3ffa33873f89f4a3c18383f663d177e65031a"
+      },
+      {
+        "contractName": "AutomationGateway.proxy",
+        "address": "0x2b664ca5a28498cc62b475576fee6835dd51060b"
+      },
+      {
+        "contractName": "HouseTokenFactory.impl",
+        "address": "0x86cbc26a3d20d0d4f4bd89f56ac34906cbb091c0"
+      },
+      {
+        "contractName": "HouseTokenFactory.proxy",
+        "address": "0x5a7f065f675779d76a376c15be496d799b1469db"
+      },
+      {
+        "contractName": "PaymentLanes.impl",
+        "address": "0x6312b40510c0718d2e7b8a9a6490b4fc6a4dfe9f"
+      },
+      {
+        "contractName": "PaymentLanes.proxy",
+        "address": "0x49bb2c3d3aae0ad260f3ce76fa78e0323aae2510"
+      },
+      {
+        "contractName": "SessionGrant.impl",
+        "address": "0x7c59aa000904efc5e15b03081963f7e406424d7f"
+      },
+      {
+        "contractName": "SessionGrant.proxy",
+        "address": "0xf84fea541939f3683893530101fe77d05c390c9d"
       }
     ]
   },

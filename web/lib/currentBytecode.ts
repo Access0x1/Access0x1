@@ -27,6 +27,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
       ]
     ]
   },
+  "Access0x1Bookings.impl": {
+    "codeHash": "0x6ad5ad46524701e01afd5989d1a37ab815239340f16e20ad5689c17ce161607c",
+    "immutableRanges": [
+      [
+        5128,
+        32
+      ],
+      [
+        5331,
+        32
+      ]
+    ]
+  },
+  "Access0x1Bookings.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
+  },
   "Access0x1Escrow": {
     "codeHash": "0x35064850c85d09621c40faf9f0965c185518ee65be76e5f4c9732d5c9b218328",
     "immutableRanges": [
@@ -39,6 +56,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
         32
       ]
     ]
+  },
+  "Access0x1Escrow.impl": {
+    "codeHash": "0x35064850c85d09621c40faf9f0965c185518ee65be76e5f4c9732d5c9b218328",
+    "immutableRanges": [
+      [
+        1777,
+        32
+      ],
+      [
+        2385,
+        32
+      ]
+    ]
+  },
+  "Access0x1Escrow.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
   },
   "Access0x1GiftCards": {
     "codeHash": "0x42ab591b5ee37d985da6d1a55353c4adb6009c7a6cecfdc84882b37b42c50706",
@@ -53,6 +87,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
       ]
     ]
   },
+  "Access0x1GiftCards.impl": {
+    "codeHash": "0x42ab591b5ee37d985da6d1a55353c4adb6009c7a6cecfdc84882b37b42c50706",
+    "immutableRanges": [
+      [
+        2634,
+        32
+      ],
+      [
+        3194,
+        32
+      ]
+    ]
+  },
+  "Access0x1GiftCards.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
+  },
   "Access0x1Invoices": {
     "codeHash": "0x418c064aa2d8275b583df66524198911f43b6c77b6e87ff70208d0958710bc67",
     "immutableRanges": [
@@ -65,6 +116,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
         32
       ]
     ]
+  },
+  "Access0x1Invoices.impl": {
+    "codeHash": "0x418c064aa2d8275b583df66524198911f43b6c77b6e87ff70208d0958710bc67",
+    "immutableRanges": [
+      [
+        3200,
+        32
+      ],
+      [
+        3404,
+        32
+      ]
+    ]
+  },
+  "Access0x1Invoices.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
   },
   "Access0x1Nft": {
     "codeHash": "0x3e1916dd5d79b20e4214d65d642d4dbc10cb0188d15edfc018ad138452bda185",
@@ -79,6 +147,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
       ]
     ]
   },
+  "Access0x1Nft.impl": {
+    "codeHash": "0x3e1916dd5d79b20e4214d65d642d4dbc10cb0188d15edfc018ad138452bda185",
+    "immutableRanges": [
+      [
+        1162,
+        32
+      ],
+      [
+        1384,
+        32
+      ]
+    ]
+  },
+  "Access0x1Nft.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
+  },
   "Access0x1ProvenanceRegistry": {
     "codeHash": "0xcf9c8ed5221dc76be8fc87612ccf261fbeef56e05befcac2d94a67464d48fd7f",
     "immutableRanges": [
@@ -91,6 +176,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
         32
       ]
     ]
+  },
+  "Access0x1ProvenanceRegistry.impl": {
+    "codeHash": "0xcf9c8ed5221dc76be8fc87612ccf261fbeef56e05befcac2d94a67464d48fd7f",
+    "immutableRanges": [
+      [
+        2255,
+        32
+      ],
+      [
+        2502,
+        32
+      ]
+    ]
+  },
+  "Access0x1ProvenanceRegistry.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
   },
   "Access0x1Router": {
     "codeHash": "0xd29606cc6661991f348792f57082f871dbcd6fe54d1c69153cfc127b503c46bd",
@@ -105,6 +207,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
       ]
     ]
   },
+  "Access0x1Router.impl": {
+    "codeHash": "0xd29606cc6661991f348792f57082f871dbcd6fe54d1c69153cfc127b503c46bd",
+    "immutableRanges": [
+      [
+        5217,
+        32
+      ],
+      [
+        5421,
+        32
+      ]
+    ]
+  },
+  "Access0x1Router.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
+  },
   "Access0x1Subscriptions": {
     "codeHash": "0x9da6998ae4dcc2934b47f809b5fee696c7337bd9d552b923c5bd9a16dc126c9e",
     "immutableRanges": [
@@ -118,6 +237,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
       ]
     ]
   },
+  "Access0x1Subscriptions.impl": {
+    "codeHash": "0x9da6998ae4dcc2934b47f809b5fee696c7337bd9d552b923c5bd9a16dc126c9e",
+    "immutableRanges": [
+      [
+        2854,
+        32
+      ],
+      [
+        6301,
+        32
+      ]
+    ]
+  },
+  "Access0x1Subscriptions.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
+  },
   "AutomationGateway": {
     "codeHash": "0x85c5b99adc0e9fcfae69da5843d845e8b4c484716aafe3ea680a8cc078475b1f",
     "immutableRanges": [
@@ -130,6 +266,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
         32
       ]
     ]
+  },
+  "AutomationGateway.impl": {
+    "codeHash": "0x85c5b99adc0e9fcfae69da5843d845e8b4c484716aafe3ea680a8cc078475b1f",
+    "immutableRanges": [
+      [
+        1561,
+        32
+      ],
+      [
+        1765,
+        32
+      ]
+    ]
+  },
+  "AutomationGateway.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
   },
   "ERC1967Proxy": {
     "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
@@ -148,6 +301,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
       ]
     ]
   },
+  "HouseTokenFactory.impl": {
+    "codeHash": "0xfafac3c889816f10ab260dd513909e90f5d669dd4d5a156a56e3a36a30047b2d",
+    "immutableRanges": [
+      [
+        2462,
+        32
+      ],
+      [
+        2680,
+        32
+      ]
+    ]
+  },
+  "HouseTokenFactory.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
+  },
   "PaymentLanes": {
     "codeHash": "0xc8e029cd9f78ee11036865676ec65e3435461321222496e01e081e9aec65e78a",
     "immutableRanges": [
@@ -161,6 +331,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
       ]
     ]
   },
+  "PaymentLanes.impl": {
+    "codeHash": "0xc8e029cd9f78ee11036865676ec65e3435461321222496e01e081e9aec65e78a",
+    "immutableRanges": [
+      [
+        2511,
+        32
+      ],
+      [
+        2731,
+        32
+      ]
+    ]
+  },
+  "PaymentLanes.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
+  },
   "SessionGrant": {
     "codeHash": "0x96eb3e034ffdb7fcb0464a19061ddaaf2c2a8961925f66ceb464368a24431883",
     "immutableRanges": [
@@ -173,5 +360,22 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
         32
       ]
     ]
+  },
+  "SessionGrant.impl": {
+    "codeHash": "0x96eb3e034ffdb7fcb0464a19061ddaaf2c2a8961925f66ceb464368a24431883",
+    "immutableRanges": [
+      [
+        2257,
+        32
+      ],
+      [
+        2403,
+        32
+      ]
+    ]
+  },
+  "SessionGrant.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
   }
 } as const
