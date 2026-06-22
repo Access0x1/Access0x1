@@ -564,7 +564,10 @@ carries those addresses (no chain is claimed mirrored otherwise):
 | Arc · Ethereum Sepolia · Optimism Sepolia · Avalanche Fuji · Robinhood · 0G Galileo · Ethereum Hoodi | ⏳ pre-mirror | per-chain (see below) |
 
 **Pre-mirror per-chain deploys** — each chain's own pre-mirror address set, until it is cut over to the
-mirror above:
+mirror above. These predate the mirror and may reflect an interim redeploy; the mirror set above is the
+canonical one, and [`web/lib/deployments.ts`](web/lib/deployments.ts) (regenerated from each chain's
+`broadcast/` record) is the authoritative per-chain source — confirm a legacy chain's live feed/merchant
+on-chain before relying on its row here.
 
 | Chain | Contract | Address | Tx |
 | --- | --- | --- | --- |

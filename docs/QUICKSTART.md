@@ -309,24 +309,23 @@ single source of truth for those addresses.
 
 ---
 
-## Deployed routers — the address you point at
+## The router address you point at
 
-`Access0x1Router` is the only address an integrator points at. The values below are quoted from the
-README **Deployments** table (each read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/`
-record — never hand-entered). Treat the [README Deployments table](../README.md#deployments) as canonical;
-this list is a convenience copy for the chains a quickstart most often targets.
+`Access0x1Router` is the only address an integrator points at — and via the **CREATE3 mirror** it is the
+**same address on every chain the mirror is live on**:
 
-| Chain | id | `Access0x1Router` |
-| --- | --- | --- |
-| Arc Testnet | `5042002` | `0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e` |
-| Base Sepolia | `84532` | `0x4fbf47bc5273491b8a4e339e65b208d180b27c3b` |
-| Ethereum Sepolia | `11155111` | `0x81815209cc36dbd83662bd502694386e7024ba85` |
-| Optimism Sepolia | `11155420` | `0xba90ca4c50eb571c855a1b8a1eb6bae3bcb9129d` |
-| 0G Galileo | `16602` | `0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad` |
+```text
+0xe92244e3368561faf21648146511DeDE3a475EB5
+```
 
-> zkSync Sepolia is one-command deploy-ready but not yet broadcast — its router address is intentionally
-> absent until it is. For any chain not listed, read its router straight from the README Deployments
-> table or its `broadcast/` record. **Never invent an address.**
+This is live on **Base Sepolia (84532)** today; the same address resolves on every chain as it is cut
+over (see [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md)). The only other per-chain value is the USDC `token`
+address — the contract code is the same multi-tenant router everywhere.
+
+Chains not yet on the mirror still run their own **pre-mirror** per-chain router. Don't hand-copy it: read
+it from the canonical, broadcast-derived source ([`web/lib/deployments.ts`](../web/lib/deployments.ts) or
+the [README Deployments table](../README.md#deployments)) and confirm the live feed/merchant config
+on-chain before relying on it. **Never invent or hand-copy an address** (law #4).
 
 ---
 
