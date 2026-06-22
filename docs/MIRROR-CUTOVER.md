@@ -121,7 +121,10 @@ grep -ri e92244e3 README.md web/lib/deployments.ts
    `script/mirror-manifest.json`) AND regenerates the README's MIRROR-STATUS table, flipping the chain
    to **✅ mirror** automatically. No hand-editing — `node web/scripts/sync-readme-status.mjs --check`
    asserts the README is in sync.
-6. **Commit the broadcast + the regenerated data** (`broadcast/`, `deployments/`, `web/lib/`, `README.md`).
+6. **Commit the broadcast + the regenerated data:**
+   `git add broadcast web/lib/deployments.ts web/lib/currentBytecode.ts README.md && git commit && git push`.
+   (Do NOT `git add deployments/` — that dir is gitignored; the committed broadcast is the durable record.)
+   Re-running an already-mirrored chain reverts with `CreateCollision` — that just means it's already done.
 
 ## Verify it landed
 
