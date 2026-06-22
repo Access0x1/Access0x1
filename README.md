@@ -447,6 +447,14 @@ and any address that is not yet booth-confirmed resolves to `address(0)` and is 
 `ChainRegistry` is the one sidecar deployed once per chain by `DeployChainRegistry` and carried in as
 config so the SDK keeps a single reference.
 
+> **Mirror-deployer guard (opt-in).** The CREATE3 mirror addresses in `script/mirror-manifest.json` are
+> derived from the *signer*, so a deploy signed by a different keystore EOA lands cleanly at a DIFFERENT
+> address set — with no revert — silently diverging from the published manifest. For a real mirror
+> deploy, set `ENFORCE_MIRROR_DEPLOYER=true` to require the broadcaster to be the canonical mirror EOA
+> (override the expected address with `MIRROR_DEPLOYER`); a wrong signer then fails loud with
+> `DeployAll: signer != canonical mirror EOA`. Left **off by default**, so local/test runs and ad-hoc
+> testnet experiments deploy under any signer.
+
 ```sh
 # Arc Testnet (Blockscout verify)
 forge script script/DeployAll.s.sol \

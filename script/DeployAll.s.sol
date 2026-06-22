@@ -130,6 +130,13 @@ contract DeployAll is Script {
     ///         a from-scratch redeploy that must not collide with the previous live addresses).
     string private constant SALT_NAMESPACE = "access0x1.v1.";
 
+    /// @notice The canonical mirror deployer EOA the published `script/mirror-manifest.json` addresses
+    ///         (and the proven Router proxy 0xe92244…5EB5) were computed for. CREATE3 salts embed the
+    ///         signer, so ONLY this EOA reproduces those addresses. The opt-in {_assertCanonicalDeployer}
+    ///         guard in {run} checks the broadcaster against this, so a real mirror deploy can never
+    ///         SILENTLY land at a different, undocumented address set under the wrong key.
+    address private constant CANONICAL_MIRROR_DEPLOYER = 0xA121e1eF31BbF0826aa67dc01e7977e80Af58D73;
+
     /// @notice The rest of the first-party surface, recorded as public state so a test / the SDK / the
     ///         frontend can read every wired address after `run()` without widening the return tuple
     ///         (the tuple stays `(router, lanes, helperConfig)`). `receiver` is `address(0)` when no CRE
@@ -200,6 +207,23 @@ contract DeployAll is Script {
         console2.log("manifest             :", path);
     }
 
+    /// @notice Opt-in guard: revert when `enforce` is set and the broadcasting `signer` is not the
+    ///         configured mirror deployer. A wrong signer otherwise deploys cleanly (NO revert) to a
+    ///         DIFFERENT mirror address set — CREATE3 salts embed the signer (see {_mirrorSalt}) — and
+    ///         silently diverges from the published `mirror-manifest.json`. Pure + signer-injected so
+    ///         the pass AND revert paths are unit-testable with zero env / global state. Default OFF, so
+    ///         local/test runs and ad-hoc testnet experiments deploy under any signer; set
+    ///         `ENFORCE_MIRROR_DEPLOYER=true` for a real mirror deploy to make a wrong key fail LOUD.
+    /// @param  enforce        From `ENFORCE_MIRROR_DEPLOYER` (default false — a loud-but-OPTIONAL rail).
+    /// @param  mirrorDeployer From `MIRROR_DEPLOYER` (default {CANONICAL_MIRROR_DEPLOYER}).
+    /// @param  signer         The actual broadcaster (`msg.sender` in {run}).
+    function _assertCanonicalDeployer(bool enforce, address mirrorDeployer, address signer)
+        internal
+        pure
+    {
+        require(!enforce || signer == mirrorDeployer, "DeployAll: signer != canonical mirror EOA");
+    }
+
     /// @notice CREATE3-deploy a UUPS implementation + its `ERC1967Proxy` at MIRROR addresses. Both land
     ///         at the same address on every chain (CREATE3 ignores init code). The proxy carries its
     ///         `initialize(...)` in its constructor (so it is initialized atomically and never left
@@ -242,6 +266,16 @@ contract DeployAll is Script {
         // The broadcaster — the ONLY address that can claim these salts, and the default Ownable2Step
         // admin. `msg.sender` here is the `--sender` EOA.
         deployer = msg.sender;
+
+        // Opt-in mirror-deployer guard: MIRROR_DEPLOYER defaults to the canonical EOA the manifest was
+        // computed for; ENFORCE_MIRROR_DEPLOYER=true makes a wrong signer fail LOUD on a real mirror
+        // deploy instead of silently landing at a divergent address set. Off by default (no behavior
+        // change for local/test runs + ad-hoc testnet experiments).
+        _assertCanonicalDeployer(
+            vm.envOr("ENFORCE_MIRROR_DEPLOYER", false),
+            vm.envOr("MIRROR_DEPLOYER", CANONICAL_MIRROR_DEPLOYER),
+            msg.sender
+        );
 
         address owner = vm.envOr("ROUTER_OWNER", msg.sender);
         bool deployLanes = vm.envOr("DEPLOY_PAYMENT_LANES", false);
