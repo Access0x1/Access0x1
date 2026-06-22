@@ -710,6 +710,11 @@ no unbounded loops · `Ownable2Step` admin. **Money paths roll back rather than 
 rescues are never blocked.** Secrets never enter the repo (env + `cast wallet` keystore only); the
 deployer is a burner key.
 
+**Clear signing (What-You-See-Is-What-You-Sign).** Access0x1 ships an [ERC-7730 descriptor](clear-signing/README.md)
+for the router — a hardware-wallet customer sees **"Pay $29.00 to merchant #7 (order 0x…)"** instead of
+the blind hex that, unread, drained Bybit (~$1.5B) and Radiant (~$50M). One descriptor covers all eight
+mirror chains; an ERC-8213 calldata digest is the cross-device fallback for not-yet-described contracts.
+
 ### The proof
 
 | | |
