@@ -69,6 +69,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
 .PHONY: help install build test test-gas test-scenario coverage coverage-lcov snapshot \
         fmt fmt-check clean sizes storage-layout \
         gate aderyn slither analyze mutation halmos audit anvil \
+        deploy-pick mirror-manifest sync \
         deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
         deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet \
@@ -226,6 +227,10 @@ deploy-pick: ## Interactive: pick which chains to mirror-deploy (shows gas + mir
 
 mirror-manifest: ## Compute every contract's CREATE3 mirror address from its salt (no deploy) -> script/mirror-manifest.json
 	@./script/mirror-manifest.sh
+
+sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status
+	@node web/scripts/gen-deployments.mjs
+	@node web/scripts/sync-readme-status.mjs
 
 deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
