@@ -72,7 +72,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
         deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet \
-        verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-all-testnets verify-all-sourcify \
+        verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-arbitrum-sepolia verify-polygon-amoy verify-galileo verify-all-testnets verify-all-sourcify \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
         deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
         deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
@@ -328,7 +328,8 @@ deploy-polygon-amoy: ## Deploy to Polygon Amoy (polygonscan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(POLYGON_AMOY_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 
 deploy-avalanche-fuji: ## Deploy to Avalanche Fuji (snowtrace verify)
-	forge script script/DeployAll.s.sol --rpc-url $(AVALANCHE_FUJI_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	forge script script/DeployAll.s.sol --rpc-url $(AVALANCHE_FUJI_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
+	@echo "Fuji broadcast complete — verify with: make verify-avalanche-fuji (Routescan, keyless). Etherscan V2 does not cover Fuji."
 
 deploy-bnb-testnet: ## Deploy to BNB Smart Chain testnet (bscscan verify)
 	forge script script/DeployAll.s.sol --rpc-url $(BNB_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
@@ -372,6 +373,15 @@ verify-avalanche-fuji: ## Verify deployed Avalanche Fuji contracts (Routescan / 
 verify-arc: ## Verify deployed Arc testnet contracts (Blockscout / arcscan; set ARC_SCAN_VERIFIER_URL)
 	./script/verify-blockscout.sh 5042002 $(ARC_TESTNET_RPC_URL) $(ARC_SCAN_VERIFIER_URL)
 
+verify-arbitrum-sepolia: ## Verify deployed Arbitrum Sepolia contracts (Etherscan V2)
+	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 421614 $(ARBITRUM_SEPOLIA_RPC_URL)
+
+verify-polygon-amoy: ## Verify deployed Polygon Amoy contracts (Etherscan V2)
+	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 80002 $(POLYGON_AMOY_RPC_URL)
+
+verify-galileo: ## Verify deployed 0G Galileo contracts (Blockscout; set GALILEO_VERIFIER_URL)
+	./script/verify-blockscout.sh 16602 $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) $(GALILEO_VERIFIER_URL)
+
 # One-shot: verify EVERY deployed testnet best-effort (the leading `-` keeps going past a chain whose
 # explorer is down / rate-limited). The per-chain targets above give granular control + clearer errors.
 verify-all-testnets: ## Verify all deployed testnet contracts (best-effort) + a one-line-per-contract digest
@@ -382,6 +392,9 @@ verify-all-testnets: ## Verify all deployed testnet contracts (best-effort) + a 
 	-@$(MAKE) verify-avalanche-fuji
 	-@$(MAKE) verify-arc
 	-@$(MAKE) verify-robinhood-testnet
+	-@$(MAKE) verify-arbitrum-sepolia
+	-@$(MAKE) verify-polygon-amoy
+	-@$(MAKE) verify-galileo
 	@echo ""; ./script/verify-summary.sh
 
 # Additionally verify on Sourcify — the decentralized, KEYLESS registry (sourcify.dev) that wallets +

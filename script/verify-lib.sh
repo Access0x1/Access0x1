@@ -75,3 +75,35 @@ verify_with_retry() {
     sleep $((attempt * 10))
   done
 }
+
+# enumerate_deployed <broadcastPath> <chainId> — emit one "ContractName Address" row per verifiable
+# deployed contract on this chain. The SINGLE source of the contract list for all three verifiers (DRY).
+#
+# Source order:
+#   1. deployments/<chainId>.json — the manifest DeployAll writes (a JSON array of {name,address}).
+#      Deploy-path-independent + logical; preferred when present.
+#   2. The broadcast — read BOTH top-level CREATEs (the legacy direct-deploy shape) AND, crucially,
+#      `.transactions[].additionalContracts[]` CREATEs (the CreateX CREATE3 shape: every contract is
+#      created INSIDE a factory CALL, so it appears ONLY here, never as a top-level CREATE — this is the
+#      bug the old `.transactions[] | select(.transactionType=="CREATE")` filter missed, matching 0).
+#      CreateX's internal CREATE2 minimal-proxy shims carry no contractName and are skipped.
+# Both sources yield the same rows: 12 impls (by real name) + 12 "ERC1967Proxy" proxies (+ optional
+# Access0x1Receiver / mocks). Returns non-zero only when NEITHER source exists.
+enumerate_deployed() {
+  local bcast="$1" chainid="$2"
+  local manifest="deployments/${chainid}.json"
+  if [ -f "$manifest" ]; then
+    jq -r '.[] | "\(.name) \(.address)"' "$manifest"
+    return 0
+  fi
+  [ -f "$bcast" ] || return 1
+  jq -r '
+    ( [ .transactions[]
+        | select(.transactionType == "CREATE" and .contractName != null)
+        | { n: .contractName, a: .contractAddress } ]
+    + [ .transactions[].additionalContracts[]?
+        | select(.transactionType == "CREATE" and .contractName != null)
+        | { n: .contractName, a: .address } ]
+    ) | .[] | "\(.n) \(.a)"
+  ' "$bcast"
+}

@@ -236,6 +236,24 @@ Want to *see money move*? `make drive-local` runs a full coffee-shop payment on 
 (register a merchant → quote in USD → pay in USDC → `net + fee == gross`, zero custody). Copy-paste
 `cast` walkthroughs for every contract are in [`docs/MANUAL-TESTING.md`](docs/MANUAL-TESTING.md).
 
+### Deploy + verify a real testnet — the whole flow
+
+```sh
+cp .env.example .env        # then set: DEPLOYER_ACCOUNT (keystore name) · DEPLOYER (its address) ·
+                            #           ETHERSCAN_API_KEY (one V2 key, all Etherscan-family chains) ·
+                            #           <CHAIN>_PLATFORM_TREASURY (required) — RPCs already default
+cast wallet import deployer # once; the keystore the deploy signs with
+make deploy-base-sepolia    # broadcasts the full stack AND writes deployments/<chainId>.json
+make verify-base-sepolia    # verifies EVERY contract by address (re-runnable, idempotent)
+```
+
+Deploy and verify are split on purpose: the broadcast always lands first (so a flaky explorer never
+costs a redeploy), then `make verify-<chain>` submits sources from the recorded
+`deployments/<chainId>.json` (or the broadcast). It works regardless of CREATE3 — verification reads
+the on-chain runtime bytecode, so the factory-CALL deploy shape is irrelevant. Per-explorer routing is
+automatic: Etherscan V2 (one key) for Base/Sepolia/Optimism/Arbitrum/Polygon, Blockscout for
+Arc/Robinhood/0G (`make verify-galileo`), Routescan for Avalanche Fuji.
+
 ### Run the web app
 
 ```sh

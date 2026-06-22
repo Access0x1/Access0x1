@@ -162,6 +162,44 @@ contract DeployAll is Script {
         return bytes32(abi.encodePacked(deployer, bytes1(0x00), tag));
     }
 
+    /// @notice Deployment manifest accumulated during run() — (contract name, address) for EVERY
+    ///         contract deployed. Written to deployments/<chainId>.json at the end so verify-*.sh can
+    ///         verify each BY ADDRESS: CREATE3 deploys are factory CALLs (to CreateX), so the contracts
+    ///         NEVER appear as top-level CREATEs in the broadcast — this manifest is the reliable source.
+    string[] private _manifestNames;
+    address[] private _manifestAddrs;
+
+    /// @dev Record a (name, address) pair for the manifest. `name` is the VERIFIABLE contract name
+    ///      ("Access0x1Router" for an impl, "ERC1967Proxy" for a proxy) so verify-lib.sh resolves its
+    ///      source path.
+    function _record(string memory name, address addr) private {
+        _manifestNames.push(name);
+        _manifestAddrs.push(addr);
+    }
+
+    /// @notice Write deployments/<chainId>.json — a JSON array of {name, address} for every deployed
+    ///         contract — so the verify scripts verify each by address regardless of the CREATE3
+    ///         factory-CALL deploy shape. A cheatcode (no tx); runs after the broadcast.
+    function _writeManifest() private {
+        string memory json = "[";
+        for (uint256 i = 0; i < _manifestNames.length; i++) {
+            json = string.concat(
+                json,
+                i == 0 ? "" : ",",
+                "{\"name\":\"",
+                _manifestNames[i],
+                "\",\"address\":\"",
+                vm.toString(_manifestAddrs[i]),
+                "\"}"
+            );
+        }
+        json = string.concat(json, "]");
+        vm.createDir("deployments", true);
+        string memory path = string.concat("deployments/", vm.toString(block.chainid), ".json");
+        vm.writeFile(path, json);
+        console2.log("manifest             :", path);
+    }
+
     /// @notice CREATE3-deploy a UUPS implementation + its `ERC1967Proxy` at MIRROR addresses. Both land
     ///         at the same address on every chain (CREATE3 ignores init code). The proxy carries its
     ///         `initialize(...)` in its constructor (so it is initialized atomically and never left
@@ -178,9 +216,11 @@ contract DeployAll is Script {
     {
         address impl =
             CREATEX.deployCreate3(_mirrorSalt(string.concat(label, ".impl")), implInitCode);
+        _record(label, impl); // the implementation — verified AS <label> (its real source)
         bytes memory proxyInitCode =
             abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(impl, initCalldata));
         proxy = CREATEX.deployCreate3(_mirrorSalt(string.concat(label, ".proxy")), proxyInitCode);
+        _record("ERC1967Proxy", proxy); // the proxy — verified AS ERC1967Proxy (ctor: impl, initData)
     }
 
     /// @notice Deploy + wire the full first-party surface (and optionally the lanes ledger + the CRE
@@ -271,6 +311,7 @@ contract DeployAll is Script {
                     )
                 )
             );
+            _record("Access0x1Receiver", address(receiver));
             console2.log("Access0x1Receiver     :", address(receiver));
             console2.log("  CRE forwarder       :", cfg.creForwarder);
         }
@@ -435,6 +476,11 @@ contract DeployAll is Script {
         _configureExtraPayTokens(router);
 
         vm.stopBroadcast();
+
+        // Emit the address manifest the verify-*.sh scripts read. CREATE3 deploys are factory CALLs, so
+        // the contracts never appear as top-level CREATEs in the broadcast — this name->address map is
+        // what makes `make verify-<chain>` able to find + verify every contract.
+        _writeManifest();
     }
 
     /// @notice The non-USDC pay-token symbols whose env pairs (`TOKEN_<SYM>_ADDR` / `TOKEN_<SYM>_USD_FEED`)
