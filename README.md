@@ -574,13 +574,13 @@ carries those addresses (no chain is claimed mirrored otherwise):
 | --- | --- | --- |
 | 0G Galileo Testnet | `16602` | ⏳ pre-mirror |
 | Tempo Testnet (Moderato) | `42431` | ⏳ pre-mirror |
-| Avalanche Fuji | `43113` | ⏳ pre-mirror |
-| Chain 46630 | `46630` | ⏳ pre-mirror |
+| Avalanche Fuji | `43113` | ✅ mirror |
+| Chain 46630 | `46630` | ✅ mirror |
 | Base Sepolia | `84532` | ✅ mirror |
 | Hoodi | `560048` | ⏳ pre-mirror |
-| Arc Testnet | `5042002` | ⏳ pre-mirror |
-| Sepolia | `11155111` | ⏳ pre-mirror |
-| OP Sepolia | `11155420` | ⏳ pre-mirror |
+| Arc Testnet | `5042002` | ✅ mirror |
+| Sepolia | `11155111` | ✅ mirror |
+| OP Sepolia | `11155420` | ✅ mirror |
 
 <!-- MIRROR-STATUS:END -->
 
