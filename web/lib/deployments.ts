@@ -510,6 +510,150 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
     ]
   },
   {
+    "chainId": 421614,
+    "name": "Arbitrum Sepolia",
+    "explorer": "https://sepolia.arbiscan.io",
+    "rpc": "https://sepolia-rollup.arbitrum.io/rpc",
+    "deployments": [
+      {
+        "contractName": "Access0x1Bookings.impl",
+        "address": "0xad3dbc884d29ea749f2ac16178b0fdac66acb6b4"
+      },
+      {
+        "contractName": "Access0x1Bookings.proxy",
+        "address": "0xa7230ddd55c6bfc3479636fa320e46889a8b1863"
+      },
+      {
+        "contractName": "Access0x1Escrow.impl",
+        "address": "0xf87c5619d8906811fcd3945b56bfb6d45d2f3730"
+      },
+      {
+        "contractName": "Access0x1Escrow.proxy",
+        "address": "0x3459e890516a29d406fcbdc9b4cd99ce8114da0d"
+      },
+      {
+        "contractName": "Access0x1GiftCards.impl",
+        "address": "0x7d591535d56da5ca1b178553a443b49084a78f55"
+      },
+      {
+        "contractName": "Access0x1GiftCards.proxy",
+        "address": "0xf94df7293e48e69f91a1e2c4f48580c6901d6c2c"
+      },
+      {
+        "contractName": "Access0x1Invoices.impl",
+        "address": "0x16188291f27bb820da27c64b852277a62a6475fa"
+      },
+      {
+        "contractName": "Access0x1Invoices.proxy",
+        "address": "0x902382d472aaf6bd90e000c315a861f6b493bcea"
+      },
+      {
+        "contractName": "Access0x1Nft.impl",
+        "address": "0x13a80b7543a0caed7e64281109b2c1ac25677d07"
+      },
+      {
+        "contractName": "Access0x1Nft.proxy",
+        "address": "0x9625bec5e2ed53b48e4cbcbbbe9287c00db31178"
+      },
+      {
+        "contractName": "Access0x1ProvenanceRegistry.impl",
+        "address": "0xacc0a130e1366a2e3a9fe7932a7b424d906487bb"
+      },
+      {
+        "contractName": "Access0x1ProvenanceRegistry.proxy",
+        "address": "0x899b9e0b633bc46f56d7ec34ad667147d8e68ceb"
+      },
+      {
+        "contractName": "Access0x1Router.impl",
+        "address": "0x3336ec82d865e8bd1f9054856ac22b45a71207db"
+      },
+      {
+        "contractName": "Access0x1Router.proxy",
+        "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+      },
+      {
+        "contractName": "Access0x1Subscriptions.impl",
+        "address": "0xd0f21319739cfd94989ab68d69a4268ff141f1ee"
+      },
+      {
+        "contractName": "Access0x1Subscriptions.proxy",
+        "address": "0x787d2d97f7b0b0a7afe1ecd97032912fefe8e0ba"
+      },
+      {
+        "contractName": "AutomationGateway.impl",
+        "address": "0x39e3ffa33873f89f4a3c18383f663d177e65031a"
+      },
+      {
+        "contractName": "AutomationGateway.proxy",
+        "address": "0x2b664ca5a28498cc62b475576fee6835dd51060b"
+      },
+      {
+        "contractName": "GaslessPayIn.impl",
+        "address": "0xa754cd3a561a3f870163fca3472713337981a55d"
+      },
+      {
+        "contractName": "GaslessPayIn.proxy",
+        "address": "0x09fe591f8b0b9904005d529382cdbc6a7abe8444"
+      },
+      {
+        "contractName": "HouseTokenFactory.impl",
+        "address": "0x86cbc26a3d20d0d4f4bd89f56ac34906cbb091c0"
+      },
+      {
+        "contractName": "HouseTokenFactory.proxy",
+        "address": "0x5a7f065f675779d76a376c15be496d799b1469db"
+      },
+      {
+        "contractName": "PaymentLanes.impl",
+        "address": "0x6312b40510c0718d2e7b8a9a6490b4fc6a4dfe9f"
+      },
+      {
+        "contractName": "PaymentLanes.proxy",
+        "address": "0x49bb2c3d3aae0ad260f3ce76fa78e0323aae2510"
+      },
+      {
+        "contractName": "PriceOracleAdapter.impl",
+        "address": "0xc084a2175a1af492ea79806917891e1d1c494d94"
+      },
+      {
+        "contractName": "PriceOracleAdapter.proxy",
+        "address": "0x8c1a8356ffa9e4dd44c4affac87323cabf1a62b6"
+      },
+      {
+        "contractName": "Receivables.impl",
+        "address": "0xa4df54244965fafb2a897c4fe67cda891be78ec0"
+      },
+      {
+        "contractName": "Receivables.proxy",
+        "address": "0x421a5eaf9cdd39d2bce96160c256d9368503a911"
+      },
+      {
+        "contractName": "Refunds.impl",
+        "address": "0x9ace9c94a94b7d4a27b9a46e0e93577c1d461b75"
+      },
+      {
+        "contractName": "Refunds.proxy",
+        "address": "0x7dc4c23954f1c57c84d299182e693336fbd564c4"
+      },
+      {
+        "contractName": "SessionGrant.impl",
+        "address": "0x7c59aa000904efc5e15b03081963f7e406424d7f"
+      },
+      {
+        "contractName": "SessionGrant.proxy",
+        "address": "0xf84fea541939f3683893530101fe77d05c390c9d"
+      },
+      {
+        "contractName": "SplitSettler.impl",
+        "address": "0x6c7254e7f71fae5c70ce2c56a0235704fb1504e2"
+      },
+      {
+        "contractName": "SplitSettler.proxy",
+        "address": "0x4dadec51e103ca75ad8a567e284b19f02663eebe"
+      }
+    ]
+  },
+  {
     "chainId": 560048,
     "name": "Hoodi",
     "explorer": "https://hoodi.etherscan.io",
@@ -553,6 +697,150 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
     "chainId": 5042002,
     "name": "Arc Testnet",
     "rpc": "https://rpc.testnet.arc.network",
+    "deployments": [
+      {
+        "contractName": "Access0x1Bookings.impl",
+        "address": "0xad3dbc884d29ea749f2ac16178b0fdac66acb6b4"
+      },
+      {
+        "contractName": "Access0x1Bookings.proxy",
+        "address": "0xa7230ddd55c6bfc3479636fa320e46889a8b1863"
+      },
+      {
+        "contractName": "Access0x1Escrow.impl",
+        "address": "0xf87c5619d8906811fcd3945b56bfb6d45d2f3730"
+      },
+      {
+        "contractName": "Access0x1Escrow.proxy",
+        "address": "0x3459e890516a29d406fcbdc9b4cd99ce8114da0d"
+      },
+      {
+        "contractName": "Access0x1GiftCards.impl",
+        "address": "0x7d591535d56da5ca1b178553a443b49084a78f55"
+      },
+      {
+        "contractName": "Access0x1GiftCards.proxy",
+        "address": "0xf94df7293e48e69f91a1e2c4f48580c6901d6c2c"
+      },
+      {
+        "contractName": "Access0x1Invoices.impl",
+        "address": "0x16188291f27bb820da27c64b852277a62a6475fa"
+      },
+      {
+        "contractName": "Access0x1Invoices.proxy",
+        "address": "0x902382d472aaf6bd90e000c315a861f6b493bcea"
+      },
+      {
+        "contractName": "Access0x1Nft.impl",
+        "address": "0x13a80b7543a0caed7e64281109b2c1ac25677d07"
+      },
+      {
+        "contractName": "Access0x1Nft.proxy",
+        "address": "0x9625bec5e2ed53b48e4cbcbbbe9287c00db31178"
+      },
+      {
+        "contractName": "Access0x1ProvenanceRegistry.impl",
+        "address": "0xacc0a130e1366a2e3a9fe7932a7b424d906487bb"
+      },
+      {
+        "contractName": "Access0x1ProvenanceRegistry.proxy",
+        "address": "0x899b9e0b633bc46f56d7ec34ad667147d8e68ceb"
+      },
+      {
+        "contractName": "Access0x1Router.impl",
+        "address": "0x3336ec82d865e8bd1f9054856ac22b45a71207db"
+      },
+      {
+        "contractName": "Access0x1Router.proxy",
+        "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+      },
+      {
+        "contractName": "Access0x1Subscriptions.impl",
+        "address": "0xd0f21319739cfd94989ab68d69a4268ff141f1ee"
+      },
+      {
+        "contractName": "Access0x1Subscriptions.proxy",
+        "address": "0x787d2d97f7b0b0a7afe1ecd97032912fefe8e0ba"
+      },
+      {
+        "contractName": "AutomationGateway.impl",
+        "address": "0x39e3ffa33873f89f4a3c18383f663d177e65031a"
+      },
+      {
+        "contractName": "AutomationGateway.proxy",
+        "address": "0x2b664ca5a28498cc62b475576fee6835dd51060b"
+      },
+      {
+        "contractName": "GaslessPayIn.impl",
+        "address": "0xa754cd3a561a3f870163fca3472713337981a55d"
+      },
+      {
+        "contractName": "GaslessPayIn.proxy",
+        "address": "0x09fe591f8b0b9904005d529382cdbc6a7abe8444"
+      },
+      {
+        "contractName": "HouseTokenFactory.impl",
+        "address": "0x86cbc26a3d20d0d4f4bd89f56ac34906cbb091c0"
+      },
+      {
+        "contractName": "HouseTokenFactory.proxy",
+        "address": "0x5a7f065f675779d76a376c15be496d799b1469db"
+      },
+      {
+        "contractName": "PaymentLanes.impl",
+        "address": "0x6312b40510c0718d2e7b8a9a6490b4fc6a4dfe9f"
+      },
+      {
+        "contractName": "PaymentLanes.proxy",
+        "address": "0x49bb2c3d3aae0ad260f3ce76fa78e0323aae2510"
+      },
+      {
+        "contractName": "PriceOracleAdapter.impl",
+        "address": "0xc084a2175a1af492ea79806917891e1d1c494d94"
+      },
+      {
+        "contractName": "PriceOracleAdapter.proxy",
+        "address": "0x8c1a8356ffa9e4dd44c4affac87323cabf1a62b6"
+      },
+      {
+        "contractName": "Receivables.impl",
+        "address": "0xa4df54244965fafb2a897c4fe67cda891be78ec0"
+      },
+      {
+        "contractName": "Receivables.proxy",
+        "address": "0x421a5eaf9cdd39d2bce96160c256d9368503a911"
+      },
+      {
+        "contractName": "Refunds.impl",
+        "address": "0x9ace9c94a94b7d4a27b9a46e0e93577c1d461b75"
+      },
+      {
+        "contractName": "Refunds.proxy",
+        "address": "0x7dc4c23954f1c57c84d299182e693336fbd564c4"
+      },
+      {
+        "contractName": "SessionGrant.impl",
+        "address": "0x7c59aa000904efc5e15b03081963f7e406424d7f"
+      },
+      {
+        "contractName": "SessionGrant.proxy",
+        "address": "0xf84fea541939f3683893530101fe77d05c390c9d"
+      },
+      {
+        "contractName": "SplitSettler.impl",
+        "address": "0x6c7254e7f71fae5c70ce2c56a0235704fb1504e2"
+      },
+      {
+        "contractName": "SplitSettler.proxy",
+        "address": "0x4dadec51e103ca75ad8a567e284b19f02663eebe"
+      }
+    ]
+  },
+  {
+    "chainId": 11142220,
+    "name": "Celo Sepolia Testnet",
+    "explorer": "https://celo-sepolia.blockscout.com",
+    "rpc": "https://forno.celo-sepolia.celo-testnet.org",
     "deployments": [
       {
         "contractName": "Access0x1Bookings.impl",
