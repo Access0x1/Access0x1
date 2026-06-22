@@ -11,6 +11,43 @@ the mirror has been cut over to. The canonical set is computed (not deployed) on
 This guide is the runbook for rolling that set out chain by chain, and for keeping the README + the web
 deployments view honest as each chain lands.
 
+## The commands (deploy one chain at a time)
+
+On this branch **`make deploy-<chain>` IS the CREATE3 mirror deploy** — `DeployAll.s.sol` deploys the
+whole surface through CreateX, so there is no separate "create3" step. Deploy one chain, verify, refresh
+the web view, repeat. (Full chain list: `make help`.)
+
+```sh
+# ── one-time prep ─────────────────────────────────────────────────────────────
+cast wallet list            # `deployer` MUST resolve to the canonical mirror EOA — the salt embeds the
+                            # signer, so a different key lands a DIFFERENT address set:
+                            #   0xA121e1eF31BbF0826aa67dc01e7977e80Af58D73
+# in .env:
+#   DEPLOYER=0xA121e1eF31BbF0826aa67dc01e7977e80Af58D73
+#   ENFORCE_MIRROR_DEPLOYER=true   # halt LOUD if the signer is wrong (can't fork the address set)
+#   <CHAIN>_RPC_URL=...            # Alchemy/Tenderly (public RPCs are defaulted)
+#   ETHERSCAN_API_KEY=...          # ONE Etherscan V2 key verifies every Etherscan-family explorer
+#   <CHAIN>_VERIFIER_URL=...       # only for Blockscout chains (arc, mantle, galileo, …)
+make mirror-manifest        # print/verify the deterministic addresses (no deploy)
+make deploy-pick            # per-chain gas + which chains are already mirrored
+
+# ── deploy ONE chain (mirror + inline verify) ─────────────────────────────────
+make deploy-base-sepolia                 # swap base-sepolia for any chain
+node web/scripts/gen-deployments.mjs     # refresh the web deployments view
+
+# ── re-verify only (a flaky explorer 504'd AFTER the broadcast already landed) ─
+make verify-base-sepolia                 # chains with a dedicated target
+make verify-chain CHAIN=84532 RPC=$BASE_SEPOLIA_RPC_URL [VERIFIER_URL=<blockscout-api>]   # any chain
+RESUME=1 make deploy-base-sepolia        # retry verify against the existing broadcast, no re-deploy
+```
+
+**Redeploy these (pre-mirror today, each has a `make deploy-<chain>` target):** `deploy-arc` ·
+`deploy-ethereum-sepolia` · `deploy-optimism-sepolia` · `deploy-avalanche-fuji` ·
+`deploy-robinhood-testnet` · `deploy-galileo` (run `make bootstrap-createx-galileo` first). Tempo (42431)
+and Hoodi (560048) have no Makefile target — deploy them with a direct `forge script script/DeployAll.s.sol
+--rpc-url <rpc> --account deployer --sender $DEPLOYER --broadcast`. **Base Sepolia (84532) is already
+mirrored — do NOT redeploy it** (its CREATE3 salt is claimed; a redeploy reverts).
+
 ## Status at a glance
 
 A chain is only ever called "mirrored" once its committed `broadcast/` record carries the manifest
@@ -31,6 +68,14 @@ addresses — **don't trust this table, re-derive it** (see *How to read the liv
 
 Only **Base Sepolia** carries the mirror today. The pre-mirror chains still run their own per-chain
 address sets (the README "pre-mirror per-chain deploys" table) until cut over.
+
+**Mirror coverage — 13 of 18 deployable contracts.** `DeployAll` mirrors the money spine + the auth +
+commerce surface (Router, PaymentLanes, SessionGrant, HouseTokenFactory, Subscriptions, Bookings,
+Invoices, GiftCards, Nft, Escrow, AutomationGateway, ProvenanceRegistry, + the Receiver). **NOT yet in
+the mirror:** `GaslessPayIn`, `PriceOracleAdapter`, `Receivables`, `Refunds`, `SplitSettler` — all UUPS +
+tested in `src/`, but never wired into `DeployAll`, so they have no canonical cross-chain address. Adding
+them is **additive** (the existing 13 addresses don't change; regenerate `mirror-manifest.json`) and is
+the open task to use CREATE3 to its fullest.
 
 ## How to read the live state (don't trust the table — verify)
 
