@@ -47,8 +47,13 @@ interface ICreateX {
 contract Create3MirrorSpike is Test {
     ICreateX private constant CREATEX = ICreateX(0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed);
 
-    /// @dev A fixed deployer EOA — the real Access0x1 deployer. Pinned so both forks use one salt.
-    address private constant DEPLOYER = 0xA121e1eF31BbF0826aa67dc01e7977e80Af58D73;
+    /// @dev A fixed TEST-ONLY deployer (deliberately NOT the real Access0x1 EOA). Pinned so both forks
+    ///      derive ONE salt → the SAME mirror address, which is the whole point of the test. Using the
+    ///      real EOA here would compute the LIVE mirror address (0xe92244e3…), and once that address is
+    ///      actually deployed on a forked chain (it now is on Base Sepolia) CreateX reverts
+    ///      FailedContractCreation on the collision — so this proof must use an address whose mirror slot
+    ///      is guaranteed empty on every fork.
+    address private constant DEPLOYER = 0x00000000000000000000000000000000c3e37357;
     address private constant TREASURY = DEPLOYER; // uniform across chains (kept out of nothing chain-specific)
     uint16 private constant FEE_BPS = 100; // 1.00% - uniform, well under MAX_FEE_BPS
 

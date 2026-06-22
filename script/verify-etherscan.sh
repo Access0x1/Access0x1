@@ -48,7 +48,8 @@ log_skip() {
   exit 1
 }
 
-[ -f "$BCAST" ] || log_skip "no broadcast (deploy to chain ${CHAIN_ID} first)"
+{ [ -f "deployments/${CHAIN_ID}.json" ] || [ -f "$BCAST" ]; } \
+  || log_skip "no deployments/${CHAIN_ID}.json manifest or broadcast (deploy to chain ${CHAIN_ID} first)"
 
 # Build the verifier flags for the chosen mode.
 if [ -n "$VERIFIER_URL" ]; then
@@ -75,6 +76,6 @@ while read -r NAME ADDR; do
     fail=1
   fi
   sleep "$THROTTLE"
-done < <(jq -r '.transactions[] | select(.transactionType=="CREATE" and .contractName != null) | "\(.contractName) \(.contractAddress)"' "$BCAST")
+done < <(enumerate_deployed "$BCAST" "$CHAIN_ID")
 
 exit $fail
