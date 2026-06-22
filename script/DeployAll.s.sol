@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import { Script, console2 } from "forge-std/Script.sol";
+import { VmSafe } from "forge-std/Vm.sol";
 import { Access0x1Router } from "../src/Access0x1Router.sol";
 import { PaymentLanes } from "../src/PaymentLanes.sol";
 import { SessionGrant } from "../src/SessionGrant.sol";
@@ -188,6 +189,13 @@ contract DeployAll is Script {
     ///         contract — so the verify scripts verify each by address regardless of the CREATE3
     ///         factory-CALL deploy shape. A cheatcode (no tx); runs after the broadcast.
     function _writeManifest() private {
+        // Persist the manifest ONLY during a real `forge script` run (dry-run / broadcast / resume).
+        // During `forge test`, many suites call run() concurrently at chainid 31337 and would RACE on
+        // the shared deployments/<chainid>.json file — the manifest, like the broadcast, is a DEPLOY
+        // artifact, never a test artifact.
+        if (!vm.isContext(VmSafe.ForgeContext.ScriptGroup)) {
+            return;
+        }
         string memory json = "[";
         for (uint256 i = 0; i < _manifestNames.length; i++) {
             json = string.concat(
