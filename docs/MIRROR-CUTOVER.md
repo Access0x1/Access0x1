@@ -33,7 +33,7 @@ make deploy-pick            # per-chain gas + which chains are already mirrored
 
 # ── deploy ONE chain (mirror + inline verify) ─────────────────────────────────
 make deploy-base-sepolia                 # swap base-sepolia for any chain
-node web/scripts/gen-deployments.mjs     # refresh the web deployments view
+make sync                                # refresh ALL derived docs+data (web maps + README status)
 
 # ── re-verify only (a flaky explorer 504'd AFTER the broadcast already landed) ─
 make verify-base-sepolia                 # chains with a dedicated target
@@ -116,11 +116,12 @@ grep -ri e92244e3 README.md web/lib/deployments.ts
    # or, generically:
    make verify-chain CHAIN=<id> RPC=<url> [VERIFIER_URL=<blockscout-api>]
    ```
-5. **Regen the web view** — `node web/scripts/gen-deployments.mjs` rebuilds `web/lib/deployments.ts`;
-   the chain now shows the mirror set (each nameless CreateX `additionalContract` is named via
-   `script/mirror-manifest.json`).
-6. **Update the README** — move the chain's row to **Mirror live ✅** in the cutover-status table in
-   [`../README.md`](../README.md) (and drop its now-superseded pre-mirror rows).
+5. **Refresh all derived docs + data** — `make sync` rebuilds `web/lib/deployments.ts` (the chain now
+   shows the mirror set — each nameless CreateX `additionalContract` is named via
+   `script/mirror-manifest.json`) AND regenerates the README's MIRROR-STATUS table, flipping the chain
+   to **✅ mirror** automatically. No hand-editing — `node web/scripts/sync-readme-status.mjs --check`
+   asserts the README is in sync.
+6. **Commit the broadcast + the regenerated data** (`broadcast/`, `deployments/`, `web/lib/`, `README.md`).
 
 ## Verify it landed
 
