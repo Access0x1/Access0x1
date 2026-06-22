@@ -187,8 +187,10 @@ describe('usePayment — typed reverts', () => {
   it('surfaces a stale-price revert from the quote read', async () => {
     const client = makeMockClient({
       reads: {
+        // The router surfaces the FULLY-QUALIFIED OracleLib selector — `OracleLib__StalePrice`, not a
+        // bare `StalePrice` — so the mock must throw that exact name to exercise the real mapping path.
         quote: () => {
-          throw revertError('StalePrice');
+          throw revertError('OracleLib__StalePrice');
         },
       },
     });
