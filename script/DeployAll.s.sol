@@ -16,6 +16,11 @@ import { Access0x1Nft } from "../src/Access0x1Nft.sol";
 import { Access0x1Escrow } from "../src/Access0x1Escrow.sol";
 import { AutomationGateway } from "../src/AutomationGateway.sol";
 import { Access0x1ProvenanceRegistry } from "../src/Access0x1ProvenanceRegistry.sol";
+import { GaslessPayIn } from "../src/GaslessPayIn.sol";
+import { PriceOracleAdapter } from "../src/PriceOracleAdapter.sol";
+import { Receivables } from "../src/Receivables.sol";
+import { Refunds } from "../src/Refunds.sol";
+import { SplitSettler } from "../src/SplitSettler.sol";
 import {
     IAccess0x1Router,
     IAccess0x1Subscriptions
@@ -44,15 +49,21 @@ import { ICreateX } from "./interfaces/ICreateX.sol";
 ///           11. {Access0x1Invoices}      — pay-once USD payment requests over the Router.
 ///           12. {Access0x1GiftCards}     — prepaid USD balances + coupons over the Router.
 ///           13. {Access0x1Nft}           — merchant NFT minting paid through the Router.
+///           14. {GaslessPayIn}           — gasless "first-dollar" pay-in from one off-chain signature.
+///           15. {Refunds}                — time-boxed, merchant-authorized refunds / chargebacks by orderId.
+///           16. {SplitSettler}           — one USD payment fanned out to N payees by basis points.
+///           17. {Receivables}            — tokenized, factorable invoices (an ERC-721 the holder is paid on).
+///           18. {PriceOracleAdapter}     — a swappable ERC-7726 price-oracle surface (standalone, owner-only).
 ///
-///         The commerce surface (8–13) plus {Access0x1Escrow} COMPOSES the spine: each is constructed
+///         The commerce + settlement surface (8–17) plus {Access0x1Escrow} COMPOSES the spine: each is constructed
 ///         with the freshly deployed Router (and, for Subscriptions/Bookings, the SessionGrant), so
 ///         `net + fee == gross`, the OracleLib staleness guard, the never-negative meter, and tenant
 ///         isolation are all inherited from the audited spine, never re-derived. {AutomationGateway}
 ///         composes {Access0x1Subscriptions} (its permissionless renew driver). They need NO router-side
 ///         registration — the Router's merchant registry is their single source of truth for
-///         owner-authorization. {Access0x1ProvenanceRegistry} has no on-chain deps (a standalone
-///         EIP-712 attestation surface the SDK reads).
+///         owner-authorization. {Access0x1ProvenanceRegistry} + {PriceOracleAdapter} have no on-chain
+///         deps (standalone surfaces the SDK reads). {GaslessPayIn}, {Refunds}, {SplitSettler}, and
+///         {Receivables} likewise compose the Router, so they mirror on the same uniform init args.
 ///
 ///         {ChainRegistry} is the twelfth first-party contract; it is a read-only SDK/cross-chain
 ///         sidecar deployed once per chain by {DeployChainRegistry} and carried here in
@@ -126,6 +137,13 @@ contract DeployAll is Script {
 
     /// @notice The EIP-712 domain version for {Access0x1ProvenanceRegistry}.
     string private constant PROVENANCE_REGISTRY_VERSION = "1";
+
+    /// @notice ERC-721 collection name / symbol / EIP-7572 contract-URI for the {Receivables} invoice NFT.
+    ///         Passed as init args (CREATE3 ignores init code, so the mirror address is unaffected); the
+    ///         contract-URI stays empty — collection metadata is set on-chain later, never an invented link.
+    string private constant RECEIVABLES_NAME = "Access0x1 Receivables";
+    string private constant RECEIVABLES_SYMBOL = "ACXRCV";
+    string private constant RECEIVABLES_CONTRACT_URI = "";
 
     /// @notice The salt-namespace tag. Bump the version segment to mint a NEW mirror address set (e.g.
     ///         a from-scratch redeploy that must not collide with the previous live addresses).
@@ -481,6 +499,49 @@ contract DeployAll is Script {
         );
         console2.log("Access0x1Nft          :", address(nft));
         console2.log("  router (spine)      :", address(router));
+
+        // 13-17. Settlement extensions — each composes the spine (or is standalone), so they mirror too.
+        //        Their init args are uniform across chains (owner + the mirror Router), so they land at
+        //        the same address everywhere. Captured as locals: nothing downstream wires them, and
+        //        _deployUUPS already records each in the manifest.
+        address gaslessPayIn = _deployUUPS(
+            "GaslessPayIn",
+            type(GaslessPayIn).creationCode,
+            abi.encodeCall(GaslessPayIn.initialize, (owner, router))
+        );
+        console2.log("GaslessPayIn          :", gaslessPayIn);
+
+        address refunds = _deployUUPS(
+            "Refunds",
+            type(Refunds).creationCode,
+            abi.encodeCall(Refunds.initialize, (owner, router))
+        );
+        console2.log("Refunds               :", refunds);
+
+        address splitSettler = _deployUUPS(
+            "SplitSettler",
+            type(SplitSettler).creationCode,
+            abi.encodeCall(SplitSettler.initialize, (owner, router))
+        );
+        console2.log("SplitSettler          :", splitSettler);
+
+        address receivables = _deployUUPS(
+            "Receivables",
+            type(Receivables).creationCode,
+            abi.encodeCall(
+                Receivables.initialize,
+                (router, owner, RECEIVABLES_NAME, RECEIVABLES_SYMBOL, RECEIVABLES_CONTRACT_URI)
+            )
+        );
+        console2.log("Receivables           :", receivables);
+
+        // PriceOracleAdapter — the swappable ERC-7726 oracle surface; standalone (owner only, no router).
+        address priceOracleAdapter = _deployUUPS(
+            "PriceOracleAdapter",
+            type(PriceOracleAdapter).creationCode,
+            abi.encodeCall(PriceOracleAdapter.initialize, (owner))
+        );
+        console2.log("PriceOracleAdapter    :", priceOracleAdapter);
 
         // ChainRegistry is deployed once per chain by DeployChainRegistry; log its carried address so
         // the full first-party surface appears in one place. address(0) ⇒ not deployed/seeded yet.

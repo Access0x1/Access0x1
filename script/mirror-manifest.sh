@@ -43,13 +43,14 @@ command -v cast >/dev/null 2>&1 || { echo "ERROR: foundry 'cast' not found" >&2;
 DEP_NO0X="${DEPLOYER#0x}"
 PAD_DEPLOYER="000000000000000000000000${DEP_NO0X}"   # bytes32(uint160(deployer)) = 24 zero-nibbles + 40
 
-# The 12 UUPS contracts (DeployAll deploys each as .impl + .proxy via _deployUUPS),
+# The 17 UUPS contracts (DeployAll deploys each as .impl + .proxy via _deployUUPS),
 # plus the standalone Access0x1Receiver (a single deployCreate3). Order mirrors
 # DeployAll.s.sol's run() for readability.
 UUPS=(
   Access0x1Router PaymentLanes Access0x1Subscriptions Access0x1Escrow
   AutomationGateway Access0x1ProvenanceRegistry Access0x1Bookings
   Access0x1GiftCards Access0x1Invoices Access0x1Nft HouseTokenFactory SessionGrant
+  GaslessPayIn Refunds SplitSettler Receivables PriceOracleAdapter
 )
 SINGLE=( Access0x1Receiver )
 

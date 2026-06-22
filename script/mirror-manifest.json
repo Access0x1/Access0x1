@@ -28,6 +28,16 @@
     "HouseTokenFactory.proxy": "0x5a7F065f675779d76a376c15be496D799b1469Db",
     "SessionGrant.impl": "0x7c59aa000904EFc5e15b03081963F7E406424d7f",
     "SessionGrant.proxy": "0xf84fEA541939f3683893530101Fe77d05c390C9d",
+    "GaslessPayIn.impl": "0xA754cd3a561a3f870163FCa3472713337981a55D",
+    "GaslessPayIn.proxy": "0x09FE591f8b0b9904005D529382cdbC6a7ABe8444",
+    "Refunds.impl": "0x9ACE9C94A94b7d4a27b9A46E0E93577c1D461b75",
+    "Refunds.proxy": "0x7dc4c23954f1c57C84D299182E693336fBd564C4",
+    "SplitSettler.impl": "0x6C7254e7f71FaE5C70CE2c56a0235704Fb1504e2",
+    "SplitSettler.proxy": "0x4DADeC51E103cA75aD8A567E284B19f02663eEbe",
+    "Receivables.impl": "0xA4DF54244965fAFB2a897C4Fe67CDa891be78eC0",
+    "Receivables.proxy": "0x421A5eAF9cdd39d2bcE96160C256D9368503A911",
+    "PriceOracleAdapter.impl": "0xc084A2175a1af492eA79806917891E1d1C494D94",
+    "PriceOracleAdapter.proxy": "0x8c1a8356fFa9e4DD44C4AFFac87323CAbf1A62B6",
     "Access0x1Receiver": "0xA365aEC97a582e521e5d5444C2930E96B59AD215"
   }
 }
