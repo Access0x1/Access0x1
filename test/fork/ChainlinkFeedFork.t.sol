@@ -37,6 +37,22 @@ contract ChainlinkFeedForkTest is Test, ProxyDeployer {
         string memory rpc = vm.envOr("BASE_SEPOLIA_RPC_URL", string(""));
         if (bytes(rpc).length == 0) return false;
         vm.createSelectFork(rpc);
+        // A flaky public RPC is a NETWORK condition, not a contract regression: sanity-read the live feed
+        // once and `vm.skip` (rather than fail) if the fork can't serve a usable round, so a contributor
+        // with BASE_SEPOLIA_RPC_URL set never sees a red suite from an endpoint hiccup. A clean read here
+        // means the body below exercises real on-chain state as intended. (Mid-test RPC degradation can't
+        // be told apart from a genuine revert without masking real bugs, so it is left to surface.)
+        try _feed().latestRoundData() returns (
+            uint80, int256 answer, uint256, uint256 updatedAt, uint80
+        ) {
+            if (answer <= 0 || updatedAt == 0) {
+                vm.skip(true);
+                return false;
+            }
+        } catch {
+            vm.skip(true);
+            return false;
+        }
         return true;
     }
 
