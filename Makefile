@@ -72,7 +72,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
         deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet \
-        verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-arbitrum-sepolia verify-polygon-amoy verify-galileo verify-all-testnets verify-all-sourcify \
+        verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-arbitrum-sepolia verify-polygon-amoy verify-galileo verify-chain verify-all-testnets verify-all-sourcify \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
         deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
         deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
@@ -381,6 +381,16 @@ verify-polygon-amoy: ## Verify deployed Polygon Amoy contracts (Etherscan V2)
 
 verify-galileo: ## Verify deployed 0G Galileo contracts (Blockscout; set GALILEO_VERIFIER_URL)
 	./script/verify-blockscout.sh 16602 $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) $(GALILEO_VERIFIER_URL)
+
+# Generic verifier for ANY chain that lacks a dedicated verify-<chain> target above (deployed now or in
+# the future) — so every chain "just works" without 50 near-identical targets. Etherscan V2 by default
+# (one key, routed by chain id); pass VERIFIER_URL for a Blockscout chain. Examples:
+#   make verify-chain CHAIN=560048 RPC=$HOODI_RPC_URL                                   # Etherscan V2 (Hoodi)
+#   make verify-chain CHAIN=42431  RPC=$TEMPO_RPC_URL VERIFIER_URL=https://explore.testnet.tempo.xyz/api/
+verify-chain: ## Verify ANY deployed chain: CHAIN=<id> RPC=<url> [VERIFIER_URL=<blockscout-api>]
+	@test -n "$(CHAIN)" || { echo "set CHAIN=<chainId>"; exit 1; }
+	@test -n "$(RPC)" || { echo "set RPC=<rpcUrl>"; exit 1; }
+	$(if $(strip $(VERIFIER_URL)),./script/verify-blockscout.sh $(CHAIN) $(RPC) $(VERIFIER_URL),@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh $(CHAIN) $(RPC))
 
 # One-shot: verify EVERY deployed testnet best-effort (the leading `-` keeps going past a chain whose
 # explorer is down / rate-limited). The per-chain targets above give granular control + clearer errors.
