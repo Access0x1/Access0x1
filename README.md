@@ -524,7 +524,8 @@ Base Sepolia (84532)** today and rolls out one chain at a time; the remaining ch
 Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood (46630),
 0G Galileo (16602), and Ethereum Hoodi (560048) — still carry their **pre-mirror, per-chain** deploys
 (listed below) and are being cut over. zkSync Sepolia is one-command ready (`make deploy-zksync-sepolia`)
-but not yet broadcast. See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full operator guide.
+but not yet broadcast. See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) and
+[`docs/MIRROR-CUTOVER.md`](docs/MIRROR-CUTOVER.md) for the full operator guide.
 
 > **Gas:** on Arc, USDC is the native gas token, so checkout needs no separate gas coin — there is
 > nothing to top up. On other chains an optional, generic [ERC-7677](https://eips.ethereum.org/EIPS/eip-7677)
