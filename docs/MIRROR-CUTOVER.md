@@ -66,8 +66,14 @@ addresses — **don't trust this table, re-derive it** (see *How to read the liv
 | Tempo (42431) | ✅ partial (8/24) | ⏳ pre-mirror | — | — |
 | zkSync Sepolia (300) | ⏳ not broadcast | — | — | — |
 
-Only **Base Sepolia** carries the mirror today. The pre-mirror chains still run their own per-chain
-address sets (the README "pre-mirror per-chain deploys" table) until cut over.
+The mirror is **rolling out across the testnets** — the `MIRROR-STATUS` table in the README (regenerated
+from the broadcasts by `make sync`) is the live per-chain source of truth. Chains still showing
+`⏳ pre-mirror` run their own per-chain address sets until cut over.
+
+> **Mirrored ≠ usable yet.** A chain showing `✅ mirror` means the contracts are *deployed* at the mirror
+> addresses — it does NOT mean a merchant is registered. `nextMerchantId` on the mirror router is still
+> `1` (no merchant) on every chain; a consuming app (e.g. YourApp) needs `registerMerchant` run on the
+> mirror before it can settle there. That registration is a keystore-signed, owner-run tx.
 
 **Mirror coverage — 13 of 18 deployable contracts.** `DeployAll` mirrors the money spine + the auth +
 commerce surface (Router, PaymentLanes, SessionGrant, HouseTokenFactory, Subscriptions, Bookings,

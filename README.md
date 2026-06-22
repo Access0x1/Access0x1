@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed on eight testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Ethereum Hoodi (560048), and 0G Galileo (16602 — full 12-contract stack); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). Source-verified on Arc; Base Sepolia is the first CREATE3-mirror chain (source-verification pending).** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed on eight testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Ethereum Hoodi (560048), and 0G Galileo (16602 — full 12-contract stack); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). The CREATE3 mirror — one address (`0xe92244e3…`) on every chain — is rolling out across these testnets; the per-chain `MIRROR-STATUS` table below (regenerated from the broadcasts by `make sync`) is the live source of truth. Source-verified on Arc.** More chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy-<chain>`) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -546,7 +546,7 @@ but not yet broadcast. See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) 
 #### CREATE3 mirror address set — one address on every chain
 
 These are the proxy addresses an integrator points at — **identical on every chain the mirror is live
-on** (links go to Base Sepolia, the first chain cut over). Each proxy's implementation is pinned under
+on** (links go to Base Sepolia, one of the mirrored chains). Each proxy's implementation is pinned under
 the matching `.impl` key in [`script/mirror-manifest.json`](script/mirror-manifest.json).
 
 | Contract | Mirror address (every mirrored chain) |
