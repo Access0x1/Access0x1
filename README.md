@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed on eight testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Ethereum Hoodi (560048), and 0G Galileo (16602 — full 12-contract stack); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). Source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed on eight testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Ethereum Hoodi (560048), and 0G Galileo (16602 — full 12-contract stack); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). Source-verified on Arc; Base Sepolia is the first CREATE3-mirror chain (source-verification pending).** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -512,22 +512,58 @@ make deploy-unichain-sepolia # Unichain Sepolia
 
 ### Deployments
 
-Every address below is read straight from the committed broadcast log
-(`broadcast/DeployAll.s.sol/<chainId>/run-latest.json`) — **never** hand-entered (law #4: an address
-that isn't on-chain isn't claimed). The full first-party surface is **live on the seven chains detailed
-below — Arc Testnet (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia
-(11155420), Avalanche Fuji (43113), Robinhood Chain (46630), and 0G Galileo (16602)** (Ethereum Hoodi (560048) is also
-confirmed on-chain — addresses in its `broadcast/` record), and **source-verified on Arc and Base
-Sepolia**; zkSync Sepolia is one-command ready (`make deploy-zksync-sepolia`) but not yet broadcast (its
-rows stay blank until it is). `Access0x1Router` is the
-address an integrator points at. See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full
-operator guide.
+Access0x1 deploys as **one mirrored address set on every chain** via CREATE3 (the
+[CreateX](https://github.com/pcaversaccio/createx) factory): the salt is derived from the deployer + a
+per-contract label, never the `block.chainid`, so the `Access0x1Router` an integrator points at is the
+**same address everywhere the mirror is live**. The canonical set is published once in
+[`script/mirror-manifest.json`](script/mirror-manifest.json) (self-checked by
+[`script/mirror-manifest.sh`](script/mirror-manifest.sh)) and shown below; every per-chain address is
+read straight from the committed broadcast log (`broadcast/DeployAll.s.sol/<chainId>/run-latest.json`),
+**never** hand-entered (law #4: an address that isn't on-chain isn't claimed). The mirror is **live on
+Base Sepolia (84532)** today and rolls out one chain at a time; the remaining chains — Arc (5042002),
+Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood (46630),
+0G Galileo (16602), and Ethereum Hoodi (560048) — still carry their **pre-mirror, per-chain** deploys
+(listed below) and are being cut over. zkSync Sepolia is one-command ready (`make deploy-zksync-sepolia`)
+but not yet broadcast. See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full operator guide.
 
 > **Gas:** on Arc, USDC is the native gas token, so checkout needs no separate gas coin — there is
 > nothing to top up. On other chains an optional, generic [ERC-7677](https://eips.ethereum.org/EIPS/eip-7677)
 > paymaster seam ([`web/lib/paymaster`](web/lib/paymaster)) can sponsor gas wherever a provider is
 > configured (env-gated; blank ⇒ off). Neither path changes the contract code — the router is
 > gas-model agnostic.
+
+#### CREATE3 mirror address set — one address on every chain
+
+These are the proxy addresses an integrator points at — **identical on every chain the mirror is live
+on** (links go to Base Sepolia, the first chain cut over). Each proxy's implementation is pinned under
+the matching `.impl` key in [`script/mirror-manifest.json`](script/mirror-manifest.json).
+
+| Contract | Mirror address (every mirrored chain) |
+| --- | --- |
+| `Access0x1Router` | [`0xe92244e3368561faf21648146511DeDE3a475EB5`](https://sepolia.basescan.org/address/0xe92244e3368561faf21648146511DeDE3a475EB5) |
+| `PaymentLanes` | [`0x49bb2c3d3aAE0ad260F3Ce76FA78e0323Aae2510`](https://sepolia.basescan.org/address/0x49bb2c3d3aAE0ad260F3Ce76FA78e0323Aae2510) |
+| `SessionGrant` | [`0xf84fEA541939f3683893530101Fe77d05c390C9d`](https://sepolia.basescan.org/address/0xf84fEA541939f3683893530101Fe77d05c390C9d) |
+| `HouseTokenFactory` | [`0x5a7F065f675779d76a376c15be496D799b1469Db`](https://sepolia.basescan.org/address/0x5a7F065f675779d76a376c15be496D799b1469Db) |
+| `Access0x1Subscriptions` | [`0x787D2d97F7b0B0A7aFE1eCD97032912fefE8e0ba`](https://sepolia.basescan.org/address/0x787D2d97F7b0B0A7aFE1eCD97032912fefE8e0ba) |
+| `Access0x1Bookings` | [`0xA7230DDD55c6bfC3479636FA320E46889a8B1863`](https://sepolia.basescan.org/address/0xA7230DDD55c6bfC3479636FA320E46889a8B1863) |
+| `Access0x1Invoices` | [`0x902382D472aaf6bD90e000c315A861f6b493BCea`](https://sepolia.basescan.org/address/0x902382D472aaf6bD90e000c315A861f6b493BCea) |
+| `Access0x1GiftCards` | [`0xf94Df7293e48E69f91A1e2C4F48580C6901d6C2C`](https://sepolia.basescan.org/address/0xf94Df7293e48E69f91A1e2C4F48580C6901d6C2C) |
+| `Access0x1Escrow` | [`0x3459E890516A29d406fCbDc9B4CD99CE8114Da0D`](https://sepolia.basescan.org/address/0x3459E890516A29d406fCbDc9B4CD99CE8114Da0D) |
+| `AutomationGateway` | [`0x2b664Ca5A28498cC62B475576fEe6835DD51060b`](https://sepolia.basescan.org/address/0x2b664Ca5A28498cC62B475576fEe6835DD51060b) |
+| `Access0x1ProvenanceRegistry` | [`0x899b9E0b633BC46f56D7EC34ad667147D8e68ceb`](https://sepolia.basescan.org/address/0x899b9E0b633BC46f56D7EC34ad667147D8e68ceb) |
+| `Access0x1Nft` | [`0x9625bEc5e2eD53B48e4CbcbBbe9287C00db31178`](https://sepolia.basescan.org/address/0x9625bEc5e2eD53B48e4CbcbBbe9287C00db31178) |
+| `Access0x1Receiver` | [`0xA365aEC97a582e521e5d5444C2930E96B59AD215`](https://sepolia.basescan.org/address/0xA365aEC97a582e521e5d5444C2930E96B59AD215) |
+
+**Per-chain cutover status** — a chain shows the set above only once its `broadcast/` record proves it
+carries those addresses (no chain is claimed mirrored otherwise):
+
+| Chain | Mirror live | Source-verified |
+| --- | --- | --- |
+| Base Sepolia (84532) | ✅ on-chain | pending (`make verify-base-sepolia`) |
+| Arc · Ethereum Sepolia · Optimism Sepolia · Avalanche Fuji · Robinhood · 0G Galileo · Ethereum Hoodi | ⏳ pre-mirror | per-chain (see below) |
+
+**Pre-mirror per-chain deploys** — each chain's own pre-mirror address set, until it is cut over to the
+mirror above:
 
 | Chain | Contract | Address | Tx |
 | --- | --- | --- | --- |
@@ -555,18 +591,6 @@ operator guide.
 | 0G Galileo (16602) | `Access0x1Invoices` | [`0xB90f34e22683D24b622a8CA32FB8cCEB8aB1d505`](https://chainscan-galileo.0g.ai/address/0xB90f34e22683D24b622a8CA32FB8cCEB8aB1d505) | — |
 | 0G Galileo (16602) | `Access0x1GiftCards` | [`0x5b2C1857C65c7daa672985Fc9C3AAF2050b42288`](https://chainscan-galileo.0g.ai/address/0x5b2C1857C65c7daa672985Fc9C3AAF2050b42288) | — |
 | 0G Galileo (16602) | `Access0x1Nft` | [`0xD682F77D0aE016838D89b4F673f17Acd93102231`](https://chainscan-galileo.0g.ai/address/0xD682F77D0aE016838D89b4F673f17Acd93102231) | — |
-| Base Sepolia (84532) | `Access0x1Router` | [`0x4fbf47bc5273491b8a4e339e65b208d180b27c3b`](https://sepolia.basescan.org/address/0x4fbf47bc5273491b8a4e339e65b208d180b27c3b) | — |
-| Base Sepolia (84532) | `SessionGrant` | [`0xb71fe836cc8c698ea0fa150deed6cd33ad352c85`](https://sepolia.basescan.org/address/0xb71fe836cc8c698ea0fa150deed6cd33ad352c85) | — |
-| Base Sepolia (84532) | `PaymentLanes` | [`0x64273ad774082b4e6fd98e49523733962df9769d`](https://sepolia.basescan.org/address/0x64273ad774082b4e6fd98e49523733962df9769d) | — |
-| Base Sepolia (84532) | `HouseTokenFactory` | [`0x2d6b08eb73898036eee756351453b08188d92c56`](https://sepolia.basescan.org/address/0x2d6b08eb73898036eee756351453b08188d92c56) | — |
-| Base Sepolia (84532) | `Access0x1ProvenanceRegistry` | [`0x994011ff20df033fb35e67fedfb17f647bf66635`](https://sepolia.basescan.org/address/0x994011ff20df033fb35e67fedfb17f647bf66635) | — |
-| Base Sepolia (84532) | `Access0x1Escrow` | [`0x025f098873557105259b81618f05e09c833fd705`](https://sepolia.basescan.org/address/0x025f098873557105259b81618f05e09c833fd705) | — |
-| Base Sepolia (84532) | `Access0x1Subscriptions` | [`0x81ca26e3fb738661d44d5ad89280fb32848038e8`](https://sepolia.basescan.org/address/0x81ca26e3fb738661d44d5ad89280fb32848038e8) | — |
-| Base Sepolia (84532) | `AutomationGateway` | [`0x93cb11ce74d45a1b554007cd43c2a96fb830b113`](https://sepolia.basescan.org/address/0x93cb11ce74d45a1b554007cd43c2a96fb830b113) | — |
-| Base Sepolia (84532) | `Access0x1Bookings` | [`0xdea2b9d695f92ffea246ff0a01bdcb1ff37d86b3`](https://sepolia.basescan.org/address/0xdea2b9d695f92ffea246ff0a01bdcb1ff37d86b3) | — |
-| Base Sepolia (84532) | `Access0x1Invoices` | [`0xe654209f302b3767455f3527b8dd50a5174a162b`](https://sepolia.basescan.org/address/0xe654209f302b3767455f3527b8dd50a5174a162b) | — |
-| Base Sepolia (84532) | `Access0x1GiftCards` | [`0xfd714779a732770ca0eb14f95769b63542e3ac9f`](https://sepolia.basescan.org/address/0xfd714779a732770ca0eb14f95769b63542e3ac9f) | — |
-| Base Sepolia (84532) | `Access0x1Nft` | [`0x6f7c77bc50fe6e062390ddb50052d88b1fe9f2cf`](https://sepolia.basescan.org/address/0x6f7c77bc50fe6e062390ddb50052d88b1fe9f2cf) | — |
 | Ethereum Sepolia (11155111) | `Access0x1Router` | [`0x81815209cc36dbd83662bd502694386e7024ba85`](https://sepolia.etherscan.io/address/0x81815209cc36dbd83662bd502694386e7024ba85) | — |
 | Ethereum Sepolia (11155111) | `SessionGrant` | [`0xaba9017da86c7b0610efb0351457ff1a198ddea1`](https://sepolia.etherscan.io/address/0xaba9017da86c7b0610efb0351457ff1a198ddea1) | — |
 | Ethereum Sepolia (11155111) | `PaymentLanes` | [`0x7ce8b5a101080a1d7c9bb79f73e8934feebdab0b`](https://sepolia.etherscan.io/address/0x7ce8b5a101080a1d7c9bb79f73e8934feebdab0b) | — |
@@ -679,7 +703,7 @@ Gas hot-paths are documented in [`docs/GAS.md`](docs/GAS.md).
 ## Stack
 
 Foundry · Solidity 0.8.28 (EVM cancun, `via_ir`, optimizer 200 runs) · OpenZeppelin 5.x ·
-Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed + verified on Arc Testnet (5042002) and Base Sepolia (84532)**; zkSync Sepolia is one-command ready — all **testnets, no mainnet deployments**.
+Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed on Arc Testnet (5042002) and Base Sepolia (84532, the CREATE3 mirror); source-verified on Arc**; zkSync Sepolia is one-command ready — all **testnets, no mainnet deployments**.
 
 ---
 
