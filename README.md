@@ -14,7 +14,7 @@
 **The proof**
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
-![Tests](https://img.shields.io/badge/Tests-920%20passing-44CC11?style=for-the-badge)
+![Tests](https://img.shields.io/badge/Tests-1382%20passing-44CC11?style=for-the-badge)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -137,21 +137,31 @@ src/
 ├── Access0x1Invoices.sol         # pay-once payment request │ each COMPOSES the spine
 ├── Access0x1GiftCards.sol        # prepaid balance + coupons│ (Router + SessionGrant)
 ├── Access0x1Nft.sol              # USD-priced NFT marketplace┘
+├── Access0x1Escrow.sol           # conditional settlement — a deposit HELD until a condition resolves
+├── Refunds.sol                   # time-boxed, merchant-authorized refunds / chargebacks by orderId
+├── SplitSettler.sol              # one USD payment fans out to N payees by basis points (Σ == gross)
+├── Receivables.sol               # tokenized, factorable invoices — an ERC-721 its holder gets paid on
+├── GaslessPayIn.sol              # gasless "first-dollar" pay-in from ONE off-chain signature
+├── AutomationGateway.sol         # Chainlink Automation front-door that auto-renews subscriptions
+├── PriceOracleAdapter.sol        # swappable ERC-7726 price-oracle surface for the spine
+├── Access0x1ProvenanceRegistry.sol  # on-chain code provenance — claim repo, anchor each release
 ├── NameMath.sol                  # ENS namehash → brand color + SVG (internal library)
 ├── libraries/
 │   └── OracleLib.sol             # Chainlink staleness + completed-round guard (internal)
 └── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (920 tests)
+test/                        # unit · attack · invariant (1,382 tests)
 ```
 
-The full first-party surface is **12 production contracts + 2 libraries** (14 `.sol` files in
-`src/`, plus 8 interfaces): the money spine (`Access0x1Router`), the receipt
+The full first-party surface is **20 production contracts + 2 libraries** (22 `.sol` files in
+`src/`, plus 16 interfaces): the money spine (`Access0x1Router`), the receipt
 ledger (`PaymentLanes`), the agent-auth ledger (`SessionGrant`), the per-chain reference
 (`ChainRegistry`), the CRE audit consumer (`Access0x1Receiver`), the house-token factory +
 its `HouseToken`, the five commerce primitives (subscriptions · bookings · invoices · gift cards ·
-the `Access0x1Nft` marketplace), and two inlined libraries — the `OracleLib` staleness guard and the
+the `Access0x1Nft` marketplace), the settlement extensions (`Access0x1Escrow` · `Refunds` ·
+`SplitSettler` · `Receivables` · `GaslessPayIn` · `AutomationGateway` · `PriceOracleAdapter` ·
+`Access0x1ProvenanceRegistry`), and two inlined libraries — the `OracleLib` staleness guard and the
 `NameMath` ENS-brand helper. `make deploy-arc`
 (or `deploy-base-sepolia` / `deploy-zksync-sepolia`) runs [`script/DeployAll.s.sol`](script/DeployAll.s.sol),
 which deploys and wires the whole set in a single broadcast (`ChainRegistry` is the one sidecar
@@ -216,7 +226,7 @@ git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
 make install           # forge submodules + npm (@chainlink) + web + SDK — one command
 make build             # forge build
-make test              # 920 tests, all green
+make test              # 1,382 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
@@ -691,7 +701,7 @@ deployer is a burner key.
 
 | | |
 | --- | --- |
-| Tests | **920 green** — unit · attack · invariant suites |
+| Tests | **1,382 green** — unit · attack · invariant suites |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **13 headline money-safety invariants** (45 total properties) across 3 suites hold at 4,096 calls each, 0 reverts |
 | Static analysis | **slither: 31 results / 12 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
