@@ -39,7 +39,7 @@
 </div>
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
-> and on a public branch from commit #1. **Deployed on eight testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Ethereum Hoodi (560048), and 0G Galileo (16602 — full 12-contract stack); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). Source-verified on Arc and Base Sepolia.** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
+> and on a public branch from commit #1. **Deployed on eight testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Ethereum Hoodi (560048), and 0G Galileo (16602 — full 12-contract stack); every address is read straight from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address that isn't on-chain isn't claimed). Source-verified on Arc, Base Sepolia, Ethereum Sepolia, Optimism Sepolia, Avalanche Fuji, and Robinhood Chain (0G Galileo's explorer is not machine-introspectable).** Arbitrum Sepolia + Polygon Amoy + Scroll Sepolia (and more) are per-chain ready (`make deploy-arbitrum-sepolia`, `make deploy-polygon-amoy`, …) but not yet broadcast; zkSync Sepolia needs its dedicated EraVM path (see `docs/ZKSYNC-TESTING.md`). **No mainnet deployments and no mainnet claims.**
 
 ---
 
@@ -491,8 +491,8 @@ Every address below is read straight from the committed broadcast log
 that isn't on-chain isn't claimed). The full first-party surface is **live on the seven chains detailed
 below — Arc Testnet (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia
 (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), and 0G Galileo (16602)** (Ethereum Hoodi (560048) is also
-confirmed on-chain — addresses in its `broadcast/` record), and **source-verified on Arc and Base
-Sepolia**; zkSync Sepolia is one-command ready (`make deploy-zksync-sepolia`) but not yet broadcast (its
+confirmed on-chain — addresses in its `broadcast/` record), and **source-verified on Arc, Base Sepolia, Ethereum Sepolia, Optimism Sepolia,
+Avalanche Fuji, and Robinhood Chain** (0G Galileo's explorer is not machine-introspectable); zkSync Sepolia is one-command ready (`make deploy-zksync-sepolia`) but not yet broadcast (its
 rows stay blank until it is). `Access0x1Router` is the
 address an integrator points at. See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md) for the full
 operator guide.
@@ -653,7 +653,7 @@ Gas hot-paths are documented in [`docs/GAS.md`](docs/GAS.md).
 ## Stack
 
 Foundry · Solidity 0.8.28 (EVM cancun, `via_ir`, optimizer 200 runs) · OpenZeppelin 5.x ·
-Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed + verified on Arc Testnet (5042002) and Base Sepolia (84532)**; zkSync Sepolia is one-command ready — all **testnets, no mainnet deployments**.
+Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed + verified on Arc, Base Sepolia, Ethereum Sepolia, Optimism Sepolia, Avalanche Fuji, and Robinhood Chain** (0G Galileo deployed; explorer not machine-introspectable); zkSync Sepolia is one-command ready — all **testnets, no mainnet deployments**.
 
 ---
 
