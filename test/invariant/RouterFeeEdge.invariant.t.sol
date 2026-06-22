@@ -160,12 +160,7 @@ contract RouterFeeEdgeHandler is Test {
     ///      `feeDelta` is what the router actually delivered to the fee sinks (treasury + feeRecipient);
     ///      `gross` is what went in. Asserts both the conservation identity and the hard fee cap, and
     ///      cross-checks the delivered fee against the expected split so a wrong-leg bug is caught too.
-    function _record(
-        uint256 id,
-        uint256 gross,
-        uint256 feeDelta,
-        uint256 netDelta
-    ) internal {
+    function _record(uint256 id, uint256 gross, uint256 feeDelta, uint256 netDelta) internal {
         uint256 expPlatform = _expectedPlatformFee(gross);
         uint256 expMerchant = _expectedMerchantFee(id, gross);
         uint256 expFee = expPlatform + expMerchant;
@@ -433,7 +428,9 @@ contract RouterFeeEdgeInvariant is StdInvariant, Test, ProxyDeployer {
         uint256 usd = 1000e8; // $1,000 in a 36-dec token => a very large gross
         (uint256 gross, uint256 feeDelta, uint256 netDelta) = _settleToken(id, address(maxDec), usd);
         assertEq(feeDelta, gross * MAX_FEE_BPS / 10_000, "fee is exactly MAX_FEE_BPS of gross");
-        assertEq(netDelta + feeDelta, gross, "net + fee == gross at the max-fee max-decimals boundary");
+        assertEq(
+            netDelta + feeDelta, gross, "net + fee == gross at the max-fee max-decimals boundary"
+        );
         assertLe(feeDelta * 10_000, gross * MAX_FEE_BPS, "fee never exceeds the cap");
     }
 
