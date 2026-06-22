@@ -78,7 +78,9 @@ contract Create3MirrorSpike is Test {
         // data baked in here does NOT move the mirror address — same address on every chain.
         bytes memory proxyInit = abi.encodePacked(
             type(ERC1967Proxy).creationCode,
-            abi.encode(impl, abi.encodeCall(Access0x1Router.initialize, (DEPLOYER, TREASURY, FEE_BPS)))
+            abi.encode(
+                impl, abi.encodeCall(Access0x1Router.initialize, (DEPLOYER, TREASURY, FEE_BPS))
+            )
         );
         proxy = CREATEX.deployCreate3(proxySalt, proxyInit);
         vm.stopPrank();
@@ -86,7 +88,9 @@ contract Create3MirrorSpike is Test {
         // Sanity: it is live and owned by the deployer, and the proxy matches the predicted address.
         assertEq(Access0x1Router(proxy).owner(), DEPLOYER, "router proxy initialized to deployer");
         assertEq(
-            proxy, CREATEX.computeCreate3Address(_guarded(proxySalt)), "proxy == predicted CREATE3 addr"
+            proxy,
+            CREATEX.computeCreate3Address(_guarded(proxySalt)),
+            "proxy == predicted CREATE3 addr"
         );
     }
 
@@ -102,7 +106,9 @@ contract Create3MirrorSpike is Test {
         address onOp = _deployRouterViaCreate3();
         console2.log("OP Sepolia   router proxy :", onOp);
 
-        assertEq(onBase, onOp, "CREATE3: router must be the SAME address on every chain (the mirror)");
+        assertEq(
+            onBase, onOp, "CREATE3: router must be the SAME address on every chain (the mirror)"
+        );
         console2.log("MIRROR PROVEN - one router address on both chains:", onBase);
     }
 }

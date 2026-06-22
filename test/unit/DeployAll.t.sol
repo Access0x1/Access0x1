@@ -34,7 +34,6 @@ import { Access0x1ProvenanceRegistry } from "../../src/Access0x1ProvenanceRegist
 ///         default sender while `run()`'s `msg.sender` is the test contract — so the tests pin
 ///         `ROUTER_OWNER` to the broadcaster to reproduce the real-run match.
 contract DeployAllTest is Test {
-
     /// @dev Make CreateX available in the local EVM so DeployAll's CREATE3 deploys work.
     function setUp() public {
         CreateXEtch.enable(vm);
