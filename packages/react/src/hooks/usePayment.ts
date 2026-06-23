@@ -168,6 +168,7 @@ export function usePayment(options: UsePaymentOptions): UsePaymentReturn {
     }
 
     let unwatch: (() => void) | undefined;
+    let receiptTimeout: ReturnType<typeof setTimeout> | undefined;
     try {
       // 2. (ERC-20 only) approve exactly `gross` if allowance is short — minimum necessary approval.
       if (!isNative) {
@@ -232,7 +233,18 @@ export function usePayment(options: UsePaymentOptions): UsePaymentReturn {
 
       // 5. Wait for inclusion, then for the decoded receipt.
       const txReceipt = await client.waitForTransactionReceipt({ hash });
-      const decoded = await receiptPromise;
+      // Race the receipt against a ceiling: if the PaymentReceived event never
+      // arrives or its log can't be decoded, fail loud instead of hanging the pay
+      // flow forever (the watcher is torn down in the finally below either way).
+      const decoded = await Promise.race([
+        receiptPromise,
+        new Promise<never>((_, reject) => {
+          receiptTimeout = setTimeout(
+            () => reject(new Error('Timed out waiting for the on-chain payment receipt')),
+            120_000,
+          );
+        }),
+      ]);
       const finalReceipt: PaymentReceipt = {
         ...decoded,
         txHash: decoded.txHash !== '0x' ? decoded.txHash : hash,
@@ -245,6 +257,7 @@ export function usePayment(options: UsePaymentOptions): UsePaymentReturn {
       fail(e, 'pay');
     } finally {
       unwatch?.();
+      if (receiptTimeout) clearTimeout(receiptTimeout);
     }
   }, [client, routerAddress, merchantId, token, isNative, usdAmount8, orderIdHex, fail]);
 
