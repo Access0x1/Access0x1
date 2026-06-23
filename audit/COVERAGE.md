@@ -1,22 +1,28 @@
-# Access0x1 — coverage snapshot (regenerated)
+# Access0x1 — coverage snapshot
 
-Raw `forge coverage` output for the full 13-contract surface, captured during the
-audit re-run. This is the source of truth for the per-contract numbers quoted in
+Raw `forge coverage` output for the contracts in the table below, captured during an
+audit run. This is the source of truth for the per-contract numbers quoted in
 [`REPORT.md`](REPORT.md) §4 and [`FINDINGS.md`](FINDINGS.md).
 
 | Field | Value |
 | --- | --- |
 | Command | `forge coverage --ir-minimum --no-match-coverage '(test\|script)/'` |
 | Toolchain | Foundry (forge 1.3.5 / solc 0.8.28, EVM `cancun`, `via_ir`) |
-| Suite at capture | **920 tests passed, 0 failed, 0 skipped** (87 suites). Coverage is instrumented over the non-fork suites; the 3 `test/fork/**` tests are no-ops without a fork RPC and do not affect line coverage. |
+| Whole-suite gate (current) | **1,383 tests passed, 0 failed, 0 skipped** across **104 suites** (unit + attack + invariant + integration + fuzz + scenario + fork + symbolic). Coverage is instrumented over the non-fork suites; the 3 `test/fork/**` tests are no-ops without a fork RPC and do not affect line coverage. |
 
-The `--ir-minimum` profile is required: the commerce quintet
+This per-contract snapshot is the last full coverage run committed; it **predates the
+most recently-added primitives** (`SplitSettler`, `Access0x1Escrow`, `Receivables`,
+`Refunds`, `GaslessPayIn`, `PriceOracleAdapter`, `AutomationGateway`,
+`Access0x1ProvenanceRegistry`), which each carry their own unit/invariant/attack tests
+inside the 1,383-test total and refresh into this table on the next run.
+
+The `--ir-minimum` profile is required: the commerce primitives
 (`Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`,
-`Access0x1GiftCards`, `Access0x1Nft`) trips `Stack too deep` under the default (non-IR)
+`Access0x1GiftCards`, `Access0x1Nft`) trip `Stack too deep` under the default (non-IR)
 coverage instrumentation, so the IR-minimum profile is the one that compiles the full set.
 IR-minimum also instruments more conservatively than the older default-profile runs,
 which is why several rows that previously read 100% (Router, Receiver) now report
-their true measured coverage — these are honest current numbers, not a regression.
+their true measured coverage — these are honest measured numbers, not a regression.
 
 ## Per-contract (measured)
 

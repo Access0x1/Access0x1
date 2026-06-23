@@ -35,6 +35,7 @@
 | Non-positive price | ✅ | `Router.quote` reverts `Access0x1__InvalidPrice` on `answer <= 0`. | `test/unit/Access0x1Router.t.sol` |
 | Decimals read live, never hardcoded | ✅ | `feed.decimals()` + token `decimals()` read in-tx (the Arc trap: native USDC 18-dec vs ERC-20 USDC 6-dec vs feed 8-dec). | `test/integration/EndToEnd.t.sol`, `test/unit/Access0x1Router.t.sol` |
 | Oracle outage must not brick refunds | ✅ | `Bookings` resolution legs wrap `quote` in try/catch: a stale feed makes the fee leg take **nothing** and refund the FULL escrow. | `test/scenario/SalonBooking.scenario.t.sol::test_scenario_salon_noShow_staleFeed_refundsFullEscrow_neverBlocked` |
+| L2 sequencer-uptime gate | ✅ | `OracleLib.checkSequencerUp` runs in `quote()` **when an uptime feed is wired** — down/just-restarted sequencer (within a 1h grace) reverts; unset on L1/Arc (default), behaviour byte-for-byte unchanged. | `test/unit/SequencerGuard.t.sol` |
 
 ## 3. Access control
 

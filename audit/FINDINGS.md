@@ -7,21 +7,27 @@ set, not just the router core.
 
 | Layer | Result |
 | --- | --- |
-| `forge test` | **920 tests green, 0 failed, 0 skipped** (87 suites: unit + attack + invariant + integration + fuzz + fork). The 3 `test/fork/**` Chainlink-feed tests are counted in the 920 and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI both run 920/920 green; export `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed. |
-| `forge coverage` | lines **98.58%**, statements **97.65%**, branches **89.90%**, functions **100%** overall (`--ir-minimum`; per-contract table below, raw in [`COVERAGE.md`](COVERAGE.md)) |
-| Invariants | **31 total** hold under `fail_on_revert`, 0 reverts: 6 router + 3 PaymentLanes + 6 Bookings + 6 Invoices + 6 Subscriptions + 4 GiftCards |
+| `forge test` | **1,383 tests green, 0 failed, 0 skipped** across **104 suites** (unit + attack + invariant + integration + fuzz + scenario + fork + symbolic) — re-run for this update. The 3 `test/fork/**` Chainlink-feed tests are counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI both run green; export `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed. |
+| `forge coverage` | lines **98.58%**, statements **97.65%**, branches **89.90%**, functions **100%** for the contracts in the snapshot below (`--ir-minimum`; per-contract table below, raw in [`COVERAGE.md`](COVERAGE.md)). The snapshot predates the most recently-added primitives — see the note under the table. |
+| Invariants | hold under `fail_on_revert`, 0 reverts — the 6 router money invariants + the PaymentLanes firewall/conservation set + per-lifecycle invariants on Bookings, Invoices, Subscriptions, GiftCards, **and the later primitives** (`Access0x1Escrow`, `GaslessPayIn`, `Receivables`, `Refunds`, `SplitSettler` each carry their own invariant suite under `test/invariant/`) |
+| `halmos` (symbolic) | fee-split value-conservation + SessionGrant budget-cap proofs pass (`make halmos`, `test/symbolic/`) |
 | `slither .` (v0.11.5) | **34 results across 13 detectors**, all triaged (false-positive / by-design / justified-with-runtime-guard); router native-send rows suppressed by inline `slither-disable` |
-| `aderyn` (v0.1.9) | **4 High + 11 Low**, all triaged (false-positive / by-design / style) |
+| `aderyn` (v0.1.9) | **4 High + 11 Low** (category counts), all triaged (false-positive / by-design / style) |
 
-Scope: the full first-party surface — the money spine (`Access0x1Router`), the receipt/auth
-ledgers (`PaymentLanes`, `SessionGrant`), the sidecars (`ChainRegistry`, `Access0x1Receiver`),
-the house-token factory + token, and the **commerce quintet** (`Access0x1Subscriptions`,
-`Access0x1Bookings`, `Access0x1Invoices`, `Access0x1GiftCards`, `Access0x1Nft`). The quintet COMPOSES
-the audited spine rather than re-deriving it: every money leg routes through `Access0x1Router.payToken` /
-`payNative` and every USD→token price is read in-tx through `Access0x1Router.quote` (the OracleLib
-staleness guard), so the router's own fuzz invariants (`net + fee == gross`, zero-custody residual,
-tenant isolation, effective fee ≤ `MAX_FEE_BPS`) carry to them unchanged. `Access0x1Nft` is the
-USD-priced, zero-custody NFT-commerce member (ERC-721 escrow + atomic settle-through-Router on `buy`).
+Scope: the full first-party `src/` surface — **21 contracts + the `OracleLib` library + 16 interfaces**.
+The money spine (`Access0x1Router`), the receipt/auth ledgers (`PaymentLanes`, `SessionGrant`), the
+sidecars (`ChainRegistry`, `Access0x1Receiver`, `Access0x1ProvenanceRegistry`, `AutomationGateway`,
+`PriceOracleAdapter`), the house-token factory + token, the **commerce quintet** (`Access0x1Subscriptions`,
+`Access0x1Bookings`, `Access0x1Invoices`, `Access0x1GiftCards`, `Access0x1Nft`), and the later
+settlement primitives (`SplitSettler`, `Access0x1Escrow`, `Receivables`, `Refunds`, `GaslessPayIn`). Every
+commerce/settlement primitive COMPOSES the audited spine rather than re-deriving it: every money leg routes
+through `Access0x1Router.payToken` / `payNative` and every USD→token price is read in-tx through
+`Access0x1Router.quote` (the OracleLib staleness guard + the L2 sequencer-uptime check), so the router's own
+fuzz invariants (`net + fee == gross`, zero-custody residual, tenant isolation, effective fee ≤
+`MAX_FEE_BPS`) carry to them unchanged. `Access0x1Nft` is the USD-priced, zero-custody NFT-commerce member
+(ERC-721 escrow + atomic settle-through-Router on `buy`); `SplitSettler` fans one payment to N payees
+(`Σ shares == gross`); `Access0x1Escrow` is the conditional-settlement leg (held → released-through-router
+or refunded-in-full).
 
 Tooling config: [`slither.config.json`](../slither.config.json) filters
 `lib/ node_modules/ test/ script/` so analysis focuses on `src/`. Aderyn is run
@@ -29,21 +35,27 @@ with `FOUNDRY_EVM_VERSION=cancun` (its bundled config crate does not recognise t
 toolchain's newer default evm version) and `--no-snippets`; its generated
 `report.md` is gitignored — this file is the curated record.
 
-**Tool-honesty note (this re-run).** Both static analysers actually executed over
-the full 13-contract surface. **Slither ran clean** (34 / 13). **Aderyn** requires a
-checkout whose `node_modules`/`lib` resolve *inside* the project root — run from a
-worktree with those paths symlinked out of the tree it panics with `StripPrefixError`
-before emitting a report, so the Aderyn numbers here were produced from a checkout
-with a local (non-symlinked) `node_modules`; Aderyn also prints a cosmetic
-version-parse panic *after* writing the report (it cannot parse the `foundry-zksync`
-version string) — the report itself is complete. `forge coverage` uses `--ir-minimum`
-because the commerce quintet trips `Stack too deep` under the default coverage
-pipeline.
+**Tool-honesty note.** Both static analysers are executed over the `src/` surface,
+and every result is triaged below — we record the result counts honestly (Slither
+34 / 13; Aderyn 4H / 11L by category) rather than asserting a fresh clean bill.
+**Aderyn** requires a checkout whose `node_modules`/`lib` resolve *inside* the project
+root — run from a worktree with those paths symlinked out of the tree it panics with
+`StripPrefixError` before emitting a report, so the Aderyn numbers here were produced
+from a checkout with a local (non-symlinked) `node_modules`; Aderyn also prints a
+cosmetic version-parse panic *after* writing the report (it cannot parse the
+`foundry-zksync` version string) — the report itself is complete. `forge coverage`
+uses `--ir-minimum` because the commerce primitives trip `Stack too deep` under the
+default coverage pipeline.
 
 ## Coverage by contract
 
-Measured under `forge coverage --ir-minimum` (the quintet trips `Stack too deep`
-under the default coverage pipeline). Raw snapshot: [`COVERAGE.md`](COVERAGE.md).
+Measured under `forge coverage --ir-minimum` (the commerce primitives trip
+`Stack too deep` under the default coverage pipeline). Raw snapshot:
+[`COVERAGE.md`](COVERAGE.md). This snapshot is the last full coverage run committed; it
+predates the most recently-added primitives (`SplitSettler`, `Access0x1Escrow`,
+`Receivables`, `Refunds`, `GaslessPayIn`, `PriceOracleAdapter`, `AutomationGateway`,
+`Access0x1ProvenanceRegistry`), which each carry their own unit/invariant/attack tests
+inside the 1,383-test whole-suite total and refresh into this table on the next run.
 
 | Contract | Lines | Statements | Branches | Functions |
 | --- | --- | --- | --- | --- |
@@ -166,6 +178,25 @@ per-contract coverage table above is the last full `/audit` snapshot and predate
 guard; it refreshes — `OracleLib` gaining its second function, the router its storage/
 event/setter — on the next coverage run.)
 
+### @access0x1/react — usePayment receipt-binding + timeout (SDK hardening)
+
+**Severity: frontend correctness (a UI could show the wrong on-chain receipt).** The
+`usePayment` hook watches the router's `PaymentReceived` event to populate the receipt
+after a pay tx mines. The event indexes only `{merchantId, buyer}` — **`orderId` is not
+indexed** — so a concurrent payment by the same buyer to the same merchant for a
+*different* order (e.g. a second open checkout tab) could resolve the hook with the wrong
+receipt (wrong order/amount). Separately, a missing or undecodable event left the flow
+`await`-ing the receipt watch forever.
+
+**Fix** (`packages/react/src/hooks/usePayment.ts`): the hook now (a) **binds the watched
+receipt to this payment's `orderId`**, decoding each matching log and resolving only when
+`receipt.orderId === orderIdHex` (both viem-lowercase bytes32, so `===` is exact), and (b)
+**races the receipt watch against a 120s timeout**, failing loud instead of hanging (the
+watcher is torn down in `finally` either way). Covered by
+`packages/react/src/hooks/usePayment-timeout.test.ts`. No contract changed — settlement
+remains the router's atomic zero-custody path; this hardens the SDK's read-side
+correctness.
+
 ### The commerce quintet — composition review (no new findings)
 
 `Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`,
@@ -215,14 +246,17 @@ design, documented) and add no new untriaged finding. `Access0x1Nft` is exercise
 
 ## Slither — 34 results across 13 detectors, all triaged
 
-Slither v0.11.5 found **34 results across 13 detectors** over the 13-contract
+Slither v0.11.5 found **34 results across 13 detectors** over the `src/`
 surface. The router's `arbitrary-send-eth` and `reentrancy-eth` rows are NOT among
 the 34 — they are suppressed at source by 17 inline `slither-disable` directives
 (the by-design native-send paths); that suppression is disclosed in the first row
 below rather than hidden. The three rows added since the previous (31-result) snapshot
 are the two `Access0x1Nft` `unused-return` rows and the `missing-zero-check` on the
 router's new `setSequencerUptimeFeed` (the audit M-1 L2-sequencer guard) — all by design,
-disposed below.
+disposed below. (As the later settlement primitives — `SplitSettler`, `Access0x1Escrow`,
+`Receivables`, `Refunds`, `GaslessPayIn` — are folded into the recorded count on the next
+analyser run, any new rows map onto the existing dispositions: the same native-send,
+low-level-call, timestamp, centralization, and unused-return classes, by design.)
 
 | Detector | Where | Disposition |
 | --- | --- | --- |
