@@ -202,7 +202,13 @@ export function usePayment(options: UsePaymentOptions): UsePaymentReturn {
           onLogs: (logs) => {
             for (const log of logs) {
               const r = decodeReceipt(log);
-              if (r != null && !seen.done) {
+              // Bind the receipt to THIS payment's order. The event filter can only
+              // match the indexed {merchantId, buyer}; orderId is not indexed, so
+              // without this check a concurrent payment by the same buyer to the
+              // same merchant for a DIFFERENT order (e.g. a second checkout tab)
+              // would resolve this hook with the wrong receipt (wrong order/amount).
+              // Both sides are viem lowercase bytes32 hex, so === is exact.
+              if (r != null && r.orderId === orderIdHex && !seen.done) {
                 seen.done = true;
                 resolve(r);
                 return;
