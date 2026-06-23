@@ -4,6 +4,13 @@ Arc testnet (chainId 5042002) is the lead settlement chain. USDC is the **native
 so there is no published Chainlink USDC/USD oracle — the peg is enforced by the chain design. This
 runbook shows how to deploy a $1.00 price-feed stand-in before the main `make deploy-arc` broadcast.
 
+> **Arc is one of the eight chains the CREATE3 mirror is live on.** A `make deploy-arc` via `DeployAll`
+> lands the whole first-party surface at the mirror address set (the `Access0x1Router` proxy is
+> `0xe92244e3368561faf21648146511DeDE3a475EB5` here, identical on every mirrored chain — see
+> [`../script/mirror-manifest.json`](../script/mirror-manifest.json) and the README Deployments table).
+> The USD-feed stand-in below is the one Arc-specific prerequisite, because Arc has no published
+> Chainlink USDC/USD oracle.
+
 ---
 
 ## Step 1 — Fund the deployer wallet

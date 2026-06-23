@@ -42,6 +42,14 @@ built. Next step: a viem-native `calldataDigest()` helper in `@access0x1/react` 
 YourApp checkout. It does not make the data human-readable (that's ERC-7730's job) — it makes it
 *verifiable*, the weaker but always-applicable guarantee.
 
+The same intent — *the buyer ends up with exactly the payment they signed* — is enforced on the watch
+side too. `@access0x1/react`'s `usePayment` binds the `PaymentReceived` receipt it surfaces to **this
+payment's `orderId`** (`orderId` is not an indexed event arg, so the hook matches it on the decoded log,
+not just the indexed `{merchantId, buyer}`): a concurrent same-buyer/same-merchant payment for a
+*different* order can no longer resolve the wrong receipt. The watch also **races a 120 s timeout** rather
+than hanging forever, so a dropped/late log surfaces as a clean timeout instead of a spinner that never
+resolves.
+
 ## Validate + submit (owner-gated)
 
 ```sh

@@ -12,6 +12,11 @@ app) reads it for a payments view.
   on it; if The Graph is unavailable, payments are unaffected and a client can
   fall back to reading the router's events directly on-chain. Non-dependency by
   design — the same posture as every Access0x1 sidecar (CRE audit, receipts).
+  Each `Payment` row carries its `orderId`, so a client reconciles a specific
+  payment by that key — the same binding `@access0x1/react`'s `usePayment` uses to
+  match a `PaymentReceived` log to *its own* order (it races a 120 s timeout rather
+  than hanging if the log never arrives), whether the source is this subgraph or a
+  direct on-chain event read.
 - **No secret in this package.** The manifest indexes a public contract address;
   the only credential is a Subgraph Studio **deploy/query key**, which is
   server-side env on the consumer, never in this repo.
@@ -19,9 +24,9 @@ app) reads it for a payments view.
 ## Cost (free tier)
 
 Deploying via **Subgraph Studio is free**; querying is **free up to 100,000
-queries/month**, then usage-based (~$2 / 100k). For the dashboard's traffic that
-is effectively free; past the free tier the cost is passed through by the
-integrating app's pricing (the business layer), not the open protocol.
+queries/month**, then usage-based (~$2 / 100k on The Graph's own pricing). For the
+dashboard's traffic that is effectively free. This is The Graph's external cost, not
+an Access0x1 charge — the open protocol indexes a public event and adds nothing on top.
 
 ## Layout
 
@@ -33,9 +38,14 @@ subgraph/
 └── abis/Access0x1Router.json
 ```
 
-Indexes **Base Sepolia** (`0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57`). Arc
-(`5042002`) is not a Graph-supported network today, so Arc payment history is
-read directly on-chain until/if The Graph adds Arc.
+Indexes **Base Sepolia** (`0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57` — the
+working pre-mirror Base Sepolia router that carries the live merchant and the demo
+payment history; `networks.json` + `subgraph.yaml` pin it as the indexed source).
+The CREATE3-mirror router (`0xe92244e3368561faf21648146511DeDE3a475EB5`, the same
+address on every mirrored chain) is the canonical integration target; the manifest
+is repointed there once that deploy carries the merchant + history to index. Arc
+(`5042002`) is not a Graph-supported network today, so Arc payment history is read
+directly on-chain until/if The Graph adds Arc.
 
 ## Build + deploy (free Subgraph Studio)
 

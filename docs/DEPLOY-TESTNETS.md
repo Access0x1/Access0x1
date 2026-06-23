@@ -9,6 +9,20 @@ private keys are ever passed on the command line — all signing goes through
 > before being set in `.env` — an unconfirmed address left blank is
 > **skipped** by the script, never wired (address(0) is safe here).
 
+> **The deploy is a CREATE3 mirror.** `DeployAll` deploys the whole first-party
+> surface at **one address per contract on every chain** via the CreateX CREATE3
+> factory (the `Access0x1Router` proxy is `0xe92244e3368561faf21648146511DeDE3a475EB5`
+> everywhere the mirror is live; the canonical set is pinned in
+> [`script/mirror-manifest.json`](../script/mirror-manifest.json)). The mirror is live
+> on **eight testnets** (Arc `5042002`, Base Sepolia `84532`, Ethereum Sepolia
+> `11155111`, Optimism Sepolia `11155420`, Avalanche Fuji `43113`, Robinhood `46630`,
+> Arbitrum Sepolia `421614`, Celo Sepolia `11142220`) and source-verified on seven of
+> them; three earlier chains (Ethereum Hoodi `560048`, 0G Galileo `16602`, Tempo
+> `42431`) carry pre-mirror per-chain deploys being cut over (see
+> [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md)). zkSync Sepolia (`300`) needs its own EraVM
+> path — [`ZKSYNC-TESTING.md`](ZKSYNC-TESTING.md) — and its zkEVM CREATE3 address
+> diverges from the mirror.
+
 ---
 
 ## Contents

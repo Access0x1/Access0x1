@@ -12,8 +12,11 @@ ONE open-source, on-chain layer for **payments + auth + agents**:
 - `Access0x1Router` — USD-priced via a Chainlink feed read **inside the pay tx**,
   fee-split, **zero custody**.
 - A `@access0x1/react` SDK + a one-tag vanilla `embed.js`.
-- Deployed across **Arc + Base + zkSync** testnets via **one shared router** (not
-  N deploys), addressed by an **O(1) hash-map chain registry**.
+- Deployed via **one shared router** (not N deploys), addressed by an **O(1)
+  hash-map chain registry**. The original target was **Arc + Base + zkSync**
+  testnets; in practice this became a CREATE3 mirror (one address on every chain)
+  live on eight testnets, with zkSync Sepolia still on its dedicated EraVM path —
+  see the README Deployments table for the live, broadcast-derived source of truth.
 - Web2-easy DX: drop-in SDK, one link, no contract code — droppable in five minutes
   by any developer. Integrators are customers reached through one public interface.
 
@@ -55,8 +58,9 @@ ONE open-source, on-chain layer for **payments + auth + agents**:
 
 ## Verify or it didn't happen
 
-- Tests prove behavior including every revert path; **≥95% router coverage**; the
-  invariants hold under the fuzzer.
+- Tests prove behavior including every revert path; **high router coverage** (the
+  documented floor is 90% lines on the money paths; the router measures ~98% lines /
+  100% functions in practice); the invariants hold under the fuzzer.
 - On-chain = the real address + tx hash, recorded per chain. No hard-coded values.
 - Be honest: a tool isn't clean → say so; untested → say so. Never claim done you
   cannot prove — a judge will run it.
@@ -78,8 +82,9 @@ carry money, identity, or scope are the human's.
 - **Contracts:** Foundry · Solidity 0.8.28 (EVM cancun) · OpenZeppelin 5.6.1 ·
   Chainlink contracts 1.5.0. Reused Cyfrin/Updraft MIT patterns attributed in
   headers.
-- **Frontend / SDK:** Next.js 16 + React 19 + Tailwind v4 + shadcn/ui · viem 2.x +
-  wagmi 3 (not ethers) · Dynamic SDK 4.x.
+- **Frontend / SDK:** Next.js (the web app pins `^15.1`) + React 19 + Tailwind v4 +
+  shadcn/ui · viem ≥ 2.35 + wagmi 3 (not ethers) · Dynamic SDK 4.x. The
+  `@access0x1/react` SDK targets React 18 || 19 and viem ≥ 2.35 as peers.
 - **AI Q&A feature:** the Claude API, server-side only, with its own spend-capped
   key — never in the browser, `embed.js`, or the repo.
 

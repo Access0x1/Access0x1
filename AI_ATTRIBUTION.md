@@ -50,11 +50,15 @@ commit → Sonnet reviews → Fable red-teams the live `src/` → the owner merg
 Effectively the whole repo was AI-assisted under this discipline — that is the
 honest claim, not a list of carve-outs. Concretely:
 
-- **Contracts** (`src/**.sol`) — the 13-contract first-party surface
-  (`Access0x1Router`, `ChainRegistry`, `PaymentLanes`, `SessionGrant`,
-  `Access0x1Receiver`, `HouseToken[Factory]`, `NameMath`, and the commerce quartet
-  `Subscriptions`/`Bookings`/`Invoices`/`GiftCards`) was authored by the Opus tier
-  from Sonnet-authored pseudocode, one function per commit.
+- **Contracts** (`src/**.sol`) — the first-party surface (21 contracts: the money
+  spine `Access0x1Router` + `OracleLib`, `PaymentLanes`, `SessionGrant`; the
+  multichain + price sidecars `ChainRegistry`, `PriceOracleAdapter`,
+  `Access0x1Receiver`, `AutomationGateway`, `GaslessPayIn`; the
+  `HouseToken`/`HouseTokenFactory` pair; `NameMath`; the on-chain
+  `Access0x1ProvenanceRegistry`; and the commerce set
+  `Subscriptions`/`Bookings`/`Invoices`/`GiftCards`/`Nft`/`Escrow`/`Refunds`/`Receivables`/`SplitSettler`)
+  was authored by the Opus tier from Sonnet-authored pseudocode, one function per
+  commit.
 - **Tests** (`test/**`) — unit, invariant, and integration tests were authored by
   Opus; the **adversarial exploit tests under `test/attack/**` were written by the
   Fable red-team** to try to break the money path (a break = a failing PoC handed
@@ -62,7 +66,11 @@ honest claim, not a list of carve-outs. Concretely:
   file headers.
 - **Frontend / SDK / embed** (`web/**`, `packages/react/**`, `web/public/embed.js`)
   — the Next.js checkout + dashboard, the `@access0x1/react` SDK, and the one-tag
-  embed were authored by Opus.
+  embed were authored by Opus. The same review-then-harden loop applies here: e.g.
+  the `usePayment` hook was tightened so the watched `PaymentReceived` receipt is
+  bound to the payment's `orderId` (a concurrent same-buyer/same-merchant payment
+  for a different order can't resolve the wrong receipt) and the receipt watch races
+  a 120-second timeout instead of hanging forever.
 - **MetaMask Snap** (`snap/**`) — authored by Opus.
 - **Deploy + CI** (`script/**`, `Makefile`, `.github/**`) — authored by Opus.
 - **Docs** (`README.md`, `PROGRESS.md`, `audit/**`, this file, `specs/**`) — prose
@@ -85,13 +93,14 @@ them (see the "decide vs ask" rule in [`CLAUDE.md`](./CLAUDE.md) §6 and
   O(1) hash-map chain registry, ERC-6909 PaymentLanes), the chains, and the integration
   targets were the owner's calls.
 - **The merge gate** — the owner reviews and merges PRs to `main`; every one of the
-  84 merged PRs is the owner's decision. Main is only ever merged on a green gate.
+  164 merged PRs is the owner's decision. Main is only ever merged on a green gate.
 - **Everything on-chain or costing money** — mainnet, real keys, spending, and the
   final tap on any account signup are owner-only. Agents prepare a signup and open
   the page; the owner taps "Create / I agree." No agent ever accepted terms or
   created credentials.
-- **The security bar** — the owner set the floor (≥95% router coverage, the fuzz
-  invariants, aderyn + slither clean or documented) that the AI had to clear.
+- **The security bar** — the owner set the floor (high router coverage — ~98% lines,
+  100% functions, against a documented 90%-on-money-paths minimum — the fuzz
+  invariants, aderyn + slither triaged clean or documented) that the AI had to clear.
 
 ## Build-time proof — the git log
 
@@ -104,7 +113,7 @@ makes legible:
 - **One branch per build unit**, pushed publicly within minutes, landed as a
   **merge-commit PR** the owner merged (never squash/rebase — squashing would
   destroy the per-function history that is part of the product).
-- **307 commits across 84 merged PRs** at the time of writing, public from
+- **561 commits across 164 merged PRs** at the time of writing, public from
   commit #1.
 
 ### Commit authorship — the honest detail
