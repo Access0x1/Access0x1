@@ -6,8 +6,8 @@ block, run it, and check the result against the **Expected** line under it.
 
 Everything here runs **locally** against a throwaway [Anvil](https://book.getfoundry.sh/anvil/)
 chain. No real money, no real keys, no testnet, nothing to lose. The same flows
-the automated suite proves (1,382 contract tests + the web gate) you will drive by
-hand, so you can see the money move and the guards bite.
+the automated suite proves (1,383 contract tests across 104 suites + the web gate)
+you will drive by hand, so you can see the money move and the guards bite.
 
 > **Naming note.** This document only uses public, standard names: Anvil, Arc,
 > Circle, USDC, Chainlink, and the contract names (`Access0x1Router`, etc.).
@@ -27,7 +27,7 @@ hand, so you can see the money move and the guards bite.
   - [B7. SessionGrant — openSession → spend → revoke](#b7-sessiongrant--opensession--spend--revoke)
   - [B8. Nft — list → buy](#b8-nft--list--buy)
 - [C. Web app — onboarding, checkout, verify, dashboard](#c-web-app--onboarding-checkout-verify-dashboard)
-- [D. The test suites (1,382 + web gate)](#d-the-test-suites-1382--web-gate)
+- [D. The test suites (1,383 + web gate)](#d-the-test-suites-1383--web-gate)
 - [E. Pre-demo smoke checklist](#e-pre-demo-smoke-checklist)
 
 ---
@@ -145,8 +145,12 @@ and `ONCHAIN EXECUTION COMPLETE & SUCCESSFUL`.
 
 > `PaymentLanes` and `Access0x1Receiver` are **off by default** locally
 > (`DEPLOY_PAYMENT_LANES` unset, no CRE forwarder). To also deploy + wire
-> PaymentLanes, run: `DEPLOY_PAYMENT_LANES=true make deploy-local`. `Access0x1Nft`
-> is **not** part of `DeployAll`; Section B8 deploys it standalone.
+> PaymentLanes, run: `DEPLOY_PAYMENT_LANES=true make deploy-local`. Everything else
+> — including `Access0x1Nft` and the settlement extensions (`GaslessPayIn`,
+> `Refunds`, `SplitSettler`, `Receivables`, `PriceOracleAdapter`,
+> `AutomationGateway`, `Access0x1Escrow`, `Access0x1ProvenanceRegistry`) — lands in
+> the one `DeployAll` broadcast, so Section B8 reuses the `Access0x1Nft` address
+> from A6 rather than deploying its own.
 
 ### A6. Read the deployed addresses
 
@@ -161,8 +165,11 @@ cat broadcast/DeployAll.s.sol/31337/run-latest.json \
 **Expected:** one line per deployed contract, e.g.
 `Access0x1Router  0x5FbDB…`. Note the addresses for `Access0x1Router`,
 `SessionGrant`, `Access0x1Subscriptions`, `Access0x1Bookings`,
-`Access0x1Invoices`, `Access0x1GiftCards`, and the **mock `MockUSDC`**. You will
-paste these into the commands below.
+`Access0x1Invoices`, `Access0x1GiftCards`, `Access0x1Nft`, and the **mock
+`MockUSDC`**. You will paste these into the commands below. (The contracts deploy
+as UUPS proxies, so each name appears with both an implementation and a proxy
+`CREATE` — point your `cast` calls at the **proxy** address, the one the address
+block in A5 prints next to the contract name.)
 
 > **The fastest sanity check of all.** Before the manual `cast` work, run the
 > one-shot money-flow driver. It deploys a throwaway Router + mock USDC + feed,
@@ -325,12 +332,13 @@ third hit the wall.
 > the subscriber's own key (no signature needed), which is what we do here.
 
 **1. Define the plan.** As the merchant owner from B1 (`$MID = 1`), set plan key
-`1` to `$29.00` (`2900000000` in 8-dp) on a 30-day period (`251,38200` seconds),
-active:
+`1` to `$29.00` (`2900000000` in 8-dp) on a 30-day period (`2592000` seconds =
+`30 * 86400`), active. `setPlan` is `(merchantId, planKey, priceUsd8, periodSecs,
+active)`:
 
 ```bash
 cast send $SUBS "setPlan(uint256,uint8,uint256,uint32,bool)" \
-  $MID 1 2900000000 251,38200 true \
+  $MID 1 2900000000 2592000 true \
   --rpc-url $RPC --private-key $PK
 ```
 
@@ -731,19 +739,16 @@ is gone.
 ### B8. Nft — list → buy
 
 `Access0x1Nft` is a fixed-price listing market that settles through the same
-Router. It is **not** part of `DeployAll`, so deploy it standalone, pointing it
-at your Router. Its constructor is `(address initialOwner, Access0x1Router
-router_)`.
+Router. It **is** part of `DeployAll` (a UUPS proxy, initialized with
+`initialize(address initialOwner, Access0x1Router router_)` — not a plain
+constructor), so you already have its address from A6.
 
-**1. Deploy it.**
+**1. Set its address from the deploy.** Read the `Access0x1Nft` address you noted
+in A6 (or re-read it from the broadcast file):
 
 ```bash
-cast send --rpc-url $RPC --private-key $PK --create \
-  $(forge inspect Access0x1Nft bytecode) \
-  "constructor(address,address)" $ME $ROUTER
+export NFT=<ACCESS0X1NFT_ADDRESS_FROM_A6>
 ```
-
-**Expected:** a receipt with a `contractAddress`. `export NFT=<NFT_ADDR>`.
 
 > You also need a test ERC-721 to list. Any mock 721 you control works; the
 > automated tests use a mock in `test/mocks/`. The point of this section is the
@@ -832,6 +837,15 @@ the merchant id doesn't exist on-chain, you get **"This payment link is not
 valid"** (the `Access0x1__MerchantNotFound` path) — exactly the safe failure you
 want.
 
+> **Receipt resolution is order-bound and bounded in time.** The checkout uses the
+> SDK's `usePayment`, which watches `PaymentReceived` filtered to your `merchantId`
+> + buyer, then **binds the matched receipt to this payment's `orderId`** — so two
+> checkout tabs for the *same* merchant by the *same* buyer but *different* orders
+> never resolve each other's receipt. To watch this by hand, open `/m/1?order=a`
+> and `/m/1?order=b` in two tabs and pay both; each tab confirms with its own order.
+> The watch also **races a 120-second timeout**, so a missing/undecodable event
+> fails loud instead of leaving the button spinning forever.
+
 ### C4. Verify — `/verify`, and Dashboard — `/dashboard`
 
 - **`/verify`** runs the verification stack (Dynamic wallet + World ID / OIDC,
@@ -867,19 +881,19 @@ the `cast` walkthroughs in Section B prove the contracts.)
 
 ---
 
-## D. The test suites (1,382 + web gate)
+## D. The test suites (1,383 + web gate)
 
 The automated suites are the ground truth behind every manual flow above. Run
 them to confirm a clean tree.
 
-### D1. The contract suite — 1,382 tests
+### D1. The contract suite — 1,383 tests
 
 ```bash
 make test          # or: forge test
 ```
 
 **Expected:** the final summary line reads roughly
-`Ran <N> test suites: 1,382 tests passed; 0 failed; 0 skipped`. This is the union of:
+`Ran 104 test suites: 1383 tests passed; 0 failed; 0 skipped`. This is the union of:
 
 - **`test/unit/`** — per-function correctness.
 - **`test/attack/`** — adversarial / exploit attempts that must fail.
@@ -907,8 +921,8 @@ This runs, in order: an embed-syntax check, the embed-address verifier, a
 TypeScript `tsc --noEmit` typecheck, and the Vitest unit suite (integration tests
 excluded).
 
-**Expected:** all four steps pass; the Vitest summary reports roughly **532
-passing** across ~50 files. If a suite fails to **load** a module (e.g.
+**Expected:** all four steps pass; the Vitest summary reports roughly **965
+passing** across **89 files**. If a suite fails to **load** a module (e.g.
 `Cannot find package 'lucide-react'`), that is a missing dependency, not a logic
 failure — run `cd web && npm install` and re-run the gate.
 
@@ -918,7 +932,7 @@ failure — run `cd web && npm install` and re-run the gate.
 make gate
 ```
 
-**Expected:** contracts build + 1,382 tests + `forge fmt --check`, then the web
+**Expected:** contracts build + 1,383 tests + `forge fmt --check`, then the web
 gate, ending in `==> GATE GREEN`. This is the single command that proves the
 whole repo is healthy before a commit.
 
@@ -933,9 +947,10 @@ fails, stop and fix it before showing anyone.
       all print (Section A1).
 - [ ] **Deps installed.** `make install` completed; a bare `make build` exits
       green (Section A3).
-- [ ] **Contracts green.** `make test` → `1,382 passed; 0 failed` (Section D1).
+- [ ] **Contracts green.** `make test` → `1383 passed; 0 failed` across 104 suites
+      (Section D1).
 - [ ] **Web green.** `cd web && npm run gate` → all four steps pass, ~965 tests
-      (Section D2).
+      across 89 files (Section D2).
 - [ ] **Anvil up.** `make anvil` is running in its own terminal, "Listening on
       127.0.0.1:8545" (Section A4).
 - [ ] **Estate deployed.** `make deploy-local` ended with `ONCHAIN EXECUTION

@@ -132,7 +132,12 @@ chain (from [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md)). The SDK approves the
 #### Want your own UI? Use the `usePayment` hook
 
 `<PayButton>` is a thin shell over `usePayment`. Use the hook directly for a custom button, copy, or
-layout — you get `quote`, `pay()`, `status`, `txHash`, `receipt`, `error`, and `reset()`:
+layout — you get `quote`, `pay()`, `status`, `txHash`, `receipt`, `error`, and `reset()`. The hook
+starts watching `PaymentReceived` *before* it broadcasts, then resolves the receipt safely: it
+**binds the watched receipt to this payment's `orderId`** (the event filter can only match the indexed
+`merchantId` + buyer, so a concurrent same-buyer/same-merchant payment for a *different* order — e.g. a
+second checkout tab — can't resolve the wrong receipt), and it **races the receipt watch against a
+120-second timeout** so a missing/undecodable event fails loud instead of hanging the flow forever:
 
 ```tsx
 import { usePayment, clientFromViem } from '@access0x1/react';
@@ -298,11 +303,15 @@ Chainlink feed address on every chain** (each re-verified on-chain on 2026-06-17
 | **Base Sepolia** | `84532` | `0x036CbD…dCF7e` | The primary EVM demo chain. Source-verified. Carries the live demo merchant. |
 | **zkSync Sepolia** | `300` | see [CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) | One-command deploy-ready via the EraVM path; not yet broadcast at time of writing. |
 
-Beyond these three, the stack is also live on **Ethereum Sepolia (11155111)**, **Optimism Sepolia
-(11155420)**, **Avalanche Fuji (43113)**, **Robinhood Chain (46630)**, **Ethereum Hoodi (560048)**, and
-**0G Galileo (16602)**, with ~30 more testnets one-command deploy-ready. The per-chain USDC token and
-Chainlink feed addresses for all of them live in [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) — the
-single source of truth for those addresses.
+Beyond these three, the **CREATE3 mirror** (one address — see below) is live on a total of **eight
+testnets**: Arc, Base Sepolia, **Ethereum Sepolia (11155111)**, **Optimism Sepolia (11155420)**,
+**Avalanche Fuji (43113)**, **Robinhood Chain (46630)**, **Arbitrum Sepolia (421614)**, and **Celo
+Sepolia (11142220)** — source-verified on seven of them. Three earlier chains (**Ethereum Hoodi
+(560048)**, **0G Galileo (16602)**, **Tempo (42431)**) carry **pre-mirror** per-chain deploys, with
+~30 more testnets one-command deploy-ready. The per-chain USDC token and Chainlink feed addresses for
+all of them live in [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) — the single source of truth for
+those addresses; the live mirror/per-chain status is the
+[README Deployments table](../README.md#deployments).
 
 > **One router, every chain.** The integration is identical across chains — only the `routerAddress`
 > (and the USDC `token` address) changes. The contract code is the same multi-tenant router everywhere.
@@ -318,9 +327,14 @@ single source of truth for those addresses.
 0xe92244e3368561faf21648146511DeDE3a475EB5
 ```
 
-This is live on **Base Sepolia (84532)** today; the same address resolves on every chain as it is cut
-over (see [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md)). The only other per-chain value is the USDC `token`
-address — the contract code is the same multi-tenant router everywhere.
+This same address is live on **eight testnets** today (Arc `5042002`, Base Sepolia `84532`, Ethereum
+Sepolia `11155111`, Optimism Sepolia `11155420`, Avalanche Fuji `43113`, Robinhood `46630`, Arbitrum
+Sepolia `421614`, Celo Sepolia `11142220`) and source-verified on seven of them; it resolves on every
+further chain as it is cut over (see [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md)). The only other per-chain
+value is the USDC `token` address — the contract code is the same multi-tenant router everywhere. The
+canonical, broadcast-derived set is published once in
+[`script/mirror-manifest.json`](../script/mirror-manifest.json) and shown in the
+[README Deployments table](../README.md#deployments) — never hand-copied.
 
 Chains not yet on the mirror still run their own **pre-mirror** per-chain router. Don't hand-copy it: read
 it from the canonical, broadcast-derived source ([`web/lib/deployments.ts`](../web/lib/deployments.ts) or

@@ -38,8 +38,10 @@ my-checkout/
 │   ├── access0x1.config.ts     chain + router (from env) + integration seams
 │   ├── public/embed.js         the one-tag, no-build embed
 │   └── .env.example            EVERY integration seam as a fill-in blank
-└── contracts/      Your OWN Foundry contracts (the real Access0x1Router + the commerce quartet:
-    ├── src/  script/           Subscriptions / Bookings / Invoices / GiftCards)
+└── contracts/      Your OWN Foundry contracts — the real Access0x1Router + the commerce set
+    ├── src/                    Subscriptions / Bookings / Invoices / GiftCards, plus
+    │                           ChainRegistry / PaymentLanes / SessionGrant / HouseToken(Factory) / NameMath
+    ├── script/                 DeployAll.s.sol + DeployAccess0x1Router.s.sol + HelperConfig.s.sol
     ├── foundry.toml remappings.txt package.json
     └── DEPLOY.md               deploy-your-own runbook (zero dependency on us)
 ```
@@ -50,11 +52,12 @@ A `.env.local` is created from `.env.example` (values stay blank — fill them i
 
 | Flag | Values | Default | Meaning |
 |---|---|---|---|
-| `--chain` | `arc` \| `base` \| `zksync` | `arc` | Settlement chain |
-| `--features` | comma list of `checkout,subscriptions,bookings,invoices` | `checkout` | Enabled features |
+| `--chain` | `arc` \| `base` \| `zksync` | `arc` | Settlement chain (`arc` = 5042002, `base` = 84532, `zksync` = 300) |
+| `--features` | comma list of `checkout,subscriptions,bookings,invoices` | `checkout` | Enabled features (`checkout` is always on — it's the base flow) |
 | `--yes`, `-y` | — | off | Skip prompts, accept defaults |
+| `--help`, `-h` | — | — | Print usage and exit |
 
-Without `--yes`, the CLI prompts interactively for the directory, chain, and features.
+Without `--yes` (and on a TTY), the CLI prompts interactively for the directory, chain, and features. The target directory is required when prompts are skipped, and the CLI refuses to scaffold into a non-empty directory.
 
 ## Doctrine
 

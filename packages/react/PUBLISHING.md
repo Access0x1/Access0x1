@@ -85,10 +85,11 @@ git push --follow-tags
 
 ## `create-access0x1` (scaffolder) — present, but NOT published
 
-`packages/create-access0x1` already exists (the `npm create access0x1@latest`
-scaffolder that drops a starter checkout into a new app), but its `package.json` is
-marked `"private": true` and it is **intentionally not published** — only
-`@access0x1/react` goes to npm. End users fetch the template directly:
+`packages/create-access0x1` already exists (the scaffolder that drops a starter
+checkout into a new app — the `npm create access0x1@latest` wrapper it *would*
+become once published), but its `package.json` is marked `"private": true` and it
+is **intentionally not published** — only `@access0x1/react` goes to npm. End users
+fetch the template directly:
 
 ```bash
 npx degit Access0x1/Access0x1/templates/starter my-checkout
