@@ -33,14 +33,18 @@ A wrong descriptor can make a malicious tx look benign, so the formats are the l
 The overloaded `setPriceFeed(address,address)` and `setPriceFeed(address,address,uint256)` are
 disambiguated by full signature (distinct selectors).
 
-## ERC-8213 — the digest fallback (planned SDK surface)
+## ERC-8213 — the digest fallback (shipped in `@access0x1/react`)
 
 For the cases ERC-7730 can't reach (a brand-new merchant deployment with no descriptor yet), the
 [ERC-8213](https://erc8213.eth.limo/) calldata digest — `keccak256(uint256(len) ‖ calldata)` — lets a buyer
 cross-verify on a second device that the bytes their wallet is about to sign match the bytes the checkout
-built. Next step: a viem-native `calldataDigest()` helper in `@access0x1/react` and a digest display in the
-YourApp checkout. It does not make the data human-readable (that's ERC-7730's job) — it makes it
-*verifiable*, the weaker but always-applicable guarantee.
+built. The viem-native helper is **live in `@access0x1/react`**: `calldataDigest(calldata)` (the raw
+ERC-8213 primitive) plus `paymentCalldataDigest({ merchantId, usdAmount8, orderId, token? })`, which digests
+the exact `payNative`/`payToken` calldata `usePayment` sends — so the checkout shows the buyer the same
+fingerprint their wallet will. `chainId` is intentionally excluded (the digest commits to the call, not the
+network). Verified against Foundry's `cast keccak` (`packages/react/src/clearSigning.test.ts`). It does not
+make the data human-readable (that's ERC-7730's job) — it makes it *verifiable*, the weaker but
+always-applicable guarantee.
 
 The same intent — *the buyer ends up with exactly the payment they signed* — is enforced on the watch
 side too. `@access0x1/react`'s `usePayment` binds the `PaymentReceived` receipt it surfaces to **this
