@@ -34,6 +34,10 @@ missing.
 
 ## Getting started
 
+> New to the codebase? Skim **[docs/GETTING-STARTED.md](docs/GETTING-STARTED.md)**
+> (build + run it locally in three commands) and **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+> (the money spine, so you change it with the grain) before your first PR.
+
 ```sh
 git clone --recurse-submodules https://github.com/Access0x1/Access0x1.git
 cd Access0x1
