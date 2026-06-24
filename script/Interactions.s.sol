@@ -10,7 +10,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 /// @title  Interactions — drive the coffee-shop money flow against a LOCAL anvil
 /// @author Access0x1
 /// @notice The FundMe-style "deploy + drive" harness: a single, self-contained broadcast that stands
-///         up a throwaway estate (Router + a mock 6-dec USDC + a mock $1.00 Chainlink feed), onboards a
+///         up a throwaway deployment (Router + a mock 6-dec USDC + a mock $1.00 Chainlink feed), onboards a
 ///         merchant, and settles ONE real `payToken` — then logs the split so you can SEE the money
 ///         move on a chain (not just in a unit test). It is the local-anvil sibling of
 ///         `test/scenario/CoffeeShopPayment.scenario.t.sol`: same flow, but executed as on-chain
@@ -28,13 +28,13 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 /// @dev    Everything is deployed fresh in the broadcast, so there is no address to resolve and no env
 ///         to set. The native/USD feed is unused here (USDC-only flow), kept minimal on purpose.
 contract DriveCoffeeShopLocal is Script {
-    /// @notice The platform fee for this local run: 1.00% (the estate default).
+    /// @notice The platform fee for this local run: 1.00% (the default).
     uint16 internal constant PLATFORM_FEE_BPS = 100;
 
-    /// @notice A $5.00 latte in the estate's 8-decimal USD unit.
+    /// @notice A $5.00 latte in the suite's 8-decimal USD unit.
     uint256 internal constant LATTE_USD8 = 5e8;
 
-    /// @notice Deploy a throwaway estate and settle one $5 USDC payment, logging the proof. Intended to
+    /// @notice Deploy a throwaway deployment and settle one $5 USDC payment, logging the proof. Intended to
     ///         run with `--broadcast` against a local anvil; the broadcaster is anvil's dev account.
     function run() external {
         vm.startBroadcast();

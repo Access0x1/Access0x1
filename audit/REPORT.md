@@ -3,11 +3,11 @@
 | | |
 | --- | --- |
 | **Protocol** | Access0x1 — open, multi-chain, zero-custody payments + session-auth layer |
-| **Scope** | 12 first-party contracts under `src/` (+ 1 internal library, 8 interfaces) |
-| **Commit** | `finish/audit` off `main` (the merged spine + commerce quartet + fuzz/integration tiers) |
-| **Toolchain** | Foundry (forge 1.3.5 / solc 0.8.28, EVM `cancun`, `via_ir`), Aderyn v0.1.9, Slither v0.11.5 |
-| **Methodology** | Foundry unit + invariant + adversarial (`test/attack/**`) + integration + fuzz suites, Aderyn, Slither, `forge coverage`, manual review |
-| **Status at event** | **Testnet-only** (Arc / Base / zkSync testnets). Mainnet deployment is gated on an independent third-party audit (see §8). |
+| **Scope** | The first-party Solidity in `src/`: **21 contracts + 1 internal library (`OracleLib`) + 16 interfaces**. The per-instance static-tool findings (§6) and the deep money-path review (§3, §5, §7) center the money spine + the long-standing commerce set; the newer additions (`SplitSettler`, `Access0x1Escrow`, `Receivables`, `Refunds`, `GaslessPayIn`, `PriceOracleAdapter`, `AutomationGateway`, `Access0x1ProvenanceRegistry`, `Access0x1Nft`) are built, tested, and compose the same audited spine — they are reviewed here against the same money laws before any mainnet claim. |
+| **Commit** | The merged `main` spine + the commerce set + the fuzz/symbolic/integration tiers. |
+| **Toolchain** | Foundry (forge 1.3.5 / solc 0.8.28, EVM `cancun`, `via_ir`), Aderyn v0.1.9, Slither v0.11.5, Halmos (symbolic). |
+| **Methodology** | Foundry unit + invariant + adversarial (`test/attack/**`) + integration + fuzz + scenario suites, Halmos symbolic proofs (`test/symbolic/**`), Aderyn, Slither, `forge coverage`, manual review |
+| **Status at event** | **Testnet-only.** The CREATE3 mirror is live on eight testnets (Arc / Base / Optimism / Arbitrum / Celo / Avalanche / Robinhood + Ethereum Sepolia), source-verified on seven. Mainnet deployment is gated on an independent third-party audit (see §8). |
 | **Report style** | Cyfrin-style: scope → methodology → posture → findings (resolve-or-justify) → residual risk |
 
 > This report records the security work performed during the build. It is an
@@ -16,43 +16,67 @@
 > report should be read as a guarantee of safety. See §8 (Residual Risk &
 > Mainnet Readiness) for the honest disposition.
 >
-> **Tool-honesty note (this run).** Both static analysers were actually executed
-> over the full 12-contract surface for this report: **Slither v0.11.5 ran clean**
-> (31 results across 12 detectors). **Aderyn v0.1.9** runs from a checkout whose
-> `node_modules`/`lib` resolve inside the project root — run from a worktree with
-> those paths symlinked out of the tree it panics with `StripPrefixError` before
-> emitting a report, so the Aderyn numbers here were produced from a checkout with
-> a local (non-symlinked) `node_modules`. Aderyn also prints a cosmetic
-> version-parse panic *after* writing its report (it cannot parse the
-> `foundry-zksync` version string); the report is complete. `forge coverage` uses
-> `--ir-minimum` (the quartet trips `Stack too deep` otherwise).
+> **Tool-honesty note.** Both static analysers were executed over the `src/`
+> surface; every result is triaged per-instance in [`audit/FINDINGS.md`](FINDINGS.md)
+> (the curated record — the raw generated reports are gitignored). The counts quoted
+> in this report (§2.1, §6) are the recorded dispositions, not a fresh "clean" claim:
+> we record what the tools said and how each row is disposed. **Aderyn v0.1.9** runs
+> from a checkout whose `node_modules`/`lib` resolve inside the project root — run
+> from a worktree with those paths symlinked out of the tree it panics with
+> `StripPrefixError` before emitting a report, so the Aderyn numbers were produced
+> from a checkout with a local (non-symlinked) `node_modules`; it also prints a
+> cosmetic version-parse panic *after* writing its report (it cannot parse the
+> `foundry-zksync` version string), so the report itself is complete. `forge coverage`
+> uses `--ir-minimum` (the commerce set trips `Stack too deep` otherwise).
 
 ---
 
 ## 1. Scope
 
-The audited surface is the first-party Solidity in `src/`. Dependencies
-(OpenZeppelin, Chainlink, forge-std) are out of scope and excluded from the
-static analysers (`slither.config.json` filters `lib/ node_modules/ test/
-script/`; Aderyn runs over `src/`).
+The audited surface is the first-party Solidity in `src/` — **21 contracts + the
+`OracleLib` library + 16 interfaces**. Dependencies (OpenZeppelin, Chainlink,
+forge-std) are out of scope and excluded from the static analysers
+(`slither.config.json` filters `lib/ node_modules/ test/ script/`; Aderyn runs
+over `src/`).
 
-| # | Contract | nSLOC | Role on / off the money path |
-| --- | --- | --- | --- |
-| 1 | `Access0x1Router.sol` | 303 | The shared, multi-tenant, **zero-custody** money spine. `registerMerchant` -> `payNative`/`payToken` price USD->token via a Chainlink feed in-tx, split an exact capped fee, push net -> merchant atomically. |
-| 2 | `PaymentLanes.sol` | 123 | ERC-6909 non-custodial **pull** receipts; per-asset lane firewall + conservation. |
-| 3 | `SessionGrant.sol` | 184 | ERC-7702 / ERC-6492 / ERC-1271 session authorisation. Holds **no funds**; enforces budget caps + expiry. |
-| 4 | `Access0x1Subscriptions.sol` | 240 | Recurring-billing primitive. Plans/periods only; every charge pulls -> router split -> push and debits a `SessionGrant` budget meter. Holds ~zero balance. |
-| 5 | `Access0x1Bookings.sol` | 284 | Deposit/escrow + cancel/no-show/expire lifecycle. Fully-backed escrow ledger; resolution fee re-quoted in-tx, **refund never blocked** (§7.3). |
-| 6 | `Access0x1Invoices.sol` | 111 | One-shot invoice settlement. `OPEN -> {PAID\|VOID}` one-way; straight pull -> router -> split -> push, no escrow. |
-| 7 | `Access0x1GiftCards.sol` | 169 | Closed-loop USD store credit. Holds **no** ERC-20 — a card balance is a pure USD receipt; the chargeable remainder settles through the router. |
-| 8 | `ChainRegistry.sol` | 45 | `Ownable2Step` registry of per-chain `usdc`/`router` + live flags. Off the money path. |
-| 9 | `Access0x1Receiver.sol` | 84 | Chainlink-CRE "notified settlement" audit consumer. Off the money path (append-only audit log). |
-| 10 | `HouseToken.sol` | 30 | Business-owned, closed-loop ERC-20 (loyalty / store credit). Owner-gated mint; Access0x1 never holds authority. |
-| 11 | `HouseTokenFactory.sol` | 29 | Non-custodial deployer for `HouseToken`. No owner, no admin, no upgradeability. |
-| 12 | `NameMath.sol` | 79 | Pure on-chain ENS brand layer (deterministic color + identicon SVG from a namehash). No state, no value. |
-| — | `libraries/OracleLib.sol` | 23 | Chainlink staleness + completed-round guard (`internal`, inlined into the router). |
-| — | `interfaces/*.sol` (8) | 443 | `IAccess0x1Bookings`, `IAccess0x1GiftCards`, `IAccess0x1Invoices`, `IAccess0x1Subscriptions`, `IReceiver`, `IPaymentLanes`, `ISessionGrant`, `IHouseTokenFactory`. |
-| | **Total** | **2157** | (21 `.sol` files; per `aderyn` nSLOC) |
+**The money spine + the deep-review set:**
+
+| Contract | Role on / off the money path |
+| --- | --- |
+| `Access0x1Router.sol` | The shared, multi-tenant, **zero-custody** money spine. `registerMerchant` -> `payNative`/`payToken` price USD->token via a Chainlink feed in-tx (with the optional L2 sequencer-uptime guard, §7.5), split an exact capped fee, push net -> merchant atomically. |
+| `PaymentLanes.sol` | ERC-6909 non-custodial **pull** receipts; per-asset lane firewall + conservation. |
+| `SessionGrant.sol` | ERC-7702 / ERC-6492 / ERC-1271 session authorisation. Holds **no funds**; enforces budget caps + expiry. |
+| `Access0x1Subscriptions.sol` | Recurring-billing primitive. Plans/periods only; every charge pulls -> router split -> push and debits a `SessionGrant` budget meter. Holds ~zero balance. |
+| `Access0x1Bookings.sol` | Deposit/escrow + cancel/no-show/expire lifecycle. Fully-backed escrow ledger; resolution fee re-quoted in-tx, **refund never blocked** (§7.3). |
+| `Access0x1Invoices.sol` | One-shot invoice settlement. `OPEN -> {PAID\|VOID}` one-way; straight pull -> router -> split -> push, no escrow. |
+| `Access0x1GiftCards.sol` | Closed-loop USD store credit. Holds **no** ERC-20 — a card balance is a pure USD receipt; the chargeable remainder settles through the router. |
+
+**Additional first-party primitives (built + tested; compose the same spine):**
+
+| Contract | Role on / off the money path |
+| --- | --- |
+| `Access0x1Nft.sol` | USD-priced zero-custody NFT-commerce: lists an ERC-721, `buy` pulls the quoted gross and settles through the router atomically; escrows only the listed NFT, never a payment token (§7.4). |
+| `SplitSettler.sol` | N-payee revenue split — one USD-priced payment fans out to N payees by basis points, `Σ shares == gross`; net pull-credited per payee (ERC-6909, never-blockable); conservation `balance == Σ unclaimed`. |
+| `Access0x1Escrow.sol` | Conditional-settlement: a deposit HELD until resolution, then RELEASED through the router fee-split or REFUNDED in full; CEI + `nonReentrant` + never-blockable pull-on-failure payout; conservation `balance == Σ open + Σ withdrawable`. |
+| `Receivables.sol` | Tokenized, factorable invoices (ERC-721 the holder gets paid on); settles through the router. |
+| `Refunds.sol` | Pull-pattern refund ledger — a refund is credited and claimed, never pushed into a hostile recipient. |
+| `GaslessPayIn.sol` | Gas-free USDC pay-in (EIP-3009 / x402-style) settled through the router. |
+| `PriceOracleAdapter.sol` | Adapter around the Chainlink read (the `OracleLib` staleness guard), so the price source is swappable without touching the spine. |
+| `AutomationGateway.sol` | Keeper/automation entrypoint for the recurring legs (subscriptions). |
+| `Access0x1ProvenanceRegistry.sol` | Append-only on-chain provenance/audit record. Off the money path. |
+| `ChainRegistry.sol` | `Ownable2Step` registry of per-chain `usdc`/`router` + live flags. Off the money path. |
+| `Access0x1Receiver.sol` | Chainlink-CRE "notified settlement" audit consumer. Off the money path (append-only audit log). |
+| `HouseToken.sol` | Business-owned, closed-loop ERC-20 (loyalty / store credit). Owner-gated mint; Access0x1 never holds authority. |
+| `HouseTokenFactory.sol` | Non-custodial deployer for `HouseToken`. No owner, no admin, no upgradeability. |
+| `NameMath.sol` | Pure on-chain ENS brand layer (deterministic color + identicon SVG from a namehash). No state, no value. |
+| `libraries/OracleLib.sol` | Chainlink staleness + completed-round guard + the L2 sequencer-uptime check (`internal`, inlined into the router). |
+| `interfaces/*.sol` (16) | The published interface surface for the contracts above. |
+
+These additional primitives carry their own invariant suites (`test/invariant/` — Escrow, GaslessPayIn,
+Receivables, Refunds, SplitSettler) and adversarial tests (`test/attack/` — Escrow, Nft, and the router
+ERC-777-reentrancy probe), and they re-route every money leg through `Access0x1Router.payToken`/`payNative`
++ `quote`, so the router's proven properties (conservation, zero-custody, isolation, fee cap) carry to them
+unchanged.
 
 ---
 
@@ -83,12 +107,13 @@ governing rule for every static-tool result is the real-audit convention:
 | Step | Result |
 | --- | --- |
 | `forge build` | **green** (solc 0.8.28, `via_ir`, `cancun`) |
-| `forge test` | **831 tests passed, 0 failed, 0 skipped** (77 suites) |
+| `forge test` | **1,383 tests passed, 0 failed, 0 skipped** (104 suites) — re-run for this report |
 | `forge fmt --check` | **clean** |
-| `forge coverage` | lines **98.35%**, statements **97.57%**, branches **89.23%**, functions **99.30%** overall (`--ir-minimum`; per-contract in §4 / [`COVERAGE.md`](COVERAGE.md)) |
-| Invariants | **31 / 31 hold** under `fail_on_revert`, 0 reverts (6 router + 3 PaymentLanes + 6 Bookings + 6 Invoices + 6 Subscriptions + 4 GiftCards) |
-| Aderyn | 4 High + 11 Low — **all triaged** (false-positive / by-design / style) |
-| Slither | 31 results across 12 detectors — **all triaged** (router native-send rows suppressed by inline `slither-disable`) |
+| `forge coverage` | lines **~98%**, branches **~97%** on the router; functions **100%** overall (`--ir-minimum`; per-contract in §4 / [`COVERAGE.md`](COVERAGE.md)) |
+| Invariants | hold under `fail_on_revert`, 0 reverts — the 6 router money invariants + the PaymentLanes firewall/conservation set + per-lifecycle invariants on the commerce primitives (Bookings, Invoices, Subscriptions, GiftCards, Escrow, GaslessPayIn, Receivables, Refunds, SplitSettler) |
+| Halmos | symbolic fee-split conservation + SessionGrant budget-cap proofs pass (`make halmos`) |
+| Aderyn | every High/Low **triaged** (false-positive / by-design / style) — per-instance in [`FINDINGS.md`](FINDINGS.md) |
+| Slither | every result **triaged** (router native-send rows suppressed by inline `slither-disable`) — per-instance in [`FINDINGS.md`](FINDINGS.md) |
 
 ---
 
@@ -142,47 +167,51 @@ path. This is the disposition for Aderyn L-1 / Slither centralization results
 
 ## 4. Per-contract test & coverage
 
-Coverage measured under `forge coverage --ir-minimum` (the commerce quartet trips
-`Stack too deep` under the non-IR coverage pipeline); full raw table in
-[`COVERAGE.md`](COVERAGE.md). Test counts span unit + attack + invariant +
-integration + fuzz tiers (`forge test`: **831 passed / 0 failed / 0 skipped**,
-77 suites).
+The authoritative whole-suite total is the `forge test` line:
+**1,383 passed / 0 failed / 0 skipped across 104 suites** (unit + attack + invariant
++ integration + fuzz + scenario + fork + symbolic). Per-contract coverage is measured
+under `forge coverage --ir-minimum` (the commerce set trips `Stack too deep` under the
+non-IR coverage pipeline); the raw snapshot below is captured in
+[`COVERAGE.md`](COVERAGE.md), which is the source of truth for these numbers.
 
-| Contract | Tests (all tiers) | Invariants | % Lines | % Statements | % Branches | % Funcs |
-| --- | ---: | ---: | --- | --- | --- | --- |
-| `Access0x1Router.sol` | ~101 | 6 | 97.79% | 98.08% | 97.44% | 100% |
-| `PaymentLanes.sol` | ~102 | 3 | 100% | 97.10% | 85.71% | 100% |
-| `SessionGrant.sol` | ~65 | — | 97.80% | 98.39% | 95.83% | 100% |
-| `Access0x1Subscriptions.sol` | ~67 | 6 | 100% | 99.29% | 96.00% | 100% |
-| `Access0x1Bookings.sol` | ~56 | 6 | 97.69% | 95.00% | 76.32% | 96.43% |
-| `Access0x1Invoices.sol` | ~72 | 6 | 100% | 100% | 100% | 100% |
-| `Access0x1GiftCards.sol` | ~74 | 4 | 96.43% | 96.51% | 80.95% | 100% |
-| `ChainRegistry.sol` | ~53 | — | 100% | 100% | 100% | 100% |
-| `Access0x1Receiver.sol` | ~52 | — | 92.00% | 92.59% | 66.67% | 100% |
-| `HouseToken` + `HouseTokenFactory` | ~63 | — | 100% / 100% | 87.50% / 100% | 50% / 100% | 100% / 100% |
-| `NameMath.sol` | ~29 | — | 100% | 100% | 100% | 100% |
-| `OracleLib.sol` | ~23 | — | 100% | 100% | 100% | 100% |
-| Fork (`ChainlinkFeedFork`) | 3 | — | — | — | — | — |
-| Cross-cutting (`DeployAll`, `HelperConfig`, `EndToEnd`) | 14 | — | — | — | — | — |
-| **Total** | **831** | **31** | **98.35%** | **97.57%** | **89.23%** | **99.30%** |
+| Contract | % Lines | % Statements | % Branches | % Funcs |
+| --- | --- | --- | --- | --- |
+| `Access0x1Router.sol` | 97.87% | 98.14% | 97.50% | 100% |
+| `PaymentLanes.sol` | 100% | 97.10% | 85.71% | 100% |
+| `SessionGrant.sol` | 97.80% | 98.39% | 95.83% | 100% |
+| `Access0x1Subscriptions.sol` | 100% | 99.30% | 96.00% | 100% |
+| `Access0x1Bookings.sol` | 99.42% | 96.00% | 78.95% | 100% |
+| `Access0x1Invoices.sol` | 100% | 100% | 100% | 100% |
+| `Access0x1GiftCards.sol` | 96.43% | 96.51% | 80.95% | 100% |
+| `Access0x1Nft.sol` | 96.30% | 94.83% | 90.00% | 100% |
+| `ChainRegistry.sol` | 100% | 100% | 100% | 100% |
+| `Access0x1Receiver.sol` | 92.00% | 92.59% | 66.67% | 100% |
+| `HouseToken.sol` | 100% | 87.50% | 50% | 100% |
+| `HouseTokenFactory.sol` | 100% | 100% | 100% | 100% |
+| `NameMath.sol` | 100% | 100% | 100% | 100% |
+| `OracleLib.sol` | 100% | 100% | 100% | 100% |
+| **Measured total (this snapshot)** | **98.58%** | **97.65%** | **89.90%** | **100%** |
 
-Per-contract test counts are approximate (they aggregate each contract's unit,
-attack, invariant, integration and fuzz suites); the authoritative whole-suite
-total is the `forge test` line: **831 / 0 / 0**. The 31 invariants are
-6 router + 3 PaymentLanes + 6 Bookings + 6 Invoices + 6 Subscriptions + 4 GiftCards,
-all holding under `fail_on_revert` with 0 reverts (§5).
+The per-contract snapshot above is the last full `--ir-minimum` coverage run committed
+to [`COVERAGE.md`](COVERAGE.md); it predates the most recently-added primitives
+(`SplitSettler`, `Access0x1Escrow`, `Receivables`, `Refunds`, `GaslessPayIn`,
+`PriceOracleAdapter`, `AutomationGateway`, `Access0x1ProvenanceRegistry`), which each
+carry their own unit/invariant/attack tests inside the 1,383-test whole-suite total and
+refresh into this table on the next coverage run.
 
 The sub-100% rows are **unreachable defence-in-depth guards**, documented and
 intentionally kept (covering them would require weakening the contract):
 
-- `Access0x1Bookings` branches (76.32%) — the best-effort `try/catch` catch-arms on
+- `Access0x1Bookings` branches (78.95%) — the best-effort `try/catch` catch-arms on
   the oracle-fault-tolerant resolution legs (`_trySafeQuote`, `_payoutOrQueue`); the
   refund-never-blocked fallback that fires only on a degraded feed or a rejecting
   payee, plus fee-clamp branches a fuzzed price never crosses (§7.3).
 - `Access0x1Receiver` (92.00% / 66.67%) — the assembly-decode length pre-guard and a
   workflow-allowlist short-circuit the fixtures hit on one side.
-- `Access0x1Router` (97.79%) — the `_pushNativeOrQueue` rescue-credit fallback arm,
+- `Access0x1Router` (97.87%) — the `_pushNativeOrQueue` rescue-credit fallback arm,
   the native-payee-rejects path the honest fixtures don't trigger.
+- `Access0x1Nft` (96.30% / 90%) — the `onERC721Received` unconditional-accept arm and
+  the `EscrowFailed` defensive revert, reached only by a misbehaving collection.
 - `PaymentLanes` constructor zero-owner revert — OZ `Ownable(address(0))` reverts
   first with `OwnableInvalidOwner`, so the custom revert is never reached
   (proven by `test_constructor_revertsOnZeroOwner`, which observes the OZ error).
@@ -195,13 +224,18 @@ intentionally kept (covering them would require weakening the contract):
 
 ---
 
-## 5. The 31 fuzz invariants
+## 5. The fuzz invariants
 
 Run under `[invariant] fail_on_revert = true` (64 runs x 4096 calls each in the
 default profile; 256 x 128 in CI). A revert is a real failure — handlers bound
-their inputs and early-return on invalid preconditions. The commerce quartet
-adds its own lifecycle invariants; because each quartet money leg routes through
-the router, the router's six carry to them as well.
+their inputs and early-return on invalid preconditions. The commerce primitives
+each add their own lifecycle invariants; because every money leg routes through
+the router, the router's six carry to them as well. The detailed sets below cover
+the money spine + the deep-review set; the additional primitives
+(`Access0x1Escrow`, `GaslessPayIn`, `Receivables`, `Refunds`, `SplitSettler`) each
+carry their own invariant suite under [`test/invariant/`](../test/invariant/)
+(e.g. Escrow conservation `balance == Σ open + Σ withdrawable`, SplitSettler
+`balance == Σ unclaimed`, Refunds pull-ledger conservation).
 
 **`Access0x1Router` (6) — the money spine:**
 
@@ -243,25 +277,28 @@ untouched (`invariant_openCanaryUntouched`), plus isolation/continue checks.
 (`invariant_couponCapNeverExceeded`), and the frozen-card canary
 (`invariant_canaryCardFrozen`).
 
-All **31 held with 0 reverts** under `fail_on_revert` (a separate
+All held with **0 reverts** under `fail_on_revert` (a separate
 `continueOnRevert` profile additionally fuzzes the router under revert-tolerant
-handlers as a cross-check).
+handlers as a cross-check), inside the 1,383-test whole-suite total.
 
 ---
 
 ## 6. Findings
 
-The full per-instance disposition lives in [`audit/FINDINGS.md`](FINDINGS.md).
-Summary below. **Severity** is the analyser's claim; **Status** is the audited
-disposition. None of these is an exploitable vulnerability in the deployed
-configuration.
+The full, current per-instance disposition lives in
+[`audit/FINDINGS.md`](FINDINGS.md) — that tracker is the authoritative record
+(it carries the rows added by `Access0x1Nft` and the router's L2 sequencer-uptime
+guard, §7.5). The summary below is the dominant set of rows. **Severity** is the
+analyser's claim; **Status** is the audited disposition. None of these is an
+exploitable vulnerability in the deployed configuration.
 
-### 6.1 Aderyn — 4 High + 11 Low, all triaged
+### 6.1 Aderyn — 4 High + 11 Low (category counts), all triaged
 
-Aderyn v0.1.9 ran clean over the full 21-file `src/` surface (2157 nSLOC). The
-counts grew from the previous 3H/9L as the commerce quartet was brought into scope
-(H-4 unused-return, L-2 unsafe-ERC20, and more instances of the existing rows); the
-dispositions are unchanged in kind.
+Aderyn v0.1.9 ran over the `src/` surface; every High and Low is triaged
+(false-positive / by-design / style). The **category counts (4H / 11L)** are stable
+across the most recent additions — bringing `Access0x1Nft` and the router's sequencer
+guard into scope added only *instances* of existing rows (see [`FINDINGS.md`](FINDINGS.md)
+for the current instance counts). The dispositions are unchanged in kind.
 
 | ID | Title (Aderyn) | Instances | Severity | Status |
 | --- | --- | --- | --- | --- |
@@ -270,7 +307,7 @@ dispositions are unchanged in kind.
 | H-3 | Unprotected native-ETH send (`Access0x1Router` `payNative` refund, `claimRescue`) | 2 | High | **By design.** Recipients are caller-configured (zero-checked) merchant/treasury/fee/buyer addresses or `msg.sender`; the contract is `nonReentrant` + CEI. A payments router sending native value is its purpose. |
 | H-4 | Unused return value (`Access0x1Subscriptions._charge` return; `sessionGrant.spend` return) | 2 | High | **False positive / benign.** `_charge` returns `gross` for the caller that needs it; the trial-skip path and the budget-meter call deliberately ignore the informational return. The state effect (the spend) is what matters and is not dropped. |
 | L-1 | Centralization risk (owner setters + pause across all contracts) | 22 | Low | **By design (documented trust assumption, §3.3).** No owner path reaches merchant funds. |
-| L-2 | Unsafe ERC20 operation (`Access0x1Bookings._payoutOrQueue` raw `.transfer`) | 1 | Low | **By design — the refund-never-blocked mechanism (§7.3).** The raw `.transfer` is wrapped in `try/catch`: a rejecting payee credits `_refundRescue` instead of bubbling. SafeERC20 would *revert* on a hostile token and brick the refund — the opposite of what estate law #5 requires. |
+| L-2 | Unsafe ERC20 operation (`Access0x1Bookings._payoutOrQueue` raw `.transfer`) | 1 | Low | **By design — the refund-never-blocked mechanism (§7.3).** The raw `.transfer` is wrapped in `try/catch`: a rejecting payee credits `_refundRescue` instead of bubbling. SafeERC20 would *revert* on a hostile token and brick the refund — the opposite of what money-safety invariant #5 requires. |
 | L-3 | Missing `address(0)` check (`Access0x1Router.setPaymentLanes`) | 1 | Low | **By design.** `address(0)` is the deliberate "disable lanes" sentinel (documented inline). |
 | L-4 | `public` could be `external` (`Receiver.supportsInterface`, `HouseToken.decimals`) | 2 | Low | **False positive.** Both are `override`s of base interfaces that must stay `public`. |
 | L-5 | Literals could be constants (router scaling, NameMath SVG math, SessionGrant 6492 offsets, Bookings scaling) | 15 | Low | **Idiomatic.** Decimal-scaling bases, SVG geometry constants and signature byte offsets, not magic numbers. |
@@ -281,14 +318,17 @@ dispositions are unchanged in kind.
 | L-10 | Unused custom error (`ChainRegistry__ZeroAddress`) | 1 | Low | **By design.** Reserved shared error for consumers enforcing non-zero `usdc`/`router`; part of the published surface. |
 | L-11 | Redundant statement (`SessionGrant` `ok;`) | 1 | Low | **By design.** Documents that the best-effort ERC-6492 prepare result is intentionally ignored (inline comment). |
 
-### 6.2 Slither — 31 results across 12 detectors, all triaged
+### 6.2 Slither — all results triaged
 
-Slither v0.11.5 analysed `src/` (`slither.config.json` filters `lib/`,
-`node_modules/`, `test/`, `script/`) and found **31 results across 12 detectors**.
-The router's `arbitrary-send-eth` and `reentrancy-eth` rows do **not** appear in
-this run's 31 — they are suppressed at source by 17 inline `slither-disable`
-directives (the by-design native-send paths, the same disposition as Aderyn H-3).
-That suppression is disclosed here rather than hidden.
+Slither v0.11.5 analyses `src/` (`slither.config.json` filters `lib/`,
+`node_modules/`, `test/`, `script/`). Every result is triaged — the
+authoritative, current result count and per-detector list is in
+[`FINDINGS.md`](FINDINGS.md) (which carries the rows added by `Access0x1Nft` and
+the router's sequencer-guard setter). The router's `arbitrary-send-eth` and
+`reentrancy-eth` rows do **not** appear in the result list — they are suppressed
+at source by inline `slither-disable` directives (the by-design native-send
+paths, the same disposition as Aderyn H-3). That suppression is disclosed here
+rather than hidden. The dominant detector dispositions:
 
 | Detector | Where | Status |
 | --- | --- | --- |
@@ -368,7 +408,7 @@ applies the `OracleLib` staleness guard and **reverts** on a stale / dead / zero
 feed — or if the token was de-allowlisted between reserve and resolution. If that
 revert bubbled, an oracle outage would brick the cancel/no-show transition **and
 therefore the payer's refund** — value stranded in escrow exactly when settlement
-infrastructure is degraded. This violates estate law #5 (*money paths roll back,
+infrastructure is degraded. This violates money-safety invariant #5 (*money paths roll back,
 never swallow; refunds are never blocked*).
 
 **The fix** (`fix(Bookings): make the resolution fee leg oracle-fault-tolerant`).
@@ -397,7 +437,7 @@ spike.
 ### 7.4 The commerce quartet — composition review (no new findings)
 
 `Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`, and
-`Access0x1GiftCards` were reviewed against the estate money laws plus both static
+`Access0x1GiftCards` were reviewed against the project's money-safety invariants plus both static
 tools. They are primitives that **compose** the audited spine rather than
 re-deriving it:
 
@@ -421,7 +461,57 @@ re-deriving it:
 
 The quartet's static-tool rows (H-1, H-4, L-2, `incorrect-equality`,
 `reentrancy-benign`, `timestamp`, `unused-return`) all map onto the dispositions in
-§6 — by design / false-positive — and add no new untriaged finding.
+§6 — by design / false-positive — and add no new untriaged finding. The same review
+was applied to the later primitives (`Access0x1Nft`, `SplitSettler`,
+`Access0x1Escrow`, `Receivables`, `Refunds`, `GaslessPayIn`): each holds ~zero
+payment-token balance after settlement, routes its money leg through the router, and
+keeps refunds/payouts on a never-blockable pull path — `Access0x1Nft.cancelListing`
+is deliberately un-pausable so an unsold NFT is never hostage, and its
+`buy(listingId, maxPriceUsd8)` requires explicit buyer price consent to defeat a
+seller bump (`FINDINGS.md` carries the per-instance disposition).
+
+### 7.5 Access0x1Router — L2 sequencer-uptime guard (added, M-1)
+
+**The risk.** `quote()` reads a Chainlink price feed in the settlement tx. On an
+Arbitrum/Optimism/Base-style L2 the feed is only as trustworthy as the sequencer that
+posts it: during a sequencer outage the feed stops updating, and on restart the first
+prices can be stale or manipulable — a feed can read "fresh" by `updatedAt` yet sit
+behind a sequencer that just came back. The staleness guard alone does not cover this.
+
+**The fix** (`feat(router): L2 sequencer-uptime guard on quote()`). `OracleLib` gains
+`checkSequencerUp` — Chainlink's L2 Sequencer-Uptime pattern: `answer == 0` ⇒ up,
+`== 1` ⇒ `OracleLib__SequencerDown`; `startedAt == 0` (no round posted) ⇒ down; and the
+sequencer must have been continuously up past a 1-hour grace window or the quote reverts
+`OracleLib__SequencerGracePeriodNotOver`. The router holds an optional
+`sequencerUptimeFeed` (owner `setSequencerUptimeFeed` + event) and runs the check in
+`quote()` **only when the feed is set**. With no feed configured — the default, and on
+L1 / Arc (no sequencer) — the check is skipped and behaviour is byte-for-byte unchanged,
+so the existing money invariants and the full pre-existing suite carry over untouched.
+The guard adds no value path and no custody surface — it can only *reject* a quote, never
+alter settlement math.
+
+**Proof.** `test/unit/SequencerGuard.t.sol` (up-past-grace, explicit-up, down→revert,
+within-grace→revert, exact-grace-boundary→revert, uninitialized `startedAt==0`→revert,
+unset-feed-skips, owner-gated setter, set/clear).
+
+### 7.6 @access0x1/react — usePayment receipt-binding + timeout (SDK hardening)
+
+**The risk.** `usePayment` watches the router's `PaymentReceived` event to populate the
+receipt after a pay tx is mined. The event indexes only `{merchantId, buyer}`; `orderId`
+is **not** indexed. So a concurrent payment by the same buyer to the same merchant for a
+**different** order (e.g. a second open checkout tab) could resolve the hook with the
+wrong receipt — wrong order, wrong amount. Separately, if the event never arrived or a log
+failed to decode, the pay flow would `await` the receipt watch forever.
+
+**The fix.** The hook now (a) **binds the watched receipt to this payment's `orderId`** —
+it decodes each matching log and only resolves when `receipt.orderId === orderIdHex`
+(both viem-lowercase bytes32, so `===` is exact), and (b) **races the receipt watch
+against a 120s timeout** so a missing/undecodable event fails loud instead of hanging
+(the watcher is torn down in `finally` either way). Both are in
+`packages/react/src/hooks/usePayment.ts`; covered by
+`packages/react/src/hooks/usePayment-timeout.test.ts`. This is a frontend correctness fix
+(a UI could otherwise show a buyer the wrong on-chain receipt) — it does not touch any
+contract or change settlement, which remains the router's atomic zero-custody path.
 
 ---
 
@@ -429,13 +519,16 @@ The quartet's static-tool rows (H-1, H-4, L-2, `incorrect-equality`,
 
 This section is intentionally conservative.
 
-- **Status at the event: testnet-only.** Contracts run on Arc / Base / zkSync
-  **testnets** with the testnet USDC/EURC and testnet Chainlink feeds. No
-  mainnet deployment ships at the event.
-- **This is not a third-party audit.** It is an internal engineering audit
-  backed by 831 tests, 31 invariants, and two static analysers. Strong coverage
-  reduces — but does not eliminate — risk. Logic the tests didn't imagine is the
-  residual exposure that only an independent audit reliably finds.
+- **Status at the event: testnet-only.** The CREATE3 mirror is live on eight
+  **testnets** (Arc, Base Sepolia, Ethereum Sepolia, Optimism Sepolia, Avalanche
+  Fuji, Robinhood Chain, Arbitrum Sepolia, Celo Sepolia) with testnet USDC/EURC and
+  testnet Chainlink feeds; three earlier chains carry pre-mirror per-chain deploys.
+  **No mainnet deployment ships at the event, and we make no mainnet claim.**
+- **This is not a third-party audit.** It is an internal engineering audit backed
+  by 1,383 tests (0 failed), the money-path fuzz invariants, Halmos symbolic proofs,
+  and two static analysers. Strong coverage reduces — but does not eliminate — risk.
+  Logic the tests didn't imagine is the residual exposure that only an independent
+  audit reliably finds.
 - **Known residual risks:**
   - **Owner trust (centralization).** Owners can pause and reconfigure
     fees/treasury/allowlists/chains. No owner path reaches merchant funds (§3.3),
@@ -459,12 +552,14 @@ This section is intentionally conservative.
 
 ---
 
-*Regenerated as part of the Access0x1 build (ETHGlobal NY 2026) over the full
-12-contract surface. Analyser versions: Aderyn v0.1.9, Slither v0.11.5, Foundry
-forge 1.3.5 / solc 0.8.28 / EVM cancun. Slither ran clean (31 results / 12
-detectors); Aderyn ran clean (4 High / 11 Low) from a checkout with a local
-`node_modules` (it panics with `StripPrefixError` when those paths symlink outside
-the project root, and prints a cosmetic version-parse panic after writing its
-report). `forge coverage` ran with `--ir-minimum`. The raw Aderyn report is
-gitignored; `audit/FINDINGS.md` is the curated per-instance record and
-`audit/COVERAGE.md` is the raw coverage snapshot.*
+*Part of the Access0x1 build (ETHGlobal NY 2026) over the full first-party `src/`
+surface (21 contracts + `OracleLib` + 16 interfaces). Whole-suite gate at this
+update: `forge test` = **1,383 passed / 0 failed / 0 skipped across 104 suites**.
+Analyser versions: Aderyn v0.1.9, Slither v0.11.5, Foundry forge 1.3.5 / solc 0.8.28
+/ EVM cancun, plus Halmos for the symbolic proofs. Every static-tool result is
+triaged per-instance in `audit/FINDINGS.md` (the authoritative, current tracker);
+Aderyn is run from a checkout with a local `node_modules` (it panics with
+`StripPrefixError` when those paths symlink outside the project root, and prints a
+cosmetic version-parse panic after writing its report). `forge coverage` runs with
+`--ir-minimum`. The raw Aderyn report is gitignored; `audit/FINDINGS.md` is the
+curated per-instance record and `audit/COVERAGE.md` is the raw coverage snapshot.*

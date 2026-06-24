@@ -29,7 +29,7 @@ A wallet stores it opaque; a delegate replays it as the 7710 `permissionContext`
 ### A note on `token` (honest)
 
 `SessionGrant` is a pure **authorization ledger** — it stores `budgetCap + expiry + delegate + nonce`,
-**not** the token (denomination/custody lives on the consuming router, by estate law). So an ERC-20
+**not** the token (denomination/custody lives on the consuming router, by money-safety invariant). So an ERC-20
 permission's `token` is carried through this adapter as **interop metadata** on the params/descriptor,
 **not** as a SessionGrant constructor arg. We never pretend SessionGrant enforces the asset.
 

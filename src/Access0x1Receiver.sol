@@ -7,7 +7,7 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 import { IReceiver } from "./interfaces/IReceiver.sol";
 
 /// @title Access0x1Receiver — Forwarder-trusting CRE audit consumer ("Notified Settlement")
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The on-chain half of the "Notified Settlement" feature. A Chainlink CRE workflow
 ///         (EVM-log trigger on the router's `PaymentReceived`) HTTP-notifies the merchant and
 ///         then writes an immutable audit entry HERE via `evmClient.writeReport` → the

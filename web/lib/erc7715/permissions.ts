@@ -31,7 +31,7 @@
  *   | (replay) wallet nonce                   | `nonce` (the SessionGrant owner nonce)    |
  *
  * NOTE ON `token`: SessionGrant is a pure AUTHORIZATION ledger — it stores budgetCap + expiry +
- * delegate + nonce, NOT the token (custody/denomination lives on the consuming router, estate law).
+ * delegate + nonce, NOT the token (custody/denomination lives on the consuming router, money-safety invariant).
  * So `token` is carried through this adapter as interop METADATA (which asset the 7715 allowance is
  * denominated in) and is NOT a SessionGrant constructor arg. The honest mapping surfaces it on the
  * descriptor for the consumer, never pretends SessionGrant enforces it.
@@ -47,7 +47,7 @@
  *  - Pure + deterministic: every function is a pure function of its inputs (no clock, no randomness).
  *
  * SOURCES: ERC-7715 (eips.ethereum.org/EIPS/eip-7715), ERC-7710 redeemDelegations
- * (github.com/MetaMask/delegation-framework IDelegationManager), per the war-room ADR.
+ * (github.com/MetaMask/delegation-framework IDelegationManager), per the project's ADR.
  */
 
 import {

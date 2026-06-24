@@ -17,7 +17,7 @@ import { IAccess0x1Subscriptions } from "./interfaces/IAccess0x1Subscriptions.so
 import { IAutomationGateway } from "./interfaces/IAutomationGateway.sol";
 
 /// @title  AutomationGateway
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The permissionless Chainlink Automation FRONT-DOOR for {Access0x1Subscriptions} — the
 ///         self-driving keeper that makes recurring billing run itself with NO centralized cron. The
 ///         Subscriptions money path already settles each period through the PERMISSIONLESS
@@ -45,7 +45,7 @@ import { IAutomationGateway } from "./interfaces/IAutomationGateway.sol";
 ///         BOUNDED LOOPS. Both {checkUpkeep} and {performUpkeep} are bounded: the off-chain scan reads
 ///         at most {MAX_SCAN} watched ids and returns at most {MAX_BATCH}; {performUpkeep} renews at
 ///         most the {MAX_BATCH} ids it decodes. No unbounded iteration over a growable set can ever brick
-///         an upkeep regardless of how many ids are registered (estate law: no unbounded loops).
+///         an upkeep regardless of how many ids are registered (money-safety invariant: no unbounded loops).
 ///
 ///         RE-VALIDATION. {checkUpkeep} runs OFF-CHAIN and its result is STALE by the time
 ///         {performUpkeep} lands (periods advance, subscriptions get renewed by other callers, statuses

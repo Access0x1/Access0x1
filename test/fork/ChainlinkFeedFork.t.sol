@@ -16,11 +16,16 @@ import {
 ///         the round is fresh + positive, `quote()` returns a plausible token amount through the
 ///         real `feed.decimals()`, and the `OracleLib` staleness guard fires once the round ages
 ///         past the 1-hour timeout.
-/// @dev    GATE-SAFE: every body short-circuits when `BASE_SEPOLIA_RPC_URL` is unset, so the
-///         default `forge test` (CI + local, no fork URL) stays green. Run live with
-///         `forge test --match-path test/fork/ChainlinkFeedFork.t.sol` after exporting
-///         `BASE_SEPOLIA_RPC_URL` (the fork is created INSIDE each test, not in `setUp`, so an
-///         unset URL never even attempts a fork).
+/// @dev    OPT-IN: every body short-circuits unless `FORK_TESTS` is set, so the default
+///         `forge test` (CI + local) stays green AND deterministic even for a dev who has a
+///         `BASE_SEPOLIA_RPC_URL` configured for deploys. (Keying the run off the RPC var
+///         alone was the bug: that var is also the deploy RPC, so a deploy-configured dev's
+///         `forge test` ran these — and a public fork endpoint rate-limited under the full
+///         suite's load made `quote()`'s in-tx feed reads revert, surfacing as a spurious
+///         `TokenNotAllowed`/early revert.) Run live with
+///         `FORK_TESTS=true forge test --match-path test/fork/ChainlinkFeedFork.t.sol`
+///         (also reads `BASE_SEPOLIA_RPC_URL`). The fork is created INSIDE each test, not in
+///         `setUp`, so a skipped run never attempts a fork.
 contract ChainlinkFeedForkTest is Test, ProxyDeployer {
     /// @dev Canonical Chainlink ETH/USD feed on Base Sepolia (chainId 84532). Overridable via
     ///      `BASE_SEPOLIA_NATIVE_USD_FEED` so a different/updated feed can be pinned without an edit.
@@ -31,12 +36,32 @@ contract ChainlinkFeedForkTest is Test, ProxyDeployer {
     address internal treasury = makeAddr("treasury");
     uint16 internal constant PLATFORM_FEE_BPS = 100; // 1%
 
-    /// @dev True only when a Base-Sepolia RPC is configured. When false, every test returns early so
-    ///      the suite is a no-op (green) on a machine/CI without a fork URL.
+    /// @dev True only when fork tests are explicitly opted into (`FORK_TESTS`) AND a Base-Sepolia
+    ///      RPC is configured. When false, every test returns early so the suite is a no-op (green)
+    ///      by default — including for a dev who set `BASE_SEPOLIA_RPC_URL` purely for deploys.
     function _forkOrSkip() internal returns (bool active) {
+        // Opt-in gate FIRST: the default `forge test` must be green + deterministic for everyone,
+        // so the fork bodies run only when a contributor explicitly asks (`FORK_TESTS=true`).
+        if (!vm.envOr("FORK_TESTS", false)) return false;
         string memory rpc = vm.envOr("BASE_SEPOLIA_RPC_URL", string(""));
         if (bytes(rpc).length == 0) return false;
         vm.createSelectFork(rpc);
+        // A flaky public RPC is a NETWORK condition, not a contract regression: sanity-read the live feed
+        // once and `vm.skip` (rather than fail) if the fork can't serve a usable round, so a contributor
+        // with BASE_SEPOLIA_RPC_URL set never sees a red suite from an endpoint hiccup. A clean read here
+        // means the body below exercises real on-chain state as intended. (Mid-test RPC degradation can't
+        // be told apart from a genuine revert without masking real bugs, so it is left to surface.)
+        try _feed().latestRoundData() returns (
+            uint80, int256 answer, uint256, uint256 updatedAt, uint80
+        ) {
+            if (answer <= 0 || updatedAt == 0) {
+                vm.skip(true);
+                return false;
+            }
+        } catch {
+            vm.skip(true);
+            return false;
+        }
         return true;
     }
 

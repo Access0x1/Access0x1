@@ -27,7 +27,7 @@ import { Access0x1Router } from "./Access0x1Router.sol";
 import { IReceivables } from "./interfaces/IReceivables.sol";
 
 /// @title  Receivables
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice An OPEN invoice minted as a TRANSFERABLE, FACTORABLE ERC-721: whoever HOLDS the token is the
 ///         on-chain creditor and receives the {Access0x1Router} settlement at pay time. A merchant
 ///         operator mints a receivable to an initial creditor for a USD face value in an allowlisted

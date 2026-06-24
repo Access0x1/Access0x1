@@ -52,7 +52,7 @@ forge test  --zksync     # run the suite IN the zkEVM (catches behavioural diver
 >
 > **Verified on this machine (2026-06-13):** `forge build --zksync` compiled `NameMath` with
 > `zksolc + solc 0.8.28` successfully in ~0.7s (the zkEVM toolchain + zksolc v1.5.x are installed and
-> working). A full `forge build --zksync` of the **whole** estate is slow because `via_ir = true` is
+> working). A full `forge build --zksync` of the **whole** suite is slow because `via_ir = true` is
 > expensive under zksolc — run `make zksync-build` with patience (or temporarily drop `via_ir` for a
 > fast per-contract zkEVM sanity check). The point stands: zksolc compiles these contracts; the
 > `--zksync` lane is the one that proves it, and it is NOT what `forge test` exercises.

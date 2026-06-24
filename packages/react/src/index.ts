@@ -44,3 +44,7 @@ export type { Hex, PaymentStatus, PaymentReceipt, MerchantInfo } from './types.j
 
 // ABI fragments (for advanced custom integrations).
 export { ROUTER_ABI, ERC20_ABI, LANES_ABI } from './abi.js';
+
+// Clear signing — ERC-8213 calldata digest (the verifiable fallback to the ERC-7730 descriptor).
+export { calldataDigest, encodePaymentCalldata, paymentCalldataDigest } from './clearSigning.js';
+export type { PaymentCalldataParams } from './clearSigning.js';

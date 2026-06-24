@@ -137,6 +137,13 @@ make analyze           # umbrella: 4naly3er + aderyn + slither
   staleness guard, no unbounded loops, fee-on-transfer rejection via a balance-delta
   check. Money paths roll back rather than swallow; refunds and rescues are never
   blocked.
+- **SDK / client money flows** (`packages/react`): a watched on-chain event must be
+  matched back to the exact payment that triggered it — the `usePayment` hook binds
+  the `PaymentReceived` receipt to the payment's `orderId` so a concurrent
+  same-buyer/same-merchant payment for a *different* order can't resolve the wrong
+  receipt — and any wait for an on-chain event must be bounded (the receipt watch
+  races a 120s timeout) rather than hanging forever. Keep these properties when you
+  touch the hook, and cover them with a test.
 - **No secrets, ever** — no private keys, mnemonics, RPC keys, or API keys in source,
   tests, configs, or commit messages. `.env.example` holds names only. A pre-commit
   hook blocks common secret patterns, `--no-verify`, and inline `-m`/backtick commit

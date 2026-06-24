@@ -1,10 +1,10 @@
 /**
  * @file agentMeter.ts — never-negative daily USD budget for the autonomous agent.
  *
- * Mirrors the fleet app's `ai_spend_daily` pattern: an in-process spend ledger keyed
+ * Mirrors a standard in-process spend-ledger pattern (`ai_spend_daily`), keyed
  * by UTC day. The meter is the CEI **check**: {@link meterSpendOrThrow} runs before any
  * network effect in {@link "./payPerCall".agentPay}, so an over-cap request short-circuits
- * with zero Circle Gateway calls. Refunds (law #5) never throw and never push the day
+ * with zero Circle Gateway calls. Refunds (the money-safety invariant) never throw and never push the day
  * below zero.
  *
  * Server-only (doctrine guardrail #4 / #7): the cap is read from a server env var and is

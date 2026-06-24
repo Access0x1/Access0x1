@@ -5,7 +5,19 @@
  * — the zero-custody, multi-tenant payments router. Every value that crosses the chain boundary is a
  * `bigint` (token / USD amounts) or a 0x-prefixed hex string (addresses, hashes, tx hashes), never a
  * lossy JavaScript `number`.
+ *
+ * This module is the SDK's **public type surface**: the on-chain shapes (below), the `<PayButton>`
+ * callback payloads ({@link QuoteResult}, {@link SettledResult}), the graceful-degrade
+ * {@link PayButtonDisabledReason} union, and a re-export of the typed error union
+ * ({@link Access0x1ErrorCode}). Importing from here keeps `<PayButton>`'s props, its callbacks, and
+ * its error branching all anchored to one tree-shakeable, fully-typed source.
  */
+
+// Re-exported so the error union is part of the SDK's public *type* surface alongside the payloads
+// it appears in (e.g. {@link QuoteResult.error}). The runtime `Access0x1Error` class + the
+// `toAccess0x1Error` normalizer continue to live in `./errors.js`; this is a type-only re-export
+// (zero runtime cost under `verbatimModuleSyntax`, fully tree-shakeable).
+export type { Access0x1ErrorCode } from './errors.js';
 
 /** A 0x-prefixed, lowercase-or-checksummed Ethereum address or 32-byte hash. */
 export type Hex = `0x${string}`;
@@ -84,4 +96,66 @@ export interface MerchantInfo {
   active: boolean;
   /** An identity commitment (no preimage stored on-chain). */
   nameHash: Hex;
+}
+
+// ---------------------------------------------------------------------------
+// `<PayButton>` public surface — callback payloads + the graceful-degrade union
+//
+// These are kept here (not inline in the component) so the component's props, its
+// callback signatures, and the host app's own handlers can all import one canonical,
+// fully-typed shape. They are type-only declarations: zero runtime, fully tree-shakeable.
+// ---------------------------------------------------------------------------
+
+/**
+ * The reason a {@link PaymentReceipt}-bearing flow cannot start, surfaced to `<PayButton>` so it can
+ * render a *disabled* button with truthful, specific copy instead of letting the buyer click into a
+ * guaranteed on-chain revert.
+ *
+ * - `no-client`        — no viem/wagmi client was supplied, so nothing can be read or signed.
+ * - `no-feed`          — the host declared (via `priceFeedConfigured={false}`) that no Chainlink
+ *                        feed backs this token on this router; `quote()` would revert.
+ * - `token-not-allowed`— the chosen pay-in `token` is absent from the host-supplied `allowedTokens`
+ *                        allowlist; `payToken`/`quote` would revert with `TOKEN_NOT_ALLOWED`.
+ * - `quote-unavailable`— a live probe `quote()` failed in a way that means this token/feed pair is
+ *                        not payable right now (stale/invalid feed, or router-side token-not-allowed).
+ */
+export type PayButtonDisabledReason =
+  | 'no-client'
+  | 'no-feed'
+  | 'token-not-allowed'
+  | 'quote-unavailable';
+
+/**
+ * The payload handed to `<PayButton>`'s `onQuote` callback once `router.quote()` resolves (or fails).
+ *
+ * Fires on every quote attempt so the host app can render a live "you'll pay ~X TOKEN" line, drive
+ * analytics, or detect an unpriceable token before the buyer ever signs. Exactly one of
+ * {@link grossAmount} / {@link error} is non-null.
+ */
+export interface QuoteResult {
+  /** The merchant the quote was priced for. */
+  merchantId: bigint;
+  /** The pay-in token quoted; {@link NATIVE_TOKEN} for a native payment. */
+  token: Hex;
+  /** The USD price the quote was requested at, 8-decimal (e.g. `$29.00` = `2_900_000_000n`). */
+  usdAmount8: bigint;
+  /** The quoted gross token amount from `router.quote()`, in the token's own decimals; `null` on failure. */
+  grossAmount: bigint | null;
+  /** The typed error if the quote itself reverted (feed stale/invalid, token not allowed); else `null`. */
+  error: import('./errors.js').Access0x1Error | null;
+}
+
+/**
+ * The payload handed to `<PayButton>`'s `onSettled` callback after a payment lands on-chain.
+ *
+ * A thin wrapper over the decoded {@link PaymentReceipt} that adds the explorer-ready
+ * {@link explorerUrl} (when the host supplied an `explorerBaseUrl`), so a host can render a
+ * "view receipt" link without re-deriving it. `onSettled` is the receipt-centric sibling of the
+ * existing `onSuccess` callback; both fire on the same settlement.
+ */
+export interface SettledResult {
+  /** The decoded on-chain receipt for the settled payment. */
+  receipt: PaymentReceipt;
+  /** A ready-to-open block-explorer URL for {@link PaymentReceipt.txHash}, or `null` if no base URL was given. */
+  explorerUrl: string | null;
 }

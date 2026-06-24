@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import { IERC4906 } from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 
 /// @title  IReceivables
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The external surface of {Receivables} — an OPEN invoice minted as a TRANSFERABLE,
 ///         FACTORABLE ERC-721 where whoever HOLDS the token is the on-chain creditor and receives the
 ///         {Access0x1Router} settlement at pay time. A merchant operator mints a receivable to an

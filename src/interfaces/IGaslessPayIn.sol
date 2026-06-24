@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IERC2612Permit
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The EIP-2612 `permit` surface (gasless approve-by-signature). The buyer signs an EIP-712
 ///         `Permit(owner,spender,value,nonce,deadline)` over the TOKEN's own domain; {GaslessPayIn}
 ///         submits it so the buyer never sends an `approve` tx. `(v, r, s)` is the split ECDSA tuple.
@@ -29,7 +29,7 @@ interface IERC2612Permit {
 }
 
 /// @title  IERC7597Permit
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The ERC-7597 `permit` surface — USDC's signature-bytes variant of EIP-2612 (Last-Call /
 ///         draft). Identical semantics to {IERC2612Permit} but takes a single `bytes signature` instead
 ///         of `(v, r, s)`, so a SMART-ACCOUNT (ERC-1271) buyer can authorize the allowance, not only an
@@ -54,7 +54,7 @@ interface IERC7597Permit {
 }
 
 /// @title  IERC3009Authorization
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The EIP-3009 `transferWithAuthorization` surface (USDC-native, the x402 rail). The buyer
 ///         signs an EIP-712 `TransferWithAuthorization(from,to,value,validAfter,validBefore,nonce)` over
 ///         the TOKEN's domain; submitting it moves `value` from `from` to `to` in ONE call with NO prior
@@ -95,7 +95,7 @@ interface IERC3009Authorization {
 }
 
 /// @title  IGaslessPayIn
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The external surface of {GaslessPayIn} — the "FIRST DOLLAR" gasless merchant pay-in. A buyer
 ///         pays a {Access0x1Router} merchant in ONE transaction with NO prior `approve` and NO opened
 ///         session: they sign an off-chain TOKEN authorization (EIP-2612 permit, ERC-7597 permit, or

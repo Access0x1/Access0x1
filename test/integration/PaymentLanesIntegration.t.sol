@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
@@ -61,10 +62,11 @@ contract PaymentLanesIntegrationTest is Test {
     uint256 internal merchantId;
     uint16 internal platformFeeBps; // read back from the script-deployed router
 
-    /// @notice Stand up the whole estate by RUNNING THE REAL DEPLOY SCRIPT, then register a merchant and
+    /// @notice Stand up the whole suite by RUNNING THE REAL DEPLOY SCRIPT, then register a merchant and
     ///         fund the buyer from the script-deployed mock USDC. Asserting the wiring here means every
     ///         test below runs against the production deploy path, not a hand-wired fixture.
     function setUp() public {
+        CreateXEtch.enable(vm);
         // A non-zero, stable timestamp keeps the mock Chainlink feed inside its staleness window.
         vm.warp(1_700_000_000);
 
