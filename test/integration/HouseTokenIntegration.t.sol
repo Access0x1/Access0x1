@@ -7,6 +7,7 @@ import { ERC20Burnable } from "@openzeppelin/contracts/token/ERC20/extensions/ER
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
@@ -71,6 +72,7 @@ contract HouseTokenIntegrationTest is Test {
     ///         token can settle into a non-custodial lane. Then register a merchant on the
     ///         script-deployed router. Everything downstream uses the script's own factory instance.
     function setUp() public {
+        CreateXEtch.enable(vm);
         vm.warp(1_700_000_000); // a stable, non-zero timestamp keeps the mock feed inside staleness
         vm.chainId(LOCAL);
         vm.setEnv("ROUTER_OWNER", vm.toString(BROADCASTER));

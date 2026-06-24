@@ -1,11 +1,17 @@
 # Deployed-code attestation — the live contracts ARE this repo's source
 
-**Claim.** Every contract live on Arc Testnet (`5042002`) and Base Sepolia (`84532`) is the
-bytecode produced by compiling *this* repository — same source, same compiler settings — with
-nothing changed but the per-deployment addresses the constructors wire in.
+**Claim.** Every contract live on-chain is the bytecode produced by compiling *this*
+repository — same source, same compiler settings — with nothing changed but the
+per-deployment addresses the constructors wire in.
 
 This is independent of the block-explorer "verified" badges: it is a direct, reproducible
-bytecode comparison anyone can re-run.
+bytecode comparison anyone can re-run. Access0x1 now deploys as **one mirrored address set on
+every chain** via CREATE3 (the CreateX factory) — the `Access0x1Router` proxy is
+`0xe92244e3368561faf21648146511DeDE3a475EB5` on every mirrored chain; the canonical set is in
+[`../script/mirror-manifest.json`](../script/mirror-manifest.json), and the live per-chain
+status table is in [`../README.md` → Deployments](../README.md). The reproducible diff below is
+the same regardless of CREATE3: it compares on-chain runtime code to locally compiled
+`deployedBytecode`, address by address.
 
 ## How to reproduce
 
@@ -24,9 +30,13 @@ On-chain runtime code is compared to the locally compiled `deployedBytecode`. Fo
 values the constructor sets at deploy time (wired contract addresses, the EIP-712 domain cache).
 A difference anywhere else would be a logic difference — there are none.
 
-## Result (verified 2026-06-17, both chains)
+## Result (recorded run, 2026-06-17 — Arc `5042002` + Base Sepolia `84532` per-chain deploys)
 
-Runtime byte-length is **identical** for all 17 deployed instances. Two outcomes, both proving identity:
+This attestation was captured against the per-chain Jun-17 deploy set; the same diff re-runs
+unchanged against any address in the CREATE3 mirror manifest (the proxy runtime is identical
+across mirrored chains by construction — the address comes from the salt, not the code).
+
+Runtime byte-length was **identical** for every deployed instance checked. Two outcomes, both proving identity:
 
 | Outcome | Contracts | What the diff is |
 |---|---|---|

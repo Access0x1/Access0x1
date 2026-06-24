@@ -5,58 +5,69 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
-_Last updated: 2026-06-14 (ETHGlobal NY)._
+_Last updated: 2026-06-23 (ETHGlobal NY)._
 
 ---
 
 ## 1. Deployed & verified — the hard proof
 
-**Deployed on SEVEN testnets — Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111),
-Optimism Sepolia (11155420), Avalanche Fuji (43113), Robinhood Chain (46630), and Ethereum Hoodi
-(560048) — and source-verified on TWO of them: Base Sepolia (84532) and Arc Testnet (5042002, Circle).**
-Every address is read from a committed `broadcast/DeployAll.s.sol/<chainId>/` record (law #4 — an address
-that isn't on-chain isn't claimed); the full table is in the [README](README.md#deployments). On Base
-Sepolia the full money + commerce surface is deployed and wired in a **single broadcast, 13 transactions,
-every receipt status `0x1`**, commit-pinned, verified on Blockscout. On **Arc Testnet** all 8 contracts +
-the USD feed are deployed and **verified on arcscan**, with gas paid in **native USDC** — Router
-[`0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad`](https://testnet.arcscan.app/address/0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad).
+**One mirrored address set, live on EIGHT testnets.** Access0x1 deploys via CREATE3 (the
+[CreateX](https://github.com/pcaversaccio/createx) factory), so every contract carries the **same
+address on every chain the mirror is live on** — the `Access0x1Router` proxy an integrator points at is
+[`0xe92244e3368561faf21648146511DeDE3a475EB5`](https://sepolia.basescan.org/address/0xe92244e3368561faf21648146511DeDE3a475EB5)
+**on all eight**: Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia
+(11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Arbitrum Sepolia (421614), and Celo Sepolia
+(11142220). The mirror is **source-verified on seven** of them. Three earlier chains (Ethereum Hoodi
+560048, 0G Galileo 16602, Tempo Moderato 42431) carry **pre-mirror, per-chain** deploys at the older
+address and are being cut over. Every address is read from a committed `broadcast/DeployAll.s.sol/<chainId>/`
+record (law #4 — an address that isn't on-chain isn't claimed) and self-checked against
+[`script/mirror-manifest.json`](script/mirror-manifest.json); the full per-chain table is in the
+[README](README.md#deployments).
 
-| Contract | Address |
-|---|---|
-| Access0x1Router | [`0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57`](https://base-sepolia.blockscout.com/address/0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57) |
-| SessionGrant | `0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6` |
-| PaymentLanes | `0x5578929702b0158682286982e3f82d04a08f3b92` |
-| HouseTokenFactory | `0x2067238186ee13d9c543742e1bb6be9fe4a1b20b` |
-| Access0x1Subscriptions | `0xd3ac71914d01a8229d00c2cf9abc7f93237a253d` |
-| Access0x1Bookings | `0xbcb59e981662d26769ff1fe5d75f66e38c68c99b` |
-| Access0x1Invoices | `0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909` |
-| Access0x1GiftCards | `0x2ba5411803bc7734652afa292bc97f39ae409f76` |
+- The canonical mirror set (each proxy's implementation pinned under its `.impl` key in the manifest) is
+  the single source of truth for addresses — **never** hand-entered. `make sync` regenerates the
+  `MIRROR-STATUS` table in the README straight from the broadcast records.
+- On each mirrored chain the whole first-party surface deploys **wired together in a single broadcast**
+  (`make deploy-<chain>`), every receipt status `0x1`, commit-pinned. On **Arc Testnet** gas is paid in
+  **native USDC**.
+- **A merchant is registered on-chain** permissionlessly via `registerMerchant` with its own payout
+  wallet, fee config, and name hash — the merchant registry is the single source of truth every commerce
+  primitive reads for owner-authorization.
+- **`bytecode_hash = "none"`** in `foundry.toml` makes the build reproducible byte-for-byte; the
+  deployed-runtime-equals-this-source attestation is in [`audit/DEPLOYED-CODE.md`](audit/DEPLOYED-CODE.md)
+  (a reproducible `cast code` vs `forge inspect deployedBytecode` diff, independent of the explorer badge).
 
-- **Deploy tx:** `0x099628a160499382d6d62a8bf70808313abf31b9a19926ae625d71c054a44611`
-- **A merchant is registered on-chain** (merchant #1), tx `0x3e61932ae31dc04c188802d5a3acf203e83df5ae895ffe0fa0b4544bcccfa620` — registered permissionlessly via `registerMerchant` with its own payout wallet, fee config, and name hash.
-- **Chainlink feeds wired in the broadcast:** native/USD `0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1`, USDC/USD `0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165`.
-
-**Still one-command ready (not broadcast):** zkSync Sepolia (300) — `make deploy-zksync-sepolia`, no tx hash yet.
-`ChainRegistry` and `Access0x1Receiver` are config/audit sidecars (built; deploy is one call) alongside the core surface on the source-verified chains (Arc + Base Sepolia).
+**zkSync Sepolia** is one-command ready but not yet broadcast — it needs its dedicated EraVM path (zksolc
+from a clean root; the zkEVM CREATE3 address diverges from the mirror — see `docs/ZKSYNC-TESTING.md`). More
+EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy-<chain>`) but not yet broadcast.
 
 ---
 
 ## 2. Tested
 
-- **920 contract tests, 0 failed** (`make test`). Reproduce: `forge test`. (The 3 `test/fork/**`
-  Chainlink-feed tests are counted in the 920 and short-circuit to a green no-op when no fork RPC is
-  set, so a fresh clone and CI both run 920/920 green; set `BASE_SEPOLIA_RPC_URL` to exercise them live.)
-- **~784 web tests** (Vitest).
-- **13 headline money-safety invariants** (45 total invariant properties): native conservation, token
-  conservation, platform cut always to treasury, zero-custody residual, merchant isolation, effective
-  fee ≤ `MAX_FEE_BPS`, the PaymentLanes conservation set, and a 4-property cross-asset firewall.
-  Fuzzed with **`fail_on_revert = true`** (a swallowed error counts as a failure) — 4,096 calls each
-  per target locally (default `runs=64 × depth=64`), 32,768 in CI, which runs under `FOUNDRY_PROFILE=ci`
-  (`runs=256 × depth=128` from `foundry.toml`; set in `.github/workflows/*.yml`).
-- **Coverage (run `forge coverage --ir-minimum`):** 100% functions on the router; ~98–99% lines, ~97%
-  branches (see `audit/FINDINGS.md`). The number in the README badge is whatever `forge coverage`
-  actually prints — never inflated.
-- **Static analysis:** Slither — 31 results across 12 detectors, all triaged, **0 exploitable**.
+- **1,383 contract tests, 0 failed, 0 skipped** across **104 suites** (`make test`; I re-ran `forge test`
+  for this update — 1383 passed / 0 failed / 0 skipped). The 3 `test/fork/**` Chainlink-feed tests are
+  counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI
+  both run green; set `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed.
+- **The web + SDK suites** (Vitest) cover `@access0x1/react` and the Next.js money-adjacent routes. A
+  recent SDK hardening pass tightened the `usePayment` receipt watch — see §3 (it ships with its own
+  `usePayment-timeout.test.ts`).
+- **The money-safety fuzz invariants hold under `fail_on_revert = true`** (a swallowed error counts as a
+  failure). The router's six are the floor — native conservation, token conservation, platform cut always
+  to treasury, zero-custody residual, merchant isolation, and effective fee ≤ `MAX_FEE_BPS` — joined by the
+  PaymentLanes per-asset conservation/firewall set and per-lifecycle invariants on the commerce primitives
+  (escrow always backed, fee never exceeds escrow, settle-at-most-once, budget never past cap, card
+  conservation). Fuzzed at 4,096 calls each per target locally (default `runs=64 × depth=64`), more in CI
+  under `FOUNDRY_PROFILE=ci` (`runs=256 × depth=128` from `foundry.toml`; set in `.github/workflows/*.yml`).
+- **Symbolic proofs** (Halmos, `make halmos`, `test/symbolic/`): fee-split value-conservation
+  (`FeeSplitSymbolic`) and the SessionGrant spend-never-exceeds-budget meter (`SessionBudgetSymbolic`).
+- **Coverage (run `forge coverage --ir-minimum`):** 100% functions on the router; ~98% lines, ~97% branches
+  (per-contract table in [`audit/COVERAGE.md`](audit/COVERAGE.md) / [`audit/FINDINGS.md`](audit/FINDINGS.md)).
+  The number in the README badge is whatever `forge coverage` actually prints — never inflated.
+- **Static analysis:** Slither — every result triaged (false-positive / by-design / justified-with-runtime-guard),
+  **0 exploitable**; Aderyn — every High/Low triaged. Dispositions are recorded per-instance in
+  [`audit/FINDINGS.md`](audit/FINDINGS.md). We record the analyser counts honestly and do not claim a clean
+  bill beyond what the tracker shows.
 - **Local end-to-end proof, no keys:** `make anvil` + `make deploy-local` + `make drive-local` runs a
   real payment and prints `net+fee==gross: true` and `router USDC bal: 0`.
 
@@ -74,9 +85,22 @@ the USD feed are deployed and **verified on arcscan**, with gas paid in **native
 - **Oracle safety:** `quote()` reads the Chainlink feed in-transaction through `OracleLib`
   (1-hour staleness + completed-round guard); a stale feed reverts the payment closed, never settles
   against a bad price.
-- **Two findings, self-caught and fixed before submission:** (M-1) a deploy-time guard so a USDC feed
-  can't clobber the native price-feed slot; (M-2) snapshot of `periodSecs`/`priceUsd8` before the
-  external call in `renew`, plus `nonReentrant` on `setPlan`.
+- **L2 oracle safety:** `OracleLib.checkSequencerUp` adds Chainlink's L2 Sequencer-Uptime guard — the
+  router reads it in `quote()` **only when an uptime feed is wired** (an owner setter; unset on L1 / Arc,
+  the default, where behaviour is byte-for-byte unchanged). A down or just-restarted sequencer reverts the
+  quote rather than settling against a feed that is "fresh" but stands behind a sequencer that just came back.
+- **Findings self-caught and fixed during the build:** the SessionGrant ERC-6492-prepare reentrancy
+  double-open (the `_open` nonce is now pinned to the validated nonce — see §7.1 in
+  [`audit/REPORT.md`](audit/REPORT.md)); the Bookings stale-oracle refund-block (resolution fee leg made
+  oracle-fault-tolerant so a dead feed refunds the full escrow, never bricks it); and the web `/api/quote`
+  input-validation bypass (a negative/zero/NaN price can never be quoted). Each carries its own regression
+  tests; no existing test was weakened.
+- **SDK receipt-binding hardening (`@access0x1/react` `usePayment`):** the watched `PaymentReceived`
+  receipt is now bound to the payment's `orderId` — the on-chain event filter only matches the indexed
+  `{merchantId, buyer}`, so a concurrent payment by the same buyer to the same merchant for a **different**
+  order (e.g. a second checkout tab) could otherwise resolve the hook with the wrong receipt. The watch is
+  also raced against a **120s timeout** so a missing or undecodable event fails loud instead of hanging the
+  pay flow forever (the watcher is torn down either way). Covered by `usePayment-timeout.test.ts`.
 - **Honest limitation:** **no third-party audit yet.** Mainnet is blocked in code behind
   `MAINNET_AUDITED=yes` — that gate is deliberate and protects users until an external audit lands.
 - Secrets are env-only; signing is keystore-only (`--account`, never `--private-key`). No hardcoded
@@ -96,7 +120,8 @@ the USD feed are deployed and **verified on arcscan**, with gas paid in **native
 - **Circle x402 / Gateway** — gas-free USDC settlement via EIP-3009. **This is x402/Gateway, NOT CCTP** —
   there is zero burn-and-mint code in this repo.
 - **OIDC/JWT identity layer**, **MetaMask Snap** (payment insight in the signing dialog), **`@access0x1/react`
-  SDK** (drop-in `<PayButton>`, 15/15 tests, published to npm), and the `create-access0x1` scaffolder.
+  SDK** (drop-in `<PayButton>` + the `usePayment` hook — orderId-bound receipt watch with a 120s timeout
+  ceiling; Vitest-covered, published to npm), and the `create-access0x1` scaffolder.
 
 **Seam (code present, NOT exercised in the live demo path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),
@@ -122,11 +147,14 @@ the USD feed are deployed and **verified on arcscan**, with gas paid in **native
 
 ```bash
 git clone https://github.com/Access0x1/Access0x1 && cd Access0x1
-make test                       # 920 contract tests
+make test                       # 1,383 contract tests, 0 failed
 forge coverage --ir-minimum     # the real coverage number
+make halmos                     # the symbolic fee-split + budget proofs
 make anvil && make deploy-local && make drive-local   # real local payment, no keys
 ```
-Then open the verified router on Blockscout (link above) and inspect the on-chain merchant registration + payment events directly.
+Then open the verified router on any mirrored chain's explorer (links in the README Deployments table —
+the same `0xe92244e3…` address everywhere) and inspect the on-chain merchant registration + payment
+events directly.
 
 ---
 

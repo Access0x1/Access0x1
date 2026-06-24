@@ -83,22 +83,20 @@ git push --follow-tags
 
 ---
 
-## Analogous publish — `create-access0x1` (scaffolder, when it exists)
+## `create-access0x1` (scaffolder) — present, but NOT published
 
-`create-access0x1` is the planned `npm create access0x1@latest` scaffolder that
-drops a starter checkout into a new app. It is **not yet in this repo** — when it
-lands (expected under `packages/create-access0x1`), publish it with the same
-flow. It is an unscoped package, so the public-access flag is implicit, but the
-shape is identical:
+`packages/create-access0x1` already exists (the scaffolder that drops a starter
+checkout into a new app — the `npm create access0x1@latest` wrapper it *would*
+become once published), but its `package.json` is marked `"private": true` and it
+is **intentionally not published** — only `@access0x1/react` goes to npm. End users
+fetch the template directly:
 
 ```bash
-cd packages/create-access0x1
-
-npm ci
-npm pack --dry-run        # confirm the template files + dist/bin ship, no test junk
-
-npm publish               # unscoped public package; no --access flag needed
+npx degit Access0x1/Access0x1/templates/starter my-checkout
 ```
+
+So there is no `npm publish` step for it; leave it private unless that decision
+changes.
 
 Requirements for `create-access0x1` to be publish-ready (mirror what was done for
 `@access0x1/react`):

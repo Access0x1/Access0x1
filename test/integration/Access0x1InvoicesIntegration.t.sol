@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { Access0x1Invoices } from "../../src/Access0x1Invoices.sol";
@@ -62,6 +63,7 @@ contract Access0x1InvoicesIntegration is Test {
     /// @notice Stand up the WHOLE estate via the real deploy script, then register a merchant on the
     ///         deployed router so the invoice tests can issue + settle real requests.
     function setUp() public {
+        CreateXEtch.enable(vm);
         // A fixed, fresh timestamp so the deployed mock feeds stay inside the router's staleness window.
         vm.warp(1_700_000_000);
 

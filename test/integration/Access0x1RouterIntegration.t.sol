@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
 import { PaymentLanes } from "../../src/PaymentLanes.sol";
@@ -75,6 +76,7 @@ contract Access0x1RouterIntegration is Test {
     ///         script-deployed mocks + register a merchant. Everything below the script call exercises
     ///         the deployed-and-wired system, never a fresh hand-built router.
     function setUp() public {
+        CreateXEtch.enable(vm);
         // A non-zero, stable timestamp keeps the script-wired Chainlink mock inside the staleness window.
         vm.warp(1_700_000_000);
         vm.chainId(LOCAL_CHAIN_ID);
@@ -234,7 +236,7 @@ contract Access0x1RouterIntegration is Test {
     ///         leg never touches PaymentLanes) net pushes straight to the EOA payout. Critically, on
     ///         this script-deployed system the platform treasury is the deploy SENDER address — which
     ///         carries code in the Foundry script EVM and rejects a bare native `.call`. The router
-    ///         must NOT revert the settled payment over a payee that rejects native (estate law 5):
+    ///         must NOT revert the settled payment over a payee that rejects native (money-safety invariant 5):
     ///         it queues that leg into `rescue` for the treasury to pull, while the receipt stands and
     ///         the clean-EOA legs (net, surcharge) settle directly. The router still holds no native
     ///         beyond exactly what is owed back through `rescue` (zero custody). This proves both pay

@@ -24,7 +24,7 @@ import { Access0x1Router } from "./Access0x1Router.sol";
 import { IAccess0x1Escrow } from "./interfaces/IAccess0x1Escrow.sol";
 
 /// @title  Access0x1Escrow
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The CONDITIONAL-SETTLEMENT leg of Access0x1 — the deposit-hold primitive the instant-push
 ///         {Access0x1Router} structurally cannot do. The router settles atomically (pull → split →
 ///         push in one tx, no hold); an escrow HOLDS a buyer's deposit until a condition resolves, then
@@ -47,7 +47,7 @@ import { IAccess0x1Escrow } from "./interfaces/IAccess0x1Escrow.sol";
 ///         of every OPEN escrow's `amount` in that asset PLUS every queued `withdrawable` balance in it
 ///         (conservation — funds are never created or stranded). A resolved escrow leaves ~zero held.
 ///
-///         NEVER-BLOCKABLE payout (estate law #5). Every push — to the seller, the treasury, or the
+///         NEVER-BLOCKABLE payout (money-safety invariant #5). Every push — to the seller, the treasury, or the
 ///         buyer — uses a pull-on-failure fallback: a failed native or token send credits
 ///         `withdrawable[recipient][asset]` and the recipient pulls it later via {withdraw}. A hostile
 ///         recipient (a reverting `receive`, a blocklisted address, a USDT-style no-return token) can
@@ -432,7 +432,7 @@ contract Access0x1Escrow is
     }
 
     /// @dev Push `amount` of `asset` to `to`, or queue it to the pull-map on failure — the
-    ///      never-blockable payout (estate law #5). A native push uses a low-level call (so a
+    ///      never-blockable payout (money-safety invariant #5). A native push uses a low-level call (so a
     ///      smart-account recipient is paid, not gas-capped); a token push uses a length-tolerant
     ///      low-level `transfer` (a USDT-style no-return-data token is a success, exactly like
     ///      SafeERC20, so it never bricks a resolution). Any genuine failure — a reverting `receive`, a

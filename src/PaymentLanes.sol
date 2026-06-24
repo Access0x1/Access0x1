@@ -16,7 +16,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 
 /// @title  PaymentLanes
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice A standalone ERC-6909 multi-token contract whose tokens are non-custodial RECEIPTS for
 ///         value an Access0x1 router has settled. A "lane" is one ERC-6909 id, deterministically
 ///         derived from a (chainId, asset, recipient) triple, so every (chain, token, merchant)

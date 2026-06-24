@@ -7,10 +7,14 @@ reports as a first-class contribution. Thank you for helping keep it safe.
 ## Scope at a glance
 
 - **Contracts** (`src/**`) — the money spine (`Access0x1Router`, `OracleLib`,
-  `PaymentLanes`, `SessionGrant`) and the commerce contracts
-  (`Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`,
-  `Access0x1GiftCards`, `Access0x1Nft`), plus the sidecars (`ChainRegistry`,
-  `Access0x1Receiver`, `HouseTokenFactory`).
+  `PaymentLanes`, `SessionGrant`), the commerce set (`Access0x1Subscriptions`,
+  `Access0x1Bookings`, `Access0x1Invoices`, `Access0x1GiftCards`, `Access0x1Nft`,
+  `Access0x1Escrow`, `Refunds`, `Receivables`, `SplitSettler`), and the sidecars
+  (`ChainRegistry`, `PriceOracleAdapter`, `Access0x1Receiver`, `AutomationGateway`,
+  `GaslessPayIn`, `HouseToken`/`HouseTokenFactory`, `NameMath`,
+  `Access0x1ProvenanceRegistry`). The system contracts are UUPS-upgradeable
+  (ERC1967 proxy + `initialize`), so proxy/upgrade-path issues (uninitialized impl,
+  storage-layout collisions, an unauthorized `upgradeToAndCall`) are in scope too.
 - **Web app + API routes** (`web/**`) — the hosted checkout, the server-side API
   routes, the AI assistant proxy.
 - **SDK + embed** (`packages/**`, `web/public/embed.js`) — the drop-in integration
@@ -48,7 +52,9 @@ The more of this you can provide, the faster we can confirm and fix:
 
 - The affected component and file path(s) (and a commit hash if you can).
 - The vulnerability class (e.g. reentrancy, access-control gap, oracle manipulation,
-  fee-math error, XSS / open redirect, auth bypass, SSRF, replay).
+  fee-math error, upgrade-path / storage-collision, SDK receipt-confusion (resolving a
+  payment against the wrong on-chain event), XSS / open redirect, auth bypass, SSRF,
+  replay).
 - The impact — what an attacker gains (funds, identity, data, denial of service).
 - A reproduction: a failing `forge` test or PoC under `test/attack/**` for contracts,
   or concrete request/response steps for the web surface, is ideal.

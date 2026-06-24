@@ -16,7 +16,7 @@ import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 /// @notice The failure-injection money matrix: deploy each hostile token into a FRESH router, drive
 ///         the money path, and assert the contract REVERTS + rolls back — no phantom payment, no
 ///         residual token stranded in the router, refunds never silently swallowed. This is the
-///         literal, executable proof of estate law 5 ("money paths roll back, never swallow; refunds
+///         literal, executable proof of money-safety invariant 5 ("money paths roll back, never swallow; refunds
 ///         never blocked") against the SafeERC20 wrapper choice the router rests on.
 /// @dev    fund-me's `MockFailedTransfer`/`MockFailedTransferFrom` work because DSCEngine checks a raw
 ///         boolean; Access0x1's router uses `SafeERC20`, which ALREADY reverts on a `false`/empty

@@ -22,7 +22,7 @@ import {
 } from "./interfaces/IGaslessPayIn.sol";
 
 /// @title  GaslessPayIn
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The "FIRST DOLLAR" leg of Access0x1 — a buyer pays an {Access0x1Router} merchant in ONE
 ///         transaction with NO prior `approve` and NO opened session, off a single off-chain TOKEN
 ///         signature, submitted by ANY relayer. This is the payment the budget-scoped {SessionGrant}

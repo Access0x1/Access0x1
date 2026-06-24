@@ -2,7 +2,8 @@
  * @file Typed error surfacing for router reverts.
  *
  * The router reverts with named custom errors (`Access0x1__Underpaid`, `Access0x1__MerchantInactive`,
- * `Access0x1__FeeOnTransferToken`, …) and the oracle library reverts with `StalePrice` / `InvalidPrice`.
+ * `Access0x1__FeeOnTransferToken`, …) and the oracle library reverts with `OracleLib__StalePrice` (plus
+ * the sequencer guards `OracleLib__SequencerDown` / `OracleLib__SequencerGracePeriodNotOver`).
  * viem decodes a custom-error revert into a `ContractFunctionRevertedError` whose `.data.errorName`
  * carries the name. This module normalizes any thrown value into a clean `Access0x1Error` with a
  * stable `code`, so the host app's UI can branch on a known set without parsing free-text.
@@ -67,14 +68,24 @@ const REVERT_MESSAGES: Record<string, { code: Access0x1ErrorCode; message: strin
     code: 'ZERO_AMOUNT',
     message: 'A payment amount of zero is not allowed.',
   },
-  // OracleLib staleness guard (selector name surfaces in the revert).
-  StalePrice: {
+  // OracleLib guards — viem surfaces the FULLY-QUALIFIED selector name (`OracleLib__StalePrice`, not a
+  // bare `StalePrice`) in `data.errorName`, so these are the names that actually arrive at runtime.
+  OracleLib__StalePrice: {
     code: 'STALE_PRICE',
     message: 'The price feed is stale. Try again shortly.',
   },
-  InvalidPrice: {
-    code: 'INVALID_PRICE',
-    message: 'The price feed returned an invalid price. Try again shortly.',
+  OracleLib__SequencerDown: {
+    code: 'STALE_PRICE',
+    message: 'The L2 sequencer is down, so the price feed cannot be trusted right now. Try again shortly.',
+  },
+  OracleLib__SequencerGracePeriodNotOver: {
+    code: 'STALE_PRICE',
+    message: 'The L2 sequencer just restarted; pricing is paused for its grace period. Try again shortly.',
+  },
+  // Belt-and-suspenders text fallback for any source that surfaces the bare selector in a message string.
+  StalePrice: {
+    code: 'STALE_PRICE',
+    message: 'The price feed is stale. Try again shortly.',
   },
 };
 

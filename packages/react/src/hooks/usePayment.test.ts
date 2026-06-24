@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { usePayment } from './usePayment.js';
 import { makeMockClient, revertError, type MockClient } from '../test/mockClient.js';
 import { NATIVE_TOKEN, type Hex } from '../types.js';
+import { keccak256, toBytes } from 'viem';
 
 const ROUTER: Hex = '0x2222222222222222222222222222222222222222';
 const USDC: Hex = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
@@ -187,8 +188,10 @@ describe('usePayment — typed reverts', () => {
   it('surfaces a stale-price revert from the quote read', async () => {
     const client = makeMockClient({
       reads: {
+        // The router surfaces the FULLY-QUALIFIED OracleLib selector — `OracleLib__StalePrice`, not a
+        // bare `StalePrice` — so the mock must throw that exact name to exercise the real mapping path.
         quote: () => {
-          throw revertError('StalePrice');
+          throw revertError('OracleLib__StalePrice');
         },
       },
     });
@@ -237,5 +240,53 @@ describe('usePayment — reset', () => {
     expect(result.current.status).toBe('idle');
     expect(result.current.receipt).toBeNull();
     expect(result.current.txHash).toBeNull();
+  });
+});
+
+describe('usePayment — the receipt is bound to THIS order', () => {
+  it('ignores a PaymentReceived for a different orderId (same merchant+buyer), resolves only on the match', async () => {
+    const client = makeMockClient({
+      reads: { quote: () => GROSS_NATIVE },
+      writes: { payNative: () => TX_HASH },
+    });
+    const onSuccess = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePayment({
+        merchantId: 42n,
+        usdAmount: 29,
+        orderId: 'order-A',
+        routerAddress: ROUTER,
+        client,
+        onSuccess,
+      }),
+    );
+
+    let payPromise!: Promise<void>;
+    await act(async () => {
+      payPromise = result.current.pay();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // A concurrent payment by the SAME buyer to the SAME merchant for a DIFFERENT
+    // order (e.g. a second checkout tab) fires first. The event filter matches on
+    // the indexed {merchantId, buyer}, so it reaches this watcher — but it must NOT
+    // resolve THIS hook (wrong order ⇒ wrong amount/receipt).
+    await act(async () => {
+      paymentReceivedLog(client, { orderId: keccak256(toBytes('order-B')) });
+      await Promise.resolve();
+    });
+    expect(result.current.status).not.toBe('success');
+    expect(onSuccess).not.toHaveBeenCalled();
+
+    // The matching receipt resolves it.
+    await act(async () => {
+      paymentReceivedLog(client, { orderId: keccak256(toBytes('order-A')) });
+      await payPromise;
+    });
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(onSuccess).toHaveBeenCalledOnce();
+    expect(result.current.receipt?.orderId).toBe(keccak256(toBytes('order-A')));
   });
 });

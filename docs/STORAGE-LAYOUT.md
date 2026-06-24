@@ -13,92 +13,100 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
 {
   "storage": [
     {
-      "astId": 8,
-      "contract": "src/Access0x1Router.sol:Access0x1Router",
-      "label": "_owner",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_address"
-    },
-    {
-      "astId": 156,
-      "contract": "src/Access0x1Router.sol:Access0x1Router",
-      "label": "_pendingOwner",
-      "offset": 0,
-      "slot": "1",
-      "type": "t_address"
-    },
-    {
-      "astId": 973,
-      "contract": "src/Access0x1Router.sol:Access0x1Router",
-      "label": "_paused",
-      "offset": 20,
-      "slot": "1",
-      "type": "t_bool"
-    },
-    {
-      "astId": 4867,
+      "astId": 11087,
       "contract": "src/Access0x1Router.sol:Access0x1Router",
       "label": "merchants",
       "offset": 0,
-      "slot": "2",
-      "type": "t_mapping(t_uint256,t_struct(Merchant)4842_storage)"
+      "slot": "0",
+      "type": "t_mapping(t_uint256,t_struct(Merchant)11062_storage)"
     },
     {
-      "astId": 4870,
+      "astId": 11092,
+      "contract": "src/Access0x1Router.sol:Access0x1Router",
+      "label": "pendingMerchantOwner",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_uint256,t_address)"
+    },
+    {
+      "astId": 11095,
       "contract": "src/Access0x1Router.sol:Access0x1Router",
       "label": "nextMerchantId",
       "offset": 0,
-      "slot": "3",
+      "slot": "2",
       "type": "t_uint256"
     },
     {
-      "astId": 4873,
+      "astId": 11098,
       "contract": "src/Access0x1Router.sol:Access0x1Router",
       "label": "platformTreasury",
       "offset": 0,
-      "slot": "4",
+      "slot": "3",
       "type": "t_address"
     },
     {
-      "astId": 4876,
+      "astId": 11101,
       "contract": "src/Access0x1Router.sol:Access0x1Router",
       "label": "platformFeeBps",
       "offset": 20,
-      "slot": "4",
+      "slot": "3",
       "type": "t_uint16"
     },
     {
-      "astId": 4881,
+      "astId": 11106,
       "contract": "src/Access0x1Router.sol:Access0x1Router",
       "label": "tokenAllowed",
       "offset": 0,
-      "slot": "5",
+      "slot": "4",
       "type": "t_mapping(t_address,t_bool)"
     },
     {
-      "astId": 4886,
+      "astId": 11111,
       "contract": "src/Access0x1Router.sol:Access0x1Router",
       "label": "priceFeedOf",
       "offset": 0,
-      "slot": "6",
+      "slot": "5",
       "type": "t_mapping(t_address,t_address)"
     },
     {
-      "astId": 4891,
+      "astId": 11116,
       "contract": "src/Access0x1Router.sol:Access0x1Router",
-      "label": "rescue",
+      "label": "stalenessOf",
       "offset": 0,
-      "slot": "7",
+      "slot": "6",
       "type": "t_mapping(t_address,t_uint256)"
     },
     {
-      "astId": 4894,
+      "astId": 11119,
+      "contract": "src/Access0x1Router.sol:Access0x1Router",
+      "label": "sequencerUptimeFeed",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_address"
+    },
+    {
+      "astId": 11124,
+      "contract": "src/Access0x1Router.sol:Access0x1Router",
+      "label": "rescue",
+      "offset": 0,
+      "slot": "8",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 11127,
       "contract": "src/Access0x1Router.sol:Access0x1Router",
       "label": "paymentLanes",
       "offset": 0,
-      "slot": "8",
+      "slot": "9",
       "type": "t_address"
+    },
+    {
+      "astId": 12686,
+      "contract": "src/Access0x1Router.sol:Access0x1Router",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "10",
+      "type": "t_array(t_uint256)50_storage"
     }
   ],
   "types": {
@@ -106,6 +114,12 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
       "encoding": "inplace",
       "label": "address",
       "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
     },
     "t_bool": {
       "encoding": "inplace",
@@ -138,20 +152,27 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
       "numberOfBytes": "32",
       "value": "t_uint256"
     },
-    "t_mapping(t_uint256,t_struct(Merchant)4842_storage)": {
+    "t_mapping(t_uint256,t_address)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => address)",
+      "numberOfBytes": "32",
+      "value": "t_address"
+    },
+    "t_mapping(t_uint256,t_struct(Merchant)11062_storage)": {
       "encoding": "mapping",
       "key": "t_uint256",
       "label": "mapping(uint256 => struct Access0x1Router.Merchant)",
       "numberOfBytes": "32",
-      "value": "t_struct(Merchant)4842_storage"
+      "value": "t_struct(Merchant)11062_storage"
     },
-    "t_struct(Merchant)4842_storage": {
+    "t_struct(Merchant)11062_storage": {
       "encoding": "inplace",
       "label": "struct Access0x1Router.Merchant",
       "numberOfBytes": "128",
       "members": [
         {
-          "astId": 4831,
+          "astId": 11051,
           "contract": "src/Access0x1Router.sol:Access0x1Router",
           "label": "payout",
           "offset": 0,
@@ -159,7 +180,7 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
           "type": "t_address"
         },
         {
-          "astId": 4833,
+          "astId": 11053,
           "contract": "src/Access0x1Router.sol:Access0x1Router",
           "label": "owner",
           "offset": 0,
@@ -167,7 +188,7 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
           "type": "t_address"
         },
         {
-          "astId": 4835,
+          "astId": 11055,
           "contract": "src/Access0x1Router.sol:Access0x1Router",
           "label": "feeRecipient",
           "offset": 0,
@@ -175,7 +196,7 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
           "type": "t_address"
         },
         {
-          "astId": 4837,
+          "astId": 11057,
           "contract": "src/Access0x1Router.sol:Access0x1Router",
           "label": "feeBps",
           "offset": 20,
@@ -183,7 +204,7 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
           "type": "t_uint16"
         },
         {
-          "astId": 4839,
+          "astId": 11059,
           "contract": "src/Access0x1Router.sol:Access0x1Router",
           "label": "active",
           "offset": 22,
@@ -191,7 +212,7 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
           "type": "t_bool"
         },
         {
-          "astId": 4841,
+          "astId": 11061,
           "contract": "src/Access0x1Router.sol:Access0x1Router",
           "label": "nameHash",
           "offset": 0,
@@ -214,1115 +235,58 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
 }
 ```
 
-## SessionGrant
-
-```json
-{
-  "storage": [
-    {
-      "astId": 3238,
-      "contract": "src/SessionGrant.sol:SessionGrant",
-      "label": "_nameFallback",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_string_storage"
-    },
-    {
-      "astId": 3240,
-      "contract": "src/SessionGrant.sol:SessionGrant",
-      "label": "_versionFallback",
-      "offset": 0,
-      "slot": "1",
-      "type": "t_string_storage"
-    },
-    {
-      "astId": 7201,
-      "contract": "src/SessionGrant.sol:SessionGrant",
-      "label": "_nonces",
-      "offset": 0,
-      "slot": "2",
-      "type": "t_mapping(t_address,t_uint256)"
-    },
-    {
-      "astId": 7207,
-      "contract": "src/SessionGrant.sol:SessionGrant",
-      "label": "_sessions",
-      "offset": 0,
-      "slot": "3",
-      "type": "t_mapping(t_bytes32,t_struct(Session)8063_storage)"
-    },
-    {
-      "astId": 7212,
-      "contract": "src/SessionGrant.sol:SessionGrant",
-      "label": "_ownerOf",
-      "offset": 0,
-      "slot": "4",
-      "type": "t_mapping(t_bytes32,t_address)"
-    }
-  ],
-  "types": {
-    "t_address": {
-      "encoding": "inplace",
-      "label": "address",
-      "numberOfBytes": "20"
-    },
-    "t_bool": {
-      "encoding": "inplace",
-      "label": "bool",
-      "numberOfBytes": "1"
-    },
-    "t_bytes32": {
-      "encoding": "inplace",
-      "label": "bytes32",
-      "numberOfBytes": "32"
-    },
-    "t_mapping(t_address,t_uint256)": {
-      "encoding": "mapping",
-      "key": "t_address",
-      "label": "mapping(address => uint256)",
-      "numberOfBytes": "32",
-      "value": "t_uint256"
-    },
-    "t_mapping(t_bytes32,t_address)": {
-      "encoding": "mapping",
-      "key": "t_bytes32",
-      "label": "mapping(bytes32 => address)",
-      "numberOfBytes": "32",
-      "value": "t_address"
-    },
-    "t_mapping(t_bytes32,t_struct(Session)8063_storage)": {
-      "encoding": "mapping",
-      "key": "t_bytes32",
-      "label": "mapping(bytes32 => struct ISessionGrant.Session)",
-      "numberOfBytes": "32",
-      "value": "t_struct(Session)8063_storage"
-    },
-    "t_string_storage": {
-      "encoding": "bytes",
-      "label": "string",
-      "numberOfBytes": "32"
-    },
-    "t_struct(Session)8063_storage": {
-      "encoding": "inplace",
-      "label": "struct ISessionGrant.Session",
-      "numberOfBytes": "128",
-      "members": [
-        {
-          "astId": 8054,
-          "contract": "src/SessionGrant.sol:SessionGrant",
-          "label": "delegate",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_address"
-        },
-        {
-          "astId": 8056,
-          "contract": "src/SessionGrant.sol:SessionGrant",
-          "label": "expiry",
-          "offset": 20,
-          "slot": "0",
-          "type": "t_uint64"
-        },
-        {
-          "astId": 8058,
-          "contract": "src/SessionGrant.sol:SessionGrant",
-          "label": "budgetCap",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 8060,
-          "contract": "src/SessionGrant.sol:SessionGrant",
-          "label": "spent",
-          "offset": 0,
-          "slot": "2",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 8062,
-          "contract": "src/SessionGrant.sol:SessionGrant",
-          "label": "revoked",
-          "offset": 0,
-          "slot": "3",
-          "type": "t_bool"
-        }
-      ]
-    },
-    "t_uint256": {
-      "encoding": "inplace",
-      "label": "uint256",
-      "numberOfBytes": "32"
-    },
-    "t_uint64": {
-      "encoding": "inplace",
-      "label": "uint64",
-      "numberOfBytes": "8"
-    }
-  }
-}
-```
-
-## Access0x1Subscriptions
-
-```json
-{
-  "storage": [
-    {
-      "astId": 8,
-      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-      "label": "_owner",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_address"
-    },
-    {
-      "astId": 156,
-      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-      "label": "_pendingOwner",
-      "offset": 0,
-      "slot": "1",
-      "type": "t_address"
-    },
-    {
-      "astId": 1179,
-      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-      "label": "_plans",
-      "offset": 0,
-      "slot": "2",
-      "type": "t_mapping(t_uint256,t_mapping(t_uint8,t_struct(Plan)2285_storage))"
-    },
-    {
-      "astId": 1185,
-      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-      "label": "_subs",
-      "offset": 0,
-      "slot": "3",
-      "type": "t_mapping(t_uint256,t_struct(Subscription)2308_storage)"
-    },
-    {
-      "astId": 1194,
-      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-      "label": "hasUsedTrial",
-      "offset": 0,
-      "slot": "4",
-      "type": "t_mapping(t_address,t_mapping(t_uint256,t_mapping(t_uint8,t_bool)))"
-    },
-    {
-      "astId": 1197,
-      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-      "label": "nextSubId",
-      "offset": 0,
-      "slot": "5",
-      "type": "t_uint256"
-    },
-    {
-      "astId": 1200,
-      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-      "label": "graceFailThreshold",
-      "offset": 0,
-      "slot": "6",
-      "type": "t_uint16"
-    }
-  ],
-  "types": {
-    "t_address": {
-      "encoding": "inplace",
-      "label": "address",
-      "numberOfBytes": "20"
-    },
-    "t_bool": {
-      "encoding": "inplace",
-      "label": "bool",
-      "numberOfBytes": "1"
-    },
-    "t_bytes32": {
-      "encoding": "inplace",
-      "label": "bytes32",
-      "numberOfBytes": "32"
-    },
-    "t_enum(SubStatus)2277": {
-      "encoding": "inplace",
-      "label": "enum IAccess0x1Subscriptions.SubStatus",
-      "numberOfBytes": "1"
-    },
-    "t_mapping(t_address,t_mapping(t_uint256,t_mapping(t_uint8,t_bool)))": {
-      "encoding": "mapping",
-      "key": "t_address",
-      "label": "mapping(address => mapping(uint256 => mapping(uint8 => bool)))",
-      "numberOfBytes": "32",
-      "value": "t_mapping(t_uint256,t_mapping(t_uint8,t_bool))"
-    },
-    "t_mapping(t_uint256,t_mapping(t_uint8,t_bool))": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => mapping(uint8 => bool))",
-      "numberOfBytes": "32",
-      "value": "t_mapping(t_uint8,t_bool)"
-    },
-    "t_mapping(t_uint256,t_mapping(t_uint8,t_struct(Plan)2285_storage))": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => mapping(uint8 => struct IAccess0x1Subscriptions.Plan))",
-      "numberOfBytes": "32",
-      "value": "t_mapping(t_uint8,t_struct(Plan)2285_storage)"
-    },
-    "t_mapping(t_uint256,t_struct(Subscription)2308_storage)": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => struct IAccess0x1Subscriptions.Subscription)",
-      "numberOfBytes": "32",
-      "value": "t_struct(Subscription)2308_storage"
-    },
-    "t_mapping(t_uint8,t_bool)": {
-      "encoding": "mapping",
-      "key": "t_uint8",
-      "label": "mapping(uint8 => bool)",
-      "numberOfBytes": "32",
-      "value": "t_bool"
-    },
-    "t_mapping(t_uint8,t_struct(Plan)2285_storage)": {
-      "encoding": "mapping",
-      "key": "t_uint8",
-      "label": "mapping(uint8 => struct IAccess0x1Subscriptions.Plan)",
-      "numberOfBytes": "32",
-      "value": "t_struct(Plan)2285_storage"
-    },
-    "t_struct(Plan)2285_storage": {
-      "encoding": "inplace",
-      "label": "struct IAccess0x1Subscriptions.Plan",
-      "numberOfBytes": "64",
-      "members": [
-        {
-          "astId": 2280,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "priceUsd8",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 2282,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "periodSecs",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_uint32"
-        },
-        {
-          "astId": 2284,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "active",
-          "offset": 4,
-          "slot": "1",
-          "type": "t_bool"
-        }
-      ]
-    },
-    "t_struct(Subscription)2308_storage": {
-      "encoding": "inplace",
-      "label": "struct IAccess0x1Subscriptions.Subscription",
-      "numberOfBytes": "160",
-      "members": [
-        {
-          "astId": 2288,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "merchantId",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 2290,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "subscriber",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_address"
-        },
-        {
-          "astId": 2292,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "sessionId",
-          "offset": 0,
-          "slot": "2",
-          "type": "t_bytes32"
-        },
-        {
-          "astId": 2294,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "token",
-          "offset": 0,
-          "slot": "3",
-          "type": "t_address"
-        },
-        {
-          "astId": 2296,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "planKey",
-          "offset": 20,
-          "slot": "3",
-          "type": "t_uint8"
-        },
-        {
-          "astId": 2298,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "periodEnd",
-          "offset": 21,
-          "slot": "3",
-          "type": "t_uint64"
-        },
-        {
-          "astId": 2300,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "trialExpiresAt",
-          "offset": 0,
-          "slot": "4",
-          "type": "t_uint40"
-        },
-        {
-          "astId": 2302,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "failCount",
-          "offset": 5,
-          "slot": "4",
-          "type": "t_uint16"
-        },
-        {
-          "astId": 2305,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "status",
-          "offset": 7,
-          "slot": "4",
-          "type": "t_enum(SubStatus)2277"
-        },
-        {
-          "astId": 2307,
-          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
-          "label": "hasUsedTrial",
-          "offset": 8,
-          "slot": "4",
-          "type": "t_bool"
-        }
-      ]
-    },
-    "t_uint16": {
-      "encoding": "inplace",
-      "label": "uint16",
-      "numberOfBytes": "2"
-    },
-    "t_uint256": {
-      "encoding": "inplace",
-      "label": "uint256",
-      "numberOfBytes": "32"
-    },
-    "t_uint32": {
-      "encoding": "inplace",
-      "label": "uint32",
-      "numberOfBytes": "4"
-    },
-    "t_uint40": {
-      "encoding": "inplace",
-      "label": "uint40",
-      "numberOfBytes": "5"
-    },
-    "t_uint64": {
-      "encoding": "inplace",
-      "label": "uint64",
-      "numberOfBytes": "8"
-    },
-    "t_uint8": {
-      "encoding": "inplace",
-      "label": "uint8",
-      "numberOfBytes": "1"
-    }
-  }
-}
-```
-
-## Access0x1Bookings
-
-```json
-{
-  "storage": [
-    {
-      "astId": 8,
-      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-      "label": "_owner",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_address"
-    },
-    {
-      "astId": 156,
-      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-      "label": "_pendingOwner",
-      "offset": 0,
-      "slot": "1",
-      "type": "t_address"
-    },
-    {
-      "astId": 4834,
-      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-      "label": "_reservations",
-      "offset": 0,
-      "slot": "2",
-      "type": "t_mapping(t_uint256,t_struct(Reservation)7706_storage)"
-    },
-    {
-      "astId": 4839,
-      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-      "label": "_slotKeyOf",
-      "offset": 0,
-      "slot": "3",
-      "type": "t_mapping(t_uint256,t_bytes32)"
-    },
-    {
-      "astId": 4844,
-      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-      "label": "occupant",
-      "offset": 0,
-      "slot": "4",
-      "type": "t_mapping(t_bytes32,t_uint256)"
-    },
-    {
-      "astId": 4849,
-      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-      "label": "_escrowedOf",
-      "offset": 0,
-      "slot": "5",
-      "type": "t_mapping(t_address,t_uint256)"
-    },
-    {
-      "astId": 4856,
-      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-      "label": "_refundRescue",
-      "offset": 0,
-      "slot": "6",
-      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
-    },
-    {
-      "astId": 4861,
-      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-      "label": "nonceUsed",
-      "offset": 0,
-      "slot": "7",
-      "type": "t_mapping(t_bytes32,t_bool)"
-    },
-    {
-      "astId": 4864,
-      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-      "label": "nextReservationId",
-      "offset": 0,
-      "slot": "8",
-      "type": "t_uint256"
-    }
-  ],
-  "types": {
-    "t_address": {
-      "encoding": "inplace",
-      "label": "address",
-      "numberOfBytes": "20"
-    },
-    "t_bool": {
-      "encoding": "inplace",
-      "label": "bool",
-      "numberOfBytes": "1"
-    },
-    "t_bytes32": {
-      "encoding": "inplace",
-      "label": "bytes32",
-      "numberOfBytes": "32"
-    },
-    "t_enum(RStatus)7670": {
-      "encoding": "inplace",
-      "label": "enum IAccess0x1Bookings.RStatus",
-      "numberOfBytes": "1"
-    },
-    "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
-      "encoding": "mapping",
-      "key": "t_address",
-      "label": "mapping(address => mapping(address => uint256))",
-      "numberOfBytes": "32",
-      "value": "t_mapping(t_address,t_uint256)"
-    },
-    "t_mapping(t_address,t_uint256)": {
-      "encoding": "mapping",
-      "key": "t_address",
-      "label": "mapping(address => uint256)",
-      "numberOfBytes": "32",
-      "value": "t_uint256"
-    },
-    "t_mapping(t_bytes32,t_bool)": {
-      "encoding": "mapping",
-      "key": "t_bytes32",
-      "label": "mapping(bytes32 => bool)",
-      "numberOfBytes": "32",
-      "value": "t_bool"
-    },
-    "t_mapping(t_bytes32,t_uint256)": {
-      "encoding": "mapping",
-      "key": "t_bytes32",
-      "label": "mapping(bytes32 => uint256)",
-      "numberOfBytes": "32",
-      "value": "t_uint256"
-    },
-    "t_mapping(t_uint256,t_bytes32)": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => bytes32)",
-      "numberOfBytes": "32",
-      "value": "t_bytes32"
-    },
-    "t_mapping(t_uint256,t_struct(Reservation)7706_storage)": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => struct IAccess0x1Bookings.Reservation)",
-      "numberOfBytes": "32",
-      "value": "t_struct(Reservation)7706_storage"
-    },
-    "t_struct(Policy)7682_storage": {
-      "encoding": "inplace",
-      "label": "struct IAccess0x1Bookings.Policy",
-      "numberOfBytes": "96",
-      "members": [
-        {
-          "astId": 7677,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "cancelWindowSecs",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_uint32"
-        },
-        {
-          "astId": 7679,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "lateFeeUsd8",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 7681,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "noShowFeeUsd8",
-          "offset": 0,
-          "slot": "2",
-          "type": "t_uint256"
-        }
-      ]
-    },
-    "t_struct(Reservation)7706_storage": {
-      "encoding": "inplace",
-      "label": "struct IAccess0x1Bookings.Reservation",
-      "numberOfBytes": "352",
-      "members": [
-        {
-          "astId": 7685,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "merchantId",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 7687,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "payer",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_address"
-        },
-        {
-          "astId": 7689,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "token",
-          "offset": 0,
-          "slot": "2",
-          "type": "t_address"
-        },
-        {
-          "astId": 7691,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "escrowAmount",
-          "offset": 0,
-          "slot": "3",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 7693,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "depositUsd8",
-          "offset": 0,
-          "slot": "4",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 7695,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "balanceDueUsd8",
-          "offset": 0,
-          "slot": "5",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 7697,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "holdExpiresAt",
-          "offset": 0,
-          "slot": "6",
-          "type": "t_uint64"
-        },
-        {
-          "astId": 7699,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "slotTimestamp",
-          "offset": 8,
-          "slot": "6",
-          "type": "t_uint64"
-        },
-        {
-          "astId": 7702,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "policy",
-          "offset": 0,
-          "slot": "7",
-          "type": "t_struct(Policy)7682_storage"
-        },
-        {
-          "astId": 7705,
-          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
-          "label": "status",
-          "offset": 0,
-          "slot": "10",
-          "type": "t_enum(RStatus)7670"
-        }
-      ]
-    },
-    "t_uint256": {
-      "encoding": "inplace",
-      "label": "uint256",
-      "numberOfBytes": "32"
-    },
-    "t_uint32": {
-      "encoding": "inplace",
-      "label": "uint32",
-      "numberOfBytes": "4"
-    },
-    "t_uint64": {
-      "encoding": "inplace",
-      "label": "uint64",
-      "numberOfBytes": "8"
-    }
-  }
-}
-```
-
-## Access0x1Invoices
-
-```json
-{
-  "storage": [
-    {
-      "astId": 4827,
-      "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
-      "label": "_invoices",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_mapping(t_uint256,t_struct(Invoice)6779_storage)"
-    },
-    {
-      "astId": 4830,
-      "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
-      "label": "nextInvoiceId",
-      "offset": 0,
-      "slot": "1",
-      "type": "t_uint256"
-    }
-  ],
-  "types": {
-    "t_address": {
-      "encoding": "inplace",
-      "label": "address",
-      "numberOfBytes": "20"
-    },
-    "t_bytes32": {
-      "encoding": "inplace",
-      "label": "bytes32",
-      "numberOfBytes": "32"
-    },
-    "t_enum(InvStatus)6762": {
-      "encoding": "inplace",
-      "label": "enum IAccess0x1Invoices.InvStatus",
-      "numberOfBytes": "1"
-    },
-    "t_mapping(t_uint256,t_struct(Invoice)6779_storage)": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => struct IAccess0x1Invoices.Invoice)",
-      "numberOfBytes": "32",
-      "value": "t_struct(Invoice)6779_storage"
-    },
-    "t_struct(Invoice)6779_storage": {
-      "encoding": "inplace",
-      "label": "struct IAccess0x1Invoices.Invoice",
-      "numberOfBytes": "192",
-      "members": [
-        {
-          "astId": 6765,
-          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
-          "label": "merchantId",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 6767,
-          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
-          "label": "payer",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_address"
-        },
-        {
-          "astId": 6769,
-          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
-          "label": "token",
-          "offset": 0,
-          "slot": "2",
-          "type": "t_address"
-        },
-        {
-          "astId": 6771,
-          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
-          "label": "amountUsd8",
-          "offset": 0,
-          "slot": "3",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 6773,
-          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
-          "label": "dueBy",
-          "offset": 0,
-          "slot": "4",
-          "type": "t_uint64"
-        },
-        {
-          "astId": 6776,
-          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
-          "label": "status",
-          "offset": 8,
-          "slot": "4",
-          "type": "t_enum(InvStatus)6762"
-        },
-        {
-          "astId": 6778,
-          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
-          "label": "memoHash",
-          "offset": 0,
-          "slot": "5",
-          "type": "t_bytes32"
-        }
-      ]
-    },
-    "t_uint256": {
-      "encoding": "inplace",
-      "label": "uint256",
-      "numberOfBytes": "32"
-    },
-    "t_uint64": {
-      "encoding": "inplace",
-      "label": "uint64",
-      "numberOfBytes": "8"
-    }
-  }
-}
-```
-
-## Access0x1GiftCards
-
-```json
-{
-  "storage": [
-    {
-      "astId": 8,
-      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-      "label": "_owner",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_address"
-    },
-    {
-      "astId": 156,
-      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-      "label": "_pendingOwner",
-      "offset": 0,
-      "slot": "1",
-      "type": "t_address"
-    },
-    {
-      "astId": 4828,
-      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-      "label": "_balanceOf",
-      "offset": 0,
-      "slot": "2",
-      "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
-    },
-    {
-      "astId": 4833,
-      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-      "label": "_cardMerchant",
-      "offset": 0,
-      "slot": "3",
-      "type": "t_mapping(t_uint256,t_uint256)"
-    },
-    {
-      "astId": 4851,
-      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-      "label": "_redemptions",
-      "offset": 0,
-      "slot": "4",
-      "type": "t_mapping(t_bytes32,t_struct(Redemption)4845_storage)"
-    },
-    {
-      "astId": 4859,
-      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-      "label": "_coupons",
-      "offset": 0,
-      "slot": "5",
-      "type": "t_mapping(t_uint256,t_mapping(t_bytes32,t_struct(Coupon)6941_storage))"
-    }
-  ],
-  "types": {
-    "t_address": {
-      "encoding": "inplace",
-      "label": "address",
-      "numberOfBytes": "20"
-    },
-    "t_bool": {
-      "encoding": "inplace",
-      "label": "bool",
-      "numberOfBytes": "1"
-    },
-    "t_bytes32": {
-      "encoding": "inplace",
-      "label": "bytes32",
-      "numberOfBytes": "32"
-    },
-    "t_enum(DiscountType)6926": {
-      "encoding": "inplace",
-      "label": "enum IAccess0x1GiftCards.DiscountType",
-      "numberOfBytes": "1"
-    },
-    "t_mapping(t_address,t_mapping(t_uint256,t_uint256))": {
-      "encoding": "mapping",
-      "key": "t_address",
-      "label": "mapping(address => mapping(uint256 => uint256))",
-      "numberOfBytes": "32",
-      "value": "t_mapping(t_uint256,t_uint256)"
-    },
-    "t_mapping(t_bytes32,t_struct(Coupon)6941_storage)": {
-      "encoding": "mapping",
-      "key": "t_bytes32",
-      "label": "mapping(bytes32 => struct IAccess0x1GiftCards.Coupon)",
-      "numberOfBytes": "32",
-      "value": "t_struct(Coupon)6941_storage"
-    },
-    "t_mapping(t_bytes32,t_struct(Redemption)4845_storage)": {
-      "encoding": "mapping",
-      "key": "t_bytes32",
-      "label": "mapping(bytes32 => struct Access0x1GiftCards.Redemption)",
-      "numberOfBytes": "32",
-      "value": "t_struct(Redemption)4845_storage"
-    },
-    "t_mapping(t_uint256,t_mapping(t_bytes32,t_struct(Coupon)6941_storage))": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => mapping(bytes32 => struct IAccess0x1GiftCards.Coupon))",
-      "numberOfBytes": "32",
-      "value": "t_mapping(t_bytes32,t_struct(Coupon)6941_storage)"
-    },
-    "t_mapping(t_uint256,t_uint256)": {
-      "encoding": "mapping",
-      "key": "t_uint256",
-      "label": "mapping(uint256 => uint256)",
-      "numberOfBytes": "32",
-      "value": "t_uint256"
-    },
-    "t_struct(Coupon)6941_storage": {
-      "encoding": "inplace",
-      "label": "struct IAccess0x1GiftCards.Coupon",
-      "numberOfBytes": "96",
-      "members": [
-        {
-          "astId": 6930,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "dType",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_enum(DiscountType)6926"
-        },
-        {
-          "astId": 6932,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "value",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 6934,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "validUntil",
-          "offset": 0,
-          "slot": "2",
-          "type": "t_uint64"
-        },
-        {
-          "astId": 6936,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "maxRedemptions",
-          "offset": 8,
-          "slot": "2",
-          "type": "t_uint32"
-        },
-        {
-          "astId": 6938,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "redemptionsCount",
-          "offset": 12,
-          "slot": "2",
-          "type": "t_uint32"
-        },
-        {
-          "astId": 6940,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "active",
-          "offset": 16,
-          "slot": "2",
-          "type": "t_bool"
-        }
-      ]
-    },
-    "t_struct(Redemption)4845_storage": {
-      "encoding": "inplace",
-      "label": "struct Access0x1GiftCards.Redemption",
-      "numberOfBytes": "128",
-      "members": [
-        {
-          "astId": 4836,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "holder",
-          "offset": 0,
-          "slot": "0",
-          "type": "t_address"
-        },
-        {
-          "astId": 4838,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "cardId",
-          "offset": 0,
-          "slot": "1",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 4840,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "applied",
-          "offset": 0,
-          "slot": "2",
-          "type": "t_uint256"
-        },
-        {
-          "astId": 4842,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "exists",
-          "offset": 0,
-          "slot": "3",
-          "type": "t_bool"
-        },
-        {
-          "astId": 4844,
-          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
-          "label": "reversed",
-          "offset": 1,
-          "slot": "3",
-          "type": "t_bool"
-        }
-      ]
-    },
-    "t_uint256": {
-      "encoding": "inplace",
-      "label": "uint256",
-      "numberOfBytes": "32"
-    },
-    "t_uint32": {
-      "encoding": "inplace",
-      "label": "uint32",
-      "numberOfBytes": "4"
-    },
-    "t_uint64": {
-      "encoding": "inplace",
-      "label": "uint64",
-      "numberOfBytes": "8"
-    }
-  }
-}
-```
-
 ## PaymentLanes
 
 ```json
 {
   "storage": [
     {
-      "astId": 8,
-      "contract": "src/PaymentLanes.sol:PaymentLanes",
-      "label": "_owner",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_address"
-    },
-    {
-      "astId": 1079,
+      "astId": 2814,
       "contract": "src/PaymentLanes.sol:PaymentLanes",
       "label": "_balanceOf",
       "offset": 0,
-      "slot": "1",
+      "slot": "0",
       "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
     },
     {
-      "astId": 1084,
+      "astId": 2819,
       "contract": "src/PaymentLanes.sol:PaymentLanes",
       "label": "_laneAsset",
       "offset": 0,
-      "slot": "2",
+      "slot": "1",
       "type": "t_mapping(t_uint256,t_address)"
     },
     {
-      "astId": 1093,
+      "astId": 2828,
       "contract": "src/PaymentLanes.sol:PaymentLanes",
       "label": "_allowance",
       "offset": 0,
-      "slot": "3",
+      "slot": "2",
       "type": "t_mapping(t_address,t_mapping(t_address,t_mapping(t_uint256,t_uint256)))"
     },
     {
-      "astId": 1100,
+      "astId": 2835,
       "contract": "src/PaymentLanes.sol:PaymentLanes",
       "label": "_isOperator",
       "offset": 0,
-      "slot": "4",
+      "slot": "3",
       "type": "t_mapping(t_address,t_mapping(t_address,t_bool))"
     },
     {
-      "astId": 1105,
+      "astId": 2840,
       "contract": "src/PaymentLanes.sol:PaymentLanes",
       "label": "isRouter",
       "offset": 0,
-      "slot": "5",
+      "slot": "4",
       "type": "t_mapping(t_address,t_bool)"
+    },
+    {
+      "astId": 3502,
+      "contract": "src/PaymentLanes.sol:PaymentLanes",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_array(t_uint256)50_storage"
     }
   ],
   "types": {
@@ -1330,6 +294,12 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
       "encoding": "inplace",
       "label": "address",
       "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
     },
     "t_bool": {
       "encoding": "inplace",
@@ -1393,28 +363,20 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
 {
   "storage": [
     {
-      "astId": 8,
-      "contract": "src/ChainRegistry.sol:ChainRegistry",
-      "label": "_owner",
-      "offset": 0,
-      "slot": "0",
-      "type": "t_address"
-    },
-    {
-      "astId": 156,
-      "contract": "src/ChainRegistry.sol:ChainRegistry",
-      "label": "_pendingOwner",
-      "offset": 0,
-      "slot": "1",
-      "type": "t_address"
-    },
-    {
-      "astId": 304,
+      "astId": 1900,
       "contract": "src/ChainRegistry.sol:ChainRegistry",
       "label": "chains",
       "offset": 0,
-      "slot": "2",
-      "type": "t_mapping(t_uint256,t_struct(ChainConfig)282_storage)"
+      "slot": "0",
+      "type": "t_mapping(t_uint256,t_struct(ChainConfig)1874_storage)"
+    },
+    {
+      "astId": 2099,
+      "contract": "src/ChainRegistry.sol:ChainRegistry",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_array(t_uint256)50_storage"
     }
   ],
   "types": {
@@ -1423,20 +385,26 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
       "label": "address",
       "numberOfBytes": "20"
     },
-    "t_mapping(t_uint256,t_struct(ChainConfig)282_storage)": {
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_struct(ChainConfig)1874_storage)": {
       "encoding": "mapping",
       "key": "t_uint256",
       "label": "mapping(uint256 => struct ChainRegistry.ChainConfig)",
       "numberOfBytes": "32",
-      "value": "t_struct(ChainConfig)282_storage"
+      "value": "t_struct(ChainConfig)1874_storage"
     },
-    "t_struct(ChainConfig)282_storage": {
+    "t_struct(ChainConfig)1874_storage": {
       "encoding": "inplace",
       "label": "struct ChainRegistry.ChainConfig",
       "numberOfBytes": "64",
       "members": [
         {
-          "astId": 275,
+          "astId": 1867,
           "contract": "src/ChainRegistry.sol:ChainRegistry",
           "label": "usdc",
           "offset": 0,
@@ -1444,7 +412,7 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
           "type": "t_address"
         },
         {
-          "astId": 277,
+          "astId": 1869,
           "contract": "src/ChainRegistry.sol:ChainRegistry",
           "label": "router",
           "offset": 0,
@@ -1452,7 +420,7 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
           "type": "t_address"
         },
         {
-          "astId": 279,
+          "astId": 1871,
           "contract": "src/ChainRegistry.sol:ChainRegistry",
           "label": "ccipSelector",
           "offset": 20,
@@ -1460,7 +428,7 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
           "type": "t_uint64"
         },
         {
-          "astId": 281,
+          "astId": 1873,
           "contract": "src/ChainRegistry.sol:ChainRegistry",
           "label": "flags",
           "offset": 28,
@@ -1473,6 +441,2735 @@ Toolchain: `forge` (solc 0.8.28, EVM cancun, via_ir). Regenerate after any stora
       "encoding": "inplace",
       "label": "uint16",
       "numberOfBytes": "2"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
+```
+
+## SessionGrant
+
+```json
+{
+  "storage": [
+    {
+      "astId": 8732,
+      "contract": "src/SessionGrant.sol:SessionGrant",
+      "label": "_nonces",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 8738,
+      "contract": "src/SessionGrant.sol:SessionGrant",
+      "label": "_sessions",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_bytes32,t_struct(Session)9693_storage)"
+    },
+    {
+      "astId": 8743,
+      "contract": "src/SessionGrant.sol:SessionGrant",
+      "label": "_ownerOf",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_bytes32,t_address)"
+    },
+    {
+      "astId": 8748,
+      "contract": "src/SessionGrant.sol:SessionGrant",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_bytes32,t_address)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => address)",
+      "numberOfBytes": "32",
+      "value": "t_address"
+    },
+    "t_mapping(t_bytes32,t_struct(Session)9693_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct ISessionGrant.Session)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Session)9693_storage"
+    },
+    "t_struct(Session)9693_storage": {
+      "encoding": "inplace",
+      "label": "struct ISessionGrant.Session",
+      "numberOfBytes": "128",
+      "members": [
+        {
+          "astId": 9684,
+          "contract": "src/SessionGrant.sol:SessionGrant",
+          "label": "delegate",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 9686,
+          "contract": "src/SessionGrant.sol:SessionGrant",
+          "label": "expiry",
+          "offset": 20,
+          "slot": "0",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 9688,
+          "contract": "src/SessionGrant.sol:SessionGrant",
+          "label": "budgetCap",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9690,
+          "contract": "src/SessionGrant.sol:SessionGrant",
+          "label": "spent",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9692,
+          "contract": "src/SessionGrant.sol:SessionGrant",
+          "label": "revoked",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_bool"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
+```
+
+## PriceOracleAdapter
+
+```json
+{
+  "storage": [
+    {
+      "astId": 5538,
+      "contract": "src/PriceOracleAdapter.sol:PriceOracleAdapter",
+      "label": "_feedOf",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_contract(AggregatorV3Interface)5485))"
+    },
+    {
+      "astId": 5545,
+      "contract": "src/PriceOracleAdapter.sol:PriceOracleAdapter",
+      "label": "_stalenessOf",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 5550,
+      "contract": "src/PriceOracleAdapter.sol:PriceOracleAdapter",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_contract(AggregatorV3Interface)5485": {
+      "encoding": "inplace",
+      "label": "contract AggregatorV3Interface",
+      "numberOfBytes": "20"
+    },
+    "t_mapping(t_address,t_contract(AggregatorV3Interface)5485)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => contract AggregatorV3Interface)",
+      "numberOfBytes": "32",
+      "value": "t_contract(AggregatorV3Interface)5485"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_contract(AggregatorV3Interface)5485))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => contract AggregatorV3Interface))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_contract(AggregatorV3Interface)5485)"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_uint256)"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}
+```
+
+## Access0x1Subscriptions
+
+```json
+{
+  "storage": [
+    {
+      "astId": 3002,
+      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+      "label": "router",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(IAccess0x1Router)4424"
+    },
+    {
+      "astId": 3006,
+      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+      "label": "sessionGrant",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_contract(ISessionGrant)4957"
+    },
+    {
+      "astId": 3014,
+      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+      "label": "_plans",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_uint256,t_mapping(t_uint8,t_struct(Plan)4441_storage))"
+    },
+    {
+      "astId": 3020,
+      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+      "label": "_subs",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_uint256,t_struct(Subscription)4464_storage)"
+    },
+    {
+      "astId": 3025,
+      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+      "label": "_lastDunBucket",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_uint256,t_uint256)"
+    },
+    {
+      "astId": 3034,
+      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+      "label": "hasUsedTrial",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_mapping(t_uint8,t_bool)))"
+    },
+    {
+      "astId": 3037,
+      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+      "label": "nextSubId",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 3040,
+      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+      "label": "graceFailThreshold",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_uint16"
+    },
+    {
+      "astId": 4362,
+      "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "8",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_contract(IAccess0x1Router)4424": {
+      "encoding": "inplace",
+      "label": "contract IAccess0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_contract(ISessionGrant)4957": {
+      "encoding": "inplace",
+      "label": "contract ISessionGrant",
+      "numberOfBytes": "20"
+    },
+    "t_enum(SubStatus)4433": {
+      "encoding": "inplace",
+      "label": "enum IAccess0x1Subscriptions.SubStatus",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_mapping(t_uint256,t_mapping(t_uint8,t_bool)))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(uint256 => mapping(uint8 => bool)))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_uint256,t_mapping(t_uint8,t_bool))"
+    },
+    "t_mapping(t_uint256,t_mapping(t_uint8,t_bool))": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => mapping(uint8 => bool))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_uint8,t_bool)"
+    },
+    "t_mapping(t_uint256,t_mapping(t_uint8,t_struct(Plan)4441_storage))": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => mapping(uint8 => struct IAccess0x1Subscriptions.Plan))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_uint8,t_struct(Plan)4441_storage)"
+    },
+    "t_mapping(t_uint256,t_struct(Subscription)4464_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct IAccess0x1Subscriptions.Subscription)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Subscription)4464_storage"
+    },
+    "t_mapping(t_uint256,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint8,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_uint8",
+      "label": "mapping(uint8 => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_uint8,t_struct(Plan)4441_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint8",
+      "label": "mapping(uint8 => struct IAccess0x1Subscriptions.Plan)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Plan)4441_storage"
+    },
+    "t_struct(Plan)4441_storage": {
+      "encoding": "inplace",
+      "label": "struct IAccess0x1Subscriptions.Plan",
+      "numberOfBytes": "64",
+      "members": [
+        {
+          "astId": 4436,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "priceUsd8",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 4438,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "periodSecs",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 4440,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "active",
+          "offset": 4,
+          "slot": "1",
+          "type": "t_bool"
+        }
+      ]
+    },
+    "t_struct(Subscription)4464_storage": {
+      "encoding": "inplace",
+      "label": "struct IAccess0x1Subscriptions.Subscription",
+      "numberOfBytes": "160",
+      "members": [
+        {
+          "astId": 4444,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "merchantId",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 4446,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "subscriber",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 4448,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "sessionId",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 4450,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "token",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_address"
+        },
+        {
+          "astId": 4452,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "planKey",
+          "offset": 20,
+          "slot": "3",
+          "type": "t_uint8"
+        },
+        {
+          "astId": 4454,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "periodEnd",
+          "offset": 21,
+          "slot": "3",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 4456,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "trialExpiresAt",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint40"
+        },
+        {
+          "astId": 4458,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "failCount",
+          "offset": 5,
+          "slot": "4",
+          "type": "t_uint16"
+        },
+        {
+          "astId": 4461,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "status",
+          "offset": 7,
+          "slot": "4",
+          "type": "t_enum(SubStatus)4433"
+        },
+        {
+          "astId": 4463,
+          "contract": "src/Access0x1Subscriptions.sol:Access0x1Subscriptions",
+          "label": "hasUsedTrial",
+          "offset": 8,
+          "slot": "4",
+          "type": "t_bool"
+        }
+      ]
+    },
+    "t_uint16": {
+      "encoding": "inplace",
+      "label": "uint16",
+      "numberOfBytes": "2"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint32": {
+      "encoding": "inplace",
+      "label": "uint32",
+      "numberOfBytes": "4"
+    },
+    "t_uint40": {
+      "encoding": "inplace",
+      "label": "uint40",
+      "numberOfBytes": "5"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    },
+    "t_uint8": {
+      "encoding": "inplace",
+      "label": "uint8",
+      "numberOfBytes": "1"
+    }
+  }
+}
+```
+
+## Access0x1Bookings
+
+```json
+{
+  "storage": [
+    {
+      "astId": 6527,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "router",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(Access0x1Router)9827"
+    },
+    {
+      "astId": 6531,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "sessionGrant",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_contract(ISessionGrant)10568"
+    },
+    {
+      "astId": 6537,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "_reservations",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_uint256,t_struct(Reservation)9875_storage)"
+    },
+    {
+      "astId": 6542,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "_slotKeyOf",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_uint256,t_bytes32)"
+    },
+    {
+      "astId": 6547,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "occupant",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_bytes32,t_uint256)"
+    },
+    {
+      "astId": 6552,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "_escrowedOf",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 6559,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "_refundRescue",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 6566,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "approvedCancelRelayer",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_bool))"
+    },
+    {
+      "astId": 6571,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "nonceUsed",
+      "offset": 0,
+      "slot": "8",
+      "type": "t_mapping(t_bytes32,t_bool)"
+    },
+    {
+      "astId": 6574,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "nextReservationId",
+      "offset": 0,
+      "slot": "9",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 6579,
+      "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "10",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_contract(Access0x1Router)9827": {
+      "encoding": "inplace",
+      "label": "contract Access0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_contract(ISessionGrant)10568": {
+      "encoding": "inplace",
+      "label": "contract ISessionGrant",
+      "numberOfBytes": "20"
+    },
+    "t_enum(RStatus)9839": {
+      "encoding": "inplace",
+      "label": "enum IAccess0x1Bookings.RStatus",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_bool))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => bool))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_bool)"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_uint256)"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_bytes32,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_bytes32,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_bytes32)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => bytes32)",
+      "numberOfBytes": "32",
+      "value": "t_bytes32"
+    },
+    "t_mapping(t_uint256,t_struct(Reservation)9875_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct IAccess0x1Bookings.Reservation)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Reservation)9875_storage"
+    },
+    "t_struct(Policy)9851_storage": {
+      "encoding": "inplace",
+      "label": "struct IAccess0x1Bookings.Policy",
+      "numberOfBytes": "96",
+      "members": [
+        {
+          "astId": 9846,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "cancelWindowSecs",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 9848,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "lateFeeUsd8",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9850,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "noShowFeeUsd8",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        }
+      ]
+    },
+    "t_struct(Reservation)9875_storage": {
+      "encoding": "inplace",
+      "label": "struct IAccess0x1Bookings.Reservation",
+      "numberOfBytes": "352",
+      "members": [
+        {
+          "astId": 9854,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "merchantId",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9856,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "payer",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 9858,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "token",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_address"
+        },
+        {
+          "astId": 9860,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "escrowAmount",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9862,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "depositUsd8",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9864,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "balanceDueUsd8",
+          "offset": 0,
+          "slot": "5",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9866,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "holdExpiresAt",
+          "offset": 0,
+          "slot": "6",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 9868,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "slotTimestamp",
+          "offset": 8,
+          "slot": "6",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 9871,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "policy",
+          "offset": 0,
+          "slot": "7",
+          "type": "t_struct(Policy)9851_storage"
+        },
+        {
+          "astId": 9874,
+          "contract": "src/Access0x1Bookings.sol:Access0x1Bookings",
+          "label": "status",
+          "offset": 0,
+          "slot": "10",
+          "type": "t_enum(RStatus)9839"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint32": {
+      "encoding": "inplace",
+      "label": "uint32",
+      "numberOfBytes": "4"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
+```
+
+## Access0x1Invoices
+
+```json
+{
+  "storage": [
+    {
+      "astId": 6526,
+      "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+      "label": "router",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(Access0x1Router)8826"
+    },
+    {
+      "astId": 6532,
+      "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+      "label": "_invoices",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_uint256,t_struct(Invoice)8852_storage)"
+    },
+    {
+      "astId": 6535,
+      "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+      "label": "nextInvoiceId",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 6540,
+      "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_contract(Access0x1Router)8826": {
+      "encoding": "inplace",
+      "label": "contract Access0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_enum(InvStatus)8835": {
+      "encoding": "inplace",
+      "label": "enum IAccess0x1Invoices.InvStatus",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_uint256,t_struct(Invoice)8852_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct IAccess0x1Invoices.Invoice)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Invoice)8852_storage"
+    },
+    "t_struct(Invoice)8852_storage": {
+      "encoding": "inplace",
+      "label": "struct IAccess0x1Invoices.Invoice",
+      "numberOfBytes": "192",
+      "members": [
+        {
+          "astId": 8838,
+          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+          "label": "merchantId",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 8840,
+          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+          "label": "payer",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 8842,
+          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+          "label": "token",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_address"
+        },
+        {
+          "astId": 8844,
+          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+          "label": "amountUsd8",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 8846,
+          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+          "label": "dueBy",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 8849,
+          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+          "label": "status",
+          "offset": 8,
+          "slot": "4",
+          "type": "t_enum(InvStatus)8835"
+        },
+        {
+          "astId": 8851,
+          "contract": "src/Access0x1Invoices.sol:Access0x1Invoices",
+          "label": "memoHash",
+          "offset": 0,
+          "slot": "5",
+          "type": "t_bytes32"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
+```
+
+## Access0x1GiftCards
+
+```json
+{
+  "storage": [
+    {
+      "astId": 6520,
+      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+      "label": "router",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(Access0x1Router)9106"
+    },
+    {
+      "astId": 6527,
+      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+      "label": "_balanceOf",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
+    },
+    {
+      "astId": 6532,
+      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+      "label": "_cardMerchant",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_uint256,t_uint256)"
+    },
+    {
+      "astId": 6550,
+      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+      "label": "_redemptions",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_bytes32,t_struct(Redemption)6544_storage)"
+    },
+    {
+      "astId": 6558,
+      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+      "label": "_coupons",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_uint256,t_mapping(t_bytes32,t_struct(Coupon)9128_storage))"
+    },
+    {
+      "astId": 7421,
+      "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_contract(Access0x1Router)9106": {
+      "encoding": "inplace",
+      "label": "contract Access0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_enum(DiscountType)9113": {
+      "encoding": "inplace",
+      "label": "enum IAccess0x1GiftCards.DiscountType",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_mapping(t_uint256,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(uint256 => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_uint256,t_uint256)"
+    },
+    "t_mapping(t_bytes32,t_struct(Coupon)9128_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct IAccess0x1GiftCards.Coupon)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Coupon)9128_storage"
+    },
+    "t_mapping(t_bytes32,t_struct(Redemption)6544_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct Access0x1GiftCards.Redemption)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Redemption)6544_storage"
+    },
+    "t_mapping(t_uint256,t_mapping(t_bytes32,t_struct(Coupon)9128_storage))": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => mapping(bytes32 => struct IAccess0x1GiftCards.Coupon))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_bytes32,t_struct(Coupon)9128_storage)"
+    },
+    "t_mapping(t_uint256,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_struct(Coupon)9128_storage": {
+      "encoding": "inplace",
+      "label": "struct IAccess0x1GiftCards.Coupon",
+      "numberOfBytes": "96",
+      "members": [
+        {
+          "astId": 9117,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "dType",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_enum(DiscountType)9113"
+        },
+        {
+          "astId": 9119,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "value",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9121,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "validUntil",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 9123,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "maxRedemptions",
+          "offset": 8,
+          "slot": "2",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 9125,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "redemptionsCount",
+          "offset": 12,
+          "slot": "2",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 9127,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "active",
+          "offset": 16,
+          "slot": "2",
+          "type": "t_bool"
+        }
+      ]
+    },
+    "t_struct(Redemption)6544_storage": {
+      "encoding": "inplace",
+      "label": "struct Access0x1GiftCards.Redemption",
+      "numberOfBytes": "128",
+      "members": [
+        {
+          "astId": 6535,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "holder",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 6537,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "cardId",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 6539,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "applied",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 6541,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "exists",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_bool"
+        },
+        {
+          "astId": 6543,
+          "contract": "src/Access0x1GiftCards.sol:Access0x1GiftCards",
+          "label": "reversed",
+          "offset": 1,
+          "slot": "3",
+          "type": "t_bool"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint32": {
+      "encoding": "inplace",
+      "label": "uint32",
+      "numberOfBytes": "4"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
+```
+
+## Access0x1Escrow
+
+```json
+{
+  "storage": [
+    {
+      "astId": 9915,
+      "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+      "label": "router",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(Access0x1Router)12687"
+    },
+    {
+      "astId": 9921,
+      "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+      "label": "_escrows",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_uint256,t_struct(Escrow)12715_storage)"
+    },
+    {
+      "astId": 9928,
+      "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+      "label": "_withdrawable",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 9931,
+      "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+      "label": "nextEscrowId",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9936,
+      "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_contract(Access0x1Router)12687": {
+      "encoding": "inplace",
+      "label": "contract Access0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_enum(EscrowState)12696": {
+      "encoding": "inplace",
+      "label": "enum IAccess0x1Escrow.EscrowState",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_uint256)"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_struct(Escrow)12715_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct IAccess0x1Escrow.Escrow)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Escrow)12715_storage"
+    },
+    "t_struct(Escrow)12715_storage": {
+      "encoding": "inplace",
+      "label": "struct IAccess0x1Escrow.Escrow",
+      "numberOfBytes": "192",
+      "members": [
+        {
+          "astId": 12699,
+          "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+          "label": "buyer",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 12701,
+          "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+          "label": "seller",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 12703,
+          "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+          "label": "merchantId",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 12705,
+          "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+          "label": "asset",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_address"
+        },
+        {
+          "astId": 12707,
+          "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+          "label": "amount",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 12709,
+          "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+          "label": "arbiter",
+          "offset": 0,
+          "slot": "5",
+          "type": "t_address"
+        },
+        {
+          "astId": 12711,
+          "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+          "label": "deadline",
+          "offset": 20,
+          "slot": "5",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 12714,
+          "contract": "src/Access0x1Escrow.sol:Access0x1Escrow",
+          "label": "state",
+          "offset": 28,
+          "slot": "5",
+          "type": "t_enum(EscrowState)12696"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
+```
+
+## Receivables
+
+```json
+{
+  "storage": [
+    {
+      "astId": 12753,
+      "contract": "src/Receivables.sol:Receivables",
+      "label": "router",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(Access0x1Router)12697"
+    },
+    {
+      "astId": 12759,
+      "contract": "src/Receivables.sol:Receivables",
+      "label": "_receivables",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_uint256,t_struct(Receivable)13920_storage)"
+    },
+    {
+      "astId": 12762,
+      "contract": "src/Receivables.sol:Receivables",
+      "label": "_nextTokenId",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 12765,
+      "contract": "src/Receivables.sol:Receivables",
+      "label": "_contractURI",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_string_storage"
+    },
+    {
+      "astId": 12770,
+      "contract": "src/Receivables.sol:Receivables",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_contract(Access0x1Router)12697": {
+      "encoding": "inplace",
+      "label": "contract Access0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_enum(Status)13905": {
+      "encoding": "inplace",
+      "label": "enum IReceivables.Status",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_uint256,t_struct(Receivable)13920_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct IReceivables.Receivable)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Receivable)13920_storage"
+    },
+    "t_string_storage": {
+      "encoding": "bytes",
+      "label": "string",
+      "numberOfBytes": "32"
+    },
+    "t_struct(Receivable)13920_storage": {
+      "encoding": "inplace",
+      "label": "struct IReceivables.Receivable",
+      "numberOfBytes": "160",
+      "members": [
+        {
+          "astId": 13908,
+          "contract": "src/Receivables.sol:Receivables",
+          "label": "merchantId",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 13910,
+          "contract": "src/Receivables.sol:Receivables",
+          "label": "debtor",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 13912,
+          "contract": "src/Receivables.sol:Receivables",
+          "label": "token",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_address"
+        },
+        {
+          "astId": 13914,
+          "contract": "src/Receivables.sol:Receivables",
+          "label": "amountUsd8",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 13916,
+          "contract": "src/Receivables.sol:Receivables",
+          "label": "dueBy",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 13919,
+          "contract": "src/Receivables.sol:Receivables",
+          "label": "status",
+          "offset": 8,
+          "slot": "4",
+          "type": "t_enum(Status)13905"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
+```
+
+## Refunds
+
+```json
+{
+  "storage": [
+    {
+      "astId": 8274,
+      "contract": "src/Refunds.sol:Refunds",
+      "label": "router",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(Access0x1Router)8202"
+    },
+    {
+      "astId": 8280,
+      "contract": "src/Refunds.sol:Refunds",
+      "label": "_refunds",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_bytes32,t_struct(Refund)9742_storage)"
+    },
+    {
+      "astId": 8287,
+      "contract": "src/Refunds.sol:Refunds",
+      "label": "_balanceOf",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
+    },
+    {
+      "astId": 8294,
+      "contract": "src/Refunds.sol:Refunds",
+      "label": "_withdrawable",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 8299,
+      "contract": "src/Refunds.sol:Refunds",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_contract(Access0x1Router)8202": {
+      "encoding": "inplace",
+      "label": "contract Access0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_enum(RefundState)9727": {
+      "encoding": "inplace",
+      "label": "enum IRefunds.RefundState",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_uint256)"
+    },
+    "t_mapping(t_address,t_mapping(t_uint256,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(uint256 => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_uint256,t_uint256)"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_bytes32,t_struct(Refund)9742_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct IRefunds.Refund)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Refund)9742_storage"
+    },
+    "t_mapping(t_uint256,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_struct(Refund)9742_storage": {
+      "encoding": "inplace",
+      "label": "struct IRefunds.Refund",
+      "numberOfBytes": "160",
+      "members": [
+        {
+          "astId": 9730,
+          "contract": "src/Refunds.sol:Refunds",
+          "label": "merchantId",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9732,
+          "contract": "src/Refunds.sol:Refunds",
+          "label": "buyer",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 9734,
+          "contract": "src/Refunds.sol:Refunds",
+          "label": "asset",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_address"
+        },
+        {
+          "astId": 9736,
+          "contract": "src/Refunds.sol:Refunds",
+          "label": "amount",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9738,
+          "contract": "src/Refunds.sol:Refunds",
+          "label": "deadline",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 9741,
+          "contract": "src/Refunds.sol:Refunds",
+          "label": "state",
+          "offset": 8,
+          "slot": "4",
+          "type": "t_enum(RefundState)9727"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
+```
+
+## SplitSettler
+
+```json
+{
+  "storage": [
+    {
+      "astId": 8244,
+      "contract": "src/SplitSettler.sol:SplitSettler",
+      "label": "router",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(Access0x1Router)8186"
+    },
+    {
+      "astId": 8250,
+      "contract": "src/SplitSettler.sol:SplitSettler",
+      "label": "_splits",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_uint256,t_struct(Split)9622_storage)"
+    },
+    {
+      "astId": 8257,
+      "contract": "src/SplitSettler.sol:SplitSettler",
+      "label": "_withdrawable",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 8260,
+      "contract": "src/SplitSettler.sol:SplitSettler",
+      "label": "nextSplitId",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 8265,
+      "contract": "src/SplitSettler.sol:SplitSettler",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_struct(Payee)9610_storage)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "struct ISplitSettler.Payee[]",
+      "numberOfBytes": "32",
+      "base": "t_struct(Payee)9610_storage"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_contract(Access0x1Router)8186": {
+      "encoding": "inplace",
+      "label": "contract Access0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_uint256)"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_struct(Split)9622_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct ISplitSettler.Split)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Split)9622_storage"
+    },
+    "t_struct(Payee)9610_storage": {
+      "encoding": "inplace",
+      "label": "struct ISplitSettler.Payee",
+      "numberOfBytes": "32",
+      "members": [
+        {
+          "astId": 9607,
+          "contract": "src/SplitSettler.sol:SplitSettler",
+          "label": "account",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 9609,
+          "contract": "src/SplitSettler.sol:SplitSettler",
+          "label": "shareBps",
+          "offset": 20,
+          "slot": "0",
+          "type": "t_uint16"
+        }
+      ]
+    },
+    "t_struct(Split)9622_storage": {
+      "encoding": "inplace",
+      "label": "struct ISplitSettler.Split",
+      "numberOfBytes": "96",
+      "members": [
+        {
+          "astId": 9613,
+          "contract": "src/SplitSettler.sol:SplitSettler",
+          "label": "merchantId",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 9615,
+          "contract": "src/SplitSettler.sol:SplitSettler",
+          "label": "primaryIndex",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint16"
+        },
+        {
+          "astId": 9617,
+          "contract": "src/SplitSettler.sol:SplitSettler",
+          "label": "active",
+          "offset": 2,
+          "slot": "1",
+          "type": "t_bool"
+        },
+        {
+          "astId": 9621,
+          "contract": "src/SplitSettler.sol:SplitSettler",
+          "label": "payees",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_array(t_struct(Payee)9610_storage)dyn_storage"
+        }
+      ]
+    },
+    "t_uint16": {
+      "encoding": "inplace",
+      "label": "uint16",
+      "numberOfBytes": "2"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}
+```
+
+## GaslessPayIn
+
+```json
+{
+  "storage": [
+    {
+      "astId": 8206,
+      "contract": "src/GaslessPayIn.sol:GaslessPayIn",
+      "label": "routerContract",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(Access0x1Router)8166"
+    },
+    {
+      "astId": 8211,
+      "contract": "src/GaslessPayIn.sol:GaslessPayIn",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_contract(Access0x1Router)8166": {
+      "encoding": "inplace",
+      "label": "contract Access0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}
+```
+
+## Access0x1Receiver
+
+```json
+{
+  "storage": [
+    {
+      "astId": 8,
+      "contract": "src/Access0x1Receiver.sol:Access0x1Receiver",
+      "label": "_owner",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_address"
+    },
+    {
+      "astId": 156,
+      "contract": "src/Access0x1Receiver.sol:Access0x1Receiver",
+      "label": "_pendingOwner",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_address"
+    },
+    {
+      "astId": 296,
+      "contract": "src/Access0x1Receiver.sol:Access0x1Receiver",
+      "label": "auditCount",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 301,
+      "contract": "src/Access0x1Receiver.sol:Access0x1Receiver",
+      "label": "allowedWorkflowOwner",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_address,t_bool)"
+    },
+    {
+      "astId": 306,
+      "contract": "src/Access0x1Receiver.sol:Access0x1Receiver",
+      "label": "allowedWorkflowName",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_bytes10,t_bool)"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_bytes10": {
+      "encoding": "inplace",
+      "label": "bytes10",
+      "numberOfBytes": "10"
+    },
+    "t_mapping(t_address,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_bytes10,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_bytes10",
+      "label": "mapping(bytes10 => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}
+```
+
+## AutomationGateway
+
+```json
+{
+  "storage": [
+    {
+      "astId": 8868,
+      "contract": "src/AutomationGateway.sol:AutomationGateway",
+      "label": "subscriptionsContract",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(IAccess0x1Subscriptions)9763"
+    },
+    {
+      "astId": 8872,
+      "contract": "src/AutomationGateway.sol:AutomationGateway",
+      "label": "_watched",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_struct(UintSet)7985_storage"
+    },
+    {
+      "astId": 8875,
+      "contract": "src/AutomationGateway.sol:AutomationGateway",
+      "label": "scanCursor",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 9381,
+      "contract": "src/AutomationGateway.sol:AutomationGateway",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_array(t_uint256)49_storage"
+    }
+  ],
+  "types": {
+    "t_array(t_bytes32)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "bytes32[]",
+      "numberOfBytes": "32",
+      "base": "t_bytes32"
+    },
+    "t_array(t_uint256)49_storage": {
+      "encoding": "inplace",
+      "label": "uint256[49]",
+      "numberOfBytes": "1568",
+      "base": "t_uint256"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_contract(IAccess0x1Subscriptions)9763": {
+      "encoding": "inplace",
+      "label": "contract IAccess0x1Subscriptions",
+      "numberOfBytes": "20"
+    },
+    "t_mapping(t_bytes32,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_struct(Set)7111_storage": {
+      "encoding": "inplace",
+      "label": "struct EnumerableSet.Set",
+      "numberOfBytes": "64",
+      "members": [
+        {
+          "astId": 7106,
+          "contract": "src/AutomationGateway.sol:AutomationGateway",
+          "label": "_values",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_array(t_bytes32)dyn_storage"
+        },
+        {
+          "astId": 7110,
+          "contract": "src/AutomationGateway.sol:AutomationGateway",
+          "label": "_positions",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_mapping(t_bytes32,t_uint256)"
+        }
+      ]
+    },
+    "t_struct(UintSet)7985_storage": {
+      "encoding": "inplace",
+      "label": "struct EnumerableSet.UintSet",
+      "numberOfBytes": "64",
+      "members": [
+        {
+          "astId": 7984,
+          "contract": "src/AutomationGateway.sol:AutomationGateway",
+          "label": "_inner",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_struct(Set)7111_storage"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}
+```
+
+## Access0x1Nft
+
+```json
+{
+  "storage": [
+    {
+      "astId": 6676,
+      "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+      "label": "router",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_contract(Access0x1Router)8966"
+    },
+    {
+      "astId": 6682,
+      "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+      "label": "listings",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_uint256,t_struct(Listing)6672_storage)"
+    },
+    {
+      "astId": 6685,
+      "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+      "label": "nextListingId",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 7281,
+      "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_contract(Access0x1Router)8966": {
+      "encoding": "inplace",
+      "label": "contract Access0x1Router",
+      "numberOfBytes": "20"
+    },
+    "t_mapping(t_uint256,t_struct(Listing)6672_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => struct Access0x1Nft.Listing)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Listing)6672_storage"
+    },
+    "t_struct(Listing)6672_storage": {
+      "encoding": "inplace",
+      "label": "struct Access0x1Nft.Listing",
+      "numberOfBytes": "192",
+      "members": [
+        {
+          "astId": 6659,
+          "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+          "label": "seller",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 6661,
+          "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+          "label": "active",
+          "offset": 20,
+          "slot": "0",
+          "type": "t_bool"
+        },
+        {
+          "astId": 6663,
+          "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+          "label": "collection",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 6665,
+          "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+          "label": "paymentToken",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_address"
+        },
+        {
+          "astId": 6667,
+          "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+          "label": "tokenId",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 6669,
+          "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+          "label": "merchantId",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 6671,
+          "contract": "src/Access0x1Nft.sol:Access0x1Nft",
+          "label": "priceUsd8",
+          "offset": 0,
+          "slot": "5",
+          "type": "t_uint256"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}
+```
+
+## Access0x1ProvenanceRegistry
+
+```json
+{
+  "storage": [
+    {
+      "astId": 8712,
+      "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+      "label": "_repoOwner",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_mapping(t_bytes32,t_address)"
+    },
+    {
+      "astId": 8717,
+      "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+      "label": "_pendingRepoOwner",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_bytes32,t_address)"
+    },
+    {
+      "astId": 8724,
+      "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+      "label": "_snapshots",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_bytes32,t_array(t_struct(Anchor)9614_storage)dyn_storage)"
+    },
+    {
+      "astId": 8731,
+      "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+      "label": "_releases",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_bytes32,t_array(t_struct(Anchor)9614_storage)dyn_storage)"
+    },
+    {
+      "astId": 8736,
+      "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+      "label": "_nonces",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 8741,
+      "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_array(t_uint256)50_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_struct(Anchor)9614_storage)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "struct IAccess0x1ProvenanceRegistry.Anchor[]",
+      "numberOfBytes": "32",
+      "base": "t_struct(Anchor)9614_storage"
+    },
+    "t_array(t_uint256)50_storage": {
+      "encoding": "inplace",
+      "label": "uint256[50]",
+      "numberOfBytes": "1600",
+      "base": "t_uint256"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_bytes32,t_address)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => address)",
+      "numberOfBytes": "32",
+      "value": "t_address"
+    },
+    "t_mapping(t_bytes32,t_array(t_struct(Anchor)9614_storage)dyn_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct IAccess0x1ProvenanceRegistry.Anchor[])",
+      "numberOfBytes": "32",
+      "value": "t_array(t_struct(Anchor)9614_storage)dyn_storage"
+    },
+    "t_string_storage": {
+      "encoding": "bytes",
+      "label": "string",
+      "numberOfBytes": "32"
+    },
+    "t_struct(Anchor)9614_storage": {
+      "encoding": "inplace",
+      "label": "struct IAccess0x1ProvenanceRegistry.Anchor",
+      "numberOfBytes": "160",
+      "members": [
+        {
+          "astId": 9605,
+          "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+          "label": "merkleRoot",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 9607,
+          "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+          "label": "anchoredAt",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 9609,
+          "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+          "label": "cid",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_string_storage"
+        },
+        {
+          "astId": 9611,
+          "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+          "label": "tag",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_string_storage"
+        },
+        {
+          "astId": 9613,
+          "contract": "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry",
+          "label": "commit",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_string_storage"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
+```
+
+## HouseToken
+
+```json
+{
+  "storage": [
+    {
+      "astId": 1487,
+      "contract": "src/HouseToken.sol:HouseToken",
+      "label": "_balances",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 1493,
+      "contract": "src/HouseToken.sol:HouseToken",
+      "label": "_allowances",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_address,t_mapping(t_address,t_uint256))"
+    },
+    {
+      "astId": 1495,
+      "contract": "src/HouseToken.sol:HouseToken",
+      "label": "_totalSupply",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 1497,
+      "contract": "src/HouseToken.sol:HouseToken",
+      "label": "_name",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_string_storage"
+    },
+    {
+      "astId": 1499,
+      "contract": "src/HouseToken.sol:HouseToken",
+      "label": "_symbol",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_string_storage"
+    },
+    {
+      "astId": 6188,
+      "contract": "src/HouseToken.sol:HouseToken",
+      "label": "_nameFallback",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_string_storage"
+    },
+    {
+      "astId": 6190,
+      "contract": "src/HouseToken.sol:HouseToken",
+      "label": "_versionFallback",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_string_storage"
+    },
+    {
+      "astId": 3735,
+      "contract": "src/HouseToken.sol:HouseToken",
+      "label": "_nonces",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "astId": 394,
+      "contract": "src/HouseToken.sol:HouseToken",
+      "label": "_owner",
+      "offset": 0,
+      "slot": "8",
+      "type": "t_address"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_mapping(t_address,t_mapping(t_address,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(address => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_uint256)"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_string_storage": {
+      "encoding": "bytes",
+      "label": "string",
+      "numberOfBytes": "32"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    }
+  }
+}
+```
+
+## HouseTokenFactory
+
+```json
+{
+  "storage": [
+    {
+      "astId": 10248,
+      "contract": "src/HouseTokenFactory.sol:HouseTokenFactory",
+      "label": "deployedCount",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 10253,
+      "contract": "src/HouseTokenFactory.sol:HouseTokenFactory",
+      "label": "_isHouseToken",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_address,t_bool)"
+    },
+    {
+      "astId": 10259,
+      "contract": "src/HouseTokenFactory.sol:HouseTokenFactory",
+      "label": "_tokensOf",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_address,t_array(t_address)dyn_storage)"
+    },
+    {
+      "astId": 10263,
+      "contract": "src/HouseTokenFactory.sol:HouseTokenFactory",
+      "label": "_allTokens",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_array(t_address)dyn_storage"
+    },
+    {
+      "astId": 10269,
+      "contract": "src/HouseTokenFactory.sol:HouseTokenFactory",
+      "label": "_records",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_address,t_struct(TokenRecord)10544_storage)"
+    },
+    {
+      "astId": 10274,
+      "contract": "src/HouseTokenFactory.sol:HouseTokenFactory",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_array(t_uint256)47_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_address)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "address[]",
+      "numberOfBytes": "32",
+      "base": "t_address"
+    },
+    "t_array(t_uint256)47_storage": {
+      "encoding": "inplace",
+      "label": "uint256[47]",
+      "numberOfBytes": "1504",
+      "base": "t_uint256"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_array(t_address)dyn_storage)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => address[])",
+      "numberOfBytes": "32",
+      "value": "t_array(t_address)dyn_storage"
+    },
+    "t_mapping(t_address,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_address,t_struct(TokenRecord)10544_storage)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => struct IHouseTokenFactory.TokenRecord)",
+      "numberOfBytes": "32",
+      "value": "t_struct(TokenRecord)10544_storage"
+    },
+    "t_struct(TokenRecord)10544_storage": {
+      "encoding": "inplace",
+      "label": "struct IHouseTokenFactory.TokenRecord",
+      "numberOfBytes": "64",
+      "members": [
+        {
+          "astId": 10539,
+          "contract": "src/HouseTokenFactory.sol:HouseTokenFactory",
+          "label": "owner",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 10541,
+          "contract": "src/HouseTokenFactory.sol:HouseTokenFactory",
+          "label": "deployedAt",
+          "offset": 20,
+          "slot": "0",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 10543,
+          "contract": "src/HouseTokenFactory.sol:HouseTokenFactory",
+          "label": "chainId",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint64"
+        }
+      ]
     },
     "t_uint256": {
       "encoding": "inplace",

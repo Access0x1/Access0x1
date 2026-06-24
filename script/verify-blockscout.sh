@@ -38,7 +38,8 @@ log_skip() {
 }
 
 [ -n "$VERIFIER_URL" ] || log_skip "missing verifier URL (set this chain *_VERIFIER_URL in .env)"
-[ -f "$BCAST" ] || log_skip "no broadcast (deploy to chain ${CHAIN_ID} first)"
+{ [ -f "deployments/${CHAIN_ID}.json" ] || [ -f "$BCAST" ]; } \
+  || log_skip "no deployments/${CHAIN_ID}.json manifest or broadcast (deploy to chain ${CHAIN_ID} first)"
 
 fail=0
 while read -r NAME ADDR; do
@@ -56,6 +57,6 @@ while read -r NAME ADDR; do
     fail=1
   fi
   sleep "$THROTTLE"
-done < <(jq -r '.transactions[] | select(.transactionType=="CREATE" and .contractName != null) | "\(.contractName) \(.contractAddress)"' "$BCAST")
+done < <(enumerate_deployed "$BCAST" "$CHAIN_ID")
 
 exit $fail

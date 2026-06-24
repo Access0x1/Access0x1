@@ -17,7 +17,7 @@ import { Access0x1Router } from "./Access0x1Router.sol";
 import { IAccess0x1Invoices } from "./interfaces/IAccess0x1Invoices.sol";
 
 /// @title  Access0x1Invoices
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The simplest Access0x1 commerce primitive: a USD-priced, pay-ONCE payment request. An
 ///         operator (a registered {Access0x1Router} merchant's owner) issues a request for
 ///         `amountUsd8`, optionally locked to one payer and/or stamped with an informational `dueBy`;

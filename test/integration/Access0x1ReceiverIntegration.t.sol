@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { DeployAll } from "../../script/DeployAll.s.sol";
+import { CreateXEtch } from "../helpers/CreateXEtch.sol";
 import { HelperConfig } from "../../script/HelperConfig.s.sol";
 
 import { Access0x1Router } from "../../src/Access0x1Router.sol";
@@ -78,6 +79,11 @@ contract Access0x1ReceiverIntegrationTest is Test {
 
     uint256 internal merchantId;
 
+    /// @dev EVM snapshot of the clean slate (taken in setUp BEFORE the mirror deploy). A test that
+    ///      re-runs the deterministic-CREATE3 `DeployAll` reverts here first so its re-deploy lands fresh
+    ///      instead of colliding with the setUp deploy at the same mirror addresses.
+    uint256 internal cleanSlate;
+
     // Re-declared for expectEmit (events are not inherited into the test scope).
     event PaymentReceived(
         uint256 indexed merchantId,
@@ -105,6 +111,7 @@ contract Access0x1ReceiverIntegrationTest is Test {
     /// @notice Stand up the estate by running the REAL `DeployAll` script, then complete the
     ///         tenant-side wiring (allowlist the CRE workflow, register a merchant, fund the buyer).
     function setUp() public {
+        CreateXEtch.enable(vm);
         // A non-zero, stable timestamp keeps the Chainlink feed inside the staleness window.
         vm.warp(1_700_000_000);
         vm.chainId(CRE_INT_CHAIN_ID);
@@ -125,6 +132,7 @@ contract Access0x1ReceiverIntegrationTest is Test {
         vm.setEnv("DEPLOY_PAYMENT_LANES", "true"); // wire the ERC-6909 lane ledger too
         vm.setEnv("CRE_FORWARDER", vm.toString(address(forwarder))); // <-- deploys Access0x1Receiver
 
+        cleanSlate = vm.snapshotState(); // clean slate before the mirror deploy (see field doc)
         deployer = new DeployAll();
         (router, lanes,) = deployer.run();
         receiver = deployer.receiver(); // recorded in the script's public state
@@ -169,6 +177,7 @@ contract Access0x1ReceiverIntegrationTest is Test {
     ///         This pins the other side of the branch: `receiver == address(0)`, money spine still up.
     function test_integration_deployScript_skipsReceiverWithoutForwarder() public {
         vm.setEnv("CRE_FORWARDER", vm.toString(address(0))); // no forwarder -> skip the consumer
+        vm.revertToState(cleanSlate); // re-running the deterministic mirror deploy needs a fresh slate
         DeployAll d = new DeployAll();
         (Access0x1Router r,,) = d.run();
         assertTrue(address(r) != address(0), "router still deploys without the CRE consumer");

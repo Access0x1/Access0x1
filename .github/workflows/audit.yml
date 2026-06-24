@@ -4,7 +4,7 @@ name: Audit
 # -> full test suite -> aderyn static analysis. Separate from test.yml (CI) so the audit pass can be
 # read at a glance and extended (slither/coverage) without bloating the fast test lane.
 #
-# NOTE (honesty, estate law #4): GitHub Actions may be billing-blocked on this org, in which case this
+# NOTE (honesty, money-safety invariant #4): GitHub Actions may be billing-blocked on this org, in which case this
 # workflow does not RUN in CI. Its CORRECTNESS still counts — it is the exact pass a maintainer runs
 # locally via `make fmt-check && make sizes && make test && make aderyn`, encoded for when Actions is
 # enabled. Nothing here depends on a secret.

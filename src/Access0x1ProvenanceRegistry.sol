@@ -15,7 +15,7 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IAccess0x1ProvenanceRegistry } from "./interfaces/IAccess0x1ProvenanceRegistry.sol";
 
 /// @title  Access0x1ProvenanceRegistry
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice An on-chain code-provenance ledger — the CodeQuill-parity primitive. An account CLAIMS a
 ///         repo (first-claim-wins), then ANCHORS immutable, timestamped entries under it: SNAPSHOTS (a
 ///         Merkle root over the repo tree + the source commit) and tagged RELEASES (a content id + tag

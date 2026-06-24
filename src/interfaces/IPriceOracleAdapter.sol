@@ -6,7 +6,7 @@ import {
 } from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 /// @title  IERC7726Lite
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The minimal on-chain surface of **ERC-7726 — Common Quote Oracle (DRAFT)**: a single,
 ///         source-agnostic price read. `getQuote` answers "how much `quote` token is `baseAmount` of
 ///         `base` token worth", both denominated in their OWN token decimals, so the consumer never
@@ -33,7 +33,7 @@ interface IERC7726Lite {
 }
 
 /// @title  IPriceOracleAdapter
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The external surface of {PriceOracleAdapter} — a thin, SWAPPABLE price oracle that
 ///         normalizes any underlying price SOURCE behind a single, ERC-standard quote function so the
 ///         router (and every commerce primitive) can stop hard-binding `AggregatorV3Interface`. The

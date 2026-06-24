@@ -16,7 +16,7 @@ import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { ISessionGrant } from "./interfaces/ISessionGrant.sol";
 
 /// @title  SessionGrant
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice An Access0x1-owned implementation of the "sign once → time-bounded, budget-scoped
 ///         delegated agent session" pattern enabled by ERC-7702 (Final, Pectra), with ERC-6492
 ///         (Final) validation of grant signatures from wallets that are not yet deployed on-chain.
@@ -38,7 +38,7 @@ import { ISessionGrant } from "./interfaces/ISessionGrant.sol";
 ///         escrows funds — {spend} only debits an accounting budget and emits an event. A consuming
 ///         contract (e.g. an Access0x1 router) is expected to gate value transfer on a successful
 ///         {spend}, so the budget is the spend CEILING, not a wallet. This isolation is deliberate:
-///         the money-path security budget is never spent on this auth primitive (estate law).
+///         the money-path security budget is never spent on this auth primitive (money-safety invariant).
 ///
 ///         REPLAY: per-owner monotonic `nonces`. Each signed grant pins a nonce; the nonce is consumed
 ///         on a successful {openSessionFor}, so a captured grant signature can never open a second
