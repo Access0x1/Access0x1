@@ -73,5 +73,5 @@ Both submission steps are **owner-gated** (they publish under the Access0x1 iden
 is verified in-repo: every one of its 20 function signatures + field paths is cross-checked against the
 compiled `Access0x1Router` ABI, and the deployment addresses match `web/lib/deployments.ts`.
 
-The [`MyAppRouter`](https://github.com/Access0x1/Access0x1) thin subclass reuses this same
+An integrator's thin subclass of `Access0x1Router` (e.g. `MyAppRouter`) reuses this same
 descriptor (identical ABI) under its own mirror address.

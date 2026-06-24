@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "viem/wagmi-native React SDK for Access0x1 — a zero-custody, USD-priced crypto payment button you can drop into any React app in under five minutes.",
   "license": "MIT",
-  "author": "Rensley <noreply@users.noreply.github.com>",
+  "author": "Access0x1",
   "homepage": "https://github.com/Access0x1/Access0x1/tree/main/packages/react#readme",
   "repository": {
     "type": "git",

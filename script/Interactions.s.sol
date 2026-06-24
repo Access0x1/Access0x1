@@ -28,10 +28,10 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 /// @dev    Everything is deployed fresh in the broadcast, so there is no address to resolve and no env
 ///         to set. The native/USD feed is unused here (USDC-only flow), kept minimal on purpose.
 contract DriveCoffeeShopLocal is Script {
-    /// @notice The platform fee for this local run: 1.00% (the estate default).
+    /// @notice The platform fee for this local run: 1.00% (the default).
     uint16 internal constant PLATFORM_FEE_BPS = 100;
 
-    /// @notice A $5.00 latte in the estate's 8-decimal USD unit.
+    /// @notice A $5.00 latte in the suite's 8-decimal USD unit.
     uint256 internal constant LATTE_USD8 = 5e8;
 
     /// @notice Deploy a throwaway deployment and settle one $5 USDC payment, logging the proof. Intended to

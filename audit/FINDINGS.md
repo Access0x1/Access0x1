@@ -201,7 +201,7 @@ correctness.
 
 `Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`,
 `Access0x1GiftCards`, and `Access0x1Nft` were added as primitives that **compose** the
-audited spine, and each was reviewed against the estate money laws plus the static tools:
+audited spine, and each was reviewed against the project's money-safety invariants plus the static tools:
 
 - **No re-derived fee math.** Every money leg routes through
   `Access0x1Router.payToken` / `payNative`, so `net + platformFee + merchantFee ==

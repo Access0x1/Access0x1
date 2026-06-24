@@ -47,7 +47,7 @@
  *  - Pure + deterministic: every function is a pure function of its inputs (no clock, no randomness).
  *
  * SOURCES: ERC-7715 (eips.ethereum.org/EIPS/eip-7715), ERC-7710 redeemDelegations
- * (github.com/MetaMask/delegation-framework IDelegationManager), per the project ADR.
+ * (github.com/MetaMask/delegation-framework IDelegationManager), per the project's ADR.
  */
 
 import {

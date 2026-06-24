@@ -437,7 +437,7 @@ spike.
 ### 7.4 The commerce quartet — composition review (no new findings)
 
 `Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`, and
-`Access0x1GiftCards` were reviewed against the estate money laws plus both static
+`Access0x1GiftCards` were reviewed against the project's money-safety invariants plus both static
 tools. They are primitives that **compose** the audited spine rather than
 re-deriving it:
 

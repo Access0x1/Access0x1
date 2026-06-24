@@ -179,15 +179,13 @@ function ensureAccess0x1React() {
 
   // Candidate locations for the packages/react directory:
   // 1. Walk up from __dirname (scripts/ → project root → sibling of the templates dir in the monorepo).
-  // 2. Common sibling layout: ~/Desktop/access0x1/Access0x1 or ~/dev/Access0x1.
+  // 2. Common sibling layout: a clone at ~/Desktop/access0x1/Access0x1.
   const desktopAccess = join(process.env.HOME || '', 'Desktop', 'access0x1', 'Access0x1');
-  const desktopClaude = join(process.env.HOME || '', 'Desktop', 'claude', 'Access0x1');
   const candidates = [
     // From the templates/starter location in a git checkout:
     resolve(__dirname, '..', '..', '..', '..', 'packages', 'react'), // templates/starter → repo root → packages/react
     resolve(__dirname, '..', '..', '..', 'packages', 'react'),       // one level shallower
     join(desktopAccess, 'packages', 'react'),
-    join(desktopClaude, 'packages', 'react'),
   ];
 
   const pkgDir = candidates.find(

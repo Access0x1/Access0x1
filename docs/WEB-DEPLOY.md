@@ -42,7 +42,7 @@ serverless platform. Two hard reasons, both from the code:
 - **`next.config.ts` sets `output: 'standalone'`** — `next build` emits a
   self-contained Node server bundle (`.next/standalone/server.js`) intended for
   "EC2/container deploys" (the comment says so verbatim). This is the same
-  EC2-on-SSM pattern the rest of the fleet ships on.
+  EC2-on-SSM pattern used for standalone Node deploys.
 - **Server-only secrets + in-process state.** The Claude key, the Dynamic agent
   wallet, the Unlink payout key, and the x402 seller key (§3) live in the server
   process; the Dynamic agent persists `AGENT_WALLET_ID` and the in-memory
@@ -303,7 +303,7 @@ restore. Keep the last known-good artifact.
    header, or a `*_unavailable` flood (a booth SDK fell out / a secret unset).
 2. **Roll back the release** — re-point the process supervisor / LB target group
    at the **previous standalone bundle** (the same atomic-release pattern the
-   fleet's `deploy-fleet-app` uses: a new release dir + a symlink flip; rollback
+   a standard `deploy-app` script uses: a new release dir + a symlink flip; rollback
    = flip the symlink back) and restart:
    ```sh
    PORT=3000 HOSTNAME=0.0.0.0 node <prev-release>/.next/standalone/server.js

@@ -953,7 +953,7 @@ fails, stop and fix it before showing anyone.
       across 89 files (Section D2).
 - [ ] **Anvil up.** `make anvil` is running in its own terminal, "Listening on
       127.0.0.1:8545" (Section A4).
-- [ ] **Estate deployed.** `make deploy-local` ended with `ONCHAIN EXECUTION
+- [ ] **Suite deployed.** `make deploy-local` ended with `ONCHAIN EXECUTION
       COMPLETE & SUCCESSFUL` and printed the address block (Section A5).
 - [ ] **Money path proven on-chain.** `make drive-local` printed
       `net+fee==gross : true` and `router USDC bal : 0` (Section A6 callout).

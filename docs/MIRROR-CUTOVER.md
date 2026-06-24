@@ -72,7 +72,7 @@ from the broadcasts by `make sync`) is the live per-chain source of truth. Chain
 
 > **Mirrored ≠ usable yet.** A chain showing `✅ mirror` means the contracts are *deployed* at the mirror
 > addresses — it does NOT mean a merchant is registered. `nextMerchantId` on the mirror router is still
-> `1` (no merchant) on every chain; a consuming app (e.g. YourApp) needs `registerMerchant` run on the
+> `1` (no merchant) on every chain; a consuming app (e.g. your app) needs `registerMerchant` run on the
 > mirror before it can settle there. That registration is a keystore-signed, owner-run tx.
 
 **Mirror coverage — 13 of 18 deployable contracts.** `DeployAll` mirrors the money spine + the auth +

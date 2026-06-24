@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Estate-audit (HIGH): the receipt wait could hang forever. `receiptPromise`
+ * Security-audit (HIGH): the receipt wait could hang forever. `receiptPromise`
  * resolves only when a PaymentReceived event is decoded; if the event never
  * arrives or `decodeReceipt` returns null for every log, `await receiptPromise`
  * blocked the pay flow indefinitely (and the watcher never tore down). The wait

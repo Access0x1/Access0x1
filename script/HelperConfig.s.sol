@@ -1363,7 +1363,7 @@ contract HelperConfig is Script {
         MockV3Aggregator usdcFeed = new MockV3Aggregator(8, 1e8);
         MockUSDC usdc = new MockUSDC();
         // UUPS: deploy the registry impl, then an ERC1967 proxy that runs `initialize(msg.sender)` in
-        // the same broadcast block, so the local estate owns a fully initialized registry (state in the
+        // the same broadcast block, so the local deployment owns a fully initialized registry (state in the
         // proxy, logic in the impl); the impl ran `_disableInitializers()` in its constructor.
         address chainRegistryImpl = address(new ChainRegistry());
         ChainRegistry chainRegistry = ChainRegistry(

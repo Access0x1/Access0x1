@@ -96,8 +96,8 @@ new owner must accept), so a mistyped address can't brick admin control.
 
 ### SIWE (Sign-In-with-Ethereum)
 Logging in by **signing a message with your wallet** instead of a username +
-password. No server, no cookie — the wallet is the session. (Used by the
-[example](https://github.com/Access0x1/Access0x1) frontend.)
+password. No server, no cookie — the wallet is the session. (Used by a
+wallet-only frontend.)
 
 ---
 
