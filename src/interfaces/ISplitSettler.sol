@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import { IERC2981 } from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 
 /// @title  ISplitSettler
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The external surface of {SplitSettler} — the REVENUE-SPLIT leg of Access0x1. One incoming
 ///         payment fans out to N configured payees (seller + platform-affiliate + creator + tax + …) by
 ///         basis-point shares that sum to EXACTLY the gross. Settlement is a two-stage pipe: the gross is

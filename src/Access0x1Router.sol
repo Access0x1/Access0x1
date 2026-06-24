@@ -25,7 +25,7 @@ import { OracleLib } from "./libraries/OracleLib.sol";
 import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 
 /// @title  Access0x1Router
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice One shared, multi-tenant, ZERO-custody payments router. A business registers once
 ///         (`registerMerchant` → `merchantId`) and accepts USD-priced crypto with one link and
 ///         no contract code. Each payment prices USD→token via a Chainlink feed read INSIDE the

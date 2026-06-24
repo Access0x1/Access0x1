@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IAutomationGateway
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The external surface of {AutomationGateway} — the permissionless Chainlink Automation
 ///         front-door for {Access0x1Subscriptions}. Recurring billing on Access0x1 is settled by the
 ///         PERMISSIONLESS {Access0x1Subscriptions.renew}: anyone (a keeper, a cron, a rival team's

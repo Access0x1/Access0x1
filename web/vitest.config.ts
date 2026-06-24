@@ -32,6 +32,9 @@ export default defineConfig({
     // and test/ (unlink-private). Do NOT restrict `include` — the default
     // **/*.test.ts(x) glob covers all of them.
     // Integration vectors need live Mainnet HTTP; run via `test:integration`.
-    exclude: ['**/node_modules/**', '**/dist/**', '**/*.integration.test.ts'],
+    // e2e/ holds Playwright `.spec.ts` files (run via `playwright test`, never
+    // vitest — they call test.describe() from @playwright/test); exclude them so
+    // a plain `vitest run` is green on a fresh clone.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.integration.test.ts', '**/e2e/**'],
   },
 });

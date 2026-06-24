@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IAccess0x1ProvenanceRegistry
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice Surface for Access0x1ProvenanceRegistry — an on-chain code-provenance ledger: an account
 ///         CLAIMS a repo (first-claim-wins), then ANCHORS immutable, timestamped snapshots (a Merkle
 ///         root over the repo tree + the source commit) and tagged RELEASES (a content id + tag +

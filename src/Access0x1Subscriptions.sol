@@ -22,7 +22,7 @@ import {
 } from "./interfaces/IAccess0x1Subscriptions.sol";
 
 /// @title  Access0x1Subscriptions
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice Recurring, USD-priced, tiered billing — the on-chain expression of a mature commerce app's
 ///         SUBSCRIPTIONS / TIERS primitive (the never-negative AI spend meter), built ENTIRELY as a
 ///         COMPOSITION of the audited Access0x1 quartet:

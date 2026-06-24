@@ -13,14 +13,30 @@ OUT="docs/STORAGE-LAYOUT.md"
 # The value-bearing / stateful first-party contracts an auditor checks. NameMath (pure, no state),
 # the interfaces, and OracleLib (an inlined internal library) are intentionally excluded.
 CONTRACTS=(
+  # Money spine + identity/registry
   "src/Access0x1Router.sol:Access0x1Router"
+  "src/PaymentLanes.sol:PaymentLanes"
+  "src/ChainRegistry.sol:ChainRegistry"
   "src/SessionGrant.sol:SessionGrant"
+  "src/PriceOracleAdapter.sol:PriceOracleAdapter"
+  # Commerce set
   "src/Access0x1Subscriptions.sol:Access0x1Subscriptions"
   "src/Access0x1Bookings.sol:Access0x1Bookings"
   "src/Access0x1Invoices.sol:Access0x1Invoices"
   "src/Access0x1GiftCards.sol:Access0x1GiftCards"
-  "src/PaymentLanes.sol:PaymentLanes"
-  "src/ChainRegistry.sol:ChainRegistry"
+  # Settlement / money-movement extensions
+  "src/Access0x1Escrow.sol:Access0x1Escrow"
+  "src/Receivables.sol:Receivables"
+  "src/Refunds.sol:Refunds"
+  "src/SplitSettler.sol:SplitSettler"
+  "src/GaslessPayIn.sol:GaslessPayIn"
+  "src/Access0x1Receiver.sol:Access0x1Receiver"
+  "src/AutomationGateway.sol:AutomationGateway"
+  # Assets / provenance
+  "src/Access0x1Nft.sol:Access0x1Nft"
+  "src/Access0x1ProvenanceRegistry.sol:Access0x1ProvenanceRegistry"
+  "src/HouseToken.sol:HouseToken"
+  "src/HouseTokenFactory.sol:HouseTokenFactory"
 )
 
 {

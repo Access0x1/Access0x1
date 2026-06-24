@@ -21,7 +21,7 @@ import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Rec
 import { Access0x1Router } from "./Access0x1Router.sol";
 
 /// @title  Access0x1Nft
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice A USD-priced, ZERO-CUSTODY NFT COMMERCE primitive: a seller lists an ERC-721 at a USD
 ///         price; a buyer pays an allowlisted, USD-priced token (USDC by default) and the NFT
 ///         transfers to the buyer ATOMICALLY in the same tx. The payment is priced and fee-split by

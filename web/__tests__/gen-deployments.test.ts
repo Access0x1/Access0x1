@@ -3,13 +3,14 @@
  *
  * The Deployments dashboard is only as honest as the maps the generator vendors.
  * This exercises the REAL exported logic of scripts/gen-deployments.mjs against
- * fixtures: that it keeps only CREATE txs, skips CALLs and nameless/addressless
- * entries, lets the last CREATE for a name win, lower-cases addresses, and
- * resolves chain display metadata (name/explorer) from viem with no invented
- * explorer for an unknown chain.
+ * fixtures: that it keeps CREATE txs, NAMES the nameless CREATE3-mirror
+ * additionalContracts via the manifest map (dropping the CreateX shims), skips
+ * CALLs and nameless/addressless entries, lets the last entry for a name win,
+ * lower-cases addresses, resolves a name to its bytecode artifact, and resolves
+ * chain display metadata (name/explorer) from viem with no invented explorer.
  */
 import { describe, expect, it } from 'vitest'
-import { parseBroadcastData, chainMeta } from '../scripts/gen-deployments.mjs'
+import { parseBroadcastData, chainMeta, resolveArtifact } from '../scripts/gen-deployments.mjs'
 
 describe('parseBroadcastData — CREATE txs only', () => {
   it('keeps CREATE deployments and drops CALL txs', () => {
@@ -70,5 +71,68 @@ describe('chainMeta — display metadata from viem, no invented explorer', () =>
     const meta = chainMeta(99999999)
     expect(meta.name).toBe('Chain 99999999')
     expect(meta.explorer).toBeUndefined()
+  })
+})
+
+describe('parseBroadcastData — CREATE3 mirror via additionalContracts', () => {
+  // A two-entry slice of the canonical mirror manifest (address -> label).
+  const mirror = new Map([
+    ['0xe92244e3368561faf21648146511dede3a475eb5', 'Access0x1Router.proxy'],
+    ['0x3336ec82d865e8bd1f9054856ac22b45a71207db', 'Access0x1Router.impl'],
+  ])
+
+  it('names CreateX additionalContracts via the manifest + drops the shims', () => {
+    const out = parseBroadcastData(
+      {
+        transactions: [
+          {
+            transactionType: 'CALL', // the CreateX factory call — itself never a product contract
+            additionalContracts: [
+              // a CreateX CREATE2 proxy shim — NOT in the manifest, must be dropped
+              { transactionType: 'CREATE2', contractName: null, address: '0x11D8dc74C09941248De5fe5690d0AAd350f70952' },
+              // the Router proxy + impl — named (and lower-cased) via the manifest
+              { transactionType: 'CREATE3', contractName: null, address: '0xE92244e3368561fAF21648146511DeDE3a475EB5' },
+              { transactionType: 'CREATE3', contractName: null, address: '0x3336Ec82D865E8Bd1f9054856ac22B45a71207DB' },
+            ],
+          },
+        ],
+      },
+      mirror,
+    )
+    expect(out).toEqual([
+      { contractName: 'Access0x1Router.impl', address: '0x3336ec82d865e8bd1f9054856ac22b45a71207db' },
+      { contractName: 'Access0x1Router.proxy', address: '0xe92244e3368561faf21648146511dede3a475eb5' },
+    ])
+  })
+
+  it('ignores additionalContracts when no mirror map is given (legacy default)', () => {
+    const out = parseBroadcastData({
+      transactions: [
+        {
+          transactionType: 'CALL',
+          additionalContracts: [
+            { transactionType: 'CREATE3', contractName: null, address: '0xE92244e3368561fAF21648146511DeDE3a475EB5' },
+          ],
+        },
+      ],
+    })
+    expect(out).toEqual([])
+  })
+})
+
+describe('resolveArtifact — deployment name -> bytecode artifact', () => {
+  it('maps a .impl label to its own contract artifact', () => {
+    expect(resolveArtifact('Access0x1Router.impl')).toBe('Access0x1Router')
+  })
+
+  it('maps any .proxy label to the shared OpenZeppelin ERC1967Proxy artifact', () => {
+    expect(resolveArtifact('Access0x1Router.proxy')).toBe('ERC1967Proxy')
+    expect(resolveArtifact('PaymentLanes.proxy')).toBe('ERC1967Proxy')
+  })
+
+  it('leaves a legacy / standalone name unchanged', () => {
+    expect(resolveArtifact('Access0x1Router')).toBe('Access0x1Router')
+    expect(resolveArtifact('ERC1967Proxy')).toBe('ERC1967Proxy')
+    expect(resolveArtifact('Access0x1Receiver')).toBe('Access0x1Receiver')
   })
 })

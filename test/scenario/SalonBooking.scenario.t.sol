@@ -14,7 +14,7 @@ import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 /// @title  SalonBooking — a deposit, a late cancel, a no-show, and a refund that NEVER gets stuck
 /// @author Access0x1
 /// @notice SCENARIO: a hair salon takes a refundable deposit to hold an appointment. Two real things
-///         can go wrong, and the law (estate law #5: money rolls back, refunds are never blocked) says
+///         can go wrong, and the law (money-safety invariant #5: money rolls back, refunds are never blocked) says
 ///         the customer's money must always be reachable:
 ///
 ///           (c1) A customer books, then cancels LATE (inside the salon's cancel window). The salon's

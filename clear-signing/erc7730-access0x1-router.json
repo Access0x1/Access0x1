@@ -1,0 +1,458 @@
+{
+  "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-v1.schema.json",
+  "context": {
+    "$id": "Access0x1Router",
+    "contract": {
+      "abi": "https://raw.githubusercontent.com/Access0x1/Access0x1/main/clear-signing/abi/Access0x1Router.abi.json",
+      "deployments": [
+        {
+          "chainId": 5042002,
+          "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+        },
+        {
+          "chainId": 84532,
+          "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+        },
+        {
+          "chainId": 11155111,
+          "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+        },
+        {
+          "chainId": 11155420,
+          "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+        },
+        {
+          "chainId": 43113,
+          "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+        },
+        {
+          "chainId": 46630,
+          "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+        },
+        {
+          "chainId": 421614,
+          "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+        },
+        {
+          "chainId": 11142220,
+          "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "owner": "Access0x1",
+    "info": {
+      "legalName": "Access0x1",
+      "url": "https://github.com/Access0x1/Access0x1",
+      "deploymentDate": "2026-06-17T00:00:00Z"
+    },
+    "constants": {
+      "usdDecimals": 8,
+      "feeDenominator": 10000,
+      "maxFeeBps": 1000,
+      "native": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "display": {
+    "formats": {
+      "payNative(uint256 merchantId, uint256 usdAmount8, bytes32 orderId)": {
+        "$id": "payNative",
+        "intent": "Pay merchant in native coin",
+        "fields": [
+          {
+            "path": "usdAmount8",
+            "label": "Pay (USD price)",
+            "format": "unit",
+            "params": {
+              "base": "$",
+              "decimals": 8,
+              "prefix": true
+            }
+          },
+          {
+            "path": "merchantId",
+            "label": "To merchant #",
+            "format": "raw"
+          },
+          {
+            "path": "orderId",
+            "label": "Order reference",
+            "format": "raw"
+          }
+        ],
+        "required": [
+          "usdAmount8",
+          "merchantId"
+        ],
+        "excluded": []
+      },
+      "payToken(uint256 merchantId, address token, uint256 usdAmount8, bytes32 orderId)": {
+        "$id": "payToken",
+        "intent": "Pay merchant in token",
+        "fields": [
+          {
+            "path": "usdAmount8",
+            "label": "Pay (USD price)",
+            "format": "unit",
+            "params": {
+              "base": "$",
+              "decimals": 8,
+              "prefix": true
+            }
+          },
+          {
+            "path": "token",
+            "label": "Pay with token",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "token"
+              ],
+              "sources": [
+                "local"
+              ]
+            }
+          },
+          {
+            "path": "merchantId",
+            "label": "To merchant #",
+            "format": "raw"
+          },
+          {
+            "path": "orderId",
+            "label": "Order reference",
+            "format": "raw"
+          }
+        ],
+        "required": [
+          "usdAmount8",
+          "token",
+          "merchantId"
+        ],
+        "excluded": []
+      },
+      "claimRescue()": {
+        "$id": "claimRescue",
+        "intent": "Claim queued native refund/payout",
+        "fields": []
+      },
+      "registerMerchant(address payout, address feeRecipient, uint16 feeBps, bytes32 nameHash)": {
+        "$id": "registerMerchant",
+        "intent": "Register as a merchant",
+        "fields": [
+          {
+            "path": "payout",
+            "label": "Payout address",
+            "format": "addressName"
+          },
+          {
+            "path": "feeRecipient",
+            "label": "Fee recipient",
+            "format": "addressName"
+          },
+          {
+            "path": "feeBps",
+            "label": "Merchant fee (bps)",
+            "format": "unit",
+            "params": {
+              "base": "bps"
+            }
+          },
+          {
+            "path": "nameHash",
+            "label": "Name commitment",
+            "format": "raw"
+          }
+        ],
+        "required": [
+          "payout",
+          "feeBps"
+        ],
+        "excluded": []
+      },
+      "updateMerchant(uint256 id, address payout, address feeRecipient, uint16 feeBps, bool active)": {
+        "$id": "updateMerchant",
+        "intent": "Update merchant config",
+        "fields": [
+          {
+            "path": "id",
+            "label": "Merchant #",
+            "format": "raw"
+          },
+          {
+            "path": "payout",
+            "label": "Payout address",
+            "format": "addressName"
+          },
+          {
+            "path": "feeRecipient",
+            "label": "Fee recipient",
+            "format": "addressName"
+          },
+          {
+            "path": "feeBps",
+            "label": "Merchant fee (bps)",
+            "format": "unit",
+            "params": {
+              "base": "bps"
+            }
+          },
+          {
+            "path": "active",
+            "label": "Accepting payments",
+            "format": "raw"
+          }
+        ],
+        "required": [
+          "id",
+          "payout",
+          "feeBps",
+          "active"
+        ],
+        "excluded": []
+      },
+      "proposeMerchantOwner(uint256 id, address newOwner)": {
+        "$id": "proposeMerchantOwner",
+        "intent": "Propose new merchant owner",
+        "fields": [
+          {
+            "path": "id",
+            "label": "Merchant #",
+            "format": "raw"
+          },
+          {
+            "path": "newOwner",
+            "label": "Proposed owner",
+            "format": "addressName"
+          }
+        ],
+        "required": [
+          "id",
+          "newOwner"
+        ],
+        "excluded": []
+      },
+      "acceptMerchantOwner(uint256 id)": {
+        "$id": "acceptMerchantOwner",
+        "intent": "Accept merchant ownership",
+        "fields": [
+          {
+            "path": "id",
+            "label": "Merchant #",
+            "format": "raw"
+          }
+        ],
+        "required": [
+          "id"
+        ],
+        "excluded": []
+      },
+      "setTokenAllowed(address token, bool allowed)": {
+        "$id": "setTokenAllowed",
+        "intent": "Set token allowlist entry",
+        "fields": [
+          {
+            "path": "token",
+            "label": "Token",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "token"
+              ]
+            }
+          },
+          {
+            "path": "allowed",
+            "label": "Allowed",
+            "format": "raw"
+          }
+        ],
+        "required": [
+          "token",
+          "allowed"
+        ],
+        "excluded": []
+      },
+      "setPriceFeed(address token, address feed)": {
+        "$id": "setPriceFeed_2",
+        "intent": "Set token price feed (1h staleness)",
+        "fields": [
+          {
+            "path": "token",
+            "label": "Token",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "token"
+              ]
+            }
+          },
+          {
+            "path": "feed",
+            "label": "Chainlink feed",
+            "format": "addressName"
+          }
+        ],
+        "required": [
+          "token",
+          "feed"
+        ],
+        "excluded": []
+      },
+      "setPriceFeed(address token, address feed, uint256 maxStaleness)": {
+        "$id": "setPriceFeed_3",
+        "intent": "Set token price feed + staleness",
+        "fields": [
+          {
+            "path": "token",
+            "label": "Token",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "token"
+              ]
+            }
+          },
+          {
+            "path": "feed",
+            "label": "Chainlink feed",
+            "format": "addressName"
+          },
+          {
+            "path": "maxStaleness",
+            "label": "Max staleness (seconds)",
+            "format": "unit",
+            "params": {
+              "base": "s"
+            }
+          }
+        ],
+        "required": [
+          "token",
+          "feed",
+          "maxStaleness"
+        ],
+        "excluded": []
+      },
+      "setSequencerUptimeFeed(address feed)": {
+        "$id": "setSequencerUptimeFeed",
+        "intent": "Set L2 sequencer uptime feed",
+        "fields": [
+          {
+            "path": "feed",
+            "label": "Sequencer uptime feed",
+            "format": "addressName"
+          }
+        ],
+        "required": [
+          "feed"
+        ],
+        "excluded": []
+      },
+      "setPlatformFee(uint16 newBps)": {
+        "$id": "setPlatformFee",
+        "intent": "Set platform fee",
+        "fields": [
+          {
+            "path": "newBps",
+            "label": "Platform fee (bps)",
+            "format": "unit",
+            "params": {
+              "base": "bps"
+            }
+          }
+        ],
+        "required": [
+          "newBps"
+        ],
+        "excluded": []
+      },
+      "setTreasury(address newTreasury)": {
+        "$id": "setTreasury",
+        "intent": "Set platform treasury",
+        "fields": [
+          {
+            "path": "newTreasury",
+            "label": "New treasury",
+            "format": "addressName"
+          }
+        ],
+        "required": [
+          "newTreasury"
+        ],
+        "excluded": []
+      },
+      "setPaymentLanes(address newLanes)": {
+        "$id": "setPaymentLanes",
+        "intent": "Set PaymentLanes receipt contract",
+        "fields": [
+          {
+            "path": "newLanes",
+            "label": "PaymentLanes",
+            "format": "addressName"
+          }
+        ],
+        "required": [
+          "newLanes"
+        ],
+        "excluded": []
+      },
+      "pause()": {
+        "$id": "pause",
+        "intent": "Pause new payments",
+        "fields": []
+      },
+      "unpause()": {
+        "$id": "unpause",
+        "intent": "Resume new payments",
+        "fields": []
+      },
+      "transferOwnership(address newOwner)": {
+        "$id": "transferOwnership",
+        "intent": "Propose platform ownership transfer",
+        "fields": [
+          {
+            "path": "newOwner",
+            "label": "New platform owner",
+            "format": "addressName"
+          }
+        ],
+        "required": [
+          "newOwner"
+        ],
+        "excluded": []
+      },
+      "acceptOwnership()": {
+        "$id": "acceptOwnership",
+        "intent": "Accept platform ownership",
+        "fields": []
+      },
+      "renounceOwnership()": {
+        "$id": "renounceOwnership",
+        "intent": "Renounce ownership (freeze upgrades forever)",
+        "fields": []
+      },
+      "upgradeToAndCall(address newImplementation, bytes data)": {
+        "$id": "upgradeToAndCall",
+        "intent": "Upgrade router implementation",
+        "fields": [
+          {
+            "path": "newImplementation",
+            "label": "New implementation",
+            "format": "addressName"
+          },
+          {
+            "path": "data",
+            "label": "Init calldata",
+            "format": "raw"
+          }
+        ],
+        "required": [
+          "newImplementation"
+        ],
+        "excluded": []
+      }
+    }
+  }
+}

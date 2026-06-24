@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IAccess0x1GiftCards
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The external surface of Access0x1GiftCards — a USD-priced prepaid-balance primitive
 ///         (gift cards / credit packs) plus a minimal merchant-scoped coupon registry. A card is a
 ///         non-custodial ERC-6909-style RECEIPT: its balance is denominated in USD (8 decimals, the

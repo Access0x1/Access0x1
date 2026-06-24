@@ -27,6 +27,13 @@ remappings = [
 fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./out" },
+    # CreateX runtime bytecode fixture — etched into the local test EVM so DeployAll's CREATE3 deploys
+    # work without forking (test/helpers/CreateXEtch.sol).
+    { access = "read", path = "./test/fixtures" },
+    # DeployAll writes deployments/<chainId>.json (name -> address for every deployed contract) so the
+    # verify-*.sh scripts can verify each by address. CREATE3 deploys are factory CALLs that never
+    # appear as top-level CREATEs in the broadcast, so this manifest is the reliable address source.
+    { access = "read-write", path = "./deployments" },
 ]
 
 [profile.default.fuzz]
@@ -60,6 +67,6 @@ zksync_sepolia = "${ZKSYNC_SEPOLIA_RPC_URL}"
 # Fallback ONLY — not the default. zkSync Era's ZK-Stack EVM should accept the cancun build, but if
 # `forge script` bytecode is rejected because a Cancun opcode (e.g. PUSH0) is unsupported on the
 # target, broadcast with `--profile zksync` to drop to shanghai. CONFIRM at the zkSync booth before
-# the live run; never make this the default (the rest of the fleet targets cancun).
+# the live run; never make this the default (the rest of this repo targets cancun).
 [profile.zksync]
 evm_version = "shanghai"

@@ -12,7 +12,7 @@ import { HouseToken } from "./HouseToken.sol";
 import { IHouseTokenFactory } from "./interfaces/IHouseTokenFactory.sol";
 
 /// @title  HouseTokenFactory
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice Non-custodial factory: a business deploys its OWN ERC-20 THROUGH Access0x1 and OWNS it in
 ///         its own wallet (loyalty / credit / closed-loop payments, settleable through the router) —
 ///         "their access onchain". The factory's whole job is to deploy a {HouseToken} whose ownership

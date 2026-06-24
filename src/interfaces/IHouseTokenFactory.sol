@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title  IHouseTokenFactory
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The minimal surface of the non-custodial House Token factory. A business deploys its OWN
 ///         ERC-20 THROUGH Access0x1 and OWNS it in its own wallet (loyalty / credit / closed-loop
 ///         payments) — "their access onchain". The factory NEVER holds the keys or the supply: token

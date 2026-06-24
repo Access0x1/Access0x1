@@ -20,7 +20,7 @@ import { Access0x1Router } from "./Access0x1Router.sol";
 import { ISplitSettler } from "./interfaces/ISplitSettler.sol";
 
 /// @title  SplitSettler
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice The REVENUE-SPLIT leg of Access0x1: one incoming USD-priced payment fans out to N configured
 ///         payees (seller + platform-affiliate + creator + tax + …) by basis-point shares that sum to
 ///         EXACTLY the gross. A merchant owner configures a split ONCE — a write-once list of

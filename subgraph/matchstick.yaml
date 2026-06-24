@@ -1,0 +1,6 @@
+# Matchstick configuration for the Access0x1 subgraph unit tests.
+# `graph test` reads this to locate the test sources; everything else uses the
+# tool defaults. Run with: `graph test` (or `npm test` once wired in package.json).
+#
+# testsFolder — where the `*.test.ts` specs live (relative to this file).
+testsFolder: ./tests

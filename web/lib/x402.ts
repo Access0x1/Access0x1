@@ -201,12 +201,23 @@ export function withGateway(
   price: string,
   endpoint: string,
 ): Handler {
-  // Built once per route at module load; throws early if SELLER_ADDRESS unset
-  // or the price is invalid.
-  const requirements = buildPaymentRequirements(price);
-  const amountUsdc = atomicToDecimalUsdc(requirements.amount);
+  // Build the payment requirements LAZILY on the first request — NOT at module
+  // load. `next build` loads every route module to collect page data, so an
+  // eager build here forced SELLER_ADDRESS to be set in the build env (it is a
+  // runtime secret, not a build input). The fail-fast throw still fires on the
+  // first real request if SELLER_ADDRESS is unset or the price is invalid;
+  // memoized so it runs at most once per route.
+  let memo: { requirements: ReturnType<typeof buildPaymentRequirements>; amountUsdc: string } | undefined;
+  const ensureRequirements = () => {
+    if (!memo) {
+      const requirements = buildPaymentRequirements(price);
+      memo = { requirements, amountUsdc: atomicToDecimalUsdc(requirements.amount) };
+    }
+    return memo;
+  };
 
   return async function gatewayHandler(req: Request): Promise<Response> {
+    const { requirements, amountUsdc } = ensureRequirements();
     const sigHeader = req.headers.get("payment-signature");
     if (!sigHeader) {
       return challenge(requirements);

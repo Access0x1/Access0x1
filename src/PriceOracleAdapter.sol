@@ -19,7 +19,7 @@ import { OracleLib } from "./libraries/OracleLib.sol";
 import { IPriceOracleAdapter, IERC7726Lite } from "./interfaces/IPriceOracleAdapter.sol";
 
 /// @title  PriceOracleAdapter
-/// @author Rensley R. @vyperpilleddev
+/// @author Access0x1
 /// @notice A thin, SWAPPABLE price oracle that normalizes any underlying price SOURCE behind one
 ///         ERC-standard read — **ERC-7726's** `getQuote(baseAmount, base, quote)` (the Common Quote
 ///         Oracle, a DRAFT). It exists so the router and every commerce primitive can depend on a
