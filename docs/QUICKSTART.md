@@ -69,6 +69,8 @@ One component, two required business facts — your `merchantId` and the **deplo
 on your settlement chain** (from the [Deployments](#deployed-routers--the-address-you-point-at)
 table below). The integrator never touches a raw token address.
 
+> ⚠️ **The addresses in the snippets below are Base Sepolia examples.** Swap `routerAddress` (and `token`) for **your** settlement chain from [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) / the [Deployments](#deployed-routers--the-address-you-point-at) table before shipping — the router differs per chain. The SDK itself **never** hardcodes an address (LAW #4); you always pass your chain's router in.
+
 ```tsx
 import { PayButton, clientFromViem } from '@access0x1/react';
 import { usePublicClient, useWalletClient } from 'wagmi';

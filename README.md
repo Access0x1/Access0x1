@@ -4,6 +4,8 @@
 
 **A do-it-all center to get you and your business onchain** — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), and identity, white-label for non-coders and agent-native. One drop-in, no contract code.
 
+**⚡ New here? → [Quickstart — working code in 5 min](docs/QUICKSTART.md)** · [60-second model](docs/GETTING-STARTED.md) · [Architecture](#architecture)
+
 **The stack**
 
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.28-363636?style=for-the-badge&logo=solidity&logoColor=white)
@@ -14,7 +16,7 @@
 **The proof**
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
-![Tests](https://img.shields.io/badge/Tests-1382%20passing-44CC11?style=for-the-badge)
+![Tests](https://img.shields.io/badge/Tests-1383%20passing-44CC11?style=for-the-badge)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -739,7 +741,7 @@ mirror chains; an ERC-8213 calldata digest is the cross-device fallback for not-
 | Tests | **1,382 green** — unit · attack · invariant suites |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **13 headline money-safety invariants** (45 total properties) across 3 suites hold at 4,096 calls each, 0 reverts |
-| Static analysis | **slither: 31 results / 12 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
+| Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
 
 The 13 invariants: **6 router money invariants** — native conservation · token conservation ·
 platform cut always to treasury · zero-custody residual · merchant isolation · effective fee ≤
