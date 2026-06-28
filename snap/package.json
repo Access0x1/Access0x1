@@ -24,6 +24,6 @@
   "devDependencies": {
     "@metamask/snaps-cli": "8.4.1",
     "typescript": "5.9.2",
-    "vitest": "1.6.1"
+    "vitest": "4.1.9"
   }
 }
