@@ -888,6 +888,10 @@ integration let us *not* build, not a marketing wall.
 > note and are read from env, never hardcoded ([law #4](#security-posture)) — see
 > [`.env.example`](.env.example).
 
+## Changelog
+
+Release notes live in [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format).
+
 ## License
 
 [MIT](LICENSE).
