@@ -1,0 +1,47 @@
+# CODEOWNERS — automatic review assignment for Access0x1
+#
+# GitHub requests a review from the matching owner on every pull request and,
+# when "Require review from Code Owners" is enabled in branch protection,
+# enforces that review before merge. Rules use last-match-wins: the most
+# specific matching pattern below decides the reviewer for a given path.
+#
+# Syntax reference:
+# https://docs.github.com/articles/about-code-owners
+
+# Default owner for everything not matched by a more specific rule below.
+*                       @Access0x1
+
+# ---------------------------------------------------------------------------
+# On-chain contracts and their tests/scripts (money paths — review closely)
+# ---------------------------------------------------------------------------
+/src/                   @Access0x1
+/script/                @Access0x1
+/test/                  @Access0x1
+/vyper/                 @Access0x1
+/broadcast/             @Access0x1
+/clear-signing/         @Access0x1
+*.sol                   @Access0x1
+*.vy                    @Access0x1
+
+# ---------------------------------------------------------------------------
+# Published packages and apps
+# ---------------------------------------------------------------------------
+/packages/              @Access0x1
+/web/                   @Access0x1
+/snap/                  @Access0x1
+/subgraph/              @Access0x1
+/cre/                   @Access0x1
+
+# ---------------------------------------------------------------------------
+# Security, audit, and governance surfaces
+# ---------------------------------------------------------------------------
+/audit/                 @Access0x1
+/specs/                 @Access0x1
+/.github/               @Access0x1
+/SECURITY.md            @Access0x1
+
+# ---------------------------------------------------------------------------
+# Documentation
+# ---------------------------------------------------------------------------
+/docs/                  @Access0x1
+*.md                    @Access0x1
