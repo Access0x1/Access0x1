@@ -157,7 +157,7 @@ export function usePayment(options: UsePaymentOptions): UsePaymentReturn {
     try {
       gross = await client.readContract<bigint>({
         address: routerAddress,
-        abi: ROUTER_ABI as unknown as import('viem').Abi,
+        abi: ROUTER_ABI,
         functionName: 'quote',
         args: [merchantId, isNative ? NATIVE_TOKEN : (token as Hex), usdAmount8],
       });
@@ -175,7 +175,7 @@ export function usePayment(options: UsePaymentOptions): UsePaymentReturn {
         const erc20 = token as Hex;
         const allowance = await client.readContract<bigint>({
           address: erc20,
-          abi: ERC20_ABI as unknown as import('viem').Abi,
+          abi: ERC20_ABI,
           functionName: 'allowance',
           args: [buyer, routerAddress],
         });
@@ -183,7 +183,7 @@ export function usePayment(options: UsePaymentOptions): UsePaymentReturn {
           setStatus('confirm');
           const approveHash = await client.writeContract({
             address: erc20,
-            abi: ERC20_ABI as unknown as import('viem').Abi,
+            abi: ERC20_ABI,
             functionName: 'approve',
             args: [routerAddress, gross],
           });
@@ -196,7 +196,7 @@ export function usePayment(options: UsePaymentOptions): UsePaymentReturn {
       const receiptPromise = new Promise<PaymentReceipt>((resolve) => {
         unwatch = client.watchContractEvent({
           address: routerAddress,
-          abi: ROUTER_ABI as unknown as import('viem').Abi,
+          abi: ROUTER_ABI,
           eventName: 'PaymentReceived',
           args: { merchantId, buyer },
           onLogs: (logs) => {
@@ -223,14 +223,14 @@ export function usePayment(options: UsePaymentOptions): UsePaymentReturn {
       const hash = isNative
         ? await client.writeContract({
             address: routerAddress,
-            abi: ROUTER_ABI as unknown as import('viem').Abi,
+            abi: ROUTER_ABI,
             functionName: 'payNative',
             args: [merchantId, usdAmount8, orderIdHex],
             value: gross,
           })
         : await client.writeContract({
             address: routerAddress,
-            abi: ROUTER_ABI as unknown as import('viem').Abi,
+            abi: ROUTER_ABI,
             functionName: 'payToken',
             args: [merchantId, token as Hex, usdAmount8, orderIdHex],
           });
