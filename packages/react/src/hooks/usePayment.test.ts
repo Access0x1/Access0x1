@@ -17,7 +17,9 @@ const USDC: Hex = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 const TX_HASH: Hex = '0xabc0000000000000000000000000000000000000000000000000000000000001';
 const APPROVE_HASH: Hex = '0xdef0000000000000000000000000000000000000000000000000000000000002';
 const GROSS_NATIVE = 5n * 10n ** 15n;
+const FEE_NATIVE = 145000000000000n; // total fee leg the router deducts (matches paymentReceivedLog)
 const GROSS_TOKEN = 29_000_000n; // 29 USDC, 6 dp
+const FEE_TOKEN = 290_000n; // 1% of 29 USDC, in the token's 6 dp
 
 /** Drive a full pay() and fire the success event so the receipt promise resolves. */
 function paymentReceivedLog(client: MockClient, overrides: Record<string, unknown> = {}) {
@@ -30,8 +32,8 @@ function paymentReceivedLog(client: MockClient, overrides: Record<string, unknow
       buyer: client.account,
       token: NATIVE_TOKEN,
       grossAmount: GROSS_NATIVE,
-      feeAmount: 145000000000000n,
-      netAmount: GROSS_NATIVE - 145000000000000n,
+      feeAmount: FEE_NATIVE,
+      netAmount: GROSS_NATIVE - FEE_NATIVE,
       usdAmount8: 2_900_000_000n,
       orderId: '0x'.padEnd(66, '0') as Hex,
       srcChainSelector: 0n,
@@ -288,5 +290,81 @@ describe('usePayment — the receipt is bound to THIS order', () => {
     await waitFor(() => expect(result.current.status).toBe('success'));
     expect(onSuccess).toHaveBeenCalledOnce();
     expect(result.current.receipt?.orderId).toBe(keccak256(toBytes('order-A')));
+  });
+});
+
+describe('usePayment — money-path invariant (receipt conservation)', () => {
+  // Invariant 1: every wei/satoshi is accounted for. The router splits gross into a fee leg
+  // (platform + merchant surcharge) and the net that lands at the merchant, so on every receipt
+  // `netAmount + feeAmount === grossAmount`. The SDK cannot see the platform-vs-merchant split
+  // inside `feeAmount` (that's contract-level), but it CAN assert the total is conserved.
+  it('conserves the native receipt: netAmount + feeAmount === grossAmount', async () => {
+    const client = makeMockClient({
+      reads: { quote: () => GROSS_NATIVE },
+      writes: { payNative: () => TX_HASH },
+    });
+
+    const { result } = renderHook(() =>
+      usePayment({ merchantId: 42n, usdAmount: 29, routerAddress: ROUTER, client }),
+    );
+
+    let payPromise!: Promise<void>;
+    await act(async () => {
+      payPromise = result.current.pay();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      paymentReceivedLog(client, {
+        grossAmount: GROSS_NATIVE,
+        feeAmount: FEE_NATIVE,
+        netAmount: GROSS_NATIVE - FEE_NATIVE,
+      });
+      await payPromise;
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    const r = result.current.receipt;
+    expect(r).not.toBeNull();
+    // nothing leaks: gross is split exactly into fee + net.
+    expect(r!.netAmount + r!.feeAmount).toBe(r!.grossAmount);
+    // and the fee leg is the share actually deducted from gross.
+    expect(r!.feeAmount).toBe(r!.grossAmount - r!.netAmount);
+    expect(r!.feeAmount).toBe(FEE_NATIVE);
+  });
+
+  it('conserves the token receipt: netAmount + feeAmount === grossAmount', async () => {
+    const client = makeMockClient({
+      reads: { quote: () => GROSS_TOKEN, allowance: () => GROSS_TOKEN },
+      writes: { payToken: () => TX_HASH },
+    });
+
+    const { result } = renderHook(() =>
+      usePayment({ merchantId: 42n, usdAmount: 29, token: USDC, routerAddress: ROUTER, client }),
+    );
+
+    let payPromise!: Promise<void>;
+    await act(async () => {
+      payPromise = result.current.pay();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      paymentReceivedLog(client, {
+        token: USDC,
+        grossAmount: GROSS_TOKEN,
+        feeAmount: FEE_TOKEN,
+        netAmount: GROSS_TOKEN - FEE_TOKEN,
+      });
+      await payPromise;
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    const r = result.current.receipt;
+    expect(r).not.toBeNull();
+    expect(r!.netAmount + r!.feeAmount).toBe(r!.grossAmount);
+    expect(r!.feeAmount).toBe(r!.grossAmount - r!.netAmount);
+    expect(r!.feeAmount).toBe(FEE_TOKEN);
   });
 });
