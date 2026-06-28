@@ -74,7 +74,7 @@ export function useMerchant(
     client
       .readContract<MerchantTuple>({
         address: routerAddress,
-        abi: ROUTER_ABI as unknown as import('viem').Abi,
+        abi: ROUTER_ABI as import('viem').Abi,
         functionName: 'merchants',
         args: [merchantId],
       })
