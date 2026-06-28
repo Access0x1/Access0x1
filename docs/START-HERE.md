@@ -12,11 +12,13 @@ that matches what you want to do and follow the link.
 | --- | --- |
 | Get the 60-second pitch + the full feature surface | [README.md](../README.md) |
 | Go from zero to a working payment (3 copy-paste paths) | [GETTING-STARTED.md](./GETTING-STARTED.md) |
+| Get an answer to a common question or objection | [FAQ.md](./FAQ.md) |
 
 ## 🧩 Build & integrate
 
 | Read this when you want to… | Doc |
 | --- | --- |
+| Onboard a store step by step (register → payout → fee → test → go live) | [INTEGRATION-CHECKLIST.md](./INTEGRATION-CHECKLIST.md) |
 | Drop a pay button into your React app | [GETTING-STARTED.md → Path 1](./GETTING-STARTED.md#path-1--accept-your-first-payment-react-sdk) · SDK barrel: [`packages/react/src/index.ts`](../packages/react/src/index.ts) |
 | Run the whole wired stack locally with no keys | [GETTING-STARTED.md → Path 2](./GETTING-STARTED.md#path-2--run-the-whole-thing-locally-no-keys) |
 | Pay by hand with `cast`, contract by contract | [MANUAL-TESTING.md](./MANUAL-TESTING.md) |
