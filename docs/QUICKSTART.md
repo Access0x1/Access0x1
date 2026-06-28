@@ -87,7 +87,7 @@ function Checkout() {
     <PayButton
       merchantId={42n}                                   // from registerMerchant (bigint)
       usdAmount={29.0}                                   // human USD price
-      routerAddress="0x4fbf47bc5273491b8a4e339e65b208d180b27c3b" // Base Sepolia router — see Deployments
+      routerAddress="0xe92244e3368561faf21648146511DeDE3a475EB5" // Base Sepolia router — see Deployments
       client={client}
       onSuccess={(receipt) => console.log('paid', receipt.txHash)}
       onError={(err) => console.error(err.code, err.message)}
@@ -109,7 +109,7 @@ chain (from [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md)). The SDK approves the
   merchantId={42n}
   usdAmount={29.0}
   token="0x036CbD53842c5426634e7929541eC2318f3dCF7e" // Circle USDC on Base Sepolia
-  routerAddress="0x4fbf47bc5273491b8a4e339e65b208d180b27c3b"
+  routerAddress="0xe92244e3368561faf21648146511DeDE3a475EB5"
   client={client}
   onSuccess={(receipt) => console.log('paid', receipt.txHash)}
 />
@@ -154,7 +154,7 @@ function PayInUsdc() {
     merchantId: 42n,
     usdAmount: 29.0,
     token: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia; omit for native
-    routerAddress: '0x4fbf47bc5273491b8a4e339e65b208d180b27c3b',
+    routerAddress: '0xe92244e3368561faf21648146511DeDE3a475EB5',
     client,
     onSuccess: (receipt) => console.log('paid', receipt.txHash),
   });

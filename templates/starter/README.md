@@ -63,9 +63,12 @@ submodules, `npm install`s the contract + app deps (`@chainlink/contracts`, Next
 TOOLING only — it never deploys and never writes an address.
 
 > **`@access0x1/react` not on npm yet?** `npm run setup` detects this automatically. It locates
-> the `packages/react` source in the local Access0x1 repo checkout (or clones a known path), runs
-> `npm run build && npm pack`, drops the tarball into `vendor/`, and wires a `file:` reference into
-> `app/package.json` — so `npm install` succeeds with no manual steps.
+> the `packages/react` source relative to your Access0x1 checkout (or set `ACCESS0X1_REPO=/path/to/Access0x1`
+> to point it anywhere), runs `npm run build && npm pack`, drops the tarball into `vendor/`, and wires
+> a `file:` reference into `app/package.json` — so `npm install` succeeds with no manual steps.
+>
+> If you run `cd app && npm install` **before** `npm run setup`, a `preinstall` guard stops with a
+> clear "run `npm run setup` first" message instead of a confusing registry 404.
 
 ### 2. Point at a router — zero-env, or pick a path
 
@@ -152,8 +155,9 @@ With no router configured the page shows a clear "set {{ROUTER_ENV}}" message in
 />
 ```
 
-`access0x1.config.ts` reads every address from env (`getRouterAddress`, `getUsdcAddress`,
-`getRpcUrl`) so no contract address is ever baked into source.
+`access0x1.config.ts` resolves the router as: your `{{ROUTER_ENV}}` override → else the CREATE3
+**mirror** default (on chains where it is deployed) → else fail loudly. The only baked-in address is
+that verifiable mirror (a published fact, never a guess — LAW #4); USDC/RPC still come from env.
 
 ### One-tag embed
 
@@ -172,8 +176,9 @@ are `__PLACEHOLDER__` tokens replaced at build time from your `NEXT_PUBLIC_*` en
 
 - The "Pay with USDC — no gas fee" label is shown **only on Arc**, where USDC is the native gas
   token. On every other chain the button keeps the neutral "Pay with Crypto".
-- Every address slot in `.env.example` is **blank on purpose**. Fill it from your own deploy or a
-  your chain's official docs — never a guess.
+- Every address slot in `.env.example` is **blank and optional** — the router defaults to the
+  verifiable CREATE3 mirror on mirrored chains; fill a slot only to override, or to target a chain
+  where the mirror is not deployed yet. Never a guessed address.
 
 ## License
 

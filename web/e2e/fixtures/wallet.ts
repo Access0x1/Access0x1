@@ -535,9 +535,13 @@ export interface WalletFixture {
   /** Install the injected provider + all route mocks for the given scenario. Call before `goto`. */
   setup(overrides?: Partial<WalletScenario>): Promise<WalletScenario>
   /**
-   * Drive Dynamic's connect-only modal to connect the injected wallet. Best-effort
-   * + resilient: if the connected address chip is already present it returns
-   * immediately. Returns true once a connected address is visible.
+   * Connect the injected wallet on the BUYER checkout. The checkout uses plain
+   * wagmi now (no Dynamic — keeps shoppers off the MAU meter), so this clicks the
+   * wagmi `BuyerConnectButton`. With one EIP-6963-discovered connector ("Mock
+   * Wallet") that single click connects directly (no modal); if a picker appears
+   * we click the wallet by name. Best-effort + resilient: if the connected
+   * address chip is already present it returns immediately. Returns true once a
+   * connected address is visible.
    */
   connect(): Promise<boolean>
 }
@@ -560,18 +564,18 @@ export const test = base.extend<{ wallet: WalletFixture }>({
       },
 
       async connect() {
-        // Already connected? The ConnectButton swaps to a truncated-address chip.
+        // Already connected? The BuyerConnectButton swaps to a truncated-address chip.
         const addrChip = page.getByText(/0x1111…1111/i)
         if (await addrChip.isVisible().catch(() => false)) return true
 
         const connectBtn = page.getByRole('button', { name: /connect wallet/i }).first()
         if (await connectBtn.isVisible().catch(() => false)) {
           await connectBtn.click()
-          // The Dynamic modal lists discovered wallets; click ours by its
-          // announced name. The modal lives in a shadow root, which Playwright
-          // pierces by default for text/role queries.
-          const entry = page.getByText(/mock wallet/i).first()
-          await entry.click({ timeout: 5_000 }).catch(() => undefined)
+          // Single discovered connector ("Mock Wallet") connects on that click. If
+          // wagmi surfaced several, BuyerConnectButton shows a picker listing each
+          // wallet by name — click ours by its announced EIP-6963 name if present.
+          const entry = page.getByRole('button', { name: /mock wallet/i }).first()
+          await entry.click({ timeout: 2_000 }).catch(() => undefined)
         }
 
         // Wait for the connected chip, however the connection resolved.

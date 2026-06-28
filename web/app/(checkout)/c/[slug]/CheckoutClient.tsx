@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useReducer, useRef, type ReactNode } from 'react'
 import { keccak256, toHex, type Address, type Hash } from 'viem'
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
+import { useAccount, useWalletClient } from 'wagmi'
 import { getRouterAddress, getUsdcAddress, tokenDecimalsFor } from '@/lib/chains'
 import { payToken, type Merchant } from '@/lib/contracts'
 import { fetchQuote, usdToAmount8 } from '@/lib/quote'
-import { getWalletClient, getPublicClient } from '@/lib/wallet'
+import { getPublicClient } from '@/lib/wallet'
 import { safeReturnUrl } from '@/lib/safeUrl'
-import { ConnectButton } from '@/components/ConnectButton'
+import { BuyerConnectButton } from '@/components/BuyerConnectButton'
 import { ReceiptScreen } from '@/components/ReceiptScreen'
 import { BrandMark } from '@/components/BrandMark'
 import {
@@ -47,9 +47,11 @@ const USDC_SYMBOL = 'USDC'
  *    tx hash blocks a second broadcast before React has flushed the first
  *    dispatch (a buyer mashing Pay can't sign twice).
  *
- * viem/wagmi-native throughout (via Dynamic's wallet client + the existing
- * `lib/contracts` pay path) — no ethers. Zero custody: this calls `payToken` and
- * stops; no swap/bridge, no funds held.
+ * viem/wagmi-native throughout (the buyer connects with plain wagmi — NO Dynamic,
+ * so a shopper is never metered as a Dynamic MAU — and `useWalletClient` hands the
+ * existing `lib/contracts` pay path the same viem `WalletClient` it always took) —
+ * no ethers. Zero custody: this calls `payToken` and stops; no swap/bridge, no
+ * funds held.
  */
 export function CheckoutClient({
   chainId,
@@ -75,7 +77,9 @@ export function CheckoutClient({
   /** Optional post-payment return URL (sanitized again here as a backstop). */
   returnUrl?: string
 }): ReactNode {
-  const { primaryWallet } = useDynamicContext()
+  // Buyer wallet via wagmi (NOT Dynamic — keeps shoppers off the MAU meter).
+  const { isConnected } = useAccount()
+  const { data: walletClient } = useWalletClient()
   const usdAmount8 = usdToAmount8(Number(usdAmount))
   const tokenDecimals = tokenDecimalsFor(chainId)
 
@@ -130,7 +134,7 @@ export function CheckoutClient({
   // price inputs change. We only auto-quote from idle so we never stomp a payment
   // in progress.
   useEffect(() => {
-    if (!primaryWallet) {
+    if (!isConnected) {
       dispatch({ type: 'RESET_IDLE' })
       return
     }
@@ -138,7 +142,7 @@ export function CheckoutClient({
     // guarding here avoids a needless fetch mid-flight).
     if (state.phase === 'idle') void runQuote()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primaryWallet, chainId, usdAmount8])
+  }, [isConnected, chainId, usdAmount8])
 
   // ── Pay effect ────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async (): Promise<void> => {
@@ -149,7 +153,7 @@ export function CheckoutClient({
     // tx in flight. The reducer makes PAY_REQUESTED a no-op otherwise, but we also
     // bail early so we never even open the wallet in an illegal state.
     if (!canPay(state)) return
-    if (!primaryWallet) return
+    if (!walletClient) return
     if (!merchant.active) {
       dispatch({ type: 'PAY_FAILED', error: classifyPayError(new Error('Access0x1__MerchantInactive'), USDC_SYMBOL) })
       return
@@ -161,7 +165,6 @@ export function CheckoutClient({
     try {
       const routerAddress = getRouterAddress(chainId)
       const token = getUsdcAddress(chainId)
-      const walletClient = await getWalletClient(primaryWallet)
       const publicClient = getPublicClient(chainId)
 
       // Deterministic order id: hash the merchant's reference when present, else a
@@ -201,7 +204,7 @@ export function CheckoutClient({
       // post-attempt phase (confirmed or failed). A retry re-acquires it cleanly.
       inFlight.current = { locked: false, txHash: null }
     }
-  }, [state, primaryWallet, merchant.active, chainId, merchantId, usdAmount8, orderParam])
+  }, [state, walletClient, merchant.active, chainId, merchantId, usdAmount8, orderParam])
 
   // Idempotent retry: re-quote the SAME payment intent (the reducer keeps the
   // quote nonce), then the buyer taps Pay again on the fresh price.
@@ -270,7 +273,7 @@ export function CheckoutClient({
         </p>
       ) : null}
 
-      {primaryWallet ? (
+      {isConnected ? (
         <button
           type="button"
           onClick={() => void handlePay()}
@@ -283,7 +286,7 @@ export function CheckoutClient({
       ) : (
         <div className="flex flex-col gap-2">
           <p className="text-sm text-neutral-500">Connect a wallet to pay.</p>
-          <ConnectButton />
+          <BuyerConnectButton />
         </div>
       )}
 

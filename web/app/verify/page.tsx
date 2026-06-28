@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import type { ReactNode } from 'react'
+import { MerchantProviders } from '@/app/MerchantProviders'
 
 // Client-only: the verification stack uses Dynamic wallet hooks + IDKit.
 const VerifyView = dynamic(
@@ -9,6 +10,13 @@ const VerifyView = dynamic(
   { ssr: false },
 )
 
+// Super Verification mounts the Dynamic stack: it offers a "signed in via Dynamic"
+// verification method and shares the merchant/identity surface (not the customer
+// checkout, which is plain wagmi). MAU = businesses; the checkout never mounts this.
 export default function VerifyPage(): ReactNode {
-  return <VerifyView />
+  return (
+    <MerchantProviders>
+      <VerifyView />
+    </MerchantProviders>
+  )
 }
