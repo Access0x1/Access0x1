@@ -55,6 +55,16 @@ jobs:
       - name: Run Forge fmt
         run: forge fmt --check
 
+      # The README CREATE3-mirror status table is generated from the committed broadcasts by
+      # `make sync` (web/scripts/sync-readme-status.mjs). --check re-derives it and exits 1 if the
+      # committed table drifts from what the broadcasts now prove, so the README can never go stale
+      # silently. viem (a transitive import) lives in web/node_modules, so run it from web/.
+      - name: README mirror-status not stale
+        working-directory: web
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node scripts/sync-readme-status.mjs --check
+
       - name: Run Forge build
         run: forge build --sizes
 
