@@ -23,7 +23,7 @@ jobs:
       # installer in ~/.foundryup). Keyed on the pinned Foundry version below, so the
       # cache is rebuilt only when that version changes. A miss just re-runs foundryup.
       - name: Cache Foundry toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.foundry

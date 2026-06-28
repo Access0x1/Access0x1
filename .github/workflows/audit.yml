@@ -31,7 +31,7 @@ jobs:
       # Cache the foundryup download dir so the toolchain install reuses the fetched
       # binaries across runs instead of re-downloading them every time.
       - name: Cache Foundry toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.foundryup
           key: ${{ runner.os }}-foundryup-${{ hashFiles('foundry.toml') }}
