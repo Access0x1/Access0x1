@@ -48,7 +48,7 @@ jobs:
       # `npm ci` reuses tarballs across runs. web/ is included so its lockfile invalidates
       # the same cache when it changes, even though only the root deps install here.
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
