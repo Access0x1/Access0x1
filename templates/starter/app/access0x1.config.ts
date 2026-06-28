@@ -25,11 +25,24 @@
 
 import type { Hex } from '@access0x1/react';
 
-/** Public chain metadata. All values are facts (chain IDs), never invented addresses. */
+/**
+ * Public chain metadata. All values are facts (chain IDs), never invented addresses.
+ *
+ * The `arc` / `base` / `zksync` keys are the deployed/lead targets. The keys below them (0G, Monad,
+ * Berachain, Sei, MegaETH) are KNOWN-but-deploy-PENDING — pick one only after the owner runs the
+ * CREATE3 mirror deploy on that chain and sets its NEXT_PUBLIC_ROUTER_ADDRESS_<id>. Until then the
+ * router env is unset and checkout fails loudly (it never invents a router — LAW #4).
+ */
 const CHAIN_DEFAULTS = {
   arc:    { name: 'Arc Testnet',      id: 5042002, routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_5042002' },
   base:   { name: 'Base Sepolia',     id: 84532,   routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_84532'   },
   zksync: { name: 'zkSync Sepolia',   id: 300,     routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_300'     },
+  // KNOWN, deploy PENDING — config only (chain IDs are public facts).
+  zerog:  { name: '0G Galileo Testnet',      id: 16602, routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_16602' },
+  monad:  { name: 'Monad Testnet',           id: 10143, routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_10143' },
+  bera:   { name: 'Berachain Bepolia',       id: 80069, routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_80069' },
+  sei:    { name: 'Sei Testnet (atlantic-2)', id: 1328,  routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_1328'  },
+  megaeth:{ name: 'MegaETH Testnet',         id: 6342,  routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_6342'  },
 } as const;
 type ChainKey = keyof typeof CHAIN_DEFAULTS;
 

@@ -86,6 +86,42 @@ const CHAINS = {
     routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_300',
     note: 'zkSync Sepolia — native gas is ETH; USDC + feeds are booth/docs confirms.',
   },
+  // ── KNOWN, deploy PENDING — config only (chain IDs are public facts; no router until deployed) ─
+  zerog: {
+    key: 'zerog',
+    name: '0G Galileo Testnet',
+    chainId: 16602,
+    routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_16602',
+    note: '0G Galileo — PENDING deploy. Native gas "0G"; no Chainlink/Pyth feed → bare/adapter pricing.',
+  },
+  monad: {
+    key: 'monad',
+    name: 'Monad Testnet',
+    chainId: 10143,
+    routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_10143',
+    note: 'Monad — PENDING deploy. Native gas "MON"; Chainlink push ETH/USD + USDC/USD feeds are live.',
+  },
+  bera: {
+    key: 'bera',
+    name: 'Berachain Bepolia',
+    chainId: 80069,
+    routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_80069',
+    note: 'Berachain Bepolia — PENDING deploy. Native gas "BERA"; no verified feed → Pyth/adapter.',
+  },
+  sei: {
+    key: 'sei',
+    name: 'Sei Testnet (atlantic-2)',
+    chainId: 1328,
+    routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_1328',
+    note: 'Sei atlantic-2 — PENDING deploy. Native gas "SEI"; Pyth-native → PriceOracleAdapter (Pyth).',
+  },
+  megaeth: {
+    key: 'megaeth',
+    name: 'MegaETH Testnet',
+    chainId: 6342,
+    routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_6342',
+    note: 'MegaETH — PENDING deploy. Native gas "ETH"; no Chainlink/Pyth feed confirmed → bare/adapter.',
+  },
 };
 
 const FEATURE_KEYS = ['checkout', 'subscriptions', 'bookings', 'invoices'];
@@ -118,7 +154,8 @@ ${bold('Usage')}
   npx create-access0x1 ${cyan('<target-dir>')} ${dim('[options]')}
 
 ${bold('Options')}
-  --chain <arc|base|zksync>   Settlement chain (default: arc)
+  --chain <key>              Settlement chain (default: arc). Deployed: arc, base, zksync.
+                             Deploy-PENDING (config only): zerog, monad, bera, sei, megaeth.
   --features <list>           Comma list of: ${FEATURE_KEYS.join(', ')} (default: checkout)
   --yes, -y                   Skip prompts, accept defaults
   --help, -h                  Show this help
