@@ -70,6 +70,12 @@ settlement — all off the money path by construction.
 
 ### Why it's different
 
+Unlike a custodial payment router (Stripe Connect, or an on-chain router that escrows then forwards),
+Access0x1 takes **zero custody** — settlement is one atomic pull → split → push, so the router's balance
+stays at ~0 — and prices every payment in **USD on-chain, inside the settlement tx** via a Chainlink feed,
+never from an off-chain quote you have to trust. The buyer pays exactly the USD amount the contract priced,
+and no intermediary ever holds the funds.
+
 - **Gas-free USDC checkout on Arc — by default.** The demo checkout connects to **Arc Testnet**
   out of the box (the app's default chain), where **Circle USDC is the native gas token**. A buyer
   pays in USDC and settles in USDC: there is **no separate gas coin to top up and no Paymaster to
