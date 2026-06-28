@@ -20,7 +20,11 @@ export {
 } from "./privatePay.js";
 export {
   isPrivatePayFlagOn,
+  isEarningsPrivacyFlagOn,
+  isPrivacyFlagOn,
   isPrivatePayConfigured,
   privatePayStatus,
+  unlinkChainId,
+  unlinkUsdcToken,
   type PrivatePayStatus,
 } from "./privatePayConfig.js";

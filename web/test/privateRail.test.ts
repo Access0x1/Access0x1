@@ -14,6 +14,7 @@ const MERCHANT = "0x3333333333333333333333333333333333333333";
 
 function clear(): void {
   delete process.env.UNLINK_PRIVATE_PAY;
+  delete process.env.NEXT_PUBLIC_EARNINGS_PRIVACY;
   delete process.env.UNLINK_API_KEY;
   delete process.env.ARC_TESTNET_USDC;
   delete process.env.UNLINK_PAYOUT_USER_ID;
@@ -54,6 +55,18 @@ describe("attemptPrivateRail", () => {
 
   it("flag ON + configured: handles the payment and returns depositTx/paymentTx", async () => {
     configureOn();
+    const deps = makeDeps();
+    const result = await attemptPrivateRail(REQ, deps);
+    expect(result).toEqual({ handled: true, depositTx: "0xdeposit", paymentTx: "0xpayment" });
+    expect(deps.shieldAndWithdraw).toHaveBeenCalledOnce();
+  });
+
+  it("MERCHANT earnings-privacy knob alone routes through the same shielded path", async () => {
+    // Agent flag OFF, merchant knob ON, env otherwise configured.
+    process.env.NEXT_PUBLIC_EARNINGS_PRIVACY = "true";
+    process.env.UNLINK_API_KEY = "sk_test_secret_should_never_leak";
+    process.env.ARC_TESTNET_USDC = "0x0000000000000000000000000000000000000abc";
+    process.env.UNLINK_PAYOUT_USER_ID = "dyn|sub-agent";
     const deps = makeDeps();
     const result = await attemptPrivateRail(REQ, deps);
     expect(result).toEqual({ handled: true, depositTx: "0xdeposit", paymentTx: "0xpayment" });

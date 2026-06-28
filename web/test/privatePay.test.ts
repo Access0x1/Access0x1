@@ -23,6 +23,7 @@ function configureOn(): void {
 
 function clearConfig(): void {
   delete process.env.UNLINK_PRIVATE_PAY;
+  delete process.env.NEXT_PUBLIC_EARNINGS_PRIVACY;
   delete process.env.UNLINK_API_KEY;
   delete process.env.ARC_TESTNET_USDC;
 }

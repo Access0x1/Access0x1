@@ -24,14 +24,17 @@
  */
 import type { UnlinkClient } from "@unlink-xyz/sdk";
 import { toUsdcBigInt } from "./amount.js";
+import { unlinkUsdcToken } from "./privatePayConfig.js";
 
 /**
- * The real Arc-testnet USDC token. Read from env at CALL time (never frozen at
- * import, never an address from memory — spec §9.7). Returns `""` when unset so the
- * caller surfaces a clear config error before any SDK call.
+ * The shielded USDC token for the active Unlink chain. Resolved PER CHAIN through
+ * {@link unlinkUsdcToken} (`NEXT_PUBLIC_UNLINK_USDC_<chainId>`, defaulting to Arc's
+ * `ARC_TESTNET_USDC`) at CALL time — never frozen at import, never an address from
+ * memory (spec §9.7). Returns `""` when unset so the caller surfaces a clear config
+ * error before any SDK call.
  */
-function arcTestnetUsdc(): `0x${string}` {
-  return (process.env.ARC_TESTNET_USDC ?? "") as `0x${string}`;
+function shieldedUsdcToken(): `0x${string}` {
+  return unlinkUsdcToken() as `0x${string}`;
 }
 
 export interface WithdrawResult {
@@ -105,9 +108,12 @@ export async function shieldAndWithdraw(params: {
       "shieldAndWithdraw: depositAmountUsdc must be strictly greater than withdrawAmountUsdc (asymmetry keystone)",
     );
   }
-  const usdc = arcTestnetUsdc();
+  const usdc = shieldedUsdcToken();
   if (!usdc) {
-    throw new Error("shieldAndWithdraw: ARC_TESTNET_USDC is not configured");
+    throw new Error(
+      "shieldAndWithdraw: shielded USDC token is not configured " +
+        "(set NEXT_PUBLIC_UNLINK_USDC_<chainId>, or ARC_TESTNET_USDC for the Arc default)",
+    );
   }
 
   // 1. Shield (user pays Arc gas). If this fails, no funds left the wallet.
