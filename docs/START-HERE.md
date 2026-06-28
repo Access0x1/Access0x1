@@ -18,6 +18,7 @@ that matches what you want to do and follow the link.
 | Read this when you want to… | Doc |
 | --- | --- |
 | Drop a pay button into your React app | [GETTING-STARTED.md → Path 1](./GETTING-STARTED.md#path-1--accept-your-first-payment-react-sdk) · SDK barrel: [`packages/react/src/index.ts`](../packages/react/src/index.ts) |
+| Look up a React SDK type, hook, or error code | [SDK-REFERENCE.md](./SDK-REFERENCE.md) |
 | Run the whole wired stack locally with no keys | [GETTING-STARTED.md → Path 2](./GETTING-STARTED.md#path-2--run-the-whole-thing-locally-no-keys) |
 | Call the hosted HTTP API (every web route, schemas + error codes) | [API-REFERENCE.md](./API-REFERENCE.md) |
 | Connect an AI agent with a metered, pay-per-call key | [CONNECT-AI-API.md](./CONNECT-AI-API.md) |
