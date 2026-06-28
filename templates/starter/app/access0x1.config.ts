@@ -192,7 +192,7 @@ export function getWalletProvider(): WalletProvider {
   return allowed.includes(p) ? p : 'injected';
 }
 
-/** Privy app id (embedded wallets + the earnings-privacy path). Blank = Privy off. */
+/** Privy app id (embedded wallets / private login). Blank = Privy off. */
 export function getPrivyAppId(): string | undefined {
   return process.env.NEXT_PUBLIC_PRIVY_APP_ID || undefined;
 }
@@ -200,7 +200,7 @@ export function getPrivyAppId(): string | undefined {
 /**
  * EARNINGS PRIVACY (off by default). Public chains expose every settlement, so a merchant's revenue is
  * visible to competitors. When enabled, the checkout routes through the private-settlement path so the
- * merchant's earnings are shielded. Designated provider: Privy. Vanilla settlements stay public + verifiable.
+ * merchant's earnings are shielded. The private rail is host-provided (the reference app uses Unlink). Vanilla settlements stay public + verifiable.
  */
 export function isEarningsPrivacyEnabled(): boolean {
   return process.env.NEXT_PUBLIC_EARNINGS_PRIVACY === 'true';
@@ -218,6 +218,41 @@ export function getSocialLogins(): string[] {
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
+}
+
+/**
+ * ENS pay-to-name — OPTIONAL, OFF by default. When enabled, the checkout shows an extra field where a
+ * human name (e.g. `alice.eth`) is resolved to a recipient/payout address ON THIS SETTLEMENT CHAIN
+ * before paying. Enabled implicitly by setting any NEXT_PUBLIC_ENS_* knob, or explicitly with
+ * NEXT_PUBLIC_ENS_PAY_TO_NAME=true. Blank/unset ⇒ the field is hidden and checkout is byte-identical
+ * to before (the merchant's on-chain payout is used, untouched).
+ *
+ * Resolution NEVER invents an address (LAW #4) and NEVER silently falls back to a mainnet address on an
+ * L2 (LAW #5): a name that doesn't resolve on this chain surfaces a clear error and blocks pay.
+ */
+export function isEnsPayToNameEnabled(): boolean {
+  if ((process.env.NEXT_PUBLIC_ENS_PAY_TO_NAME || '').toLowerCase() === 'true') return true;
+  // Setting either ENS knob is taken as opt-in (matches the "input your difference" pattern).
+  return Boolean(getEnsResolverOverride() || getMainnetRpcUrl());
+}
+
+/**
+ * ENS Universal Resolver OVERRIDE (NEXT_PUBLIC_ENS_RESOLVER). Blank ⇒ viem targets the canonical
+ * Universal Resolver by ENS name (no address baked in here — LAW #4). Set this only to point at a
+ * resolver you have confirmed on Etherscan for the network you read ENS from.
+ */
+export function getEnsResolverOverride(): Hex | undefined {
+  const raw = (process.env.NEXT_PUBLIC_ENS_RESOLVER || '').trim();
+  return raw ? (raw as Hex) : undefined;
+}
+
+/**
+ * Optional Ethereum Mainnet RPC for ENS resolution (NEXT_PUBLIC_MAINNET_RPC_URL). ENS lives on mainnet
+ * even in ENSv2, so resolution always runs there (never on the settlement chain). Blank ⇒ viem's public
+ * transport. This RPC is used ONLY for the read-only resolution call — never for settlement.
+ */
+export function getMainnetRpcUrl(): string | undefined {
+  return process.env.NEXT_PUBLIC_MAINNET_RPC_URL || undefined;
 }
 
 /**
@@ -241,11 +276,11 @@ export const INTEGRATION_SEAMS = {
   /** Social login — Google-native (and others) via the wallet provider (Dynamic/Privy). NEXT_PUBLIC_SOCIAL_LOGINS=google. */
   google: 'NEXT_PUBLIC_SOCIAL_LOGINS=google (Google-native sign-in via Dynamic/Privy)',
   // ── Privacy ─────────────────────────────────────────────────────────────────────────────────
-  /** Earnings privacy — hide merchant revenue from competitors. NEXT_PUBLIC_EARNINGS_PRIVACY=true (Privy). */
-  earningsPrivacy: 'NEXT_PUBLIC_EARNINGS_PRIVACY=true (provider: Privy)',
+  /** Earnings privacy — hide merchant revenue from competitors. NEXT_PUBLIC_EARNINGS_PRIVACY=true (host-provided rail, e.g. Unlink). */
+  earningsPrivacy: 'NEXT_PUBLIC_EARNINGS_PRIVACY=true (host-provided private rail, e.g. Unlink)',
   // ── Identity ────────────────────────────────────────────────────────────────────────────────
-  /** ENS pay-to-name — optional. NEXT_PUBLIC_ENS_* (resolver override). */
-  ens: 'NEXT_PUBLIC_ENS_* (optional)',
+  /** ENS pay-to-name — optional, OFF by default. NEXT_PUBLIC_ENS_PAY_TO_NAME=true + NEXT_PUBLIC_ENS_RESOLVER (resolver override) + NEXT_PUBLIC_MAINNET_RPC_URL. */
+  ens: 'NEXT_PUBLIC_ENS_PAY_TO_NAME=true + NEXT_PUBLIC_ENS_RESOLVER + NEXT_PUBLIC_MAINNET_RPC_URL (optional)',
   /** World ID human verification — optional, off when unset. NEXT_PUBLIC_WORLD_APP_ID + WORLD_RP_ID. */
   worldId: 'NEXT_PUBLIC_WORLD_APP_ID + WORLD_RP_ID (optional)',
   // ── Gas / fiat ──────────────────────────────────────────────────────────────────────────────

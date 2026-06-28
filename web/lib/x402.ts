@@ -19,13 +19,9 @@
  */
 import { BatchFacilitatorClient } from "@circle-fin/x402-batching/server";
 
-import {
-  ARC_TESTNET_FACILITATOR_URL,
-  ARC_TESTNET_GATEWAY_WALLET,
-  ARC_TESTNET_NETWORK,
-  ARC_TESTNET_USDC,
-} from "./arc-constants.js";
+import { ARC_TESTNET_ID } from "./chains.js";
 import { recordPayment } from "./payment-ledger.js";
+import { resolveX402Config, type X402ChainConfig } from "./x402/config.js";
 
 /** The signed EIP-3009 + x402 payload the payer sends (verify/settle input). */
 export type SignedPayload = {
@@ -100,43 +96,67 @@ function priceToAtomicUsdc(price: string): string {
 }
 
 /**
- * Build the x402 payment requirements for a priced endpoint.
+ * Build the x402 payment requirements for a priced endpoint on a given chain.
+ *
+ * The chain's network / USDC / Gateway-Wallet values come from the per-chain
+ * config seam (lib/x402/config.ts), which reads `NEXT_PUBLIC_X402_*_<chainId>`
+ * and falls back to the booth-confirmed Arc constants for chain 5042002. The
+ * default `chainId` IS Arc, so calling `buildPaymentRequirements(price)` with no
+ * chain id produces the SAME requirement as before per-chain config existed.
  *
  * @param price - dollar price string, e.g. "$0.001"
+ * @param chainId - the settlement chain id (default {@link ARC_TESTNET_ID})
  * @returns the requirements broadcast in the 402 challenge; `amount` is atomic
- *          USDC and `extra.verifyingContract` is the Arc Gateway Wallet
- * @throws if SELLER_ADDRESS is unset, or the price is non-positive / non-numeric
+ *          USDC and `extra.verifyingContract` is the chain's Gateway Wallet
+ * @throws if SELLER_ADDRESS is unset, the price is non-positive / non-numeric, or
+ *         the chain has no resolvable USDC / Gateway / facilitator config
  *
- * Invariant: `network === ARC_TESTNET_NETWORK`, `asset === ARC_TESTNET_USDC`,
- * and `extra.name === "GatewayWalletBatched"` — required for the payer to build
- * the correct EIP-712 signing domain against the Gateway Wallet.
+ * Invariant: `network`, `asset`, and `extra.verifyingContract` are the configured
+ * values for `chainId`, and `extra.name === "GatewayWalletBatched"` — required for
+ * the payer to build the correct EIP-712 signing domain against the Gateway Wallet.
  */
-export function buildPaymentRequirements(price: string): PaymentRequirements {
+export function buildPaymentRequirements(
+  price: string,
+  chainId: number = ARC_TESTNET_ID,
+): PaymentRequirements {
   const amount = priceToAtomicUsdc(price);
   const payTo = resolveSellerAddress();
+  const config = resolveX402Config(chainId);
   return {
     scheme: "exact",
-    network: ARC_TESTNET_NETWORK,
-    asset: ARC_TESTNET_USDC,
+    network: config.network,
+    asset: config.asset,
     amount,
     payTo,
     maxTimeoutSeconds: MAX_TIMEOUT_SECONDS,
     extra: {
       name: "GatewayWalletBatched",
       version: "1",
-      verifyingContract: ARC_TESTNET_GATEWAY_WALLET,
+      verifyingContract: config.gatewayWallet,
     },
   };
 }
 
 /**
- * Module-level singleton facilitator. No Paymaster, no hand-rolled batch — the
+ * Per-facilitator-URL singleton cache. No Paymaster, no hand-rolled batch — the
  * `BatchFacilitatorClient` verifies the EIP-3009 signatures and submits one
  * on-chain batch tx (doctrine guardrail #7).
+ *
+ * Keyed by facilitator URL (not chain id) because two chains may share one
+ * facilitator base; the client is reused so we never spin up a fresh one per
+ * request. The Arc default URL resolves through the per-chain config seam, so the
+ * Arc client is identical to the previous module-level singleton.
  */
-const facilitator = new BatchFacilitatorClient({
-  url: ARC_TESTNET_FACILITATOR_URL,
-});
+const facilitatorsByUrl = new Map<string, BatchFacilitatorClient>();
+
+function getFacilitator(url: string): BatchFacilitatorClient {
+  let client = facilitatorsByUrl.get(url);
+  if (!client) {
+    client = new BatchFacilitatorClient({ url });
+    facilitatorsByUrl.set(url, client);
+  }
+  return client;
+}
 
 /** Convert atomic USDC (6-dec string) to a decimal string, e.g. "1000" → "0.001". */
 function atomicToDecimalUsdc(atomic: string): string {
@@ -191,6 +211,8 @@ function challenge(requirements: PaymentRequirements): Response {
  * @param handler - the underlying route handler, run IFF settle succeeded
  * @param price - the dollar price string for this endpoint, e.g. "$0.001"
  * @param endpoint - the route path, for the ledger record, e.g. "/api/premium/quote"
+ * @param chainId - the settlement chain id (default {@link ARC_TESTNET_ID}); the
+ *   network / USDC / Gateway / facilitator come from the per-chain config seam.
  * @returns a wrapped `(req) => Promise<Response>` handler
  *
  * Invariant: the handler runs IFF settle succeeded — a failed settle that
@@ -200,24 +222,37 @@ export function withGateway(
   handler: Handler,
   price: string,
   endpoint: string,
+  chainId: number = ARC_TESTNET_ID,
 ): Handler {
   // Build the payment requirements LAZILY on the first request — NOT at module
   // load. `next build` loads every route module to collect page data, so an
   // eager build here forced SELLER_ADDRESS to be set in the build env (it is a
   // runtime secret, not a build input). The fail-fast throw still fires on the
-  // first real request if SELLER_ADDRESS is unset or the price is invalid;
-  // memoized so it runs at most once per route.
-  let memo: { requirements: ReturnType<typeof buildPaymentRequirements>; amountUsdc: string } | undefined;
+  // first real request if SELLER_ADDRESS is unset, the price is invalid, or the
+  // chain is unconfigured; memoized so it runs at most once per route.
+  let memo:
+    | {
+        requirements: ReturnType<typeof buildPaymentRequirements>;
+        amountUsdc: string;
+        config: X402ChainConfig;
+      }
+    | undefined;
   const ensureRequirements = () => {
     if (!memo) {
-      const requirements = buildPaymentRequirements(price);
-      memo = { requirements, amountUsdc: atomicToDecimalUsdc(requirements.amount) };
+      const config = resolveX402Config(chainId);
+      const requirements = buildPaymentRequirements(price, chainId);
+      memo = {
+        requirements,
+        amountUsdc: atomicToDecimalUsdc(requirements.amount),
+        config,
+      };
     }
     return memo;
   };
 
   return async function gatewayHandler(req: Request): Promise<Response> {
-    const { requirements, amountUsdc } = ensureRequirements();
+    const { requirements, amountUsdc, config } = ensureRequirements();
+    const facilitator = getFacilitator(config.facilitatorUrl);
     const sigHeader = req.headers.get("payment-signature");
     if (!sigHeader) {
       return challenge(requirements);

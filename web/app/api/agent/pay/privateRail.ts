@@ -26,7 +26,7 @@ import {
   WithdrawFailedError,
   type PrivatePayDeps,
 } from "../../../../lib/unlink/privatePay.js";
-import { isPrivatePayFlagOn } from "../../../../lib/unlink/privatePayConfig.js";
+import { isPrivacyFlagOn } from "../../../../lib/unlink/privatePayConfig.js";
 
 /** Force Node runtime — the private rail uses server-only secrets. */
 export const runtime = "nodejs";
@@ -111,8 +111,10 @@ export async function attemptPrivateRail(
   req: PrivateRailRequest,
   deps: PrivatePayDeps = buildAgentPayoutDeps(),
 ): Promise<PrivateRailResult> {
-  // Cheap gate first: if the flag is off, fall back without touching any wiring.
-  if (!isPrivatePayFlagOn()) {
+  // Cheap gate first: if BOTH privacy flags are off (the agent rail's
+  // UNLINK_PRIVATE_PAY and the merchant's NEXT_PUBLIC_EARNINGS_PRIVACY), fall back
+  // without touching any wiring. Either flag on routes through the shielded path.
+  if (!isPrivacyFlagOn()) {
     return { handled: false, fallback: true };
   }
   // The rail was explicitly requested — a missing/invalid merchant is a 400, not a
