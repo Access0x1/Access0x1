@@ -2,31 +2,43 @@
   "name": "create-access0x1",
   "version": "0.1.0",
   "private": true,
-  "description": "Internal convenience CLI that scaffolds an Access0x1 starter from templates/starter. NOT published — only @access0x1/react is published to npm. End users fetch the template directly with `npx degit Access0x1/Access0x1/templates/starter`; this wrapper copies the same tree from a local checkout.",
+  "description": "One-command scaffolder for the Access0x1 non-custodial, USD-priced (Chainlink) crypto payments stack — `npm create access0x1@latest my-app` drops a runnable Next.js checkout (@access0x1/react <PayButton>) plus your own BYO Foundry contracts. Zero runtime dependencies; only Node builtins.",
   "license": "MIT",
+  "author": "Access0x1",
+  "homepage": "https://github.com/Access0x1/Access0x1/tree/main/packages/create-access0x1#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Access0x1/Access0x1.git",
+    "directory": "packages/create-access0x1"
+  },
+  "bugs": {
+    "url": "https://github.com/Access0x1/Access0x1/issues"
+  },
   "type": "module",
   "bin": {
     "create-access0x1": "./bin/index.mjs"
   },
   "files": [
     "bin",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=18"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Access0x1/Access0x1.git",
-    "directory": "packages/create-access0x1"
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "access0x1",
+    "create-access0x1",
     "create",
     "scaffold",
     "initializer",
     "payments",
     "usdc",
+    "stablecoin",
+    "crypto-checkout",
     "chainlink",
     "non-custodial",
     "viem",
