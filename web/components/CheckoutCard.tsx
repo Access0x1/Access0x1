@@ -12,6 +12,7 @@ import { BuyerConnectButton } from './BuyerConnectButton'
 import { MerchantIdentity } from './MerchantIdentity'
 import { FundButton } from './FundButton'
 import { isOnrampPublicConfigured } from '@/lib/onramp'
+import { isFlowPublicConfigured } from '@/lib/flow'
 import { safeReturnUrl } from '@/lib/safeUrl'
 import { isBlinkPublicConfigured, runBlinkDeposit } from '@/lib/funding/blink'
 import { isPaymasterActiveForChain } from '@/lib/paymaster'
@@ -169,6 +170,14 @@ export function CheckoutCard({
   // ERC-7677 paymaster: true ONLY when a paymaster is configured AND it covers
   // this checkout's chain. The badge is hidden on all other chains (law #4).
   const gasSponsored = isPaymasterActiveForChain(chainId)
+  // Flow "pay in any token → USDC" OPTIONAL seam (default OFF). Visibility is
+  // gated on the PUBLIC config only (NEXT_PUBLIC_FLOW_ENABLED + app id); when off
+  // NOTHING changes — native/USDC pay behaves exactly as today. When on, the
+  // option is surfaced but the SWAP STEP is a documented adapter/stub (lib/flow):
+  // no aggregator SDK is wired yet, so the copy MUST NOT claim a token is
+  // "swapped"/"settled" (law #4). It points the buyer at the existing token
+  // picker / funding seam to top up in USDC until the swap adapter lands.
+  const flowConfigured = isFlowPublicConfigured()
   const [funding, setFunding] = useState(false)
   const [fundNote, setFundNote] = useState<string | null>(null)
 
@@ -424,6 +433,27 @@ export function CheckoutCard({
         }}
         disabled={paying}
       />
+
+      {/* Flow "pay in any token → USDC" OPTIONAL seam (default OFF, env-gated on
+          NEXT_PUBLIC_FLOW_ENABLED + app id). Surfaced ONLY when configured. The
+          swap step is a documented adapter/stub (lib/flow) — no aggregator SDK is
+          wired yet — so this copy is TRUTHFUL (law #4): it announces the option
+          and points the buyer to the picker/funding above to settle in USDC. It
+          does NOT claim any token is swapped or settled, and it is OFF the money
+          path (it never calls payToken with an unswapped token). */}
+      {flowConfigured ? (
+        <div
+          data-testid="flow-any-token"
+          data-flow="true"
+          className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-4"
+        >
+          <p className="text-sm font-medium text-neutral-700">Pay in any token</p>
+          <p className="mt-1 text-xs text-neutral-500">
+            Coming soon — your token will be swapped to USDC at checkout. For now,
+            pick an accepted token above or top up in USDC to pay.
+          </p>
+        </div>
+      ) : null}
 
       {isConnected && buyerAddress && needsHuman && !humanVerified ? (
         // Verified-humans-only checkout: the World ID gate stands in front of
