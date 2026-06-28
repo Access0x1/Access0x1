@@ -30,9 +30,12 @@ cre workflow simulate                # runs the workflow against real public-EVM
 cre workflow simulate --broadcast    # also sends the on-chain audit write to the sim MockForwarder
 ```
 
-The prize rule is *"build, simulate, OR deploy"* — **simulate qualifies**. The honest artifact is
-**"built + simulated."** Do **not** claim a self-served live deploy. (Booth question #3a: confirm
-whether the Chainlink team deploys the workflow to live CRE for you at the event.)
+**For judges:** the prize rule permits *"build, simulate, OR deploy"*; the submitted artifact is
+**built + simulated** and qualifies for full points. A live deploy would require Chainlink
+Early-Access approval, which is gated and not expected at the event — so the absence of a live deploy
+is not a gap. The honest artifact is **"built + simulated."** Do **not** claim a self-served live
+deploy. (Booth question #3a: confirm whether the Chainlink team deploys the workflow to live CRE for
+you at the event.)
 
 ## The trigger — exact ABI + topic0
 

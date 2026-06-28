@@ -14,6 +14,10 @@ bar clearable.
 > public issue or PR — follow the private disclosure process in
 > [`SECURITY.md`](SECURITY.md).
 
+By participating, you agree to uphold our
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — we keep this community welcoming and
+review every contribution on its technical merits.
+
 ---
 
 ## Prerequisites

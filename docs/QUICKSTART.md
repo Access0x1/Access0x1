@@ -23,11 +23,11 @@ priced USD→token by a Chainlink feed read *inside the pay tx*.
 
 Pick the path that matches your stack:
 
-| Path | Who it's for | Time | Build step? |
-| --- | --- | --- | --- |
-| [1. React SDK (`@access0x1/react`)](#1--react-sdk-access0x1react) | React / Next.js apps | ~5 min | yes (npm) |
-| [2. One-tag `embed.js`](#2--one-tag-embedjs-any-html) | Any HTML page, no framework | ~2 min | no |
-| [3. Hosted no-code link](#3--hosted-no-code-link) | Non-coders, invoices, QR, bios | ~1 min | none |
+| Path | Who it's for | Time | Build step? | Example use-case |
+| --- | --- | --- | --- | --- |
+| [1. React SDK (`@access0x1/react`)](#1--react-sdk-access0x1react) | React / Next.js apps | ~5 min | yes (npm) | Add checkout to your Next.js app |
+| [2. One-tag `embed.js`](#2--one-tag-embedjs-any-html) | Any HTML page, no framework | ~2 min | no | Drop a Buy button on a Shopify / Webflow page |
+| [3. Hosted no-code link](#3--hosted-no-code-link) | Non-coders, invoices, QR, bios | ~1 min | none | Share a pay link in a bio or as a QR code |
 
 > **Step 0 — get a `merchantId` (shared by all three paths).** Onboarding is a single
 > permissionless `registerMerchant(payout, feeRecipient, feeBps, nameHash)` call on the router

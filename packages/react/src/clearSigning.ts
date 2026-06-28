@@ -89,12 +89,12 @@ export function encodePaymentCalldata(params: PaymentCalldataParams): Hex {
   const isNative = token == null || token === NATIVE_TOKEN;
   return isNative
     ? encodeFunctionData({
-        abi: ROUTER_ABI as unknown as Abi,
+        abi: ROUTER_ABI as Abi,
         functionName: 'payNative',
         args: [merchantId, usdAmount8, orderId],
       })
     : encodeFunctionData({
-        abi: ROUTER_ABI as unknown as Abi,
+        abi: ROUTER_ABI as Abi,
         functionName: 'payToken',
         args: [merchantId, token, usdAmount8, orderId],
       });

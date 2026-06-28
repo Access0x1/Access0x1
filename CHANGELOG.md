@@ -1,0 +1,88 @@
+# Changelog
+
+All notable changes to Access0x1 are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
+aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+> **Testnet only — and we say so.** Access0x1 is an ETHGlobal NY 2026 build.
+> Every contract is deployed to **public testnets only**; there are **no mainnet
+> deployments and no mainnet claims**. The packages (`@access0x1/react`,
+> `create-access0x1`) are at `0.1.0` and are **not yet published to the public npm
+> registry** — install them from source (`npm pack`) as the docs describe. Because
+> nothing has been tagged or released yet, the current state lives under
+> **[Unreleased]**; it will be cut to a tagged version on the first published release.
+>
+> Entries are dated, not invented. Deployment claims here are read from the committed
+> `broadcast/DeployAll.s.sol/<chainId>/` records and the live tables in
+> [`README.md`](README.md) and [`docs/CHAIN-ADDRESSES.md`](docs/CHAIN-ADDRESSES.md) —
+> an address that isn't on-chain isn't claimed.
+
+## [Unreleased]
+
+### Added
+
+- **Multi-tenant money spine** — a single shared
+  [`Access0x1Router`](src/Access0x1Router.sol) prices a USD-denominated charge into
+  the pay-in token through a Chainlink feed read *inside the settlement transaction*,
+  splits an exact fee, and pushes the net to the merchant in the same tx. The contract
+  never holds merchant funds.
+- **Commerce surface** on top of the router — subscriptions, bookings, invoices, gift
+  cards, escrow, refunds, and receivables
+  ([`Access0x1Subscriptions`](src/Access0x1Subscriptions.sol),
+  [`Access0x1Bookings`](src/Access0x1Bookings.sol),
+  [`Access0x1Invoices`](src/Access0x1Invoices.sol),
+  [`Access0x1GiftCards`](src/Access0x1GiftCards.sol),
+  [`Access0x1Escrow`](src/Access0x1Escrow.sol), [`Refunds`](src/Refunds.sol),
+  [`Receivables`](src/Receivables.sol)).
+- **Auth + agent primitives** — ERC-6909 [`PaymentLanes`](src/PaymentLanes.sol)
+  multi-token receipts, and ERC-7702 / ERC-6492 [`SessionGrant`](src/SessionGrant.sol)
+  for budget-scoped, time-bounded agent allowances authorized with one signature.
+- **Swappable pricing seam** — [`PriceOracleAdapter`](src/PriceOracleAdapter.sol) so a
+  chain without a Chainlink push feed can price through an alternate oracle (or run
+  unpriced) instead of being wired to a placeholder.
+- **Chainlink CRE audit consumer** — [`Access0x1Receiver`](src/Access0x1Receiver.sol)
+  for notified settlement, off the money path by construction (see [`cre/`](cre/)).
+- **React SDK** — [`@access0x1/react`](packages/react) (`0.1.0`): a viem/wagmi-native,
+  zero-custody, USD-priced payment button that drops into any React app.
+- **Project scaffold** — [`create-access0x1`](packages/create-access0x1) (`0.1.0`) to
+  bootstrap an integrator app.
+- **Documentation set** — quickstart, getting-started, architecture, glossary, recipes,
+  per-chain deploy guides, and a verified [chain-address map](docs/CHAIN-ADDRESSES.md);
+  plus a truthful self-audit ([`AUDIT.md`](AUDIT.md)) and security policy
+  ([`SECURITY.md`](SECURITY.md)).
+
+### Changed
+
+- **CREATE3 mirror cutover** — the first-party surface now deploys at **one address on
+  every chain** via CreateX, so [`Access0x1Router`](src/Access0x1Router.sol) resolves to
+  the same address (`0xe92244e3368561faf21648146511DeDE3a475EB5`) on every mirrored
+  chain. The salt embeds the deployer EOA, never `block.chainid`. See
+  [`docs/MIRROR-CUTOVER.md`](docs/MIRROR-CUTOVER.md). Per-chain router addresses recorded
+  before the cutover are treated as stale; the broadcast-derived
+  [`web/lib/deployments.ts`](web/lib/deployments.ts) is the source of truth.
+
+### Deployed
+
+- **Testnet broadcast** — deployed on eleven testnets. The CREATE3 mirror is live on
+  eight (Arc `5042002`, Base Sepolia `84532`, Ethereum Sepolia `11155111`, Optimism
+  Sepolia `11155420`, Avalanche Fuji `43113`, Robinhood `46630`, Arbitrum Sepolia
+  `421614`, Celo Sepolia `11142220`) and source-verified on seven of them. Three earlier
+  chains (Ethereum Hoodi `560048`, 0G Galileo `16602`, Tempo `42431`) carry pre-mirror
+  per-chain deploys. More chains are per-chain ready (`make deploy-<chain>`) but not yet
+  broadcast. **No mainnet deployments.**
+
+### Security
+
+- **Truthful self-audit** published in [`AUDIT.md`](AUDIT.md) — states exactly what is
+  deployed, tested, and verifiable, and exactly what is a seam or not yet built.
+  Test suite and Slither/coverage status are reported in the [README](README.md) badges.
+
+## [0.1.0] - 2026-06-12
+
+### Added
+
+- Initial public build at ETHGlobal NY 2026 — the `router-core` money spine on a public
+  branch from the first commit, testnet only.
+
+[Unreleased]: https://github.com/Access0x1/Access0x1/compare/main...HEAD
+[0.1.0]: https://github.com/Access0x1/Access0x1/releases/tag/v0.1.0

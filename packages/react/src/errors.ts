@@ -90,16 +90,30 @@ const REVERT_MESSAGES: Record<string, { code: Access0x1ErrorCode; message: strin
   },
 };
 
+/** A plain object with unknown values — the safest shape for inspecting arbitrary thrown values. */
+type AnyObject = Record<PropertyKey, unknown>;
+
+/** Narrows an arbitrary value to {@link AnyObject} so dynamic field reads stay type-checked. */
+function asObject(value: unknown): AnyObject | undefined {
+  return value != null && typeof value === 'object' ? (value as AnyObject) : undefined;
+}
+
+/** Reads a string-valued field from an object, or `undefined` if absent/not a string. */
+function getStringField(obj: AnyObject, key: string): string | undefined {
+  const value = obj[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
 /** Extract a revert/error name from an arbitrary thrown value, searching nested viem error fields. */
 function extractRevertName(err: unknown): string | undefined {
-  if (err == null || typeof err !== 'object') return undefined;
-  const e = err as Record<string, unknown>;
+  const e = asObject(err);
+  if (e === undefined) return undefined;
 
   // viem decodes a custom error into `data.errorName`.
-  const data = e['data'];
-  if (data != null && typeof data === 'object') {
-    const name = (data as Record<string, unknown>)['errorName'];
-    if (typeof name === 'string') return name;
+  const data = asObject(e['data']);
+  if (data !== undefined) {
+    const name = getStringField(data, 'errorName');
+    if (name !== undefined) return name;
   }
 
   // Some viem errors expose `cause` or a top-level `name`.
@@ -112,7 +126,7 @@ function extractRevertName(err: unknown): string | undefined {
   }
 
   // Fall back to scanning the message text for a known selector name.
-  const message = typeof e['message'] === 'string' ? (e['message'] as string) : '';
+  const message = getStringField(e, 'message') ?? '';
   for (const known of Object.keys(REVERT_MESSAGES)) {
     if (message.includes(known)) return known;
   }
@@ -121,10 +135,10 @@ function extractRevertName(err: unknown): string | undefined {
 
 /** Returns `true` if the error is a wallet/transaction chain mismatch (wallet on the wrong network). */
 function isWrongNetwork(err: unknown): boolean {
-  if (err == null || typeof err !== 'object') return false;
-  const e = err as Record<string, unknown>;
-  const name = typeof e['name'] === 'string' ? (e['name'] as string) : '';
-  const message = typeof e['message'] === 'string' ? (e['message'] as string) : '';
+  const e = asObject(err);
+  if (e === undefined) return false;
+  const name = getStringField(e, 'name') ?? '';
+  const message = getStringField(e, 'message') ?? '';
   return (
     name === 'ChainMismatchError' ||
     /does not match the target chain|chain of the wallet .* does not match/i.test(message)
@@ -133,12 +147,12 @@ function isWrongNetwork(err: unknown): boolean {
 
 /** Returns `true` if the error looks like a user-rejected wallet prompt. */
 function isUserRejection(err: unknown): boolean {
-  if (err == null || typeof err !== 'object') return false;
-  const e = err as Record<string, unknown>;
+  const e = asObject(err);
+  if (e === undefined) return false;
   const code = e['code'];
   if (code === 4001) return true; // EIP-1193 user rejected
-  const name = typeof e['name'] === 'string' ? e['name'] : '';
-  const message = typeof e['message'] === 'string' ? (e['message'] as string) : '';
+  const name = getStringField(e, 'name') ?? '';
+  const message = getStringField(e, 'message') ?? '';
   return (
     name === 'UserRejectedRequestError' ||
     /user rejected|user denied|rejected the request/i.test(message)

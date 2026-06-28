@@ -42,7 +42,7 @@
   "peerDependencies": {
     "react": "^18 || ^19",
     "viem": "^2.35",
-    "wagmi": "^3"
+    "wagmi": "^2.35 || ^3"
   },
   "peerDependenciesMeta": {
     "wagmi": {

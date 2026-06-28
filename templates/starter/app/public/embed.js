@@ -261,6 +261,7 @@
       'padding:10px 16px;border:none;border-radius:var(--a0x1-radius);' +
       'background:var(--a0x1-bg);color:var(--a0x1-fg);' +
       '-webkit-appearance:none;appearance:none;text-align:left;}' +
+      '.a0x1-btn:focus-visible{outline:2px solid #818cf8;outline-offset:2px;}' +
       '.a0x1-btn[data-theme="dark"]{--a0x1-bg:#111827;--a0x1-fg:#f9fafb;}' +
       '.a0x1-btn[disabled]{opacity:.55;cursor:not-allowed;}' +
       '.a0x1-btn .a0x1-price{opacity:.85;font-weight:400;}' +
@@ -287,6 +288,10 @@
     btn.className = 'a0x1-btn';
     btn.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
     btn.setAttribute('data-state', 'loading');
+    // Combine the split label + price spans into one coherent label so screen
+    // readers announce them together (e.g. "Pay with USDC · $29.00") instead of
+    // as two disjoint fragments.
+    btn.setAttribute('aria-label', label + ' · ' + usdDisplay);
     var labelSpan = document.createElement('span');
     labelSpan.className = 'a0x1-label';
     labelSpan.textContent = label;

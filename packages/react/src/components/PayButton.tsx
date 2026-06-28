@@ -326,3 +326,15 @@ export function PayButton(props: PayButtonProps): ReactNode {
     </>
   );
 }
+
+/**
+ * Internal re-export so unit tests can assert the pure derivation helpers directly (the disabled-reason
+ * derivation, the quote-error mapping, and the explorer-URL builder) without rendering the component.
+ * Mirrors the `__internals` seam in `../hooks/usePayment.js`; not part of the public API.
+ */
+export const __internals = {
+  deriveConfigDisabledReason,
+  quoteErrorToDisabledReason,
+  buildExplorerUrl,
+  DISABLED_LABELS,
+};

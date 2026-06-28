@@ -146,9 +146,11 @@ make drive-local       # watch a coffee-shop payment: register → quote USD →
 ```
 
 `make drive-local` proves the invariant end to end: **register a merchant → quote
-in USD → pay in USDC → `net + fee == gross`, zero custody.** Copy-paste `cast`
-walkthroughs for every contract live in
-[`docs/MANUAL-TESTING.md`](./MANUAL-TESTING.md).
+in USD → pay in USDC → `net + fee == gross`, zero custody.** Want to do that same
+flow **by hand** — deploy, register your own merchant, and settle one payment with
+`cast`, with every common error and its fix called out? Follow the guided
+[`docs/FIRST-MERCHANT.md`](./FIRST-MERCHANT.md). Copy-paste `cast` walkthroughs for
+every contract live in [`docs/MANUAL-TESTING.md`](./MANUAL-TESTING.md).
 
 Run the web app too:
 
@@ -198,6 +200,7 @@ address from a blog post or an older snapshot.
 
 | If you want to… | Read |
 | --- | --- |
+| Follow one merchant + buyer end to end, with error handling at each stage | [E2E-INTEGRATION.md](./E2E-INTEGRATION.md) |
 | Understand how the contracts fit together | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | See the full contract surface + Router API | [README.md](../README.md) |
 | Look up a live address / chain / feed | [docs/CHAIN-ADDRESSES.md](./CHAIN-ADDRESSES.md) |

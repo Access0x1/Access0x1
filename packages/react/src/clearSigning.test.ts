@@ -57,7 +57,7 @@ describe('encodePaymentCalldata + paymentCalldataDigest', () => {
 
   it('native: digests the exact payNative calldata a wallet would sign', () => {
     const calldata = encodeFunctionData({
-      abi: ROUTER_ABI as unknown as Abi,
+      abi: ROUTER_ABI as Abi,
       functionName: 'payNative',
       args: [base.merchantId, base.usdAmount8, base.orderId],
     }) as Hex;
@@ -68,7 +68,7 @@ describe('encodePaymentCalldata + paymentCalldataDigest', () => {
   it('token: routes to payToken (token arg encoded) and differs from the native digest', () => {
     const token = `0x${'22'.repeat(20)}` as Hex;
     const calldata = encodeFunctionData({
-      abi: ROUTER_ABI as unknown as Abi,
+      abi: ROUTER_ABI as Abi,
       functionName: 'payToken',
       args: [base.merchantId, token, base.usdAmount8, base.orderId],
     }) as Hex;

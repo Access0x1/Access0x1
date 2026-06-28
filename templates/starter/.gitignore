@@ -1,0 +1,16 @@
+# dependencies (root-level node_modules + the packed @access0x1/react tarball)
+/node_modules
+/vendor
+
+# misc
+.DS_Store
+
+# local env files — NEVER commit real keys/addresses (LAW #3: secrets stay in their box)
+.env
+.env.local
+.env*.local
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
