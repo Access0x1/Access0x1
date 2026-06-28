@@ -20,6 +20,7 @@ export type Access0x1ErrorCode =
   | 'INVALID_PRICE'
   | 'ZERO_AMOUNT'
   | 'USER_REJECTED'
+  | 'WRONG_NETWORK'
   | 'NO_WALLET'
   | 'UNKNOWN';
 
@@ -118,6 +119,18 @@ function extractRevertName(err: unknown): string | undefined {
   return undefined;
 }
 
+/** Returns `true` if the error is a wallet/transaction chain mismatch (wallet on the wrong network). */
+function isWrongNetwork(err: unknown): boolean {
+  if (err == null || typeof err !== 'object') return false;
+  const e = err as Record<string, unknown>;
+  const name = typeof e['name'] === 'string' ? (e['name'] as string) : '';
+  const message = typeof e['message'] === 'string' ? (e['message'] as string) : '';
+  return (
+    name === 'ChainMismatchError' ||
+    /does not match the target chain|chain of the wallet .* does not match/i.test(message)
+  );
+}
+
 /** Returns `true` if the error looks like a user-rejected wallet prompt. */
 function isUserRejection(err: unknown): boolean {
   if (err == null || typeof err !== 'object') return false;
@@ -143,6 +156,14 @@ export function toAccess0x1Error(err: unknown): Access0x1Error {
 
   if (isUserRejection(err)) {
     return new Access0x1Error('USER_REJECTED', 'You rejected the transaction.', err);
+  }
+
+  if (isWrongNetwork(err)) {
+    return new Access0x1Error(
+      'WRONG_NETWORK',
+      'Your wallet is on the wrong network. Switch to the payment network and try again.',
+      err,
+    );
   }
 
   const revertName = extractRevertName(err);

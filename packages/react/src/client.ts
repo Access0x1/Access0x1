@@ -81,11 +81,58 @@ export interface MinimalPublicClient {
 }
 
 /**
- * The minimal shape of a viem wallet client the SDK writes through.
+ * The minimal shape of a viem wallet client the SDK writes through. The chain-sync members are
+ * optional — a real viem `WalletClient` provides all of them; a plain mock can omit them and the
+ * SDK simply skips the proactive switch (viem's own guard still applies).
  */
 export interface MinimalWalletClient {
   account?: { address: Hex } | Hex;
   writeContract(args: unknown): Promise<Hex>;
+  /** The settlement chain this wallet client is bound to (viem populates `.chain`). */
+  chain?: { id: number };
+  /** The wallet's currently-active chain id (viem `getChainId`). */
+  getChainId?(): Promise<number>;
+  /** Prompt the wallet to switch chains (viem `switchChain` → `wallet_switchEthereumChain`). */
+  switchChain?(args: { id: number }): Promise<void>;
+  /** Add a chain the wallet doesn't know yet (viem `addChain` → `wallet_addEthereumChain`). */
+  addChain?(args: { chain: unknown }): Promise<void>;
+}
+
+/** EIP-1193 code 4902 = "the wallet does not have this chain yet" → add it, then retry the switch. */
+function isChainNotAddedError(err: unknown): boolean {
+  const top = (err as { code?: unknown } | null | undefined)?.code;
+  const nested = (err as { cause?: { code?: unknown } } | null | undefined)?.cause?.code;
+  return top === 4902 || nested === 4902;
+}
+
+/**
+ * Make the wallet's active chain match the chain this client targets, BEFORE any write. The wallet
+ * client is created bound to the settlement chain, so `walletClient.chain.id` is the target; if the
+ * wallet is on a different chain, viem's `writeContract` throws `ChainMismatchError` instead of paying
+ * (the dead-end the buyer hits). We proactively prompt `wallet_switchEthereumChain` — adding the chain
+ * first if the wallet doesn't know it. Best-effort: if the client can't report or switch its chain we
+ * leave it to viem's own guard. A user-rejected switch propagates and surfaces as a typed error.
+ */
+async function ensureWalletOnTargetChain(wc: MinimalWalletClient): Promise<void> {
+  const target = wc.chain?.id;
+  if (target == null || wc.getChainId == null || wc.switchChain == null) return;
+  let current: number;
+  try {
+    current = await wc.getChainId();
+  } catch {
+    return; // can't tell — let viem's writeContract guard handle any real mismatch
+  }
+  if (current === target) return;
+  try {
+    await wc.switchChain({ id: target });
+  } catch (err) {
+    if (isChainNotAddedError(err) && wc.addChain != null && wc.chain != null) {
+      await wc.addChain({ chain: wc.chain });
+      await wc.switchChain({ id: target });
+      return;
+    }
+    throw err;
+  }
 }
 
 /**
@@ -111,12 +158,13 @@ export function clientFromViem(
     account,
     readContract: <T = unknown>(args: ReadArgs) =>
       publicClient.readContract(args) as Promise<T>,
-    writeContract: (args: WriteArgs) => {
+    writeContract: async (args: WriteArgs) => {
       if (walletClient == null) {
-        return Promise.reject(
-          new Error('Access0x1: no wallet client connected — cannot send a payment transaction.'),
-        );
+        throw new Error('Access0x1: no wallet client connected — cannot send a payment transaction.');
       }
+      // Sync the wallet to the settlement chain first, so a buyer on the wrong network gets a
+      // one-tap "switch network" prompt instead of a ChainMismatchError dead-end.
+      await ensureWalletOnTargetChain(walletClient);
       return walletClient.writeContract({ account, ...args });
     },
     waitForTransactionReceipt: (args) => publicClient.waitForTransactionReceipt(args),
