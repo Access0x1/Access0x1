@@ -70,22 +70,29 @@ TOOLING only — it never deploys and never writes an address.
 > If you run `cd app && npm install` **before** `npm run setup`, a `preinstall` guard stops with a
 > clear "run `npm run setup` first" message instead of a confusing registry 404.
 
-### 2. Point at a router — pick ONE path
+### 2. Point at a router — zero-env, or pick a path
 
-You need a **router address** for checkout to work.
+On a **mirrored chain** (Arc, Base/Eth/OP/Arbitrum Sepolia, Avalanche Fuji, Celo Sepolia, Robinhood)
+checkout needs **no env at all**: the app defaults to the CREATE3 **mirror** `Access0x1Router` — the
+same verifiable, already-deployed address on every chain (`access0x1.config.ts` → `MIRROR_ROUTER`,
+pinned in `script/mirror-manifest.json`). Run `npm run dev` and pay.
 
-#### Path A — No-deploy (default): run against a configured router
+This is **not a guessed address** (LAW #4): it is the published, source-verified proxy, and the app
+only defaults to it on chains where it is actually deployed. On any other chain the router stays unset
+and checkout fails loudly until you set one — never an invented address.
 
-The fastest way to a working checkout, and the path this app defaults to. If you trust an existing
-`Access0x1Router` on {{CHAIN_NAME}} (your own from a previous deploy, a teammate's, or one confirmed
-from your chain's official docs), just paste its address into `.env.local` — no Foundry run needed:
+#### Path A — override with your own / a trusted router
+
+To use a different `Access0x1Router` on {{CHAIN_NAME}} (your own from a previous deploy, a teammate's,
+or one confirmed from your chain's official docs), paste its address into `.env.local` — it wins over
+the mirror default, no Foundry run needed:
 
 ```
 {{ROUTER_ENV}}=0xYourTrustedRouter
 ```
 
-We ship **no default address** — **LAW #4: never a guessed/invented address.** The app reads the
-router from env and runs the real quote → (approve) → pay → receipt cycle against it.
+The app reads the router (your override, or the mirror default) and runs the real quote → (approve) →
+pay → receipt cycle against it.
 
 #### Path B — Deploy your OWN contracts (advanced)
 
@@ -148,8 +155,9 @@ With no router configured the page shows a clear "set {{ROUTER_ENV}}" message in
 />
 ```
 
-`access0x1.config.ts` reads every address from env (`getRouterAddress`, `getUsdcAddress`,
-`getRpcUrl`) so no contract address is ever baked into source.
+`access0x1.config.ts` resolves the router as: your `{{ROUTER_ENV}}` override → else the CREATE3
+**mirror** default (on chains where it is deployed) → else fail loudly. The only baked-in address is
+that verifiable mirror (a published fact, never a guess — LAW #4); USDC/RPC still come from env.
 
 ### One-tag embed
 
@@ -168,8 +176,9 @@ are `__PLACEHOLDER__` tokens replaced at build time from your `NEXT_PUBLIC_*` en
 
 - The "Pay with USDC — no gas fee" label is shown **only on Arc**, where USDC is the native gas
   token. On every other chain the button keeps the neutral "Pay with Crypto".
-- Every address slot in `.env.example` is **blank on purpose**. Fill it from your own deploy or a
-  your chain's official docs — never a guess.
+- Every address slot in `.env.example` is **blank and optional** — the router defaults to the
+  verifiable CREATE3 mirror on mirrored chains; fill a slot only to override, or to target a chain
+  where the mirror is not deployed yet. Never a guessed address.
 
 ## License
 
