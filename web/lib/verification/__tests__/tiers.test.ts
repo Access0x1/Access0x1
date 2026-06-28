@@ -162,7 +162,10 @@ describe('levelFor — the 5-rung ladder, each rung from a representative set', 
     const r = levelFor(m())
     expect(r.level).toBe(0)
     expect(r.name).toBe('Guest')
-    expect(r.nextNeed).toMatch(/World ID/) // points at the strongest next add
+    // World ID is the FINAL capstone, so a Guest is guided to a cheaper check
+    // first (the highest-weight non-World method, ENS) — NOT World ID.
+    expect(r.nextNeed).toMatch(/ENS/)
+    expect(r.nextNeed).not.toMatch(/World ID/)
   })
 
   it('L1 Connected — a lone sign-in (Dynamic) -> "someone", score 15', () => {
@@ -194,7 +197,7 @@ describe('levelFor — the 5-rung ladder, each rung from a representative set', 
     expect(levelFor(m('ens')).level).toBe(2)
   })
 
-  it('L3 Trusted — World ID + exactly one more (structural rung wins over score 75)', () => {
+  it('L3 Trusted — World ID + exactly one more (World present, not all others yet)', () => {
     const r = levelFor(m('world-id', 'ens')) // 50 + 25 = 75
     expect(r.level).toBe(3)
     expect(r.name).toBe('Trusted')
@@ -204,30 +207,46 @@ describe('levelFor — the 5-rung ladder, each rung from a representative set', 
     expect(levelFor(m('world-id', 'dynamic')).level).toBe(3)
   })
 
-  it('L4 Super Verified — World ID + two others', () => {
+  it('L3 Trusted — World ID + two others (still missing a category, not yet capstone)', () => {
+    // World ID + ENS + a sign-in, but no on-chain — NOT all categories, so L3.
     const r = levelFor(m('world-id', 'ens', 'dynamic'))
+    expect(r.level).toBe(3)
+    expect(r.name).toBe('Trusted')
+  })
+
+  it('L4 Super Verified — World ID is the capstone after ALL other categories', () => {
+    // World ID + ENS + a sign-in + on-chain — every category, finished with World.
+    const r = levelFor(m('world-id', 'ens', 'dynamic', 'onchain'))
     expect(r.level).toBe(4)
     expect(r.name).toBe('Super Verified')
     expect(r.nextNeed).toBe('') // nothing more to ask for
   })
 
-  it('L4 Super Verified — all four methods', () => {
-    expect(levelFor(m('world-id', 'ens', 'dynamic', 'onchain')).level).toBe(4)
+  it('L4 Super Verified — World ID + ENS + OIDC sign-in + on-chain (oidc satisfies sign-in)', () => {
+    expect(levelFor(m('world-id', 'ens', 'oidc', 'onchain')).level).toBe(4)
   })
 
-  it('L4 Super Verified — score>=75 without World ID (deep non-WID composite)', () => {
-    // ens(25)+dynamic(15)+oidc(15)+onchain(10) = 65 < 75 -> NOT L4 by score; but
-    // methods.length >= 4 also promotes a deep stack. Force the score path with
-    // an explicit precomputed score >= 75.
-    const r = levelFor(80, m('ens', 'dynamic', 'onchain'))
-    expect(r.level).toBe(4)
+  it('WITHOUT World ID you can NEVER reach L4 — capped at L2 even with a deep stack', () => {
+    // ens + dynamic + oidc + onchain, no World ID -> L2 ceiling (no non-World L4 path).
+    expect(levelFor(m('ens', 'dynamic', 'oidc', 'onchain')).level).toBe(2)
+    // Even a forced high precomputed score cannot promote a World-less profile to L4.
+    expect(levelFor(80, m('ens', 'dynamic', 'onchain')).level).toBe(2)
   })
 
   it('a 3-method NON-World-ID stack is L2 on the ladder (stricter than legacy super)', () => {
-    // The level ladder requires World ID OR score>=75 for Super; ens+dynamic+
-    // onchain = 50 maps to L2 here even though legacy computeTier calls it super.
+    // The level ladder requires World ID for Super; ens+dynamic+onchain maps to L2
+    // here even though legacy computeTier still calls the 3-method composite super.
     expect(levelFor(m('ens', 'dynamic', 'onchain')).level).toBe(2)
     expect(computeTier(p('ens', 'dynamic', 'onchain'))).toBe('super-verified') // legacy unchanged
+  })
+
+  it('nextNeed guides cheaper checks first; World ID only when it is the LAST missing', () => {
+    // World missing but others also missing -> nudge a non-World check, not World.
+    const earlier = levelFor(m('ens'))
+    expect(earlier.nextNeed).not.toMatch(/World ID/)
+    // Every other category done, only World left -> "Finish with the World ID scan".
+    const last = levelFor(m('ens', 'dynamic', 'onchain'))
+    expect(last.nextNeed).toMatch(/Finish with the World ID scan/)
   })
 
   it('accepts (score, methods) and (methods) call shapes equivalently', () => {

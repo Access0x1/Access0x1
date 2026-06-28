@@ -40,10 +40,15 @@ export interface ChainConfig {
 }
 
 /**
- * The supported settlement chains — the real union shipped by `web/lib/chains.ts`:
- * arc-testnet (the gasless-USDC lead), base-sepolia (the primary EVM demo chain), and
- * zksync-sepolia (a bridge target). Arc is the only chain where USDC is the native gas token, so it
- * is the only one for which "no gas fee" copy is truthful.
+ * The supported settlement chains. Arc-testnet (the gasless-USDC lead), base-sepolia (the primary
+ * EVM demo chain), and zksync-sepolia (a bridge target) are the deployed/lead set; the chains below
+ * them (0G, Monad, Berachain, Sei, MegaETH) are KNOWN-but-not-yet-deployed targets — config-only,
+ * deploy PENDING. Arc is the only chain where USDC is the native gas token, so it is the only one for
+ * which "no gas fee" copy is truthful.
+ *
+ * DOCTRINE for the PENDING chains: their chainId + name are public facts; `usdc` is `undefined`
+ * (never an invented address — law #4) and the host app supplies the router after the owner runs the
+ * CREATE3 mirror deploy. The SDK never holds a router address (guardrail #7) regardless.
  */
 export const CHAINS = {
   arcTestnet: {
@@ -63,6 +68,54 @@ export const CHAINS = {
     name: 'zkSync Sepolia',
     chainId: 300,
     // USDC on zkSync Sepolia is not yet booth-confirmed — host app supplies it via env.
+    usdc: undefined,
+    usdcIsNativeGas: false,
+  },
+
+  // ── KNOWN, deploy PENDING (config-only) ───────────────────────────────────────────────────────
+  // Chains the owner holds testnet gas on but Access0x1 is NOT deployed to yet. chainId + name are
+  // facts; usdc is undefined until a Circle-issued token is booth-confirmed (never a mock/guess).
+  // The "oracle situation" per chain governs whether the Router can price USD→token via Chainlink
+  // directly or needs the swappable PriceOracleAdapter (Pyth). See docs/CHAIN-ADDRESSES.md.
+
+  // 0G Galileo — native gas token "0G". No Chainlink/Pyth feed published → bare deploy until a
+  // PriceOracleAdapter is wired (USD-priced payments off until then).
+  zeroGGalileo: {
+    name: '0G Galileo Testnet',
+    chainId: 16602,
+    usdc: undefined,
+    usdcIsNativeGas: false,
+  },
+  // Monad Testnet — native gas "MON". Chainlink push ETH/USD + USDC/USD feeds ARE live here, so the
+  // Router can price USD→token directly once deployed (no adapter needed); owner reads the exact
+  // aggregator addresses from docs.chain.link at deploy.
+  monadTestnet: {
+    name: 'Monad Testnet',
+    chainId: 10143,
+    usdc: undefined,
+    usdcIsNativeGas: false,
+  },
+  // Berachain Bepolia — native gas "BERA". On Chainlink's faucet list; no verified push price feed
+  // yet → Pyth via PriceOracleAdapter (or a $1 USDC/USD mock) until a feed is confirmed.
+  berachainBepolia: {
+    name: 'Berachain Bepolia',
+    chainId: 80069,
+    usdc: undefined,
+    usdcIsNativeGas: false,
+  },
+  // Sei Testnet (atlantic-2) — native gas "SEI". Pyth is the native oracle on Sei → prices via the
+  // PriceOracleAdapter (Pyth), NOT Chainlink.
+  seiTestnet: {
+    name: 'Sei Testnet (atlantic-2)',
+    chainId: 1328,
+    usdc: undefined,
+    usdcIsNativeGas: false,
+  },
+  // MegaETH Testnet — native gas "ETH". No Chainlink/Pyth feed confirmed → bare deploy until an
+  // adapter is wired.
+  megaethTestnet: {
+    name: 'MegaETH Testnet',
+    chainId: 6342,
     usdc: undefined,
     usdcIsNativeGas: false,
   },

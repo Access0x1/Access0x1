@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import type { ReactNode } from 'react'
+import { MerchantProviders } from '@/app/MerchantProviders'
 
 /**
  * The owner-admin route (`/admin`). Client-only: the panel reads the connected
@@ -14,6 +15,12 @@ const AdminPanel = dynamic(() => import('./AdminPanel').then((m) => m.AdminPanel
   ssr: false,
 })
 
+// Merchant/owner route: wrap in the Dynamic stack (MAU = businesses; Dynamic is
+// scoped to merchant surfaces only, never the customer checkout).
 export default function AdminPage(): ReactNode {
-  return <AdminPanel />
+  return (
+    <MerchantProviders>
+      <AdminPanel />
+    </MerchantProviders>
+  )
 }

@@ -183,13 +183,20 @@ export function asVerificationMethod(v: unknown): VerificationMethod | null {
  * Verified / Super Verified) is preserved above and maps cleanly onto these
  * levels (see `tierToLevel` / `levelToTier`), so existing consumers keep working.
  *
+ * World ID is the FINAL capstone: L4 Super Verified requires World ID PLUS every
+ * other category (ENS, a sign-in, on-chain). The journey is designed so the World
+ * ID scan is the LAST step — you complete the cheaper checks first, then finish
+ * on World. WITHOUT World ID you can never pass L2.
+ *
  * Rungs (score 0..100; methods World ID 50 / ENS 25 / Sign-in 15 / On-chain 10):
  *   L0 Guest          — score 0, no verification.
  *   L1 Connected      — signed in OR a real wallet (score ~10–15). "Someone."
- *   L2 Verified       — one strong proof: World ID, OR (ENS + a sign-in)
- *                       (score ~25–50). A verified entity.
- *   L3 Trusted        — World ID + one more method (score ~50–75).
- *   L4 Super Verified — World ID + >=2 others, OR all four, OR score >= 75.
+ *   L2 Verified       — one strong proof: World ID alone, OR (ENS + a sign-in)
+ *                       without World, OR score >= 25 without World. The ceiling
+ *                       for any profile that lacks World ID.
+ *   L3 Trusted        — World ID + at least one other category, but not all.
+ *   L4 Super Verified — World ID AND ENS AND a sign-in AND on-chain (every check
+ *                       complete, finished with the World ID scan).
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /** A numeric level on the ladder, 0 (Guest) through 4 (Super Verified). */
@@ -212,7 +219,7 @@ export const LEVEL_INFO: Readonly<
   1: { label: 'Connected', blurb: 'Signed in or a real wallet — you’re someone, not yet proven.' },
   2: { label: 'Verified', blurb: 'One strong proof in hand — a verified entity.' },
   3: { label: 'Trusted', blurb: 'World ID plus another check — a trusted, real identity.' },
-  4: { label: 'Super Verified', blurb: 'The pinnacle: World ID plus two or more other checks.' },
+  4: { label: 'Super Verified', blurb: 'The pinnacle: every check complete, finished with the World ID scan.' },
 }
 
 /** The "sign-in" methods (an authenticated account — Dynamic OR OIDC). */
@@ -239,11 +246,15 @@ export interface LevelResult {
  * computed from the methods, so `levelFor(methods)` and
  * `levelFor(score, methods)` both work.
  *
+ * World ID is the FINAL capstone — it is REQUIRED for L4 and there is NO non-World
+ * path to L4. The cheaper checks come first; World ID is scanned last.
+ *
  * Rules (in descending order):
- *   - L4 Super Verified: World ID + >=2 others, OR all four methods, OR score >= 75.
- *   - L3 Trusted:        World ID + exactly one other (score ~50–75).
- *   - L2 Verified:       one strong proof — World ID alone, OR ENS + a sign-in,
- *                        OR score >= 25 from any composite.
+ *   - L4 Super Verified: World ID AND ENS AND a sign-in AND on-chain — every
+ *                        category complete, finished with the World ID scan.
+ *   - L3 Trusted:        World ID + at least one other category, but not all.
+ *   - L2 Verified:       World ID alone, OR (ENS + a sign-in) without World,
+ *                        OR score >= 25 without World. The ceiling without World ID.
  *   - L1 Connected:      at least one method but below Verified (a lone sign-in /
  *                        ENS / on-chain signal — "someone").
  *   - L0 Guest:          no methods.
@@ -264,6 +275,7 @@ export function levelFor(
   const worldId = methods.includes('world-id')
   const hasEns = methods.includes('ens')
   const hasSignIn = methods.some((m) => SIGN_IN_METHODS.includes(m))
+  const hasOnchain = methods.includes('onchain')
   const others = methods.filter((m) => m !== 'world-id').length
 
   let level: VerificationLevel
@@ -271,18 +283,17 @@ export function levelFor(
     // L0 Guest — nothing proven.
     level = 0
   } else if (worldId) {
-    // World-ID-anchored ladder (the structural rungs take precedence over a
-    // bare score so World ID + exactly one other reads as Trusted, not Super):
-    //   +2 others (or all four) -> L4 Super Verified
-    //   +1 other                -> L3 Trusted
-    //   alone                   -> L2 Verified
-    level = others >= 2 ? 4 : others === 1 ? 3 : 2
-  } else if (methods.length >= 4 || score >= 75) {
-    // No World ID, but a strong composite (all four non-WID is impossible since
-    // WID is one of five; >=4 here means a deep stack) or score >= 75 — L4.
-    level = 4
+    // World-ID-anchored ladder. World ID is the capstone scanned last, so it gates
+    // L4 entirely: every OTHER category must already be complete.
+    //   World ID + ENS + a sign-in + on-chain -> L4 Super Verified (the capstone)
+    //   World ID + at least one other category -> L3 Trusted
+    //   World ID alone                         -> L2 Verified
+    if (hasEns && hasSignIn && hasOnchain) level = 4
+    else if (others >= 1) level = 3
+    else level = 2
   } else if ((hasEns && hasSignIn) || score >= 25) {
     // One strong proof without World ID: ENS + a sign-in, or any score >= 25.
+    // Without World ID this is the CEILING — L4 is unreachable.
     level = 2
   } else {
     // At least one method but below Verified — "someone," L1 Connected.
@@ -293,7 +304,32 @@ export function levelFor(
 }
 
 /**
- * The single highest-value next step to climb from `level` given `methods`.
+ * The non-World methods still worth adding to climb toward Super Verified, in
+ * priority order (highest weight first). Category-aware: the sign-in category is
+ * satisfied by EITHER Dynamic or OIDC, so once one is present the other sign-in
+ * method is NOT suggested (it would not move the ladder). World ID is excluded —
+ * it is the FINAL capstone, handled separately.
+ *
+ * Returns `[]` when every other category (ENS, a sign-in, on-chain) is complete,
+ * which is exactly when World ID becomes the last step.
+ */
+export function missingNonWorldMethods(
+  methods: readonly VerificationMethod[],
+): VerificationMethod[] {
+  const has = (m: VerificationMethod): boolean => methods.includes(m)
+  const hasSignIn = methods.some((m) => SIGN_IN_METHODS.includes(m))
+  return VERIFICATION_METHODS.filter((m) => {
+    if (m === 'world-id' || has(m)) return false
+    // Sign-in is one category: skip the alternate sign-in once one is present.
+    if (SIGN_IN_METHODS.includes(m) && hasSignIn) return false
+    return true
+  }).sort((x, y) => METHOD_WEIGHTS[y] - METHOD_WEIGHTS[x])
+}
+
+/**
+ * The single best next step to climb from `level` given `methods`. World ID is the
+ * FINAL capstone, so we guide the cheaper checks FIRST and only point at World ID
+ * when it is the LAST method missing — the journey ends on the World scan.
  * Plain-English, non-coder copy (no jargon). Empty string at L4.
  */
 function nextNeedFor(
@@ -302,17 +338,15 @@ function nextNeedFor(
 ): string {
   if (level >= 4) return ''
   const has = (m: VerificationMethod): boolean => methods.includes(m)
-  // World ID is the strongest single add — recommend it first whenever missing.
-  if (!has('world-id')) {
-    return `Add ${METHOD_INFO['world-id'].label} — the strongest check — to reach ${LEVEL_LABELS[nextLevel(level)]}.`
+  const missingOthers = missingNonWorldMethods(methods)
+  // Capstone last: only nudge World ID once every other category is done.
+  if (missingOthers.length === 0 && !has('world-id')) {
+    return `Finish with the ${METHOD_INFO['world-id'].label} scan to become ${LEVEL_LABELS[4]}.`
   }
-  // Has World ID: recommend the next-highest-weight method still missing.
-  const next = VERIFICATION_METHODS.filter(
-    (m) => m !== 'world-id' && !has(m),
-  ).sort((x, y) => METHOD_WEIGHTS[y] - METHOD_WEIGHTS[x])[0]
-  if (next) {
-    return `Add ${METHOD_INFO[next].label} to reach ${LEVEL_LABELS[nextLevel(level)]}.`
+  if (missingOthers.length > 0) {
+    return `Add ${METHOD_INFO[missingOthers[0]].label} to reach ${LEVEL_LABELS[nextLevel(level)]}.`
   }
+  // Should not happen (World ID present + all others present => L4), but stay safe.
   return `Add another check to reach ${LEVEL_LABELS[nextLevel(level)]}.`
 }
 

@@ -72,11 +72,26 @@ describe('VerificationLevels panel renders by rung', () => {
     expect(out).toContain('75/100')
   })
 
-  it('L4 Super Verified — shows the celebratory line, no CTA', () => {
-    const out = render(['world-id', 'ens', 'dynamic'])
+  it('Early CTA prefers a cheaper, NON-World method (label "Verify more")', () => {
+    // Guest: World ID is the final capstone, so the CTA points elsewhere first.
+    const out = render([])
+    expect(out).toContain('Verify more')
+    expect(out).not.toContain('Finish with World')
+  })
+
+  it('When only World ID remains, the CTA label becomes "Finish with World"', () => {
+    // Every other category done, World ID still missing -> finish on the World scan.
+    const out = render(['ens', 'dynamic', 'onchain'])
+    expect(out).toContain('Finish with World')
+    expect(out).not.toContain('>Verify more<')
+  })
+
+  it('L4 Super Verified — World ID after ALL others: celebratory line, no CTA', () => {
+    const out = render(['world-id', 'ens', 'dynamic', 'onchain'])
     expect(out).toContain('Super Verified')
     expect(out).toContain('highest trust level')
     expect(out).not.toContain('Verify more')
+    expect(out).not.toContain('Finish with World')
   })
 })
 
