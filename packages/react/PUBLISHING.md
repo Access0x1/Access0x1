@@ -34,11 +34,13 @@ cd packages/react
 # Clean install so the build is reproducible (optional but recommended):
 npm ci
 
-# Sanity-check exactly what will ship — dist + types + README + LICENSE, no src/tests:
+# Sanity-check exactly what will ship — dist + types + README + LICENSE, no src/tests.
+# `prepack` runs `npm run build` automatically (clean -> tsc -> dist with .d.ts) on
+# `npm pack` too, so the dry-run reflects the real tarball even from a clean checkout:
 npm pack --dry-run
 
-# Publish. `prepublishOnly` runs `npm run build` automatically (tsc -> dist with .d.ts),
-# so dist is always freshly built from source before the tarball is created.
+# Publish. `prepack` rebuilds dist from source before the tarball is created,
+# so dist is always freshly built — no stale artifact can ship.
 npm publish --access public
 ```
 
@@ -50,7 +52,7 @@ Notes:
 - The first publish of a brand-new scoped package **must** be public (or you need
   a paid org for private). This package is intended to be public.
 - `dist/` is git-ignored on purpose; it is never committed. The tarball is built
-  on demand by `prepublishOnly`, so a fresh `node_modules` (e.g. `npm ci`) is all
+  on demand by `prepack`, so a fresh `node_modules` (e.g. `npm ci`) is all
   that is required before publishing.
 
 ## Step 3 — verify the publish
@@ -105,7 +107,7 @@ Requirements for `create-access0x1` to be publish-ready (mirror what was done fo
   built CLI (so `npm create access0x1` works), `files` allowlist, `engines`
   node >= 18, MIT license, repository/homepage/bugs pointing at
   `Access0x1/Access0x1` with `directory: packages/create-access0x1`.
-- A `prepublishOnly` build script.
+- A `prepack` build script (so `npm pack`/`npm publish` both rebuild dist).
 - A README with the `npm create access0x1@latest` quickstart and a LICENSE.
 
 Verify it the same way: `npm pack --dry-run`, then a scratch
