@@ -19,7 +19,7 @@ import {
 } from 'viem';
 import { baseSepolia, zksyncSepoliaTestnet } from 'viem/chains';
 import { clientFromViem, type Access0x1Client } from '@access0x1/react';
-import { CHAIN, getRpcUrl } from '../access0x1.config';
+import { CHAIN, getRpcUrl, getWalletProvider } from '../access0x1.config';
 
 /** Arc Testnet — USDC is the 18-decimal native gas token (the chain the SDK leads with). */
 const arcTestnet = defineChain({
@@ -59,12 +59,22 @@ function getInjected(): Eip1193Provider | undefined {
 }
 
 /**
- * Build an `Access0x1Client` for <PayButton>. Returns `undefined` when no injected wallet is present
- * (the button then shows "No wallet client connected" via the SDK's typed NO_WALLET error).
+ * Build an `Access0x1Client` for <PayButton>, honoring the configured wallet provider
+ * ({@link getWalletProvider}). VANILLA DEFAULT = `injected` (window.ethereum, zero credentials).
  *
- * Pass `account` once the user has connected (see connectWallet).
+ * The SDK is auth-agnostic — it consumes a viem wallet client. So for a NON-injected provider
+ * (`dynamic` | `privy` | `wagmi`) you pass the viem wallet client that provider gives you as
+ * `externalWalletClient`; this file stays free of any provider SDK and the checkout component never
+ * changes. Until that client exists (provider not connected yet), the client is read-only (quotes work,
+ * writes reject with the SDK's typed NO_WALLET error).
+ *
+ * @param account             the connected address (injected path; see connectWallet)
+ * @param externalWalletClient a viem WalletClient from Dynamic/Privy/wagmi (non-injected providers)
  */
-export function buildAccess0x1Client(account?: `0x${string}`): Access0x1Client | undefined {
+export function buildAccess0x1Client(
+  account?: `0x${string}`,
+  externalWalletClient?: unknown,
+): Access0x1Client | undefined {
   const chain = resolveChain();
   const rpc = getRpcUrl();
 
@@ -72,6 +82,13 @@ export function buildAccess0x1Client(account?: `0x${string}`): Access0x1Client |
     chain,
     transport: rpc ? http(rpc) : http(),
   });
+
+  // Non-injected providers (dynamic/privy/wagmi) supply their own viem wallet client.
+  if (getWalletProvider() !== 'injected') {
+    return externalWalletClient
+      ? clientFromViem(publicClient as never, externalWalletClient as never)
+      : clientFromViem(publicClient as never); // read-only until the provider connects
+  }
 
   const injected = getInjected();
   if (!injected || !account) {
