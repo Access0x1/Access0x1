@@ -56,6 +56,12 @@ export default function CheckoutPage(): ReactNode {
 
   return (
     <main style={styles.main}>
+      {/* Keyboard focus ring for the connect button. Inline styles can't express
+          :focus-visible, so this scoped rule gives keyboard users a visible ring
+          without showing an outline on mouse click. */}
+      <style>{
+        '.a0x1-connect:focus-visible{outline:2px solid #818cf8;outline-offset:2px;}'
+      }</style>
       <section style={styles.card}>
         <header style={styles.header}>
           <h1 style={styles.brand}>{'{{PROJECT_NAME}}'}</h1>
@@ -74,7 +80,12 @@ export default function CheckoutPage(): ReactNode {
         ) : null}
 
         {!account ? (
-          <button type="button" style={styles.connect} onClick={() => void handleConnect()}>
+          <button
+            type="button"
+            className="a0x1-connect"
+            style={styles.connect}
+            onClick={() => void handleConnect()}
+          >
             Connect wallet
           </button>
         ) : receipt ? (
