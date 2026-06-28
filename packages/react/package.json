@@ -24,7 +24,8 @@
     }
   },
   "files": [
-    "dist",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
     "README.md",
     "LICENSE"
   ],
@@ -37,7 +38,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build"
+    "clean": "rm -rf dist",
+    "prepack": "npm run clean && npm run build"
   },
   "peerDependencies": {
     "react": "^18 || ^19",

@@ -22,6 +22,26 @@ export type { UseMerchantReturn } from './hooks/useMerchant.js';
 export { usePaymentLanes } from './hooks/usePaymentLanes.js';
 export type { UsePaymentLanesReturn } from './hooks/usePaymentLanes.js';
 
+export { useCredential } from './hooks/useCredential.js';
+export type { UseCredentialReturn } from './hooks/useCredential.js';
+
+// Credential read seam — the generic, unbranded verified-credential primitive a badge reads from.
+// Ships NO baked-in source: with no host-supplied source the level is always `none` (never fabricated).
+export {
+  CREDENTIAL_LEVELS,
+  normalizeCredentialLevel,
+  isVerified,
+  noneRecord,
+  onchainCredentialSource,
+} from './credential.js';
+export type {
+  CredentialLevel,
+  CredentialRecord,
+  CredentialQuery,
+  CredentialSource,
+  OnchainCredentialSourceOptions,
+} from './credential.js';
+
 // Client seam (build one from your viem public/wallet clients).
 export { clientFromViem } from './client.js';
 export type {

@@ -1,11 +1,16 @@
-# create-access0x1 (internal convenience CLI)
+# create-access0x1
 
 Scaffolds the [Access0x1](https://github.com/Access0x1/Access0x1) starter — a non-custodial,
 USD-priced (Chainlink) crypto payments stack — from `templates/starter/` at the repo root.
 
-> **This package is `private` and is NOT published to npm.** Only `@access0x1/react` is published.
-> End users fetch the template directly with `degit` (below); this CLI is a thin wrapper for working
-> from a local checkout of this repo (it does the `{{TOKEN}}` substitution for you).
+Once published it runs as the standard npm initializer: `npm create access0x1@latest my-app`.
+
+> **Publish gate (owner-only).** The metadata here is publish-ready, but `package.json` keeps
+> `"private": true` on purpose. The single step to ship it is the owner's call — see
+> **[Publishing](#publishing-owner-only)** below.
+>
+> Until then, end users fetch the template directly with `degit` (below); this CLI also works as a
+> thin wrapper from a local checkout of this repo (it does the `{{TOKEN}}` substitution for you).
 
 ## Get the starter (no CLI needed) — recommended
 
@@ -18,7 +23,16 @@ npm run setup        # detect/install Foundry, install deps, build the contracts
 `degit` copies `templates/starter/` verbatim; replace the `{{...}}` placeholders by hand, or use the
 CLI below to have them filled in.
 
-## Or use this CLI (from a checkout of this repo)
+## Or use this CLI
+
+Once published (see [Publishing](#publishing-owner-only)), as the standard npm initializer:
+
+```bash
+npm create access0x1@latest my-checkout -- --chain base --features checkout,invoices --yes
+npx create-access0x1 my-checkout --chain base --features checkout,invoices --yes
+```
+
+Or directly from a checkout of this repo (no publish required):
 
 ```bash
 node packages/create-access0x1/bin/index.mjs my-checkout --chain base --features checkout,invoices --yes
@@ -52,7 +66,7 @@ A `.env.local` is created from `.env.example` (values stay blank — fill them i
 
 | Flag | Values | Default | Meaning |
 |---|---|---|---|
-| `--chain` | `arc` \| `base` \| `zksync` | `arc` | Settlement chain (`arc` = 5042002, `base` = 84532, `zksync` = 300) |
+| `--chain` | deployed: `arc` \| `base` \| `zksync`; deploy-PENDING (config only): `zerog` \| `monad` \| `bera` \| `sei` \| `megaeth` | `arc` | Settlement chain (`arc` = 5042002, `base` = 84532, `zksync` = 300; the PENDING chains scaffold config only — fill the router from your own deploy) |
 | `--features` | comma list of `checkout,subscriptions,bookings,invoices` | `checkout` | Enabled features (`checkout` is always on — it's the base flow) |
 | `--yes`, `-y` | — | off | Skip prompts, accept defaults |
 | `--help`, `-h` | — | — | Print usage and exit |
@@ -68,6 +82,27 @@ Without `--yes` (and on a TTY), the CLI prompts interactively for the directory,
   directly. Nothing depends on Access0x1 infrastructure.
 - **No-deploy default.** The generated app runs against a router you configure in `.env.local`, so
   it boots out of the box once you paste a router address you trust. Deploying your own is optional.
+
+## Publishing (owner-only)
+
+The metadata in `package.json` is publish-ready (`bin`, `files`, `engines`, `repository`, `homepage`,
+`bugs`, `keywords`, `publishConfig.access: public`). **The one remaining step is the owner's call:**
+
+```bash
+# 1. Flip the publish gate: set "private": false in packages/create-access0x1/package.json
+# 2. From the package directory, publish:
+cd packages/create-access0x1 && npm publish
+```
+
+That's it — there is no build step (the CLI is plain ESM). `publishConfig.access` is already `public`,
+so the unscoped `create-access0x1` name publishes publicly.
+
+> **Stub note — template distribution.** `files` ships only `bin`, `README.md`, and `LICENSE`; the
+> `templates/starter/` tree lives at the repo root and is **not** bundled into the npm tarball. A
+> freshly `npx`'d `create-access0x1` therefore needs the template resolvable on disk (running from a
+> checkout) OR the publish step must first vendor `templates/starter/` into the package and add it to
+> `files`. Wire that in before flipping the gate if you want a standalone `npx` to scaffold without a
+> local checkout; until then the recommended path stays `npx degit …/templates/starter` (above).
 
 ## Requirements
 
