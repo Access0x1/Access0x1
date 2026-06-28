@@ -287,6 +287,10 @@
     btn.className = 'a0x1-btn';
     btn.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
     btn.setAttribute('data-state', 'loading');
+    // Combine the split label + price spans into one coherent label so screen
+    // readers announce them together (e.g. "Pay with USDC · $29.00") instead of
+    // as two disjoint fragments.
+    btn.setAttribute('aria-label', label + ' · ' + usdDisplay);
     var labelSpan = document.createElement('span');
     labelSpan.className = 'a0x1-label';
     labelSpan.textContent = label;
