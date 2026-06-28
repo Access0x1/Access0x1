@@ -1,0 +1,28 @@
+# This CITATION.cff lets GitHub render a "Cite this repository" button and lets
+# tools export BibTeX/APA. Spec: https://citation-file-format.github.io
+cff-version: 1.2.0
+title: Access0x1
+message: >-
+  If you use this software, please cite it using the metadata from this file.
+type: software
+abstract: >-
+  A do-it-all center to get you and your business onchain — non-custodial
+  payments, commerce (subscriptions, bookings, invoices, gift cards), and
+  identity, white-label for non-coders and agent-native. One drop-in, no
+  contract code.
+authors:
+  - name: Access0x1
+repository-code: 'https://github.com/Access0x1/Access0x1'
+url: 'https://github.com/Access0x1/Access0x1'
+license: MIT
+version: 0.1.0
+date-released: '2026-06-28'
+keywords:
+  - ethereum
+  - solidity
+  - payments
+  - onchain-commerce
+  - account-abstraction
+  - chainlink
+  - foundry
+  - web3
