@@ -200,7 +200,7 @@ export function getPrivyAppId(): string | undefined {
 /**
  * EARNINGS PRIVACY (off by default). Public chains expose every settlement, so a merchant's revenue is
  * visible to competitors. When enabled, the checkout routes through the private-settlement path so the
- * merchant's earnings are shielded. Designated provider: Privy. Vanilla settlements stay public + verifiable.
+ * merchant's earnings are shielded. The private rail is host-provided (the reference app uses Unlink). Vanilla settlements stay public + verifiable.
  */
 export function isEarningsPrivacyEnabled(): boolean {
   return process.env.NEXT_PUBLIC_EARNINGS_PRIVACY === 'true';
