@@ -64,6 +64,21 @@ make web-gate          # cd web && npm run gate
 Useful sub-commands: `npm run typecheck`, `npm test`, `npm run test:watch`, `npm run lint`,
 `npm run verify:embed`.
 
+The gate's `tsc --noEmit` typechecks the **app** only — the Playwright e2e suite (`e2e/`,
+`playwright.config.ts`) is excluded so the lean build stays fast and green without
+`@playwright/test` (which ships only as next's optional peer and is **not** in the lockfile, to keep
+CI installs lean). To typecheck the e2e suite on demand, install Playwright first, then run its
+dedicated config:
+
+```sh
+npm i -D @playwright/test   # not in the main install / lockfile by design
+npx playwright install      # browser binaries (or `npx playwright install-deps` on Linux CI)
+npm run typecheck:e2e       # tsc -p e2e/tsconfig.json --noEmit
+```
+
+`npm run typecheck:e2e` is intentionally kept **out** of `npm run gate` and the CI typecheck — e2e
+stays typecheckable without bloating the main build.
+
 ## Deploy to production
 
 The app builds to a standalone Node.js server bundle (`output: 'standalone'` in
@@ -186,6 +201,7 @@ web/
 ├── public/embed.js The One-Tag Checkout embed (vanilla IIFE)
 ├── scripts/        Build/deploy helpers (gen-deployments, replace-embed-addrs, verify-embed)
 ├── test/ __tests__/ Vitest unit + integration tests
+├── e2e/            Playwright journeys (*.spec.ts) + its own on-demand tsconfig
 └── .env.example    The authoritative env-var reference (names only)
 ```
 
