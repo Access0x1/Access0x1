@@ -63,9 +63,12 @@ submodules, `npm install`s the contract + app deps (`@chainlink/contracts`, Next
 TOOLING only — it never deploys and never writes an address.
 
 > **`@access0x1/react` not on npm yet?** `npm run setup` detects this automatically. It locates
-> the `packages/react` source in the local Access0x1 repo checkout (or clones a known path), runs
-> `npm run build && npm pack`, drops the tarball into `vendor/`, and wires a `file:` reference into
-> `app/package.json` — so `npm install` succeeds with no manual steps.
+> the `packages/react` source relative to your Access0x1 checkout (or set `ACCESS0X1_REPO=/path/to/Access0x1`
+> to point it anywhere), runs `npm run build && npm pack`, drops the tarball into `vendor/`, and wires
+> a `file:` reference into `app/package.json` — so `npm install` succeeds with no manual steps.
+>
+> If you run `cd app && npm install` **before** `npm run setup`, a `preinstall` guard stops with a
+> clear "run `npm run setup` first" message instead of a confusing registry 404.
 
 ### 2. Point at a router — pick ONE path
 

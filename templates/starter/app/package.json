@@ -5,6 +5,7 @@
   "description": "A non-custodial, USD-priced (Chainlink) crypto checkout for {{CHAIN_NAME}}, scaffolded by create-access0x1.",
   "type": "module",
   "scripts": {
+    "preinstall": "node scripts/preinstall.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

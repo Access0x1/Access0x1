@@ -67,9 +67,14 @@ function has(bin) {
 }
 
 /** Run a command in `cwd`, inheriting stdio; throw (with a clear message) on non-zero exit. */
-function run(cmd, args, cwd, label) {
+function run(cmd, args, cwd, label, env) {
   console.log(dim(`  $ ${cmd} ${args.join(' ')}  ${cwd === ROOT ? '' : `(in ${cwd.replace(ROOT, '.')})`}`));
-  const res = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: isWin });
+  const res = spawnSync(cmd, args, {
+    cwd,
+    stdio: 'inherit',
+    shell: isWin,
+    env: env ? { ...process.env, ...env } : process.env,
+  });
   if (res.status !== 0) {
     throw new Error(`${label || cmd} failed (exit ${res.status ?? 'signal ' + res.signal}).`);
   }
@@ -134,13 +139,13 @@ function installSubmodules() {
   );
 }
 
-function npmInstall(dir, label) {
+function npmInstall(dir, label, env) {
   heading(label);
   if (!existsSync(join(dir, 'package.json'))) {
     console.log(yellow(`  no package.json in ${dir.replace(ROOT, '.')} — skipping.`));
     return;
   }
-  run('npm', ['install'], dir, `npm install (${label})`);
+  run('npm', ['install'], dir, `npm install (${label})`, env);
 }
 
 /**
@@ -177,15 +182,20 @@ function ensureAccess0x1React() {
       dim(' Locating the local Access0x1 repo to pack it…'),
   );
 
-  // Candidate locations for the packages/react directory:
-  // 1. Walk up from __dirname (scripts/ → project root → sibling of the templates dir in the monorepo).
-  // 2. Common sibling layout: a clone at ~/Desktop/access0x1/Access0x1.
-  const desktopAccess = join(process.env.HOME || '', 'Desktop', 'access0x1', 'Access0x1');
+  // Candidate locations for the packages/react directory — relative to THIS script
+  // only (no hardcoded user-specific path). When the starter lives inside an
+  // Access0x1 checkout (templates/starter/scripts/), packages/react sits a couple
+  // levels up. We never guess a machine-specific clone location; if it isn't found
+  // relative to here, we fail with copy-paste instructions (below) so the path the
+  // user provides is explicit, not assumed.
+  // Override: set ACCESS0X1_REPO to the repo root (the dir containing packages/react)
+  // to point setup at a checkout in any location.
+  const repoEnv = process.env.ACCESS0X1_REPO;
   const candidates = [
+    ...(repoEnv ? [join(repoEnv, 'packages', 'react')] : []),
     // From the templates/starter location in a git checkout:
     resolve(__dirname, '..', '..', '..', '..', 'packages', 'react'), // templates/starter → repo root → packages/react
     resolve(__dirname, '..', '..', '..', 'packages', 'react'),       // one level shallower
-    join(desktopAccess, 'packages', 'react'),
   ];
 
   const pkgDir = candidates.find(
@@ -194,12 +204,12 @@ function ensureAccess0x1React() {
 
   if (!pkgDir) {
     console.error(red('\n  Could not locate the @access0x1/react source directory.'));
-    console.error(dim('  The package is not yet on npm and the local Access0x1 repo was not found.'));
-    console.error(dim('  Options:'));
-    console.error(dim('    a) Clone https://github.com/Access0x1/Access0x1 to ~/Desktop/access0x1/Access0x1'));
-    console.error(dim('       then re-run `npm run setup`.'));
+    console.error(dim('  The package is not yet on npm and no local Access0x1 checkout was found'));
+    console.error(dim('  relative to this script. Choose one:'));
+    console.error(dim('    a) Point setup at your Access0x1 checkout (the dir containing packages/):'));
+    console.error(dim('         ACCESS0X1_REPO=/path/to/Access0x1 npm run setup'));
     console.error(dim('    b) Or build the tarball manually:'));
-    console.error(dim('         cd <path-to-Access0x1>/packages/react && npm ci && npm run build && npm pack'));
+    console.error(dim('         cd /path/to/Access0x1/packages/react && npm ci && npm run build && npm pack'));
     console.error(dim('       Copy the resulting .tgz into vendor/ here, then run:'));
     console.error(dim('         npm --prefix app install --save @access0x1/react@file:../vendor/<tarball>.tgz'));
     throw new Error('@access0x1/react not on npm and local source not found — see instructions above.');
@@ -265,7 +275,12 @@ async function main() {
   installSubmodules();
   npmInstall(CONTRACTS, 'Contract deps (@chainlink/contracts)');
   ensureAccess0x1React();
-  npmInstall(APP, 'App deps (Next.js + @access0x1/react)');
+  // Skip the app's preinstall guard here: setup is the sanctioned path — it has
+  // just resolved @access0x1/react (a file: tarball, or confirmed it on npm), so the
+  // "run setup first" guard would be a false positive on this very install.
+  npmInstall(APP, 'App deps (Next.js + @access0x1/react)', {
+    ACCESS0X1_SKIP_PREINSTALL_CHECK: '1',
+  });
   forgeBuild();
   seedEnvLocal();
 

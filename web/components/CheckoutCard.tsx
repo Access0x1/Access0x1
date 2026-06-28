@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { keccak256, toHex, type Address, type Hash } from 'viem'
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
+import { useAccount, useWalletClient } from 'wagmi'
 import { getRouterAddress, getUsdcAddress, isGasFree, tokenDecimalsFor } from '@/lib/chains'
 import { payToken, type Merchant, type PaymentReceivedEvent } from '@/lib/contracts'
 import { fetchQuote, usdToAmount8 } from '@/lib/quote'
-import { getWalletClient, getPublicClient } from '@/lib/wallet'
+import { getPublicClient } from '@/lib/wallet'
 import { BrandMark } from './BrandMark'
-import { ConnectButton } from './ConnectButton'
+import { BuyerConnectButton } from './BuyerConnectButton'
 import { MerchantIdentity } from './MerchantIdentity'
 import { FundButton } from './FundButton'
 import { isOnrampPublicConfigured } from '@/lib/onramp'
@@ -48,6 +48,14 @@ const USDC_SYMBOL = 'USDC'
  * fetches a LIVE quote from /api/quote (re-fetched on mount), and pays via
  * `payToken(USDC)`. White-label: the merchant name is prominent; Access0x1 is
  * footer-only. Off-CEI — this calls payToken and stops; no swap/bridge.
+ *
+ * BUYER WALLET = PLAIN WAGMI (no Dynamic). A customer paying here must never open
+ * a Dynamic session — one Dynamic MAU is one BUSINESS, not one shopper. So this
+ * card connects the buyer through wagmi (`useAccount` / `useWalletClient`, backed
+ * by the EIP-6963/injected/WalletConnect connectors configured in providers.tsx)
+ * and consumes the resulting viem `WalletClient` directly — exactly the
+ * auth-agnostic path the published `@access0x1/react` SDK uses. Merchants keep
+ * using Dynamic on the onboarding/dashboard routes; the customer path does not.
  */
 export function CheckoutCard({
   chainId,
@@ -85,7 +93,11 @@ export function CheckoutCard({
    */
   requiredTier?: TrustTier
 }): ReactNode {
-  const { primaryWallet } = useDynamicContext()
+  // Buyer wallet via wagmi (NOT Dynamic): the connected address for reads/gates
+  // and a viem WalletClient for the pay tx. `useWalletClient` returns exactly the
+  // viem client `payToken` expects, so no Dynamic-specific adapter is needed.
+  const { address: buyerAddress, isConnected } = useAccount()
+  const { data: walletClient } = useWalletClient()
   const usdAmount8 = usdToAmount8(Number(usdAmount))
 
   // Sanitize the merchant-supplied return URL ONCE, here, before it is forwarded
@@ -126,14 +138,14 @@ export function CheckoutCard({
   const tierMet = !needsTier || tierMeets(buyerTier, requiredTier)
 
   const refreshTier = useCallback(async () => {
-    const addr = primaryWallet?.address
+    const addr = buyerAddress
     if (!needsTier || !addr) return
     const profile = await loadProfile(addr.toLowerCase())
     if (profile) {
       setBuyerTier(profile.tier)
       setBuyerScore(profile.score)
     }
-  }, [needsTier, primaryWallet?.address])
+  }, [needsTier, buyerAddress])
 
   useEffect(() => {
     void refreshTier()
@@ -162,7 +174,7 @@ export function CheckoutCard({
 
   const handleFundWithBank = useCallback(async (): Promise<void> => {
     setFundNote(null)
-    const addr = primaryWallet?.address
+    const addr = buyerAddress
     if (!addr) {
       setFundNote('Connect a wallet to fund it.')
       return
@@ -190,11 +202,11 @@ export function CheckoutCard({
     } finally {
       setFunding(false)
     }
-  }, [primaryWallet?.address, usdAmount, safeReturn])
+  }, [buyerAddress, usdAmount, safeReturn])
 
   const handleOneTapDeposit = useCallback(async (): Promise<void> => {
     setFundNote(null)
-    const addr = primaryWallet?.address
+    const addr = buyerAddress
     if (!addr) {
       setFundNote('Connect a wallet to fund it.')
       return
@@ -215,7 +227,7 @@ export function CheckoutCard({
     } finally {
       setFunding(false)
     }
-  }, [primaryWallet?.address, usdAmount, chainId])
+  }, [buyerAddress, usdAmount, chainId])
 
   // Resolve the SELECTED token's on-chain address. USDC comes from the existing
   // per-chain seam (chains.ts); every other coin from the env-driven token set.
@@ -261,7 +273,7 @@ export function CheckoutCard({
 
   async function handlePay(): Promise<void> {
     setPayError(null)
-    if (!primaryWallet) {
+    if (!walletClient) {
       setPayError('Connect a wallet to pay.')
       return
     }
@@ -294,7 +306,6 @@ export function CheckoutCard({
       // Settle in the SELECTED allowlisted token (USDC default). The Router's
       // payToken(any allowlisted token) prices it via that token's Chainlink feed.
       const token = resolveTokenAddress()
-      const walletClient = await getWalletClient(primaryWallet)
       const publicClient = getPublicClient(chainId)
       const orderId = (orderParam
         ? keccak256(toHex(orderParam))
@@ -414,7 +425,7 @@ export function CheckoutCard({
         disabled={paying}
       />
 
-      {primaryWallet && needsHuman && !humanVerified ? (
+      {isConnected && buyerAddress && needsHuman && !humanVerified ? (
         // Verified-humans-only checkout: the World ID gate stands in front of
         // pay. Off-chain verifier (default) posts the proof to /api/world/verify.
         // ON-CHAIN SEAM (ADR D3 / unit 5): when humanVerifier === 'onchain', a
@@ -427,13 +438,13 @@ export function CheckoutCard({
         // through so the swap is a branch, not a new prop.
         <div data-human-verifier={humanVerifier}>
           <WorldIdGate
-            signal={primaryWallet.address}
+            signal={buyerAddress}
             onVerified={() => setHumanVerified(true)}
           />
         </div>
       ) : null}
 
-      {primaryWallet && needsTier ? (
+      {isConnected && needsTier ? (
         // Buyer-tier gate (Super Verification): a precondition in front of pay,
         // off the money path. Shows the buyer's current rung; when it's below the
         // merchant's requirement, pay stays disabled and we point them to /verify.
@@ -469,7 +480,7 @@ export function CheckoutCard({
         </div>
       ) : null}
 
-      {primaryWallet ? (
+      {isConnected ? (
         <FundButton
           showBank={bankConfigured}
           showOneTap={oneTapConfigured}
@@ -480,7 +491,7 @@ export function CheckoutCard({
         />
       ) : null}
 
-      {primaryWallet ? (
+      {isConnected ? (
         <button
           type="button"
           onClick={() => void handlePay()}
@@ -492,7 +503,7 @@ export function CheckoutCard({
       ) : (
         <div className="flex flex-col gap-2">
           <p className="text-sm text-neutral-500">Connect a wallet to pay.</p>
-          <ConnectButton />
+          <BuyerConnectButton />
         </div>
       )}
 
