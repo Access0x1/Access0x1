@@ -1,0 +1,123 @@
+# Dependabot keeps Access0x1's dependencies current and the updates transparent:
+# it opens a PR (never auto-merges) whenever a tracked manifest has a newer or
+# security-patched dependency, so every bump is reviewed in the open.
+#
+# Scope notes (honesty — money-safety invariant #4: claim only what's here):
+#   - npm: one entry per directory that has its OWN package.json + committed
+#     lockfile (this repo uses no npm workspaces, so each is independent):
+#     "/" (Solidity @chainlink/contracts manifest), web/, snap/,
+#     packages/react/, subgraph/. Directories with a package.json but NO
+#     committed lockfile (cre/, packages/create-access0x1/, templates/starter/*)
+#     are intentionally omitted to avoid lockfile-less update noise.
+#   - github-actions: the workflows under .github/workflows pin third-party
+#     actions (checkout, foundry-toolchain, setup-node) — tracked so pinned
+#     action versions stay current.
+#   - pip is NOT configured: the only Python project (vyper/) is a Moccasin
+#     (mox) project described by moccasin.toml, which Dependabot's pip ecosystem
+#     does not parse (it needs requirements.txt / pyproject.toml / Pipfile /
+#     setup.py). Adding it would create a broken entry, so it is left out.
+#   - docker is NOT configured: the repo ships no Dockerfile / compose file.
+#
+# Reference: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+updates:
+  # --- Solidity dependency manifest (Foundry resolves @chainlink/contracts here) ---
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "Access0x1"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      npm-root-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # --- web/ (Next.js demo app) ---
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "Access0x1"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      web-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # --- snap/ (MetaMask Snap) ---
+  - package-ecosystem: "npm"
+    directory: "/snap"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "Access0x1"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      snap-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # --- packages/react/ (published @access0x1/react SDK) ---
+  - package-ecosystem: "npm"
+    directory: "/packages/react"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "Access0x1"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      react-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # --- subgraph/ (The Graph indexing) ---
+  - package-ecosystem: "npm"
+    directory: "/subgraph"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "Access0x1"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      subgraph-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # --- GitHub Actions used by the CI / audit workflows ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "Access0x1"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
