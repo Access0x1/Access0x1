@@ -67,22 +67,29 @@ TOOLING only — it never deploys and never writes an address.
 > `npm run build && npm pack`, drops the tarball into `vendor/`, and wires a `file:` reference into
 > `app/package.json` — so `npm install` succeeds with no manual steps.
 
-### 2. Point at a router — pick ONE path
+### 2. Point at a router — zero-env, or pick a path
 
-You need a **router address** for checkout to work.
+On a **mirrored chain** (Arc, Base/Eth/OP/Arbitrum Sepolia, Avalanche Fuji, Celo Sepolia, Robinhood)
+checkout needs **no env at all**: the app defaults to the CREATE3 **mirror** `Access0x1Router` — the
+same verifiable, already-deployed address on every chain (`access0x1.config.ts` → `MIRROR_ROUTER`,
+pinned in `script/mirror-manifest.json`). Run `npm run dev` and pay.
 
-#### Path A — No-deploy (default): run against a configured router
+This is **not a guessed address** (LAW #4): it is the published, source-verified proxy, and the app
+only defaults to it on chains where it is actually deployed. On any other chain the router stays unset
+and checkout fails loudly until you set one — never an invented address.
 
-The fastest way to a working checkout, and the path this app defaults to. If you trust an existing
-`Access0x1Router` on {{CHAIN_NAME}} (your own from a previous deploy, a teammate's, or one confirmed
-from your chain's official docs), just paste its address into `.env.local` — no Foundry run needed:
+#### Path A — override with your own / a trusted router
+
+To use a different `Access0x1Router` on {{CHAIN_NAME}} (your own from a previous deploy, a teammate's,
+or one confirmed from your chain's official docs), paste its address into `.env.local` — it wins over
+the mirror default, no Foundry run needed:
 
 ```
 {{ROUTER_ENV}}=0xYourTrustedRouter
 ```
 
-We ship **no default address** — **LAW #4: never a guessed/invented address.** The app reads the
-router from env and runs the real quote → (approve) → pay → receipt cycle against it.
+The app reads the router (your override, or the mirror default) and runs the real quote → (approve) →
+pay → receipt cycle against it.
 
 #### Path B — Deploy your OWN contracts (advanced)
 
