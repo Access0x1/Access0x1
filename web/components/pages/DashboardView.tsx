@@ -107,6 +107,23 @@ export function DashboardView(): ReactNode {
         <ConnectButton />
       </header>
 
+      {/* Get Super Verified — the visible entry point to the /verify journey. */}
+      <a
+        href="/verify"
+        className="flex items-center justify-between gap-4 rounded-2xl border border-rail/30 bg-rail/5 px-5 py-4 transition-colors hover:bg-rail/10"
+      >
+        <span className="flex flex-col gap-0.5">
+          <span className="text-sm font-semibold text-ink">Get Super Verified</span>
+          <span className="text-xs text-neutral-500">
+            Prove you&apos;re real — add checks, then finish with the World ID scan to reach the
+            highest trust tier.
+          </span>
+        </span>
+        <span className="shrink-0 rounded-lg bg-rail px-3 py-1.5 text-sm font-medium text-white">
+          Verify →
+        </span>
+      </a>
+
       {/* Settled balance + withdraw (Circle Gateway). Self-hides if the deployment has no Gateway. */}
       <GatewayBalanceCard />
 

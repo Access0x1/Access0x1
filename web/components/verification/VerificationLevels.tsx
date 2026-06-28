@@ -20,6 +20,7 @@ import {
   METHOD_WEIGHTS,
   VERIFICATION_METHODS,
   levelFor,
+  missingNonWorldMethods,
   type VerificationLevel,
   type VerificationMethod,
 } from '@/lib/verification/tiers'
@@ -75,8 +76,12 @@ export function VerificationLevels({
   const trustScore = score ?? methodsToScore(methods)
   const isSuper = level === 4
 
-  // The single highest-value method still missing (the CTA target).
-  const nextMethod = highestValueMissing(methods)
+  // The CTA target: cheaper, non-World checks first — World ID is the FINAL
+  // capstone, suggested only when it's the sole method left.
+  const nextMethod = nextCtaMethod(methods)
+  // When World ID is all that remains, the journey ENDS on the World scan.
+  const finishWithWorld = nextMethod === 'world-id'
+  const ctaLabel = finishWithWorld ? 'Finish with World' : 'Verify more'
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -147,11 +152,11 @@ export function VerificationLevels({
                     onClick={() => onVerifyMore(nextMethod)}
                     className="shrink-0"
                   >
-                    Verify more
+                    {ctaLabel}
                   </Button>
                 ) : (
                   <Button asChild size="sm" className="shrink-0">
-                    <a href={verifyHref}>Verify more</a>
+                    <a href={verifyHref}>{ctaLabel}</a>
                   </Button>
                 )
               ) : null}
@@ -212,11 +217,18 @@ function methodsToScore(methods: readonly VerificationMethod[]): number {
   return Math.min(100, raw)
 }
 
-/** The highest-weight method the profile is still missing (the CTA target). */
-function highestValueMissing(
+/**
+ * The CTA target method. World ID is the FINAL capstone, so we prefer the
+ * highest-weight NON-World category still missing (category-aware via the shared
+ * {@link missingNonWorldMethods}); World ID is returned only when it is the SOLE
+ * remaining method (so the journey ends on the World scan).
+ */
+function nextCtaMethod(
   methods: readonly VerificationMethod[],
 ): VerificationMethod | null {
-  const missing = VERIFICATION_METHODS.filter((m) => !methods.includes(m))
-  if (missing.length === 0) return null
-  return missing.slice().sort((a, b) => METHOD_WEIGHTS[b] - METHOD_WEIGHTS[a])[0]
+  const missingOthers = missingNonWorldMethods(methods)
+  if (missingOthers.length > 0) return missingOthers[0]
+  // Every other category is done — finish with World ID if it's still missing.
+  if (!methods.includes('world-id')) return 'world-id'
+  return null
 }
