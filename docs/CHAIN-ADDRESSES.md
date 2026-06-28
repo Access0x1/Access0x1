@@ -99,6 +99,38 @@ native per deploy). On testnet the native token is valueless, so this just means
 awkwardly large faucet amount; it can also flag unusual fee economics worth checking before
 relying on that chain.
 
+## KNOWN, deploy PENDING — owner-requested testnets (config-ready, NOT yet deployed)
+
+These are chains the owner holds testnet gas on and asked Access0x1 to "know" so the SDK + scaffold
+can target them. They are **config-only / deploy PENDING**: chain id + name + public RPC + explorer
+are facts (below); the `Router` is intentionally blank — there is **no deployed address yet**, and we
+never invent one (law #4). The owner runs the CREATE3 mirror deploy + verify per chain (see
+[`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md) and the owner checklist) before any address exists.
+
+The **USDC** column is blank because no Circle-issued USDC was first-party-confirmed on these
+testnets at write time — a chain ships a **bare** router/stack (or an adapter-priced one) until a real
+token + price source is wired, never a placeholder.
+
+| Chain | id | Public RPC | Explorer | Native gas | Oracle situation (pricing path) |
+|---|---|---|---|---|---|
+| 0G Galileo Testnet | 16602 | `https://evmrpc-testnet.0g.ai` | `https://chainscan-galileo.0g.ai` | `0G` | **No Chainlink/Pyth feed published** → bare deploy; USD pricing needs the swappable `PriceOracleAdapter` (or a `$1` USDC/USD mock) once a token + source exist. |
+| Monad Testnet | 10143 | `https://testnet-rpc.monad.xyz` | `https://testnet.monadexplorer.com` | `MON` | **Chainlink push feeds LIVE** (ETH/USD + USDC/USD per Monad docs) → Router prices USD→token directly, **no adapter needed**. Owner reads exact aggregators from `docs.chain.link` at deploy. |
+| Berachain Bepolia | 80069 | `https://bepolia.rpc.berachain.com` | `https://bepolia.beratrail.io` | `BERA` | On Chainlink's faucet list but **no verified push price feed** → use the `PriceOracleAdapter` (Pyth) or a `$1` USDC/USD mock until a feed is confirmed. |
+| Sei Testnet (atlantic-2) | 1328 | `https://evm-rpc-testnet.sei-apis.com` | `https://testnet.seitrace.com` | `SEI` | **Pyth is the native oracle on Sei** → price via the `PriceOracleAdapter` (Pyth), **not** Chainlink. |
+| MegaETH Testnet | 6342 | `https://carrot.megaeth.com/rpc` | `https://megaexplorer.xyz` | `ETH` | **No Chainlink/Pyth feed confirmed** → bare deploy; USD pricing needs the `PriceOracleAdapter` once a source is wired. |
+
+> **Why the oracle column matters.** Access0x1's `Access0x1Router` prices a USD-denominated charge into
+> the pay-in token via a **Chainlink** `AggregatorV3` feed. A chain WITHOUT a Chainlink ETH/USD (or
+> native/USD) feed cannot price directly — it must route through the swappable `PriceOracleAdapter`
+> (the Pyth/oracle seam) or run unpriced (token-amount only). Of the five, **only Monad has live
+> Chainlink push feeds today**; 0G / Berachain / Sei / MegaETH take the adapter (Pyth) or bare path.
+>
+> **Sources (first-party, verified 2026-06-28):** 0G — `docs.0g.ai` testnet overview (chainId 16602,
+> RPC, explorer, gas token `0G`). Monad — `docs.monad.xyz` network-info + oracles page (chainId 10143;
+> Chainlink push ETH/USD + USDC/USD listed). Berachain — `docs.berachain.com` (Bepolia chainId 80069).
+> Sei — `docs.sei.io` dev-chains (atlantic-2 chainId 1328) + Pyth-native oracle. MegaETH — `docs.megaeth.com`
+> testnet (chainId 6342). No on-chain Access0x1 address is asserted for any of them.
+
 ## Paste-ready `.env` (verified public addresses — not secrets)
 
 ```sh
