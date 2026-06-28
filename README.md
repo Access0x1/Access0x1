@@ -758,6 +758,25 @@ Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed on eight testnets via t
 
 ---
 
+## Partners & Integrations
+
+Every integration below is real, lives in this repo, and is env-gated + fail-soft (blank config ⇒ a clean
+no-op, never a blocked payment). The detail for each — file paths and exact behaviour — is in
+[Built on](#built-on) right after this table.
+
+| Partner | What they provided | Why it mattered |
+| --- | --- | --- |
+| **Circle + Arc** | USDC as the native gas token (Arc) + the Gateway / x402 settlement seam | Gas-free checkout with **zero Paymaster code** — the payer pays gas in USDC, so we wrote a chain config and a pay button |
+| **Chainlink** | `<token>/USD` Data Feeds read in-transaction (+ CRE for the audit consumer) | The settled price is trusted **on-chain**, not a frontend guess — one in-tx call gave us USD→USDC pricing |
+| **Dynamic** | Email sign-in backed by an embedded wallet | A buyer who has never held crypto completes a USDC checkout — no seed phrase, no extension |
+| **Unlink** | Confidential-withdrawal seam (`@unlink-xyz/sdk`) | A merchant can shield a settled-USDC payout off the public ledger; absent the SDK it degrades to a standard payout |
+| **World ID** | One-tap proof-of-personhood gate before pay | Verified-human checkout that sits **in front of** settlement — a misconfigured gate degrades, never blocks |
+| **OIDC (e.g. Sign in with Google)** | Server-side ID-token verification via `jose` | "Verify for all" — any app from this template inherits an `oidc` method by setting one env var; blank ⇒ OFF |
+| **ENS** | Name → payout-address resolution, ENSIP-19 verified identity, Namestone gasless subnames | Brand and payout destination can be a name, not a hex string — identity shown only on forward==reverse, off the money path |
+| **Walrus** | Content-addressed publishing of the checkout page + receipts (Sui) | An un-takedownable checkout — no single origin to pin or take down |
+
+---
+
 ## Built on
 
 Access0x1 is a thin layer of our own code on top of partner infrastructure that did the hard parts.
