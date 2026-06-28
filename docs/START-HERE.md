@@ -19,6 +19,8 @@ that matches what you want to do and follow the link.
 | --- | --- |
 | Drop a pay button into your React app | [GETTING-STARTED.md → Path 1](./GETTING-STARTED.md#path-1--accept-your-first-payment-react-sdk) · SDK barrel: [`packages/react/src/index.ts`](../packages/react/src/index.ts) |
 | Run the whole wired stack locally with no keys | [GETTING-STARTED.md → Path 2](./GETTING-STARTED.md#path-2--run-the-whole-thing-locally-no-keys) |
+| Call the hosted HTTP API (every web route, schemas + error codes) | [API-REFERENCE.md](./API-REFERENCE.md) |
+| Connect an AI agent with a metered, pay-per-call key | [CONNECT-AI-API.md](./CONNECT-AI-API.md) |
 | Pay by hand with `cast`, contract by contract | [MANUAL-TESTING.md](./MANUAL-TESTING.md) |
 | Add subscriptions / bookings / invoices / gift cards | [RECIPES.md](./RECIPES.md) |
 | Look up the gas cost of each path | [GAS.md](./GAS.md) |
