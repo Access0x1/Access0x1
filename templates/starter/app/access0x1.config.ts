@@ -174,17 +174,72 @@ export function getDynamicEnvId(): string | undefined {
   return process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || undefined;
 }
 
+/** Wallet/auth sponsor for the checkout. Vanilla default = injected (window.ethereum, zero creds). */
+export type WalletProvider = 'injected' | 'dynamic' | 'privy' | 'wagmi';
+
 /**
- * Integration seams (filled from official docs / from your own infra). These are intentionally NOT addresses
- * baked into source — they are read from env where used. Documented here so you know every seam.
+ * Which wallet/auth sponsor to use — the integrator's CHOICE (NEXT_PUBLIC_WALLET_PROVIDER):
+ *   'injected' (default) — MetaMask/Rabby/etc, zero credentials
+ *   'dynamic'            — Dynamic hosted wallets (set NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID)
+ *   'privy'              — Privy embedded wallets (set NEXT_PUBLIC_PRIVY_APP_ID)
+ *   'wagmi'              — wagmi / WalletConnect (wire your own wagmi config)
+ * The SDK is auth-agnostic: a non-injected provider just hands the scaffold a viem wallet client
+ * (see app/access0x1-client.ts), so switching providers never touches the checkout component.
+ */
+export function getWalletProvider(): WalletProvider {
+  const allowed: readonly WalletProvider[] = ['injected', 'dynamic', 'privy', 'wagmi'];
+  const p = (process.env.NEXT_PUBLIC_WALLET_PROVIDER || 'injected').toLowerCase() as WalletProvider;
+  return allowed.includes(p) ? p : 'injected';
+}
+
+/** Privy app id (embedded wallets + the earnings-privacy path). Blank = Privy off. */
+export function getPrivyAppId(): string | undefined {
+  return process.env.NEXT_PUBLIC_PRIVY_APP_ID || undefined;
+}
+
+/**
+ * EARNINGS PRIVACY (off by default). Public chains expose every settlement, so a merchant's revenue is
+ * visible to competitors. When enabled, the checkout routes through the private-settlement path so the
+ * merchant's earnings are shielded. Designated provider: Privy. Vanilla settlements stay public + verifiable.
+ */
+export function isEarningsPrivacyEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_EARNINGS_PRIVACY === 'true';
+}
+
+/**
+ * The ONE place to "input your differences" — every sponsor seam this rail supports, with its env knob
+ * and vanilla default. Access0x1 is sponsor-AGNOSTIC: each is an explicit CHOICE, never hardwired.
+ * Values are env-var NAMES / option lists (never baked addresses — LAW #4).
  */
 export const INTEGRATION_SEAMS = {
-  /** Chainlink price feeds are configured ON-CHAIN at deploy time (HelperConfig), not in the app. */
-  chainlinkFeeds: 'set via contracts/script/HelperConfig.s.sol at deploy',
-  /** Circle USDC token address — NEXT_PUBLIC_USDC_ADDRESS_<chainId>. */
-  circleUsdc: `NEXT_PUBLIC_USDC_ADDRESS_${CHAIN.id}`,
-  /** Dynamic wallet auth — NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID. */
+  // ── Pricing / token ───────────────────────────────────────────────────────────────────────
+  /** Oracle: Chainlink (default) or Pyth via the swappable PriceOracleAdapter — wired ON-CHAIN at deploy. */
+  oracle: 'Chainlink | Pyth — contracts/script/HelperConfig.s.sol at deploy',
+  /** Stablecoin: Circle USDC (default) or any allowlisted ERC-20 — NEXT_PUBLIC_USDC_ADDRESS_<chainId>. */
+  token: `Circle USDC | any ERC-20 — NEXT_PUBLIC_USDC_ADDRESS_${CHAIN.id}`,
+  // ── Wallet / auth (pick ONE; vanilla = injected) ────────────────────────────────────────────
+  /** Wallet provider — NEXT_PUBLIC_WALLET_PROVIDER: injected (default) | dynamic | privy | wagmi. */
+  wallet: 'NEXT_PUBLIC_WALLET_PROVIDER = injected | dynamic | privy | wagmi',
+  /** Dynamic hosted wallets — NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID. */
   dynamic: 'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID',
-  /** ENS subname resolution — optional, NEXT_PUBLIC_ENS_*. */
+  /** Privy embedded wallets — NEXT_PUBLIC_PRIVY_APP_ID. */
+  privy: 'NEXT_PUBLIC_PRIVY_APP_ID',
+  // ── Privacy ─────────────────────────────────────────────────────────────────────────────────
+  /** Earnings privacy — hide merchant revenue from competitors. NEXT_PUBLIC_EARNINGS_PRIVACY=true (Privy). */
+  earningsPrivacy: 'NEXT_PUBLIC_EARNINGS_PRIVACY=true (provider: Privy)',
+  // ── Identity ────────────────────────────────────────────────────────────────────────────────
+  /** ENS pay-to-name — optional. NEXT_PUBLIC_ENS_* (resolver override). */
   ens: 'NEXT_PUBLIC_ENS_* (optional)',
+  /** World ID human verification — optional, off when unset. NEXT_PUBLIC_WORLD_APP_ID + WORLD_RP_ID. */
+  worldId: 'NEXT_PUBLIC_WORLD_APP_ID + WORLD_RP_ID (optional)',
+  // ── Gas / fiat ──────────────────────────────────────────────────────────────────────────────
+  /** Gas sponsorship (ERC-7677 paymaster) — optional. PAYMASTER_ENABLED + NEXT_PUBLIC_PAYMASTER_URL. */
+  paymaster: 'PAYMASTER_ENABLED + NEXT_PUBLIC_PAYMASTER_URL (optional, ERC-7677)',
+  /** Fiat on-ramp — optional. ONRAMP_PROVIDER (coinbase|moonpay|stripe|circle|transak) + NEXT_PUBLIC_ONRAMP_BASE_URL. */
+  onramp: 'ONRAMP_PROVIDER + NEXT_PUBLIC_ONRAMP_BASE_URL (optional)',
+  // ── Agents / advanced ───────────────────────────────────────────────────────────────────────
+  /** x402 + SessionGrant agent payments — optional, off the main money path. Per-chain NEXT_PUBLIC_X402_*. */
+  x402: 'NEXT_PUBLIC_X402_* per chain (optional, agent payments)',
+  /** Flow — pay in any token, settle USDC. Optional. NEXT_PUBLIC_FLOW_ENABLED. */
+  flow: 'NEXT_PUBLIC_FLOW_ENABLED (optional, any-token → USDC)',
 } as const;
