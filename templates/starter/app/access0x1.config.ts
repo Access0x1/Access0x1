@@ -277,7 +277,7 @@ export const INTEGRATION_SEAMS = {
   google: 'NEXT_PUBLIC_SOCIAL_LOGINS=google (Google-native sign-in via Dynamic/Privy)',
   // ── Privacy ─────────────────────────────────────────────────────────────────────────────────
   /** Earnings privacy — hide merchant revenue from competitors. NEXT_PUBLIC_EARNINGS_PRIVACY=true (Privy). */
-  earningsPrivacy: 'NEXT_PUBLIC_EARNINGS_PRIVACY=true (provider: Privy)',
+  earningsPrivacy: 'NEXT_PUBLIC_EARNINGS_PRIVACY=true (host-provided private rail, e.g. Unlink)',
   // ── Identity ────────────────────────────────────────────────────────────────────────────────
   /** ENS pay-to-name — optional, OFF by default. NEXT_PUBLIC_ENS_PAY_TO_NAME=true + NEXT_PUBLIC_ENS_RESOLVER (resolver override) + NEXT_PUBLIC_MAINNET_RPC_URL. */
   ens: 'NEXT_PUBLIC_ENS_PAY_TO_NAME=true + NEXT_PUBLIC_ENS_RESOLVER + NEXT_PUBLIC_MAINNET_RPC_URL (optional)',
