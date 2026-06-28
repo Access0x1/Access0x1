@@ -57,7 +57,7 @@ export function usePaymentLanes(
     const run = async (): Promise<void> => {
       const id = await client.readContract<bigint>({
         address: lanesAddress,
-        abi: LANES_ABI as unknown as import('viem').Abi,
+        abi: LANES_ABI as import('viem').Abi,
         functionName: 'laneId',
         args: [chainId, asset, owner],
       });
@@ -66,7 +66,7 @@ export function usePaymentLanes(
 
       const bal = await client.readContract<bigint>({
         address: lanesAddress,
-        abi: LANES_ABI as unknown as import('viem').Abi,
+        abi: LANES_ABI as import('viem').Abi,
         functionName: 'balanceOf',
         args: [owner, id],
       });
