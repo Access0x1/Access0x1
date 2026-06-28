@@ -192,7 +192,7 @@ export function getWalletProvider(): WalletProvider {
   return allowed.includes(p) ? p : 'injected';
 }
 
-/** Privy app id (embedded wallets + the earnings-privacy path). Blank = Privy off. */
+/** Privy app id (embedded wallets / private login). Blank = Privy off. */
 export function getPrivyAppId(): string | undefined {
   return process.env.NEXT_PUBLIC_PRIVY_APP_ID || undefined;
 }
@@ -276,7 +276,7 @@ export const INTEGRATION_SEAMS = {
   /** Social login — Google-native (and others) via the wallet provider (Dynamic/Privy). NEXT_PUBLIC_SOCIAL_LOGINS=google. */
   google: 'NEXT_PUBLIC_SOCIAL_LOGINS=google (Google-native sign-in via Dynamic/Privy)',
   // ── Privacy ─────────────────────────────────────────────────────────────────────────────────
-  /** Earnings privacy — hide merchant revenue from competitors. NEXT_PUBLIC_EARNINGS_PRIVACY=true (Privy). */
+  /** Earnings privacy — hide merchant revenue from competitors. NEXT_PUBLIC_EARNINGS_PRIVACY=true (host-provided rail, e.g. Unlink). */
   earningsPrivacy: 'NEXT_PUBLIC_EARNINGS_PRIVACY=true (host-provided private rail, e.g. Unlink)',
   // ── Identity ────────────────────────────────────────────────────────────────────────────────
   /** ENS pay-to-name — optional, OFF by default. NEXT_PUBLIC_ENS_PAY_TO_NAME=true + NEXT_PUBLIC_ENS_RESOLVER (resolver override) + NEXT_PUBLIC_MAINNET_RPC_URL. */
