@@ -16,6 +16,7 @@ A non-custodial, USD-priced (Chainlink) crypto checkout, scaffolded from the
 ├── scripts/setup.mjs  detect/install Foundry → forge install → npm i → forge build
 ├── app/               Next.js checkout (uses @access0x1/react <PayButton>)
 │   ├── app/page.tsx            the working checkout
+│   ├── app/credential-badge.tsx generic verified-credential badge (you supply the source; none by default)
 │   ├── access0x1.config.ts     chain + router (from env) + integration seams
 │   ├── public/embed.js         the one-tag embed (paste into any HTML page)
 │   └── .env.example            EVERY integration seam, as fill-in blanks
