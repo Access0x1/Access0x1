@@ -207,6 +207,20 @@ export function isEarningsPrivacyEnabled(): boolean {
 }
 
 /**
+ * Social logins to surface — a clean, Google-NATIVE sign-in (and others) powered by the wallet
+ * provider (Dynamic or Privy) underneath. Comma-separated NEXT_PUBLIC_SOCIAL_LOGINS (e.g. "google" or
+ * "google,apple"); empty = wallet-only. The provider must have the matching social connector enabled
+ * in its dashboard — the SDK itself stays auth-agnostic, so the buyer sees "Continue with Google"
+ * while Dynamic/Privy mints the wallet behind it.
+ */
+export function getSocialLogins(): string[] {
+  return (process.env.NEXT_PUBLIC_SOCIAL_LOGINS || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/**
  * The ONE place to "input your differences" — every sponsor seam this rail supports, with its env knob
  * and vanilla default. Access0x1 is sponsor-AGNOSTIC: each is an explicit CHOICE, never hardwired.
  * Values are env-var NAMES / option lists (never baked addresses — LAW #4).
@@ -224,6 +238,8 @@ export const INTEGRATION_SEAMS = {
   dynamic: 'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID',
   /** Privy embedded wallets — NEXT_PUBLIC_PRIVY_APP_ID. */
   privy: 'NEXT_PUBLIC_PRIVY_APP_ID',
+  /** Social login — Google-native (and others) via the wallet provider (Dynamic/Privy). NEXT_PUBLIC_SOCIAL_LOGINS=google. */
+  google: 'NEXT_PUBLIC_SOCIAL_LOGINS=google (Google-native sign-in via Dynamic/Privy)',
   // ── Privacy ─────────────────────────────────────────────────────────────────────────────────
   /** Earnings privacy — hide merchant revenue from competitors. NEXT_PUBLIC_EARNINGS_PRIVACY=true (Privy). */
   earningsPrivacy: 'NEXT_PUBLIC_EARNINGS_PRIVACY=true (provider: Privy)',
