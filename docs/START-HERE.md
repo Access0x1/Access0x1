@@ -12,6 +12,7 @@ that matches what you want to do and follow the link.
 | --- | --- |
 | Get the 60-second pitch + the full feature surface | [README.md](../README.md) |
 | Go from zero to a working payment (3 copy-paste paths) | [GETTING-STARTED.md](./GETTING-STARTED.md) |
+| Deploy + register + pay by hand, with every error and its fix | [FIRST-MERCHANT.md](./FIRST-MERCHANT.md) |
 
 ## 🧩 Build & integrate
 

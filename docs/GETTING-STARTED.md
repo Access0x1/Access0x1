@@ -146,9 +146,11 @@ make drive-local       # watch a coffee-shop payment: register → quote USD →
 ```
 
 `make drive-local` proves the invariant end to end: **register a merchant → quote
-in USD → pay in USDC → `net + fee == gross`, zero custody.** Copy-paste `cast`
-walkthroughs for every contract live in
-[`docs/MANUAL-TESTING.md`](./MANUAL-TESTING.md).
+in USD → pay in USDC → `net + fee == gross`, zero custody.** Want to do that same
+flow **by hand** — deploy, register your own merchant, and settle one payment with
+`cast`, with every common error and its fix called out? Follow the guided
+[`docs/FIRST-MERCHANT.md`](./FIRST-MERCHANT.md). Copy-paste `cast` walkthroughs for
+every contract live in [`docs/MANUAL-TESTING.md`](./MANUAL-TESTING.md).
 
 Run the web app too:
 
