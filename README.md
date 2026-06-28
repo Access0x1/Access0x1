@@ -33,7 +33,8 @@
 [Quickstart](#quickstart) •
 [Deploy](#deploy--multi-chain) •
 [Owned ERCs](#the-owned-ercs) •
-[Security](#security-posture) •
+[Security](SECURITY.md) •
+[Audit](audit/REPORT.md) •
 [Gas](docs/GAS.md) •
 [Integrations](#built-on) •
 [License](#license)
