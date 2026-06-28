@@ -28,16 +28,33 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      # Cache the foundryup download dir so the toolchain install reuses the fetched
+      # binaries across runs instead of re-downloading them every time.
+      - name: Cache Foundry toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundryup
+          key: ${{ runner.os }}-foundryup-${{ hashFiles('foundry.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-foundryup-
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Show Forge version
         run: forge --version
 
+      # cache: npm keys the shared ~/.npm download cache on the lockfiles below, so
+      # `npm ci` reuses tarballs across runs. web/ is included so its lockfile invalidates
+      # the same cache when it changes, even though only the root deps install here.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
 
       # @chainlink/contracts lives in gitignored node_modules (the brownie repo is deprecated);
       # the remapping resolves into it, so deps must be installed before any build.
