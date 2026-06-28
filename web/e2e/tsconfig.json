@@ -1,0 +1,28 @@
+{
+  // On-demand typecheck for the Playwright e2e suite ONLY.
+  //
+  // The app tsconfig (../tsconfig.json) deliberately EXCLUDES e2e/ and
+  // playwright.config.ts so the lean build/CI typecheck stays fast and green
+  // WITHOUT @playwright/test installed (it ships only as next's optional peer,
+  // never in the lockfile — see web/package-lock.json). This config picks up
+  // exactly those excluded files so a developer can typecheck them on demand.
+  //
+  // It REQUIRES @playwright/test to be present (`npm i -D @playwright/test`,
+  // then `npx playwright install`). Run via `npm run typecheck:e2e`. It is
+  // intentionally NOT wired into `npm run gate` or the CI typecheck.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    // Override the app's vitest globals with Playwright's. `@playwright/test`
+    // is imported explicitly in the specs/fixtures, but listing it here keeps
+    // its ambient types available and documents the on-demand dependency.
+    "types": ["node", "@playwright/test"]
+  },
+  // Only the files the app tsconfig excludes — the Playwright config + the
+  // e2e specs and fixtures.
+  "include": ["./**/*.ts", "../playwright.config.ts"],
+  // `extends` does NOT inherit include, but it DOES inherit exclude — and the
+  // app tsconfig excludes exactly these files. Reset exclude so they're picked
+  // up here (node_modules is excluded by default when exclude is unspecified;
+  // restate it to be explicit).
+  "exclude": ["../node_modules"]
+}
