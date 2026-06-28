@@ -198,6 +198,7 @@ address from a blog post or an older snapshot.
 
 | If you want to… | Read |
 | --- | --- |
+| Follow one merchant + buyer end to end, with error handling at each stage | [E2E-INTEGRATION.md](./E2E-INTEGRATION.md) |
 | Understand how the contracts fit together | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | See the full contract surface + Router API | [README.md](../README.md) |
 | Look up a live address / chain / feed | [docs/CHAIN-ADDRESSES.md](./CHAIN-ADDRESSES.md) |
