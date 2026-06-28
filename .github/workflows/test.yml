@@ -48,3 +48,37 @@ jobs:
         env:
           FOUNDRY_PROFILE: ci
         run: forge test -vvv
+
+  web:
+    name: Web app (Next.js)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deps
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      # Lint runs after the typecheck gate and before the suite so ESLint
+      # violations surface early — before the slower test run.
+      - name: Lint (next lint)
+        run: npm run lint
+
+      - name: Run tests (vitest)
+        run: npm test
