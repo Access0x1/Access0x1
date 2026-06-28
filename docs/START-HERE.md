@@ -18,6 +18,7 @@ that matches what you want to do and follow the link.
 | Read this when you want to… | Doc |
 | --- | --- |
 | Drop a pay button into your React app | [GETTING-STARTED.md → Path 1](./GETTING-STARTED.md#path-1--accept-your-first-payment-react-sdk) · SDK barrel: [`packages/react/src/index.ts`](../packages/react/src/index.ts) |
+| Follow one merchant + buyer end to end (register → button → pay → receipt) | [E2E-INTEGRATION.md](./E2E-INTEGRATION.md) |
 | Run the whole wired stack locally with no keys | [GETTING-STARTED.md → Path 2](./GETTING-STARTED.md#path-2--run-the-whole-thing-locally-no-keys) |
 | Pay by hand with `cast`, contract by contract | [MANUAL-TESTING.md](./MANUAL-TESTING.md) |
 | Add subscriptions / bookings / invoices / gift cards | [RECIPES.md](./RECIPES.md) |
