@@ -2,8 +2,9 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { PayButton, type PaymentReceipt, type Access0x1Error } from '@access0x1/react';
-import { CHAIN, getRouterAddress, getUsdcAddress } from '../access0x1.config';
+import { CHAIN, getRouterAddress, getUsdcAddress, isEnsPayToNameEnabled } from '../access0x1.config';
 import { buildAccess0x1Client, connectWallet } from './access0x1-client';
+import { EnsResolutionError, resolveEnsRecipient } from './ens';
 
 /**
  * The bundled checkout page — a working <PayButton> wired to access0x1.config.ts.
@@ -25,6 +26,53 @@ export default function CheckoutPage(): ReactNode {
   const [account, setAccount] = useState<`0x${string}` | undefined>(undefined);
   const [configError, setConfigError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<PaymentReceipt | null>(null);
+
+  // OPTIONAL ENS pay-to-name (off by default; shown only when a NEXT_PUBLIC_ENS_* knob is set).
+  // The buyer can type a human name (e.g. alice.eth); we resolve it to a recipient/payout address on
+  // THIS settlement chain and record it in the order reference. Empty ⇒ checkout is unchanged.
+  const ensEnabled = isEnsPayToNameEnabled();
+  const [ensInput, setEnsInput] = useState('');
+  const [ensRecipient, setEnsRecipient] = useState<`0x${string}` | null>(null);
+  const [ensResolving, setEnsResolving] = useState(false);
+  const [ensError, setEnsError] = useState<string | null>(null);
+
+  // Resolve the typed name to an address (on blur). Clears prior state first so a stale resolution is
+  // never reused silently. Never invents an address: a failed resolution sets a clear error (LAW #4).
+  async function resolveEns(): Promise<void> {
+    const trimmed = ensInput.trim();
+    setEnsRecipient(null);
+    setEnsError(null);
+    if (!trimmed) return; // empty ⇒ nothing to resolve; checkout stays unchanged
+    setEnsResolving(true);
+    try {
+      // resolveEnsRecipient returns a literal 0x address unchanged (no network call) and resolves an
+      // ENS/DNS name to its on-chain address — or throws if it can't (never invents one).
+      const addr = await resolveEnsRecipient(trimmed, CHAIN.id);
+      setEnsRecipient(addr);
+    } catch (err) {
+      setEnsError(
+        err instanceof EnsResolutionError
+          ? err.message
+          : err instanceof Error
+            ? `ENS resolution failed: ${err.message}`
+            : 'ENS resolution failed.',
+      );
+    } finally {
+      setEnsResolving(false);
+    }
+  }
+
+  // The order reference. When the buyer resolved a pay-to-name, record the resolved recipient + the
+  // typed name in the order id so the intended payout is captured on-chain (truthful, off the money
+  // path — the SDK still settles to the merchant's registered payout for MERCHANT_ID).
+  const orderId =
+    ensEnabled && ensRecipient
+      ? `${ORDER_ID}+ens:${ensInput.trim()}=${ensRecipient}`
+      : ORDER_ID;
+
+  // A typed-but-unresolved ENS name blocks pay (we never pay against an unresolved/invalid name).
+  const ensBlocksPay =
+    ensEnabled && ensInput.trim().length > 0 && (!ensRecipient || Boolean(ensError));
 
   // Resolve the router address from env once; surface a clear message if it is unset.
   const routerAddress = useMemo(() => {
@@ -73,6 +121,39 @@ export default function CheckoutPage(): ReactNode {
         <div style={styles.price}>${USD_AMOUNT.toFixed(2)}</div>
         <p style={styles.dim}>USD-priced via Chainlink — settled in one on-chain tx.</p>
 
+        {ensEnabled ? (
+          <div style={styles.ensField}>
+            <label htmlFor="a0x1-ens" style={styles.dim}>
+              Pay to a name (optional)
+            </label>
+            <input
+              id="a0x1-ens"
+              type="text"
+              inputMode="email"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="alice.eth or 0x…"
+              value={ensInput}
+              onChange={(e) => {
+                setEnsInput(e.target.value);
+                setEnsRecipient(null);
+                setEnsError(null);
+              }}
+              onBlur={() => void resolveEns()}
+              style={styles.ensInput}
+            />
+            {ensResolving ? (
+              <span style={styles.dim}>Resolving…</span>
+            ) : ensRecipient ? (
+              <span style={styles.ensOk}>Resolves to {ensRecipient}</span>
+            ) : ensError ? (
+              <span style={styles.error} role="alert">
+                {ensError}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
         {configError ? (
           <p style={styles.error} role="alert">
             {configError}
@@ -94,18 +175,25 @@ export default function CheckoutPage(): ReactNode {
             <div style={styles.dim}>tx {receipt.txHash}</div>
           </div>
         ) : routerAddress ? (
-          <PayButton
-            merchantId={MERCHANT_ID}
-            usdAmount={USD_AMOUNT}
-            token={usdc}
-            orderId={ORDER_ID}
-            routerAddress={routerAddress}
-            client={client}
-            label={payLabel}
-            className=""
-            onSuccess={(r) => setReceipt(r)}
-            onError={(e: Access0x1Error) => setConfigError(`${e.code}: ${e.message}`)}
-          />
+          ensBlocksPay ? (
+            // A pay-to-name was typed but hasn't resolved — never pay against an unresolved name.
+            <button type="button" style={styles.connect} disabled aria-disabled>
+              {ensResolving ? 'Resolving name…' : 'Enter a resolvable name to pay'}
+            </button>
+          ) : (
+            <PayButton
+              merchantId={MERCHANT_ID}
+              usdAmount={USD_AMOUNT}
+              token={usdc}
+              orderId={orderId}
+              routerAddress={routerAddress}
+              client={client}
+              label={payLabel}
+              className=""
+              onSuccess={(r) => setReceipt(r)}
+              onError={(e: Access0x1Error) => setConfigError(`${e.code}: ${e.message}`)}
+            />
+          )
         ) : (
           <p style={styles.dim}>
             Configure your router (see .env.local) to enable checkout.
@@ -157,7 +245,18 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   success: { display: 'flex', flexDirection: 'column', gap: 4 },
-  error: { color: '#f87171', fontSize: 14 },
+  error: { color: '#f87171', fontSize: 14, wordBreak: 'break-word' },
+  ensField: { display: 'flex', flexDirection: 'column', gap: 6 },
+  ensInput: {
+    background: '#0f0f16',
+    color: '#f9fafb',
+    border: '1px solid #26262f',
+    borderRadius: 10,
+    padding: '10px 12px',
+    fontSize: 14,
+    fontFamily: 'inherit',
+  },
+  ensOk: { color: '#34d399', fontSize: 12, wordBreak: 'break-all' },
   footer: {
     borderTop: '1px solid #26262f',
     paddingTop: 14,
