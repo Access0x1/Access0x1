@@ -68,7 +68,8 @@ settlement — all off the money path by construction.
   pays in USDC and settles in USDC: there is **no separate gas coin to top up and no Paymaster to
   run** — the Arc + Circle stack does that work, so checkout is gas-free with zero extra contract
   code on our side. The same `payToken(USDC)` path also runs on Base Sepolia (live); zkSync Sepolia is
-  one-command ready as a bridge target, not yet broadcast.
+  one-command ready as a bridge target, not yet broadcast. (On other chains, buyers pay gas in that
+  chain's native token; an optional ERC-7677 paymaster can sponsor this gas if configured.)
 - **Zero custody.** Settlement is atomic: pull → split → push, all in one tx. The router's
   steady-state balance is zero; the only native it can hold is value owed back through `claimRescue`
   when a payee contract rejects a push (the receipt still stands — funds are never stuck).
