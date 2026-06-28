@@ -17,9 +17,15 @@
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 ![Tests](https://img.shields.io/badge/Tests-1383%20passing-44CC11?style=for-the-badge)
-![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
+[![Coverage](https://img.shields.io/badge/coverage-98%25%20router%20lines-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
+
+**The repo**
+
+[![Release](https://img.shields.io/github/v/release/Access0x1/Access0x1?style=for-the-badge&label=release&color=5B21B6&sort=semver)](https://github.com/Access0x1/Access0x1/releases)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/Access0x1/Access0x1?style=for-the-badge&label=commits%2Fmonth&color=1D4ED8)](https://github.com/Access0x1/Access0x1/commits)
+![Code size](https://img.shields.io/github/languages/code-size/Access0x1/Access0x1?style=for-the-badge&label=code%20size&color=0F766E)
 
 **The owned ERCs**
 
