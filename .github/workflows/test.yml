@@ -19,8 +19,21 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      # Restore the foundryup-installed toolchain (binaries land in ~/.foundry, the
+      # installer in ~/.foundryup). Keyed on the pinned Foundry version below, so the
+      # cache is rebuilt only when that version changes. A miss just re-runs foundryup.
+      - name: Cache Foundry toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.foundry
+            ~/.foundryup
+          key: ${{ runner.os }}-foundry-stable
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
 
       - name: Show Forge version
         run: forge --version
@@ -29,6 +42,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
 
       # @chainlink/contracts lives in gitignored node_modules (the brownie repo is
       # deprecated); the remapping resolves into it, so deps must be installed first.
