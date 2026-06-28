@@ -2,7 +2,9 @@
 
 <div align="center">
 
-**A do-it-all center to get you and your business onchain** — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), and identity, white-label for non-coders and agent-native. One drop-in, no contract code.
+**One contract, one call per merchant: USD-priced crypto payments with zero custody, no code to write.**
+
+A do-it-all center to get you and your business onchain — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), and identity, white-label for non-coders and agent-native. One drop-in, no contract code.
 
 **⚡ New here? → [Quickstart — working code in 5 min](docs/QUICKSTART.md)** · [60-second model](docs/GETTING-STARTED.md) · [Architecture](#architecture)
 
