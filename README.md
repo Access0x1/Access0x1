@@ -2,9 +2,11 @@
 
 <div align="center">
 
-**One contract, one call per merchant: USD-priced crypto payments with zero custody, no code to write.**
+**The open-source rail for onchain identity + USD-priced crypto payments. One link, no code, no contract, no gas. Apps build on it.**
 
-A do-it-all center to get you and your business onchain — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), and identity, white-label for non-coders and agent-native. One drop-in, no contract code.
+Access0x1 is the umbrella layer everything plugs into — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), and identity, white-label for non-coders and agent-native. One shared rail per chain; apps build on top, no per-app contract code.
+
+🏆 **Verified ETHGlobal Hacker Pack holder · ENS prize winner** — the Hacker Pack is an on-chain credential ([`EG-HACKER`](https://optimistic.etherscan.io/token/0x32382a82d9faDc55f971f33DaEeE5841cfbADbE0) · contract `0x32382a82d9faDc55f971f33DaEeE5841cfbADbE0` · balance 1 on Optimism).
 
 **⚡ New here? → [Quickstart — working code in 5 min](docs/QUICKSTART.md)** · [60-second model](docs/GETTING-STARTED.md) · [Architecture](#architecture)
 
