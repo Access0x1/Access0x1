@@ -7,8 +7,8 @@
 
 Access0x1 was built by **Claude Code** running a multi-agent harness, against a
 fixed, written specification. These files are the spec that drove the build — the
-plans the agents were handed, not a retro-fit. They are reproduced from the
-authoritative, in-repo doctrine so the spec lives **with** the code it produced.
+plans the agents were handed, not a retro-fit. They are reproduced here from the
+authoritative local doctrine so the spec ships **with** the code it produced.
 
 ## What's here
 
@@ -18,23 +18,15 @@ authoritative, in-repo doctrine so the spec lives **with** the code it produced.
 | [`BUILD-ORDER.md`](./BUILD-ORDER.md) | The dependency-ordered unit list (the build plan) + the per-unit Sonnet→Opus→review→red-team→merge pipeline. |
 | [`COMMIT-DISCIPLINE.md`](./COMMIT-DISCIPLINE.md) | The seven commit laws + the branch/PR flow that make the git log itself a proof artifact. |
 
-## The authoritative sources (also in this repo)
+## The authoritative sources (local build tooling, not published)
 
-These specs are summaries/captures; the live, enforced sources of truth are:
-
-- [`../CLAUDE.md`](../CLAUDE.md) — the full operating doctrine that auto-loads for
-  any Claude session in the repo.
-- [`../.claude/rules/`](../.claude/rules) — always-on rules:
-  [`stack.md`](../.claude/rules/stack.md),
-  [`git-workflow.md`](../.claude/rules/git-workflow.md),
-  [`testing.md`](../.claude/rules/testing.md),
-  [`model-policy.md`](../.claude/rules/model-policy.md),
-  [`security.md`](../.claude/rules/security.md),
-  [`accounts.md`](../.claude/rules/accounts.md).
-- [`../.claude/hooks/`](../.claude/hooks) — the PreToolUse guard that *enforces* the
-  commit/secret laws on every shell call (the spec is not just aspirational).
-- [`../PROGRESS.md`](../PROGRESS.md) — the running done-log: which unit landed, its
-  green-proof, and its merge SHA.
+These specs are the captured, published summaries. The live, enforced sources that
+drove the build were the project's local Claude Code harness — an auto-loading
+operating doctrine plus always-on rules (stack, git-workflow, testing, model-policy,
+security, accounts) and a PreToolUse hook that *enforced* the commit/secret laws on
+every shell call. That harness is local build tooling, kept out of the published
+repo by design; what it produced — the spec captured here and the public git history
+— is what ships.
 
 ## How to read the trail
 
@@ -42,7 +34,6 @@ The spec → output mapping is direct and verifiable:
 
 1. `BUILD-ORDER.md` lists the units in dependency order.
 2. Each unit became **one branch → one merge-commit PR** (see the public PR list).
-3. `PROGRESS.md` records each landing with its green-proof.
-4. The per-function commits inside each PR are the
+3. The per-function commits inside each PR are the
    [`git log`](https://github.com/Access0x1/Access0x1/commits/main) — the build-time
    proof that the spec was followed one deliberate move at a time.

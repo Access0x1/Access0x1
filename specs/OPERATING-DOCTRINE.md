@@ -1,9 +1,9 @@
 # Spec: the operating doctrine
 
 The brief every unit of Access0x1 was built against. This is the spec the AI agents
-were handed; the live, auto-loading copy is [`../CLAUDE.md`](../CLAUDE.md) and the
-always-on [`../.claude/rules/`](../.claude/rules). Captured here so the spec ships
-with the submission.
+were handed; the live, auto-loading copy was the project's local Claude Code
+operating doctrine and always-on rules (local build tooling, not published).
+Captured here so the spec ships with the submission.
 
 ## What is being built
 
@@ -88,5 +88,4 @@ carry money, identity, or scope are the human's.
 - **AI Q&A feature:** the Claude API, server-side only, with its own spend-capped
   key — never in the browser, `embed.js`, or the repo.
 
-Full, enforced detail: [`../.claude/rules/stack.md`](../.claude/rules/stack.md) and
-[`../.claude/rules/security.md`](../.claude/rules/security.md).
+Full, enforced detail lived in the local build harness's stack and security rules.

@@ -252,10 +252,13 @@ describe('root page redirect target', () => {
     delete process.env.FEATURED_MERCHANT_SLUG
   })
 
-  it('targets /onboard when no featured slug is set', async () => {
+  it('renders the marketing landing (no redirect) when no featured slug is set', async () => {
     const { default: Home } = await import('@/app/page')
-    expect(() => Home()).toThrow('REDIRECT')
-    expect(redirect).toHaveBeenCalledWith('/onboard')
+    // The root IS the public marketing landing by default now — it only
+    // redirects when FEATURED_MERCHANT_SLUG is set (asserted below).
+    const out = Home()
+    expect(out).toBeTruthy()
+    expect(redirect).not.toHaveBeenCalled()
   })
 
   it('targets the branded checkout /c/<slug> when a featured slug is set', async () => {
