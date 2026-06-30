@@ -42,6 +42,7 @@ import {
 import { verifyOidcToken } from '@/lib/oidc/verify'
 import { oidcIssuer } from '@/lib/oidc/config'
 import { claimSubject } from '@/lib/oidc/subjectStore'
+import { DurableStoreRequiredError } from '@/lib/security/replayStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -159,7 +160,18 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // One OIDC account verifies once (anti-farm), mirroring the World ID nullifier
   // gate. A repeat account ⇒ 409, and we record nothing.
-  const fresh = claimSubject(oidcIssuer(), result.identity.subject)
+  let fresh: boolean
+  try {
+    fresh = await claimSubject(oidcIssuer(), result.identity.subject)
+  } catch (err) {
+    // FAIL-CLOSED (R-2): no durable replay store in production ⇒ refuse rather
+    // than fall back to the replay-vulnerable in-memory set (which would let one
+    // OIDC account re-farm badges after a restart). 503, never a silent pass.
+    if (err instanceof DurableStoreRequiredError) {
+      return NextResponse.json({ error: 'not_configured', method: 'oidc' }, { status: 503 })
+    }
+    throw err
+  }
   if (!fresh) {
     return NextResponse.json({ error: 'already_verified', method: 'oidc' }, { status: 409 })
   }

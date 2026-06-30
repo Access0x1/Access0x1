@@ -4,6 +4,7 @@ import { BrandingError, getByTenant, upsertBranding } from '@/lib/branding/store
 import { worldOperatorAction } from '@/lib/worldid/config'
 import { verifyWorldProof } from '@/lib/worldid/verify'
 import { claimNullifier } from '@/lib/worldid/nullifierStore'
+import { DurableStoreRequiredError } from '@/lib/security/replayStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,8 +84,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   // One human, one operator slot.
   let fresh: boolean
   try {
-    fresh = claimNullifier(action, result.nullifier)
-  } catch {
+    fresh = await claimNullifier(action, result.nullifier)
+  } catch (err) {
+    // FAIL-CLOSED (R-2): no durable replay store in production ⇒ 503, never a
+    // silent fall back to the replay-vulnerable in-memory set.
+    if (err instanceof DurableStoreRequiredError) {
+      return NextResponse.json({ error: 'not_configured' }, { status: 503 })
+    }
     return NextResponse.json({ error: 'bad_nullifier' }, { status: 400 })
   }
   if (!fresh) {

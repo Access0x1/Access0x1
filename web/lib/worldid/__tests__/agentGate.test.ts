@@ -58,21 +58,21 @@ describe('agent trial gate', () => {
 })
 
 describe('nullifier store — UNIQUE(action, nullifier)', () => {
-  it('claims a fresh nullifier then rejects the repeat', () => {
-    expect(claimNullifier('act', '0x10')).toBe(true)
-    expect(claimNullifier('act', '0x10')).toBe(false)
-    expect(hasNullifier('act', '0x10')).toBe(true)
+  it('claims a fresh nullifier then rejects the repeat', async () => {
+    expect(await claimNullifier('act', '0x10')).toBe(true)
+    expect(await claimNullifier('act', '0x10')).toBe(false)
+    expect(await hasNullifier('act', '0x10')).toBe(true)
   })
 
-  it('scopes by action — same nullifier on a different action is fresh', () => {
-    expect(claimNullifier('act-a', '0x10')).toBe(true)
-    expect(claimNullifier('act-b', '0x10')).toBe(true)
+  it('scopes by action — same nullifier on a different action is fresh', async () => {
+    expect(await claimNullifier('act-a', '0x10')).toBe(true)
+    expect(await claimNullifier('act-b', '0x10')).toBe(true)
   })
 
-  it('normalizes hex and decimal to the same identity', () => {
+  it('normalizes hex and decimal to the same identity', async () => {
     expect(normalizeNullifier('0xff')).toBe('255')
-    expect(claimNullifier('act', '0xff')).toBe(true)
-    expect(claimNullifier('act', '255')).toBe(false) // same human
+    expect(await claimNullifier('act', '0xff')).toBe(true)
+    expect(await claimNullifier('act', '255')).toBe(false) // same human
   })
 
   it('throws on a malformed nullifier', () => {
