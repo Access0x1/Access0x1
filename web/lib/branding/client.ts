@@ -141,6 +141,43 @@ export async function loadBranding(tenantId: string): Promise<ClientBranding | n
   }
 }
 
+/**
+ * The discriminated result of {@link loadBrandingStatus}.
+ *   - `ok`    — a branding row exists (the `row`),
+ *   - `empty` — the tenant has no row yet (a genuine "start over" signal),
+ *   - `error` — the fetch FAILED (network / non-2xx). Distinct from `empty` so a
+ *     transient failure never routes a fully-onboarded merchant to the
+ *     "start over" dead-end (worst on a second device — the case the durable row
+ *     is for). The caller shows a neutral "couldn't load — refresh" with retry.
+ */
+export type BrandingStatus =
+  | { status: 'ok'; row: ClientBranding }
+  | { status: 'empty' }
+  | { status: 'error' }
+
+/**
+ * Load the tenant's branding, distinguishing "no row" from "fetch failed".
+ *
+ * {@link loadBranding} flattens BOTH cases to `null`, which is safe for prefill
+ * (a missing prefill is harmless) but UNSAFE for the dashboard's resolution
+ * branch: a transient GET failure would look identical to "never onboarded" and
+ * send a real merchant to the start-over dead-end. This loader keeps the two
+ * apart so the dashboard can show a retryable load-error instead.
+ *
+ * @param tenantId - the asking tenant (their wallet address).
+ * @returns `{status:'ok',row}` | `{status:'empty'}` | `{status:'error'}`.
+ */
+export async function loadBrandingStatus(tenantId: string): Promise<BrandingStatus> {
+  try {
+    const res = await fetch(`/api/branding?tenantId=${encodeURIComponent(tenantId)}`)
+    if (!res.ok) return { status: 'error' }
+    const json = (await res.json()) as { branding: ClientBranding | null }
+    return json.branding ? { status: 'ok', row: json.branding } : { status: 'empty' }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 /** Check whether a checkout-link tail is available (debounced by the caller). */
 export async function checkSlug(
   slug: string,
