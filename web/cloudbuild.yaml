@@ -1,0 +1,26 @@
+# Cloud Build config for the Access0x1 web container.
+#
+# NEXT_PUBLIC_* values are inlined into the client bundle at `next build`, so they
+# must be passed as build ARGs (build time), not runtime env. They are PUBLIC
+# (shipped to every browser) — not secrets. Each deployer supplies their own via
+# --substitutions, so the open-source repo stays BYO-keys (nothing hardcoded).
+#
+# Usage:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_DYNAMIC_ENV=<env-id>,_IMAGE=<artifact-registry-tag> .
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=${_DYNAMIC_ENV}'
+      - '-t'
+      - '${_IMAGE}'
+      - '-f'
+      - 'Dockerfile'
+      - '.'
+images:
+  - '${_IMAGE}'
+options:
+  machineType: 'E2_HIGHCPU_8'
+timeout: 1800s
