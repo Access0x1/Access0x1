@@ -1,9 +1,9 @@
 # Spec: the build order + the per-unit pipeline
 
 The dependency-ordered plan the AI agents executed. Each unit became one branch and
-one merge-commit PR; what actually landed is recorded in
-[`../PROGRESS.md`](../PROGRESS.md) with its green-proof and merge SHA. Source of
-truth for the pipeline: [`../.claude/rules/model-policy.md`](../.claude/rules/model-policy.md).
+one merge-commit PR; what actually landed is the public git history, each PR carrying
+its green-proof and merge SHA. The per-tier model policy that drove the pipeline is
+disclosed in [`../AI_ATTRIBUTION.md`](../AI_ATTRIBUTION.md).
 
 ## The build order (dependency order)
 
@@ -62,7 +62,7 @@ One feature branch, e.g. `feat/router-core`:
 
 ## Verifying spec → output
 
-`PROGRESS.md` is the index: one ✅ line per unit — *agent-branch · what ·
-green-proof · merge SHA*. The per-function commits inside each PR are the public
-git log. Read `PROGRESS.md` first, then the log; the code is opened only when the
-two don't answer the question.
+The public PR list is the index: one merge-commit PR per unit — *agent-branch ·
+what · green-proof · merge SHA*. The per-function commits inside each PR are the
+public git log. Read the PR list first, then the log; the code is opened only when
+the two don't answer the question.
