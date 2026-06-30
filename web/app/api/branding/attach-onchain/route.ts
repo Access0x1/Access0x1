@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
-import { attachOnChain, getByTenant } from '@/lib/branding/store'
+import { attachOnChain, BrandingError, getByTenant } from '@/lib/branding/store'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,7 +60,20 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'no_branding' }, { status: 400 })
   }
 
-  const row = attachOnChain(tenantId, { merchantId: rawMerchantId })
+  let row
+  try {
+    row = attachOnChain(tenantId, { merchantId: rawMerchantId })
+  } catch (err) {
+    // attachOnChain → upsertBranding re-validates the row and can throw a
+    // BrandingError (e.g. CASINO_NEEDS_OPERATOR for an unverified casino tenant).
+    // Surface it as a 400 with its machine code so the UI branches honestly,
+    // rather than letting it escape as a bodyless 500 (law #4 — never claim
+    // payments are on when the bind never happened).
+    if (err instanceof BrandingError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: 400 })
+    }
+    return NextResponse.json({ error: 'attach_failed' }, { status: 500 })
+  }
   if (!row) {
     // Raced away between the check and the write — treat as no_branding.
     return NextResponse.json({ error: 'no_branding' }, { status: 400 })

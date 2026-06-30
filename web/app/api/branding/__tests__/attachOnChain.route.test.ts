@@ -98,4 +98,43 @@ describe('POST /api/branding/attach-onchain', () => {
     expect(store.getByTenant(TENANT_A)?.merchantId).toBeNull()
     expect(store.getByMerchantId('99')).toBeNull()
   })
+
+  it('400 (not 500) with the casino code when an unverified casino re-validates', async () => {
+    // attachOnChain → upsertBranding RE-validates the row, and for a casino whose
+    // operator is no longer verified it throws BrandingError(CASINO_NEEDS_OPERATOR).
+    // The route must catch it and answer a 400 carrying the code — NOT let it
+    // escape as a bodyless 500 (law #4: never imply payments are on when the bind
+    // never happened). Construct the at-rest casino/unverified state directly on
+    // the live row (upsertBranding refuses to CREATE one, which is the point).
+    const row = store.getByTenant(TENANT_A)
+    expect(row).not.toBeNull()
+    ;(row as { vertical: string }).vertical = 'casino'
+    ;(row as { verifiedOperator: boolean }).verifiedOperator = false
+
+    const res = await POST(post({ tenantId: TENANT_A, merchantId: '7' }))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.code).toBe(store.CASINO_NEEDS_OPERATOR_CODE)
+    // The bind did NOT happen — the slug is still not payable.
+    expect(store.getByTenant(TENANT_A)?.merchantId).toBeNull()
+    expect(store.getByMerchantId('7')).toBeNull()
+  })
+
+  it('idempotent: re-attaching the SAME merchantId succeeds and the by-merchant index stays correct', async () => {
+    // The retry path re-attaches the same id (it never re-registers). A second
+    // attach with the same merchantId must succeed (200) and leave every index
+    // resolving the merchant — getBySlug, getByMerchantId, getByTenant agree.
+    const first = await POST(post({ tenantId: TENANT_A, merchantId: '42' }))
+    expect(first.status).toBe(200)
+
+    const second = await POST(post({ tenantId: TENANT_A, merchantId: '42' }))
+    expect(second.status).toBe(200)
+    expect((await second.json()).branding.merchantId).toBe('42')
+
+    // Indexes are consistent and the slug still resolves THE merchant.
+    expect(store.getByTenant(TENANT_A)?.merchantId).toBe('42')
+    expect(store.getByMerchantId('42')?.tenantId).toBe(TENANT_A)
+    expect(store.getBySlug('acme')?.merchantId).toBe('42')
+    expect(store.getBySlug('acme')?.tenantId).toBe(TENANT_A)
+  })
 })
