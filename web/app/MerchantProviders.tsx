@@ -51,9 +51,16 @@ export function MerchantProviders({ children }: { children: ReactNode }): ReactN
   // merchant subtree on bare wagmi so pages still build; wallet connection stays
   // disabled until NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID is set (warned in dynamic.ts).
   if (!settings.environmentId) {
+    // Dynamic isn't configured (no NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID). Render a graceful
+    // notice INSTEAD of the merchant children — they call Dynamic hooks (useDynamicContext)
+    // that hard-throw without the provider, which white-screens the whole page. The
+    // customer/checkout surfaces (app/providers.tsx, no Dynamic) are unaffected. A self-hoster
+    // sets the env id to light up the merchant/wallet flow.
     return (
       <WagmiProvider config={wagmiConfig}>
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          <DynamicNotConfiguredNotice />
+        </QueryClientProvider>
       </WagmiProvider>
     )
   }
@@ -66,5 +73,27 @@ export function MerchantProviders({ children }: { children: ReactNode }): ReactN
         </QueryClientProvider>
       </WagmiProvider>
     </DynamicContextProvider>
+  )
+}
+
+/**
+ * Fail-soft fallback shown on merchant surfaces when Dynamic is unconfigured.
+ * Renders in place of the merchant children so their Dynamic hooks never run
+ * (which would otherwise throw "Hook must be used within <DynamicContextProvider>").
+ */
+function DynamicNotConfiguredNotice(): ReactNode {
+  return (
+    <main style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', padding: '2rem', textAlign: 'center' }}>
+      <div style={{ maxWidth: 520 }}>
+        <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+          Wallet sign-in is not configured
+        </h1>
+        <p style={{ opacity: 0.7, lineHeight: 1.6 }}>
+          The merchant flow uses Dynamic for wallet auth. Set{' '}
+          <code>NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID</code> for this deployment to enable
+          onboarding. Payment and checkout surfaces work without it.
+        </p>
+      </div>
+    </main>
   )
 }

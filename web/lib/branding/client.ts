@@ -62,6 +62,40 @@ export async function saveCheckoutMode(input: {
 }
 
 /**
+ * Bind an on-chain `merchantId` to the tenant's branding row so their checkout
+ * slug becomes PAYABLE ("switch on payments"). Rides on the same branding row;
+ * requires the tenant to have saved their name/logo first (the card is only
+ * shown after that), so a `no_branding` 400 is surfaced plainly.
+ *
+ * Same discriminated-result shape as `saveBranding` / `saveCheckoutMode`: never
+ * throws on a non-2xx; returns `{ ok }` so the UI shows a plain-English message.
+ */
+export async function attachOnChain(input: {
+  tenantId: string
+  merchantId: string
+}): Promise<{ ok: true; branding: ClientBranding } | { ok: false; error: string; code?: string }> {
+  try {
+    const res = await fetch('/api/branding/attach-onchain', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    const json = (await res.json()) as { branding?: ClientBranding; error?: string; code?: string }
+    if (res.ok && json.branding) return { ok: true, branding: json.branding }
+    if (json.error === 'no_branding') {
+      return {
+        ok: false,
+        error: 'Set your business name first, then switch on payments.',
+        code: 'no_branding',
+      }
+    }
+    return { ok: false, error: json.error ?? 'Could not switch on payments. Please try again.', code: json.code }
+  } catch {
+    return { ok: false, error: 'Could not reach the server. Check your connection.' }
+  }
+}
+
+/**
  * Record the operator's World ID proof on their branding row (Casino vertical).
  * The `WorldIdGate` is pointed at `/api/branding/operator-verify` with the
  * operator action; on a 200 the row's `verifiedOperator` flips true so a casino
@@ -104,6 +138,43 @@ export async function loadBranding(tenantId: string): Promise<ClientBranding | n
     return json.branding
   } catch {
     return null
+  }
+}
+
+/**
+ * The discriminated result of {@link loadBrandingStatus}.
+ *   - `ok`    — a branding row exists (the `row`),
+ *   - `empty` — the tenant has no row yet (a genuine "start over" signal),
+ *   - `error` — the fetch FAILED (network / non-2xx). Distinct from `empty` so a
+ *     transient failure never routes a fully-onboarded merchant to the
+ *     "start over" dead-end (worst on a second device — the case the durable row
+ *     is for). The caller shows a neutral "couldn't load — refresh" with retry.
+ */
+export type BrandingStatus =
+  | { status: 'ok'; row: ClientBranding }
+  | { status: 'empty' }
+  | { status: 'error' }
+
+/**
+ * Load the tenant's branding, distinguishing "no row" from "fetch failed".
+ *
+ * {@link loadBranding} flattens BOTH cases to `null`, which is safe for prefill
+ * (a missing prefill is harmless) but UNSAFE for the dashboard's resolution
+ * branch: a transient GET failure would look identical to "never onboarded" and
+ * send a real merchant to the start-over dead-end. This loader keeps the two
+ * apart so the dashboard can show a retryable load-error instead.
+ *
+ * @param tenantId - the asking tenant (their wallet address).
+ * @returns `{status:'ok',row}` | `{status:'empty'}` | `{status:'error'}`.
+ */
+export async function loadBrandingStatus(tenantId: string): Promise<BrandingStatus> {
+  try {
+    const res = await fetch(`/api/branding?tenantId=${encodeURIComponent(tenantId)}`)
+    if (!res.ok) return { status: 'error' }
+    const json = (await res.json()) as { branding: ClientBranding | null }
+    return json.branding ? { status: 'ok', row: json.branding } : { status: 'empty' }
+  } catch {
+    return { status: 'error' }
   }
 }
 

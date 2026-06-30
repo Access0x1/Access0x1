@@ -3,7 +3,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 
-import { ConnectButton } from '@/components/ConnectButton'
 import { VerificationLevels } from './VerificationLevels'
 import { loadProfile, type VerificationProfileResponse } from '@/lib/verification/client'
 
@@ -43,7 +42,6 @@ export function VerificationLevelsPanel({
         <p className="text-sm text-muted-foreground">
           Connect your wallet to see your verification level.
         </p>
-        <ConnectButton />
       </div>
     )
   }
