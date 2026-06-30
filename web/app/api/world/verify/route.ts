@@ -27,6 +27,7 @@ import { worldAction, worldAgentAction } from '@/lib/worldid/config'
 import { verifyWorldProof } from '@/lib/worldid/verify'
 import { claimNullifier } from '@/lib/worldid/nullifierStore'
 import { unlockAgentTrial } from '@/lib/worldid/agentGate'
+import { DurableStoreRequiredError } from '@/lib/security/replayStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,8 +98,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   // nullifier slot can't be steered by anything outside our config (C-2).
   let fresh: boolean
   try {
-    fresh = claimNullifier(action, result.nullifier)
-  } catch {
+    fresh = await claimNullifier(action, result.nullifier)
+  } catch (err) {
+    // FAIL-CLOSED (R-2): no durable replay store in production ⇒ refuse rather
+    // than fall back to the replay-vulnerable in-memory set. 503, never a silent pass.
+    if (err instanceof DurableStoreRequiredError) {
+      return NextResponse.json({ error: 'not_configured' }, { status: 503 })
+    }
     // Malformed nullifier field — treat as a bad proof, never a 500.
     return NextResponse.json({ error: 'bad_nullifier' }, { status: 400 })
   }
