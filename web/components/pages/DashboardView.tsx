@@ -11,8 +11,9 @@ import { TxHashLink } from '@/components/TxHashLink'
 import { GatewayBalanceCard } from '@/components/GatewayBalanceCard'
 import { RegisterForm, type RegisterResult } from '@/components/RegisterForm'
 import { LinkCard } from '@/components/LinkCard'
-import { attachOnChain, loadBranding } from '@/lib/branding/client'
+import { attachOnChain, loadBrandingStatus } from '@/lib/branding/client'
 import { resolveMerchantId } from '@/lib/branding/merchantId'
+import { canShowPaymentsOn } from '@/lib/branding/attachDecision'
 
 const PAYMENT_RECEIVED_EVENT = parseAbiItem(
   'event PaymentReceived(uint256 indexed merchantId, address indexed buyer, address indexed token, uint256 grossAmount, uint256 feeAmount, uint256 netAmount, uint256 usdAmount8, bytes32 orderId, uint64 srcChainSelector)',
@@ -62,6 +63,19 @@ export function DashboardView(): ReactNode {
   // The just-registered result, so the card can flip to a "payments on"
   // confirmation (LinkCard) without a full reload.
   const [justRegistered, setJustRegistered] = useState<RegisterResult | null>(null)
+  // The register succeeded on-chain but the server-side BIND (attachOnChain)
+  // failed — we hold the result so "Retry switching on payments" can re-attach
+  // the SAME merchantId (never re-register). Null when there's nothing pending.
+  const [pendingResult, setPendingResult] = useState<RegisterResult | null>(null)
+  // The plain-English attach failure to show INSIDE the Switch-on-payments card.
+  const [attachError, setAttachError] = useState<string | null>(null)
+  // True while a (re)attach POST is in-flight, to disable the retry button.
+  const [attaching, setAttaching] = useState(false)
+  // A non-fatal branding LOAD failure (transient GET). Distinct from "no row":
+  // we show a neutral retryable notice, never the start-over dead-end.
+  const [loadError, setLoadError] = useState(false)
+  // Bump to re-run the resolution effect (the load-error "refresh" retry).
+  const [reloadKey, setReloadKey] = useState(0)
 
   // Resolve the merchant id from BOTH sources, PREFERRING the durable branding
   // row (`branding.merchantId`) over the per-browser localStorage cache so a
@@ -78,15 +92,26 @@ export function DashboardView(): ReactNode {
       let fromBranding: string | null = null
       let brandingExists = false
       if (tenantId) {
-        const row = await loadBranding(tenantId)
+        const status = await loadBrandingStatus(tenantId)
         if (cancelled) return
-        if (row) {
+        if (status.status === 'error') {
+          // A transient GET failure must NOT be read as "never onboarded" —
+          // that routes a fully-onboarded merchant to the start-over dead-end
+          // (worst on a second device, the case the durable row exists for).
+          // Show a neutral retryable notice instead.
+          console.error('[access0x1] load-branding failed', { tenantId })
+          setLoadError(true)
+          setMerchantResolved(true)
+          return
+        }
+        if (status.status === 'ok') {
           brandingExists = true
-          fromBranding = row.merchantId
+          fromBranding = status.row.merchantId
         }
       }
       const resolved = resolveMerchantId(fromBranding, local)
       if (cancelled) return
+      setLoadError(false)
       setHasBranding(brandingExists)
       if (resolved) {
         try {
@@ -100,26 +125,64 @@ export function DashboardView(): ReactNode {
     return () => {
       cancelled = true
     }
-  }, [tenantId])
+  }, [tenantId, reloadKey])
 
-  // Wire RegisterForm → attach the new merchantId server-side (the slug becomes
-  // payable), cache it locally, and flip the card to the live confirmation.
-  const handleRegistered = useCallback(
+  // Bind a (already-registered) merchantId to the branding row so the slug
+  // becomes PAYABLE. ATTACH-ONLY: this never re-registers — both the first
+  // attempt and the retry button call THIS with the same on-chain result.
+  // Flips to the live confirmation ONLY when the server bind actually succeeds;
+  // on failure it surfaces the error in-card and keeps the result pending so the
+  // retry button can re-attach the SAME id (law #4: never claim "payments on"
+  // while the customer page still reads "hasn't switched on payments yet").
+  const attach = useCallback(
     async (result: RegisterResult): Promise<void> => {
       const id = result.merchantId.toString()
-      if (tenantId) {
-        // Make the slug PAYABLE: bind the merchantId to the branding row.
-        await attachOnChain({ tenantId, merchantId: id })
+      if (!tenantId) {
+        // The slug→merchantId bind is impossible without the tenant id; do NOT
+        // silently skip it and pretend payments are on. Surface and stop.
+        setAttachError('Wallet address not available — reconnect and try again.')
+        setPendingResult(result)
+        return
       }
+
+      setAttaching(true)
       try {
-        localStorage.setItem('ax1_merchant_id', id)
-      } catch {
-        // ignore — the branding row is the durable source of truth
+        // Make the slug PAYABLE: bind the merchantId to the branding row.
+        const attached = await attachOnChain({ tenantId, merchantId: id })
+        if (!canShowPaymentsOn(attached)) {
+          // attached is the failure variant here.
+          const failure = attached as { ok: false; error: string; code?: string }
+          console.error('[access0x1] attach-onchain failed', {
+            code: failure.code,
+            merchantId: id,
+          })
+          setAttachError(failure.error)
+          setPendingResult(result)
+          // Do NOT setMerchantId / setJustRegistered / write localStorage.
+          return
+        }
+
+        // Bind confirmed — now (and only now) claim payments are on.
+        setAttachError(null)
+        setPendingResult(null)
+        try {
+          localStorage.setItem('ax1_merchant_id', id)
+        } catch {
+          // ignore — the branding row is the durable source of truth
+        }
+        setMerchantId(result.merchantId)
+        setJustRegistered(result)
+      } finally {
+        setAttaching(false)
       }
-      setMerchantId(result.merchantId)
-      setJustRegistered(result)
     },
     [tenantId],
+  )
+
+  // Wire RegisterForm → attach the freshly-registered merchantId.
+  const handleRegistered = useCallback(
+    (result: RegisterResult): Promise<void> => attach(result),
+    [attach],
   )
 
   const load = useCallback(async () => {
@@ -221,6 +284,27 @@ export function DashboardView(): ReactNode {
       ) : merchantId === null ? (
         !merchantResolved ? (
           <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
+        ) : loadError ? (
+          // The branding GET failed (network / non-2xx). NOT the same as "never
+          // onboarded": show a neutral retryable notice, never the start-over
+          // dead-end, so a fully-onboarded merchant (esp. on a second device) is
+          // not pushed back to the beginning by a transient blip.
+          <section className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-6">
+            <p className="text-sm text-neutral-600" data-testid="load-error">
+              Couldn&apos;t load your account — refresh to try again.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setLoadError(false)
+                setMerchantResolved(false)
+                setReloadKey((k) => k + 1)
+              }}
+              className="self-start rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100"
+            >
+              Refresh
+            </button>
+          </section>
         ) : hasBranding ? (
           // Branding saved but not yet on-chain — mount the one-time register
           // step HERE (the onboard done screen points the merchant to it). On
@@ -233,7 +317,34 @@ export function DashboardView(): ReactNode {
                 accepting USDC — no further steps after this.
               </p>
             </div>
-            <RegisterForm onRegistered={(r) => void handleRegistered(r)} />
+            {/* The on-chain register ran but the server BIND failed: surface the
+                error and a retry that RE-ATTACHES the same merchantId (never
+                re-registers). Until the bind succeeds we stay honest — no
+                "payments on" claim. */}
+            {pendingResult ? (
+              <div
+                className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50/60 p-4"
+                data-testid="attach-error"
+              >
+                <p className="text-sm text-red-600">
+                  {attachError ?? 'Could not switch on payments. Please try again.'}
+                </p>
+                <p className="text-xs text-neutral-500">
+                  Your registration is safe — this only re-runs the switch-on step, it will not
+                  register again.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void attach(pendingResult)}
+                  disabled={attaching}
+                  className="self-start rounded-lg bg-rail px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {attaching ? 'Switching on…' : 'Retry switching on payments'}
+                </button>
+              </div>
+            ) : (
+              <RegisterForm onRegistered={(r) => void handleRegistered(r)} />
+            )}
           </section>
         ) : (
           <p className="text-sm text-neutral-500">
