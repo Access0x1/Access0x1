@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { parseAbiItem, type Address } from 'viem'
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { getDefaultChainId, getRouterAddress, tokenDecimalsFor } from '@/lib/chains'
 import { getPublicClient } from '@/lib/wallet'
 import { amount8ToUsd, formatTokenAmount } from '@/lib/quote'
 import { ConnectButton } from '@/components/ConnectButton'
 import { TxHashLink } from '@/components/TxHashLink'
 import { GatewayBalanceCard } from '@/components/GatewayBalanceCard'
+import { RegisterForm, type RegisterResult } from '@/components/RegisterForm'
+import { LinkCard } from '@/components/LinkCard'
+import { attachOnChain, loadBranding } from '@/lib/branding/client'
+import { resolveMerchantId } from '@/lib/branding/merchantId'
 
 const PAYMENT_RECEIVED_EVENT = parseAbiItem(
   'event PaymentReceived(uint256 indexed merchantId, address indexed buyer, address indexed token, uint256 grossAmount, uint256 feeAmount, uint256 netAmount, uint256 usdAmount8, bytes32 orderId, uint64 srcChainSelector)',
@@ -40,20 +45,82 @@ function updatedAgo(updatedAt: number, now: number): string {
  */
 export function DashboardView(): ReactNode {
   const chainId = getDefaultChainId()
+  const { primaryWallet } = useDynamicContext()
+  const tenantId = primaryWallet?.address?.toLowerCase()
+
   const [merchantId, setMerchantId] = useState<bigint | null>(null)
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<number | null>(null)
+  // True once we've checked BOTH sources for a merchant id; gates the
+  // register-step vs dead-end copy so neither flashes during the async load.
+  const [merchantResolved, setMerchantResolved] = useState(false)
+  // The tenant has a branding row but is not yet on-chain — show the
+  // "Switch on payments" card (mounts RegisterForm). Null until resolved.
+  const [hasBranding, setHasBranding] = useState(false)
+  // The just-registered result, so the card can flip to a "payments on"
+  // confirmation (LinkCard) without a full reload.
+  const [justRegistered, setJustRegistered] = useState<RegisterResult | null>(null)
 
+  // Resolve the merchant id from BOTH sources, PREFERRING the durable branding
+  // row (`branding.merchantId`) over the per-browser localStorage cache so a
+  // merchant who switched on payments elsewhere still sees their receipts here.
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('ax1_merchant_id')
-      if (stored) setMerchantId(BigInt(stored))
-    } catch {
-      // ignore
+    let cancelled = false
+    void (async () => {
+      let local: string | null = null
+      try {
+        local = localStorage.getItem('ax1_merchant_id')
+      } catch {
+        // ignore — private mode / disabled storage
+      }
+      let fromBranding: string | null = null
+      let brandingExists = false
+      if (tenantId) {
+        const row = await loadBranding(tenantId)
+        if (cancelled) return
+        if (row) {
+          brandingExists = true
+          fromBranding = row.merchantId
+        }
+      }
+      const resolved = resolveMerchantId(fromBranding, local)
+      if (cancelled) return
+      setHasBranding(brandingExists)
+      if (resolved) {
+        try {
+          setMerchantId(BigInt(resolved))
+        } catch {
+          // ignore a malformed id
+        }
+      }
+      setMerchantResolved(true)
+    })()
+    return () => {
+      cancelled = true
     }
-  }, [])
+  }, [tenantId])
+
+  // Wire RegisterForm → attach the new merchantId server-side (the slug becomes
+  // payable), cache it locally, and flip the card to the live confirmation.
+  const handleRegistered = useCallback(
+    async (result: RegisterResult): Promise<void> => {
+      const id = result.merchantId.toString()
+      if (tenantId) {
+        // Make the slug PAYABLE: bind the merchantId to the branding row.
+        await attachOnChain({ tenantId, merchantId: id })
+      }
+      try {
+        localStorage.setItem('ax1_merchant_id', id)
+      } catch {
+        // ignore — the branding row is the durable source of truth
+      }
+      setMerchantId(result.merchantId)
+      setJustRegistered(result)
+    },
+    [tenantId],
+  )
 
   const load = useCallback(async () => {
     if (merchantId === null) return
@@ -143,10 +210,40 @@ export function DashboardView(): ReactNode {
         </div>
       ) : null}
 
-      {merchantId === null ? (
-        <p className="text-sm text-neutral-500">
-          No merchant found in this browser. Register on the onboard page first.
-        </p>
+      {justRegistered ? (
+        // Just switched on payments — show the live link/QR/embed confirmation.
+        <div className="rounded-2xl border border-green-200 bg-green-50/40 p-6">
+          <p className="mb-4 text-sm font-medium text-green-700">
+            ✓ Payments are on. Your checkout link is live.
+          </p>
+          <LinkCard result={justRegistered} />
+        </div>
+      ) : merchantId === null ? (
+        !merchantResolved ? (
+          <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
+        ) : hasBranding ? (
+          // Branding saved but not yet on-chain — mount the one-time register
+          // step HERE (the onboard done screen points the merchant to it). On
+          // success it attaches the merchantId so the slug becomes payable.
+          <section className="flex flex-col gap-4 rounded-2xl border border-rail/30 bg-rail/5 p-6">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Switch on payments</h2>
+              <p className="text-sm text-neutral-500">
+                Your branded checkout is ready. Finish the quick one-time on-chain setup to start
+                accepting USDC — no further steps after this.
+              </p>
+            </div>
+            <RegisterForm onRegistered={(r) => void handleRegistered(r)} />
+          </section>
+        ) : (
+          <p className="text-sm text-neutral-500">
+            No merchant found in this browser.{' '}
+            <a href="/onboard" className="text-rail underline-offset-2 hover:underline">
+              Set up your checkout on the onboard page
+            </a>{' '}
+            first.
+          </p>
+        )
       ) : (
         <>
           <p className="text-sm text-neutral-500">Merchant #{merchantId.toString()}</p>
