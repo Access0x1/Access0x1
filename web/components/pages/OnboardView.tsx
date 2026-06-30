@@ -1,12 +1,14 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { BrandMark } from '@/components/BrandMark'
 import { ConnectButton } from '@/components/ConnectButton'
 import { BrandingForm } from '@/components/branding/BrandingForm'
 import { CheckoutModeForm } from '@/components/branding/CheckoutModeForm'
 import { VerificationLevelsPanel } from '@/components/verification/VerificationLevelsPanel'
 import { AskAssistant } from '@/components/AskAssistant'
+import { showOnboardCards } from '@/lib/branding/onboardGate'
 
 /**
  * Onboarding view: sign in (Dynamic) → the non-coder "Make it yours" branding
@@ -20,6 +22,12 @@ import { AskAssistant } from '@/components/AskAssistant'
  * Dynamic wallet hooks never run during static generation.
  */
 export function OnboardView(): ReactNode {
+  // Read inside the MerchantProviders subtree (the route wraps this view in it),
+  // so this is safe even when Dynamic is unconfigured: the provider simply never
+  // yields a primaryWallet and we render the connect-gate — no hard-throw.
+  const { primaryWallet } = useDynamicContext()
+  const showCards = showOnboardCards(primaryWallet)
+
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between">
@@ -36,31 +44,52 @@ export function OnboardView(): ReactNode {
         description, and a logo below to get yours, live in under two minutes.
       </p>
 
-      <section className="rounded-2xl border border-neutral-200 p-6">
-        <BrandingForm mode="onboard" />
-      </section>
+      {showCards ? (
+        <>
+          <section className="rounded-2xl border border-neutral-200 p-6">
+            <BrandingForm mode="onboard" />
+          </section>
 
-      <section className="rounded-2xl border border-neutral-200 p-6">
-        <p className="mb-4 text-xs font-medium uppercase tracking-widest text-neutral-400">
-          Optional — you can skip this and decide later
-        </p>
-        <CheckoutModeForm mode="onboard" />
-      </section>
+          <section className="rounded-2xl border border-neutral-200 p-6">
+            <p className="mb-4 text-xs font-medium uppercase tracking-widest text-neutral-400">
+              Optional — you can skip this and decide later
+            </p>
+            <CheckoutModeForm mode="onboard" />
+          </section>
 
-      <section className="flex flex-col gap-3">
-        <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
-          Optional — raise your own trust level
-        </p>
-        <VerificationLevelsPanel />
-      </section>
+          <section className="flex flex-col gap-3">
+            <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
+              Optional — raise your own trust level
+            </p>
+            <VerificationLevelsPanel />
+          </section>
 
-      <p className="text-center text-xs text-neutral-400">
-        Already taking payments and want the on-chain settings? Open your{' '}
-        <a href="/dashboard" className="text-rail underline-offset-2 hover:underline">
-          dashboard
-        </a>
-        .
-      </p>
+          <p className="text-center text-xs text-neutral-400">
+            Already taking payments and want the on-chain settings? Open your{' '}
+            <a href="/dashboard" className="text-rail underline-offset-2 hover:underline">
+              dashboard
+            </a>
+            .
+          </p>
+        </>
+      ) : (
+        // DISCONNECTED: one hero connect-gate — a single headline + ONE
+        // ConnectButton + a short "what you'll build" line. Not three empty
+        // card boxes each repeating a sign-in prompt.
+        <section
+          className="flex flex-col items-center gap-5 rounded-2xl border border-neutral-200 px-6 py-12 text-center"
+          data-onboard-gate="connect"
+        >
+          <h2 className="font-display text-xl font-semibold text-foreground">
+            Sign in to build your checkout
+          </h2>
+          <p className="max-w-sm text-sm text-neutral-500">
+            Connect your wallet and you’ll set your business name, a one-line description, and a logo
+            — then get a branded checkout link that accepts USDC. It takes under two minutes.
+          </p>
+          <ConnectButton />
+        </section>
+      )}
 
       <AskAssistant />
     </main>

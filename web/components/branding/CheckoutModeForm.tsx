@@ -6,7 +6,6 @@ import type { CheckoutMode, MerchantVertical } from '@/lib/branding/store'
 import type { TrustTier } from '@/lib/verification/tiers'
 import { loadBranding, loadOperatorVerified, saveCheckoutMode } from '@/lib/branding/client'
 import { isWorldIdConfigured, worldOperatorAction } from '@/lib/worldid/config'
-import { ConnectButton } from '@/components/ConnectButton'
 import { WorldIdGate } from '@/components/WorldIdGate'
 import { CasinoVerifiedBadge } from '@/components/CasinoVerifiedBadge'
 
@@ -162,7 +161,6 @@ export function CheckoutModeForm({
         <p className="text-sm text-neutral-600">
           Sign in to choose how customers pay you.
         </p>
-        <ConnectButton />
       </div>
     )
   }
