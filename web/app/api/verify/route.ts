@@ -36,6 +36,7 @@ import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
 import { verifyOidcToken } from '@/lib/oidc/verify'
 import { oidcIssuer } from '@/lib/oidc/config'
 import { claimSubject } from '@/lib/oidc/subjectStore'
+import { DurableStoreRequiredError } from '@/lib/security/replayStore'
 import { getPublicClient } from '@/lib/wallet'
 import { getDefaultChainId } from '@/lib/chains'
 
@@ -152,7 +153,18 @@ async function verifyOidcMethod(body: Record<string, unknown>): Promise<Verdict>
     }
   }
   // One OIDC account verifies once (anti-farm), like the World ID nullifier.
-  if (!claimSubject(oidcIssuer(), result.identity.subject)) {
+  let fresh: boolean
+  try {
+    fresh = await claimSubject(oidcIssuer(), result.identity.subject)
+  } catch (err) {
+    // FAIL-CLOSED (R-2): no durable replay store in production ⇒ refuse rather
+    // than fall back to the replay-vulnerable in-memory set. 503, never a silent pass.
+    if (err instanceof DurableStoreRequiredError) {
+      return { ok: false, code: 'not_configured', status: 503 }
+    }
+    throw err
+  }
+  if (!fresh) {
     return { ok: false, code: 'already_verified', status: 409 }
   }
   return { ok: true }
@@ -196,8 +208,13 @@ async function verifyWorldIdMethod(body: Record<string, unknown>): Promise<Verdi
   // echo), so the nullifier slot can't be steered by the body or the portal (C-2).
   let fresh: boolean
   try {
-    fresh = claimNullifier(action, result.nullifier)
-  } catch {
+    fresh = await claimNullifier(action, result.nullifier)
+  } catch (err) {
+    // FAIL-CLOSED (R-2): no durable replay store in production ⇒ 503, never a
+    // silent fall back to the replay-vulnerable in-memory set.
+    if (err instanceof DurableStoreRequiredError) {
+      return { ok: false, code: 'not_configured', status: 503 }
+    }
     return { ok: false, code: 'bad_nullifier', status: 400 }
   }
   if (!fresh) return { ok: false, code: 'already_verified', status: 409 }

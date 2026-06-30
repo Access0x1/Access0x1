@@ -46,6 +46,9 @@
     "viem": "^2.47.6",
     "wagmi": "^2.14.11"
   },
+  "optionalDependencies": {
+    "pg": "^8.13.0"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/qrcode": "^1.5.5",
