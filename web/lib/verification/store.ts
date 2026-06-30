@@ -1,13 +1,13 @@
 /**
  * store.ts — per-user verification profile store (the Super Verification seam).
  *
- * Mirrors the existing in-memory, globalThis-pinned singletons in the repo
- * (`lib/branding/store.ts`, `lib/worldid/nullifierStore.ts`): the hackathon repo
- * has no database, so a process-lifetime Map keyed by the user's lowercased
- * wallet address holds each user's completed verification methods. The interface
- * (`getProfile` / `addMethod` / `setMethods`) is the SEAM a real KV/Postgres
- * `verification_profile(user PK, methods JSONB)` table swaps behind later with
- * zero call-site changes.
+ * A process-lifetime Map keyed by the user's lowercased wallet address (and a
+ * second map keyed by agent id) is the SYNCHRONOUS hot read surface, so
+ * `getProfile` / `addMethod` / `setMethods` stay sync — no call-site changes. When
+ * a durable backend is configured (`NULLIFIER_STORE_URL` / `DATABASE_URL`) each
+ * write is mirrored DURABLY via `lib/storage/durableKv.ts` and the maps HYDRATE
+ * from it at boot, so a user's earned verification methods SURVIVE a Cloud Run
+ * scale-to-zero. With no DB it is fail-soft: the unchanged in-memory behaviour.
  *
  * It stores ONLY the set of methods the user has genuinely passed; the score and
  * tier are always DERIVED from `lib/verification/tiers.ts`, never persisted, so a
@@ -21,6 +21,17 @@ import {
   type VerificationMethod,
   type VerificationProfile,
 } from './tiers.js'
+import { durableSet, hydrate } from '../storage/durableKv.js'
+
+/**
+ * The durable-KV namespace for verification profiles. One namespace serves both
+ * keyspaces; the durable key carries a `user:` / `agent:` prefix so the 40-hex
+ * user addresses and 64-hex agent ids never collide and hydration can route each
+ * row back to the right map.
+ */
+const KV_NAMESPACE = 'verification:profile'
+const userDurableKey = (k: string): string => `user:${k}`
+const agentDurableKey = (k: string): string => `agent:${k}`
 
 interface ProfileStore {
   /** Keyed by a lowercased wallet address — the USER (human) profile. */
@@ -85,6 +96,7 @@ export function addMethod(user: string, method: VerificationMethod): Verificatio
   const next = normalizeMethods([...current, method])
   const profile: VerificationProfile = { methods: next }
   s.byUser.set(key, profile)
+  durableSet(KV_NAMESPACE, userDurableKey(key), profile)
   return profile
 }
 
@@ -96,6 +108,7 @@ export function setMethods(user: string, methods: readonly unknown[]): Verificat
   )
   const profile: VerificationProfile = { methods: clean }
   store().byUser.set(key, profile)
+  durableSet(KV_NAMESPACE, userDurableKey(key), profile)
   return profile
 }
 
@@ -129,6 +142,7 @@ export function addAgentMethod(agentId: string, method: VerificationMethod): Ver
   const next = normalizeMethods([...current, method])
   const profile: VerificationProfile = { methods: next }
   s.byAgent.set(key, profile)
+  durableSet(KV_NAMESPACE, agentDurableKey(key), profile)
   return profile
 }
 
@@ -140,11 +154,43 @@ export function setAgentMethods(agentId: string, methods: readonly unknown[]): V
   )
   const profile: VerificationProfile = { methods: clean }
   store().byAgent.set(key, profile)
+  durableSet(KV_NAMESPACE, agentDurableKey(key), profile)
   return profile
+}
+
+/**
+ * Hydrate the in-memory profiles from the durable backend (durable → memory at
+ * boot), routing each row to the user or agent map by its key prefix. No-op
+ * without a DB. Returns the number of rows restored. Module also runs it once at
+ * load (below).
+ */
+export async function hydrateVerificationFromDurable(): Promise<number> {
+  return hydrate(KV_NAMESPACE, (key, value) => {
+    const profile = value as VerificationProfile
+    if (!profile || !Array.isArray(profile.methods)) return
+    const clean: VerificationProfile = { methods: normalizeMethods(profile.methods) }
+    if (key.startsWith('user:')) {
+      store().byUser.set(key.slice('user:'.length), clean)
+    } else if (key.startsWith('agent:')) {
+      store().byAgent.set(key.slice('agent:'.length), clean)
+    }
+  })
 }
 
 /** Test-only: wipe the store (user + agent profiles). NOT used in production paths. */
 export function __resetVerificationStore(): void {
   const g = globalThis as unknown as Record<string, ProfileStore | undefined>
   g[GLOBAL_KEY] = { byUser: new Map(), byAgent: new Map() }
+}
+
+// ── Durable hydration on first load, once per process (fail-soft, no-op w/o DB) ──
+const HYDRATE_FLAG_KEY = '__ax1_verification_hydrated__'
+{
+  const g = globalThis as unknown as Record<string, boolean | undefined>
+  if (!g[HYDRATE_FLAG_KEY]) {
+    g[HYDRATE_FLAG_KEY] = true
+    void hydrateVerificationFromDurable().catch(() => {
+      // Fail-soft: never let hydration break the store module load.
+    })
+  }
 }

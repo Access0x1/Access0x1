@@ -7,14 +7,15 @@
  * UNIQUE `checkout_slug`. This is the hosted source of truth the checkout page,
  * the embed's `GET /api/branding/{slug}`, and the Snap read at runtime.
  *
- * PERSISTENCE CHOICE (hackathon-appropriate, per the prompt): the repo has NO
- * database — the one existing server-side store is the bounded in-memory ring in
- * `lib/payment-ledger.ts`. We mirror that pattern: a process-lifetime in-memory
- * map, pinned on `globalThis` so Next.js's dev hot-reload and the several route
- * module instances share ONE store rather than each getting a fresh empty map.
- * No heavy DB is stood up. The interface (`upsertBranding` / `getBySlug` /
- * `getByMerchantId`) is the seam a real KV/Postgres swaps behind later with zero
- * call-site changes.
+ * PERSISTENCE. A process-lifetime in-memory map, pinned on `globalThis` so
+ * Next.js's dev hot-reload and the several route module instances share ONE store,
+ * is the SYNCHRONOUS hot read surface (so `getBySlug` etc. stay sync — no call site
+ * changes). When a durable backend is configured (`NULLIFIER_STORE_URL` /
+ * `DATABASE_URL`) it is mirrored DURABLY via `lib/storage/durableKv.ts`:
+ * `upsertBranding` write-throughs each row to Postgres, and the module HYDRATES the
+ * in-memory map from Postgres at load — so a tenant's branding/checkout identity
+ * SURVIVES a Cloud Run scale-to-zero instead of evaporating. With no DB configured
+ * it is fail-soft: the unchanged in-memory behaviour with a one-time warning.
  *
  * Pure normalization helpers (slug/name/hash) are exported and unit-tested
  * offline; the store CRUD is exercised through the API route tests.
@@ -23,6 +24,10 @@
 import { keccak256, toHex } from 'viem';
 import { DEFAULT_BRAND_COLOR, normalizeBrandColor } from './logo.js';
 import { asTrustTier, type TrustTier } from '../verification/tiers.js';
+import { durableSet, hydrate } from '../storage/durableKv.js';
+
+/** The durable-KV namespace for tenant branding rows (key = tenantId). */
+const KV_NAMESPACE = 'branding:tenant';
 
 /** Max chars we keep for a one-line description (ADR D2 step 2: ~140). */
 export const MAX_DESCRIPTION_CHARS = 140;
@@ -451,7 +456,24 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
   if (row.merchantId) s.byMerchant.set(row.merchantId, tenantId);
 
   s.byTenant.set(tenantId, row);
+  // Write-through to the durable backend (best-effort, fail-soft, no-op without a
+  // DB). The tenantId is the durable key; the full row is the value, so a restart
+  // can rebuild the maps + secondary indexes from it via `indexRow` on hydrate.
+  durableSet(KV_NAMESPACE, tenantId, row);
   return row;
+}
+
+/**
+ * Rebuild the in-memory maps + secondary indexes for one already-built row. Used
+ * by hydration (durable → memory at boot): it does NOT re-validate or re-persist,
+ * it just re-indexes the durable copy. Tolerant of a partial/legacy persisted row.
+ */
+function indexRow(row: TenantBranding): void {
+  if (!row || typeof row.tenantId !== 'string' || !row.tenantId) return;
+  const s = store();
+  s.byTenant.set(row.tenantId, row);
+  if (row.checkoutSlug) s.bySlug.set(row.checkoutSlug, row.tenantId);
+  if (row.merchantId) s.byMerchant.set(row.merchantId, row.tenantId);
 }
 
 /** Find a unique slug, appending `-2`, `-3`, … until free (ADR collision UX). */
@@ -539,6 +561,16 @@ export function attachOnChain(
   });
 }
 
+/**
+ * Hydrate the in-memory store from the durable backend (durable → memory at boot),
+ * rebuilding every tenant row + its slug/merchant indexes. No-op without a DB.
+ * Returns the number of rows restored. Exposed so a deployment / test can await a
+ * deterministic hydrate; the module also kicks it off once at load (below).
+ */
+export async function hydrateBrandingFromDurable(): Promise<number> {
+  return hydrate(KV_NAMESPACE, (_key, value) => indexRow(value as TenantBranding));
+}
+
 /** Test-only: wipe the store. NOT used in production paths. */
 export function __resetBrandingStore(): void {
   const g = globalThis as unknown as Record<string, BrandingStore | undefined>;
@@ -564,5 +596,22 @@ const SEED_FLAG_KEY = '__ax1_featured_seeded__';
     } catch {
       // Fail-soft: never let the seed break the store module load.
     }
+  }
+}
+
+// ── Durable hydration (durable → memory) on first load, once per process ──────
+// When a DB is configured, restore every persisted tenant row into the in-memory
+// map so a Cloud Run cold start doesn't begin with an empty store. Fire-and-forget
+// + fail-soft (a DB error just leaves the store at its in-memory/seed state). When
+// no DB is configured this is a cheap no-op. Pinned on globalThis so it runs at
+// most once across hot-reloads.
+const HYDRATE_FLAG_KEY = '__ax1_branding_hydrated__';
+{
+  const g = globalThis as unknown as Record<string, boolean | undefined>;
+  if (!g[HYDRATE_FLAG_KEY]) {
+    g[HYDRATE_FLAG_KEY] = true;
+    void hydrateBrandingFromDurable().catch(() => {
+      // Fail-soft: never let hydration break the store module load.
+    });
   }
 }

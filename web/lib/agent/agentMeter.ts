@@ -13,8 +13,18 @@
  */
 
 import { assertServerOnly } from "./serverOnly.js";
+import { durableSet, hydrate } from "../storage/durableKv.js";
 
 assertServerOnly("agentMeter");
+
+/**
+ * The durable-KV namespace for the daily spend ledger. The row is keyed by the UTC
+ * day so each day's running total is its own durable record; a restart mid-day
+ * restores the day's spend instead of resetting the cap to zero (which would let
+ * the agent overspend its daily budget after a Cloud Run cold start). Fail-soft:
+ * with no DB configured the meter is the unchanged in-memory ledger.
+ */
+const KV_NAMESPACE = "agent:meter";
 
 /**
  * Thrown when a spend would push the current UTC day's total over the configured cap.
@@ -46,8 +56,11 @@ interface Ledger {
  * shares ONE daily cap. A plain module-level binding gives each Next.js route-module copy (and
  * dev hot-reload) its own ledger, which silently multiplies the intended ceiling by N instances.
  * This mirrors `lib/worldid/nullifierStore.ts`, `lib/oidc/subjectStore.ts`, and the branding
- * store. The seam still swaps for a durable/shared store (KV/Postgres) later with no call-site
- * changes; persistence across process restarts is the next step (acknowledged hackathon scope).
+ * store. The ledger is now WRITE-THROUGH to the durable store (`lib/storage/durableKv.ts`)
+ * when a DB is configured — `meterSpendOrThrow`/`meterRefund` persist the day's running
+ * total and the module hydrates it at boot — so a restart mid-day restores the spend
+ * instead of resetting the cap. Fail-soft + no call-site changes; without a DB it is the
+ * unchanged in-memory ledger.
  */
 const GLOBAL_KEY = "__ax1_agent_meter__";
 
@@ -85,6 +98,18 @@ function rollToToday(): void {
 }
 
 /**
+ * Mirror the current day's running total to the durable store (best-effort, fail-
+ * soft, no-op without a DB). Keyed by the UTC day so each day is its own row. Never
+ * throws — a DB hiccup must not break a spend/refund, which is authoritative in the
+ * in-memory ledger.
+ */
+function persist(): void {
+  const ledger = ledgerStore();
+  if (!ledger.dayKey) return;
+  durableSet(KV_NAMESPACE, ledger.dayKey, { dayKey: ledger.dayKey, spent: ledger.spent });
+}
+
+/**
  * Reserve `usd` against the current UTC day's budget, or throw if it would exceed the cap.
  *
  * This is the CEI **check**: callers MUST invoke it before any network interaction so a
@@ -107,6 +132,7 @@ export function meterSpendOrThrow(usd: number): void {
     throw new BudgetExceeded(ledger.spent, cap);
   }
   ledger.spent += usd;
+  persist();
 }
 
 /**
@@ -125,6 +151,7 @@ export function meterRefund(usd: number): void {
   rollToToday();
   const ledger = ledgerStore();
   ledger.spent = Math.max(0, ledger.spent - usd);
+  persist();
 }
 
 /**
@@ -148,4 +175,39 @@ export function __resetMeterForTests(): void {
   const ledger = ledgerStore();
   ledger.dayKey = "";
   ledger.spent = 0;
+}
+
+/**
+ * Hydrate the in-memory ledger from the durable store (durable → memory at boot):
+ * restore the CURRENT UTC day's running total so a restart mid-day resumes the cap
+ * instead of resetting to zero. Ignores stale prior-day rows (the meter resets on
+ * the day boundary anyway). No-op without a DB; fail-soft. Returns rows seen.
+ *
+ * @returns void
+ */
+export async function hydrateMeterFromDurable(): Promise<void> {
+  const today = utcDayKey();
+  await hydrate(KV_NAMESPACE, (key, value) => {
+    if (key !== today) return; // only today's spend is still in force
+    const row = value as { dayKey?: string; spent?: number } | null;
+    const spent = row && Number.isFinite(row.spent) ? Number(row.spent) : NaN;
+    if (!Number.isFinite(spent) || spent < 0) return;
+    const ledger = ledgerStore();
+    ledger.dayKey = today;
+    // Take the MAX of what's in memory vs durable so a concurrent in-process spend
+    // that already advanced the ledger is never rolled back by a stale read.
+    ledger.spent = Math.max(ledger.spent, spent);
+  });
+}
+
+// ── Durable hydration on first load, once per process (fail-soft, no-op w/o DB) ──
+const HYDRATE_FLAG_KEY = "__ax1_agent_meter_hydrated__";
+{
+  const g = globalThis as unknown as Record<string, boolean | undefined>;
+  if (!g[HYDRATE_FLAG_KEY]) {
+    g[HYDRATE_FLAG_KEY] = true;
+    void hydrateMeterFromDurable().catch(() => {
+      // Fail-soft: never let hydration break the store module load.
+    });
+  }
 }
