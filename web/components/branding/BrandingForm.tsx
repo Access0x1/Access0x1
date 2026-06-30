@@ -12,7 +12,6 @@ import {
   type ClientBranding,
 } from '@/lib/branding/client'
 import { BrandPreview } from './BrandPreview'
-import { ConnectButton } from '@/components/ConnectButton'
 
 /** The literal, non-editable checkout-link prefix the merchant owns the tail of. */
 const LINK_PREFIX = 'pay.access0x1.com/'
@@ -163,7 +162,6 @@ export function BrandingForm({
         <p className="text-sm text-neutral-600">
           Sign in to set your name, description, and logo. It takes under two minutes.
         </p>
-        <ConnectButton />
       </div>
     )
   }
