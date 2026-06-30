@@ -62,6 +62,40 @@ export async function saveCheckoutMode(input: {
 }
 
 /**
+ * Bind an on-chain `merchantId` to the tenant's branding row so their checkout
+ * slug becomes PAYABLE ("switch on payments"). Rides on the same branding row;
+ * requires the tenant to have saved their name/logo first (the card is only
+ * shown after that), so a `no_branding` 400 is surfaced plainly.
+ *
+ * Same discriminated-result shape as `saveBranding` / `saveCheckoutMode`: never
+ * throws on a non-2xx; returns `{ ok }` so the UI shows a plain-English message.
+ */
+export async function attachOnChain(input: {
+  tenantId: string
+  merchantId: string
+}): Promise<{ ok: true; branding: ClientBranding } | { ok: false; error: string; code?: string }> {
+  try {
+    const res = await fetch('/api/branding/attach-onchain', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    const json = (await res.json()) as { branding?: ClientBranding; error?: string; code?: string }
+    if (res.ok && json.branding) return { ok: true, branding: json.branding }
+    if (json.error === 'no_branding') {
+      return {
+        ok: false,
+        error: 'Set your business name first, then switch on payments.',
+        code: 'no_branding',
+      }
+    }
+    return { ok: false, error: json.error ?? 'Could not switch on payments. Please try again.', code: json.code }
+  } catch {
+    return { ok: false, error: 'Could not reach the server. Check your connection.' }
+  }
+}
+
+/**
  * Record the operator's World ID proof on their branding row (Casino vertical).
  * The `WorldIdGate` is pointed at `/api/branding/operator-verify` with the
  * operator action; on a 200 the row's `verifiedOperator` flips true so a casino
