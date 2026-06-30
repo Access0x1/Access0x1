@@ -2,9 +2,10 @@
  * Hero.tsx — the top fold of the public marketing landing page.
  *
  * Pure presentational, server-renderable: no hooks, no client JS. It states the
- * product one-liner ("A do-it-all center to get you and your business onchain")
- * and frames the value prop, then hands the visitor straight to the primary CTA
- * (rendered separately by LandingCTA so the call-to-action lives in one place).
+ * product one-liner ("The open-source rail for onchain identity + USD-priced
+ * crypto payments") and frames the value prop, then hands the visitor straight
+ * to the primary CTA (rendered separately by LandingCTA so the call-to-action
+ * lives in one place).
  *
  * Styling rides the existing brand chassis (globals.css / tailwind.config.ts):
  * the night-water `background`, `foreground` text, cyan `primary` accent, and
@@ -17,7 +18,8 @@ import { BrandMark } from '@/components/BrandMark'
 import { LandingCTA } from '@/components/marketing/LandingCTA'
 
 /** The product one-liner — the single sentence the page is built around. */
-const ONE_LINER = 'A do-it-all center to get you and your business onchain'
+const ONE_LINER =
+  'The open-source rail for onchain identity + USD-priced crypto payments'
 
 export function Hero(): ReactNode {
   return (
@@ -38,7 +40,7 @@ export function Hero(): ReactNode {
 
         {/* Eyebrow: positions the product before the headline lands. */}
         <span className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Payments · Auth · Agents — one link, no contract code
+          One link · no code · no contract · no gas — apps build on it
         </span>
 
         {/* The headline IS the one-liner. font-display for the brand voice. */}
@@ -48,11 +50,19 @@ export function Hero(): ReactNode {
 
         {/* Sub-headline: what it means in plain terms. */}
         <p className="max-w-xl text-balance text-lg text-muted-foreground">
-          Access0x1 is the open, on-chain layer for accepting USD-priced crypto,
-          proving identity, and letting agents act on your behalf. Onboard once,
-          share a link, get paid in USDC — zero custody, no smart-contract code
-          to write.
+          Access0x1 is the open umbrella layer apps build on — the shared,
+          on-chain rail for accepting USD-priced crypto, proving identity, and
+          letting agents act on your behalf. Onboard once, share a link, get paid
+          in USDC — zero custody, no smart-contract code to write.
         </p>
+
+        {/*
+         * Credibility line: the ETHGlobal Hacker Pack is an on-chain credential
+         * (EG-HACKER, balance 1 on Optimism). Understated — no dollar figures.
+         */}
+        <span className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+          🏆 Verified ETHGlobal Hacker Pack holder · ENS prize winner
+        </span>
 
         {/* Primary call-to-action: deep-links to /onboard. */}
         <LandingCTA />
