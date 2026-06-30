@@ -11,6 +11,7 @@ import {
   uploadLogo,
   type ClientBranding,
 } from '@/lib/branding/client'
+import { shouldRestoreSavedOnReconnect } from '@/lib/branding/doneScreen'
 import { BrandPreview } from './BrandPreview'
 
 /** The literal, non-editable checkout-link prefix the merchant owns the tail of. */
@@ -72,7 +73,11 @@ export function BrandingForm({
       setSlug(row.checkoutSlug)
       setSlugTouched(true)
       setLogoSvg(row.logoSvgInline || undefined)
-      if (mode === 'settings') setSaved(row)
+      // Restore the saved state on reconnect: in SETTINGS this drives the
+      // "Changes saved" affordance; in ONBOARD it restores the DONE screen so a
+      // returning merchant lands on their checkout-link/embed/"Test it" screen
+      // (with Edit) rather than a blank-looking "Save and get my checkout link".
+      if (shouldRestoreSavedOnReconnect(row)) setSaved(row)
     })
     return () => {
       cancelled = true
@@ -388,12 +393,30 @@ function DoneScreen({
       <CopyRow label="Your checkout link" value={link} />
       <CopyRow label="Copy embed tag" value={embed} mono />
 
+      {/* PRIMARY next step: switch on payments. The slug stays "not yet live"
+          until the merchant finishes the one-time on-chain register on the
+          dashboard — so this is the real CTA, not the "Test it" preview. */}
+      <a
+        href="/dashboard"
+        className="rounded-lg bg-rail px-4 py-3 text-center text-sm font-medium text-white transition-opacity hover:opacity-90"
+      >
+        Switch on payments →
+      </a>
+      <p className="-mt-3 text-xs text-neutral-500">
+        Your link is branded and ready to share, but it can’t take USDC until you finish the quick
+        one-time on-chain setup on your dashboard.
+      </p>
+
+      {/* Secondary: preview the (not-yet-live) page, and edit. "Test it" opens
+          the real checkout page, which honestly shows "hasn't switched on
+          payments yet" until the on-chain step is done (law #4 — no fake live
+          checkout). */}
       <div className="flex flex-wrap items-center gap-3">
         <a
           href={link || '#'}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-lg bg-rail px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-ink hover:bg-neutral-50"
         >
           Test it
         </a>
