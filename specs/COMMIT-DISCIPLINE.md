@@ -2,10 +2,9 @@
 
 The git log is the product as much as the code is. A judge opening the history
 should watch the system grow one deliberate move at a time. This is the spec that
-made that true; the enforced copy is
-[`../.claude/rules/git-workflow.md`](../.claude/rules/git-workflow.md), and the
-[`../.claude/hooks/`](../.claude/hooks) PreToolUse guard *blocks* violations on
-every shell call (the discipline is mechanically enforced, not just documented).
+made that true; it was enforced by the local build harness's git-workflow rule and a
+PreToolUse hook that *blocked* violations on every shell call (the discipline is
+mechanically enforced, not just documented).
 
 ## The seven commit laws
 
@@ -31,9 +30,8 @@ every shell call (the discipline is mechanically enforced, not just documented).
 ## The branch + PR flow
 
 - **Bootstrap exception:** the first commits (the discipline, the Foundry scaffold,
-  the project guide, the `.claude/` harness, the deps) land directly on `main` — an
-  empty repo has nothing to review. The branch law starts at the first feature
-  commit.
+  the local build harness, the deps) land directly on `main` — an empty repo has
+  nothing to review. The branch law starts at the first feature commit.
 - **Branch = the agent's name** — e.g. `proc-contracts/router-core`, `chain-base`,
   `fable-redteam-oracle`. Parallel agents run in **isolated worktrees** so they
   never collide; within a unit, exactly one author owns a given file.
