@@ -48,20 +48,29 @@ plain injected, …) stays entirely the host app's concern.
 
 ### Install
 
+Access0x1 is **not published to any npm registry** — you consume `@access0x1/react` straight from
+GitHub as a git dependency. Add it to your app's `package.json`:
+
+```jsonc
+{
+  "dependencies": {
+    "@access0x1/react": "github:Access0x1/Access0x1#main"
+    // or pin a commit: "github:Access0x1/Access0x1#<sha>"
+  }
+}
+```
+
+Then install as usual (this builds the SDK's `dist/` via its `prepare` script on install):
+
 ```bash
-npm install @access0x1/react viem wagmi
+npm install   # also add your peers if you haven't: npm install viem wagmi
 ```
 
 `react`, `viem ^2.35`, and `wagmi ^3` are **peer dependencies** your app already provides
 (`wagmi` is optional — you can pass viem clients directly). Nothing else to configure.
 
-> **Not published to npm yet?** Build and install straight from this repo:
-> ```bash
-> cd packages/react
-> npm ci && npm run build && npm pack   # → access0x1-react-0.1.0.tgz
-> # then, in your app:
-> npm install /path/to/access0x1-react-0.1.0.tgz viem wagmi
-> ```
+> Prefer to vendor it? Copy `packages/react/` into your repo and import from the local path — same
+> result, no registry involved.
 
 ### Drop in `<PayButton>`
 

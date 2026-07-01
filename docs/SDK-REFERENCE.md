@@ -52,12 +52,21 @@ settlement chain's `Access0x1Router` in as a prop.
 
 ## Install
 
-```bash
-npm install @access0x1/react viem wagmi
+Access0x1 is **not published to any npm registry** — consume `@access0x1/react` as a git dependency:
+
+```jsonc
+// package.json
+"dependencies": {
+  "@access0x1/react": "github:Access0x1/Access0x1#main"   // or pin a commit SHA
+}
 ```
 
-Not on npm yet? Build and install straight from this repo — see the
-[QUICKSTART install note](./QUICKSTART.md#install).
+```bash
+npm install viem wagmi   # peers your app provides
+```
+
+Prefer to vendor it? Copy `packages/react/` in. See the
+[QUICKSTART install note](./QUICKSTART.md#install) for details.
 
 ---
 

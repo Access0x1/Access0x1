@@ -121,7 +121,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   there is zero burn-and-mint code in this repo.
 - **OIDC/JWT identity layer**, **MetaMask Snap** (payment insight in the signing dialog), **`@access0x1/react`
   SDK** (drop-in `<PayButton>` + the `usePayment` hook — orderId-bound receipt watch with a 120s timeout
-  ceiling; Vitest-covered, published to npm), and the `create-access0x1` scaffolder.
+  ceiling; Vitest-covered; git-distributed — consumed as a GitHub dependency, not published to npm by design), and the `create-access0x1` scaffolder.
 
 **Seam (code present, NOT exercised in the live demo path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),

@@ -63,10 +63,12 @@ submodules, `npm install`s the contract + app deps (`@chainlink/contracts`, Next
 `@access0x1/react`), and runs `forge build` to prove the vendored contracts compile. It installs
 TOOLING only — it never deploys and never writes an address.
 
-> **`@access0x1/react` not on npm yet?** `npm run setup` detects this automatically. It locates
-> the `packages/react` source relative to your Access0x1 checkout (or set `ACCESS0X1_REPO=/path/to/Access0x1`
-> to point it anywhere), runs `npm run build && npm pack`, drops the tarball into `vendor/`, and wires
-> a `file:` reference into `app/package.json` — so `npm install` succeeds with no manual steps.
+> **`@access0x1/react` is git-distributed (no npm registry) — by design.** `npm run setup` handles it
+> automatically. It locates the `packages/react` source relative to your Access0x1 checkout (or set
+> `ACCESS0X1_REPO=/path/to/Access0x1` to point it anywhere), runs `npm run build && npm pack`, drops the
+> tarball into `vendor/`, and wires a `file:` reference into `app/package.json` — so `npm install`
+> succeeds with no manual steps. (In your own app you can instead reference it as a git dependency:
+> `"@access0x1/react": "github:Access0x1/Access0x1#main"`.)
 >
 > If you run `cd app && npm install` **before** `npm run setup`, a `preinstall` guard stops with a
 > clear "run `npm run setup` first" message instead of a confusing registry 404.

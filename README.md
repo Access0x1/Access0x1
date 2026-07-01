@@ -333,9 +333,10 @@ npm run setup          # installs Foundry, packs @access0x1/react locally, build
 npm run dev            # http://localhost:3000 — point it at a router in .env.local
 ```
 
-> **`@access0x1/react` not on npm yet?** `npm run setup` handles it automatically: it finds the
-> `packages/react` source in the Access0x1 repo checkout, runs `npm pack`, and wires a local `file:`
-> reference into `app/package.json`. No manual steps needed.
+> **`@access0x1/react` is git-distributed (no npm registry) — by design.** `npm run setup` handles it
+> automatically: it finds the `packages/react` source in the Access0x1 repo checkout, runs `npm pack`,
+> and wires a local `file:` reference into `app/package.json`. In your own app you can instead reference
+> it as a git dependency: `"@access0x1/react": "github:Access0x1/Access0x1#main"`. No registry involved.
 
 No Solidity required: set your name, logo, and a router address in `access0x1.config.ts` / `.env.local`
 (it ships **no** default address — LAW #4: never a guessed address). Deploying your own router is

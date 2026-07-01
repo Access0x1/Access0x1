@@ -6,20 +6,22 @@ Every payment is a single on-chain transaction: **buyer → router → merchant 
 
 ## Install
 
+Access0x1 is **git-distributed — not published to any npm registry.** Consume `@access0x1/react`
+as a git dependency in your app's `package.json`:
+
+```jsonc
+"dependencies": {
+  "@access0x1/react": "github:Access0x1/Access0x1#main"   // or pin a commit SHA
+}
+```
+
 ```bash
-npm install @access0x1/react viem wagmi
+npm install viem wagmi   # peers your app provides
 ```
 
 `react`, `viem ^2.35`, and `wagmi ^3` are peer dependencies your app already provides. Wallet/auth (e.g. Dynamic) is always the host app's concern — the SDK is auth-agnostic and reads your viem clients.
 
-> **Not on npm yet?** Build and install directly from this repo:
-> ```bash
-> cd packages/react
-> npm ci && npm run build && npm pack   # creates access0x1-react-0.1.0.tgz
-> # In your app:
-> npm install ../path/to/access0x1-react-0.1.0.tgz viem wagmi
-> ```
-> Or use the `templates/starter` — its `npm run setup` script handles the pack-and-wire step automatically.
+> Installing the `github:` ref builds the SDK's `dist/` automatically (its `prepare` script). Prefer to vendor it? Copy `packages/react/` into your repo. Or use the `templates/starter` — its `npm run setup` script packs-and-wires the SDK from a local checkout for you.
 
 ## Quick start — `<PayButton>`
 
