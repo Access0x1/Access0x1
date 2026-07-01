@@ -1,0 +1,34 @@
+name: OPSEC
+
+# Forward-looking OPSEC gate for this PUBLIC repo: fail the build if a personal
+# identity, an internal/private brand name, or a hardcoded secret ever enters
+# tracked file content. It runs scripts/opsec-scan.sh, which greps the tracked
+# tree (submodules excluded) and exits non-zero on any hit.
+#
+# NOTE: this does NOT scan git history/authorship. A past personal-email or
+# real-name leak in commit metadata cannot be fixed without rewriting history
+# (force-push is forbidden). This gate only stops the NEXT content leak.
+
+permissions: {}
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  opsec:
+    name: Secret / brand / identity scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # No submodules: the scan skips submodule gitlinks anyway, and a shallow
+      # top-level checkout is all it needs to read the tracked tree.
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Run OPSEC scan
+        run: bash scripts/opsec-scan.sh
