@@ -1,0 +1,17 @@
+# Vyper coverage config for the NameMath/NameDie conformance leaf.
+#
+# Titanoboa (boa) ships a coverage.py plugin that instruments the deployed Vyper bytecode, so
+# `coverage run -m pytest` reports per-statement coverage of the .vy sources. Reproduce with:
+#
+#   python3.13 -m venv .venv
+#   .venv/bin/pip install titanoboa pytest coverage
+#   .venv/bin/python -m coverage run -m pytest tests -q
+#   .venv/bin/python -m coverage report --show-missing
+#
+# Measured state (vyper 0.4.3, boa plugin): NameDie.vy 100%, NameMath.vy 92% (only the provably
+# unreachable 4-digit `_to_string` branch is uncovered — see vyper/README.md), total 95%.
+[run]
+plugins = boa.coverage
+
+[report]
+show_missing = True
