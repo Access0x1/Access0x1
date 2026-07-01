@@ -304,7 +304,12 @@ def test_colorOf_never_equals_background(name_math):
 
 # ─── cancun pin (recompile with an explicit cancun target and assert it is accepted) ───────────
 def test_compiles_targeting_cancun():
-    with open("src/NameMath.vy") as f:
+    # Resolve relative to THIS file, not the CWD, so the suite passes from any
+    # working dir (pytest run from repo root or from vyper/, and in CI).
+    import os
+
+    _src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "NameMath.vy")
+    with open(_src) as f:
         source = f.read()
     # The source pragma already pins cancun; passing evm_version explicitly proves it compiles for
     # cancun (vyper 0.4.x otherwise defaults to Prague, which this repo does NOT target).
