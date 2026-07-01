@@ -11,6 +11,9 @@
 // Primary component.
 export { PayButton } from './components/PayButton.js';
 export type { PayButtonProps } from './components/PayButton.js';
+// The disabled-reason union surfaced to `PayButtonProps.renderDisabled` — exported so a
+// TypeScript consumer can type their own `renderDisabled` callback against it.
+export type { PayButtonDisabledReason } from './types.js';
 
 // Hooks.
 export { usePayment } from './hooks/usePayment.js';

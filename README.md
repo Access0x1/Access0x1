@@ -783,6 +783,12 @@ for the router — a hardware-wallet customer sees **"Pay $29.00 to merchant #7 
 the blind hex that, unread, drained Bybit (~$1.5B) and Radiant (~$50M). One descriptor covers all eight
 mirror chains; an ERC-8213 calldata digest is the cross-device fallback for not-yet-described contracts.
 
+**Readable insight inside MetaMask.** The same clear-signing intent, wallet-side: the
+[Access0x1 MetaMask Snap](snap/README.md) renders a human-readable payment panel
+(**"Pay $29.00 to merchant #7"** with merchant branding) before a customer approves a router
+transaction. It holds no keys and no funds, and never hardcodes the router address — the dapp sets it
+via `configure` and it persists in encrypted Snap state.
+
 ### The proof
 
 | | |
