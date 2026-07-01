@@ -120,6 +120,22 @@ describe("POST /api/payout (handlePayout)", () => {
     expect(deps.shieldAndWithdraw).not.toHaveBeenCalled();
   });
 
+  it("401 when the caller is not cryptographically verified (booth fallback — money-path fail-closed)", async () => {
+    // The resolver's booth-gated fallback (Dynamic env unset) returns verified:false
+    // after only shape-checking the body. For a WITHDRAW that is not good enough —
+    // the route must fail closed rather than trust a body-derived id.
+    const { deps } = makeDeps({
+      resolveVerifiedUserId: vi.fn(async () => ({ userId: USER_ID, verified: false })),
+    });
+    const res = await handlePayout(
+      req({ amountUsd: 4.2, depositAmountUsd: 50, destination: VALID_DEST, userId: USER_ID }),
+      deps,
+    );
+    expect(res.status).toBe(401);
+    expect(deps.ensureRegistered).not.toHaveBeenCalled();
+    expect(deps.shieldAndWithdraw).not.toHaveBeenCalled();
+  });
+
   it("uses the VERIFIED sub for ensureRegistered, not any body userId", async () => {
     const resolveVerifiedUserId = vi.fn(async () => ({
       userId: "dyn|sub-VERIFIED",

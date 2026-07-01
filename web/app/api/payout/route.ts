@@ -100,13 +100,21 @@ export async function handlePayout(req: Request, deps: PayoutDeps): Promise<Resp
   // The `sub` comes from the server-verified Dynamic token — a body-supplied
   // `userId` is only allowed to CONFIRM it (must match), never to assert it.
   let userId: string;
+  let verified: boolean;
   try {
-    ({ userId } = await deps.resolveVerifiedUserId(req, body));
+    ({ userId, verified } = await deps.resolveVerifiedUserId(req, body));
   } catch (err) {
     if (err instanceof TenantAuthError) {
       return json({ error: err.message }, 401);
     }
     return json({ error: "unauthorized" }, 401);
+  }
+  // Money-path FAIL-CLOSED: a withdraw MUST originate from a cryptographically
+  // verified caller. The resolver's booth-gated fallback (Dynamic env unset)
+  // returns `verified:false` after only shape-checking the body — acceptable for
+  // read paths, but NEVER for a payout. Reject rather than trust a body-derived id.
+  if (!verified) {
+    return json({ error: "unverified_caller" }, 401);
   }
 
   // ── Validation (spec §4 error table) ─────────────────────────────────────────
