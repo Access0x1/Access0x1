@@ -225,6 +225,82 @@ export async function resolveVerifiedTenant(
   return { tenantId: resolveTenantId(body), verified: false }
 }
 
+/** A resolved userId (the Dynamic JWT `sub`) plus whether it was JWT-verified. */
+export interface ResolvedUserId {
+  /** The Dynamic JWT `sub` claim — the stable per-identity id (NOT a wallet). */
+  userId: string
+  /** True only when the `sub` came from a JWT verified against the issuer's JWKS. */
+  verified: boolean
+}
+
+/** Pull a non-empty string `sub` claim out of a verified Dynamic JWT payload. */
+function subFromClaims(payload: JWTPayload): string {
+  const sub = payload.sub
+  if (typeof sub === 'string' && sub.trim().length > 0) return sub.trim()
+  throw new TenantAuthError('Your sign-in did not include an identity — reconnect and try again.')
+}
+
+/**
+ * Resolve the calling identity (`userId` = Dynamic JWT `sub`) for a money-path
+ * request, preferring a verified Dynamic JWT over the body. This is the `sub`
+ * analogue of {@link resolveVerifiedTenant} — the payout leg keys the Unlink
+ * account off the JWT `sub`, not a wallet address, so it must NOT trust a
+ * body-supplied `userId` (that would let an attacker drive another identity's
+ * withdrawal path).
+ *
+ *  - If JWT verification IS configured and a Bearer token is present: verify the
+ *    token against Dynamic's JWKS (pinned issuer + audience), derive the userId
+ *    from the verified `sub` claim, and REJECT when the body `userId` (if any)
+ *    disagrees with it.
+ *  - Otherwise (no issuer configured — booth-gated/local demo): fall back to the
+ *    non-empty-string body `userId`, returned with `verified: false`.
+ *
+ * @param request - the incoming request (for the Authorization header).
+ * @param body    - the parsed JSON body (for the fallback / cross-check).
+ * @returns the resolved userId + whether it was cryptographically verified.
+ * @throws {TenantAuthError} on a missing/invalid/mismatched identity.
+ */
+export async function resolveVerifiedUserId(
+  request: Request,
+  body: unknown,
+): Promise<ResolvedUserId> {
+  const token = bearerToken(request)
+
+  const bodyUserId =
+    body && typeof body === 'object' && 'userId' in body
+      ? (body as { userId?: unknown }).userId
+      : undefined
+  const bodyUserIdStr =
+    typeof bodyUserId === 'string' && bodyUserId.trim().length > 0 ? bodyUserId.trim() : undefined
+
+  // Verified path: issuer configured AND a token was presented.
+  if (isJwtVerificationConfigured() && token) {
+    let payload: JWTPayload
+    try {
+      const result = await jwtVerify(token, getJwks(), {
+        issuer: dynamicJwtIssuer(),
+        audience: dynamicJwtAudience(),
+      })
+      payload = result.payload
+    } catch {
+      throw new TenantAuthError('Your session is invalid or expired — sign in again.')
+    }
+    const verifiedUserId = subFromClaims(payload)
+
+    // Defense in depth: a body `userId` that disagrees with the verified `sub`
+    // is rejected — a client can't act for an identity it didn't prove.
+    if (bodyUserIdStr && bodyUserIdStr !== verifiedUserId) {
+      throw new TenantAuthError('Signed-in identity does not match the requested user.')
+    }
+    return { userId: verifiedUserId, verified: true }
+  }
+
+  // Fallback: no issuer configured (booth-gated). Require a non-empty body
+  // userId so a junk request is still rejected, but mark it unverified.
+  if (!bodyUserIdStr) throw new TenantAuthError()
+  return { userId: bodyUserIdStr, verified: false }
+}
+
 /** Test-only: reset the cached JWKS so a fresh env takes effect. */
 export function __resetTenantJwksForTests(): void {
   jwks = null

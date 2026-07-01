@@ -20,6 +20,7 @@ import {
   isJwtVerificationConfigured,
   resolveTenantId,
   resolveVerifiedTenant,
+  resolveVerifiedUserId,
   __resetTenantJwksForTests,
 } from '../tenant'
 
@@ -179,5 +180,62 @@ describe('resolveVerifiedTenant — verified path (issuer + token)', () => {
     const out = await resolveVerifiedTenant(reqWith(), { tenantId: WALLET })
     expect(out).toEqual({ tenantId: WALLET, verified: false })
     expect(jwtVerify).not.toHaveBeenCalled()
+  })
+})
+
+describe('resolveVerifiedUserId (Dynamic JWT sub — money-path IDOR guard)', () => {
+  const SUB = 'dyn|sub-abc'
+  const OTHER_SUB = 'dyn|sub-VICTIM'
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID = 'env-123'
+  })
+
+  it('derives userId from the verified sub, ignoring a matching body userId', async () => {
+    jwtVerify.mockResolvedValue({ payload: { sub: SUB } })
+    const out = await resolveVerifiedUserId(reqWith({ authorization: 'Bearer good.jwt' }), {
+      userId: SUB,
+    })
+    expect(out).toEqual({ userId: SUB, verified: true })
+  })
+
+  it('derives userId from the verified sub when the body omits userId', async () => {
+    jwtVerify.mockResolvedValue({ payload: { sub: SUB } })
+    const out = await resolveVerifiedUserId(reqWith({ authorization: 'Bearer good.jwt' }), {})
+    expect(out).toEqual({ userId: SUB, verified: true })
+  })
+
+  it('REJECTS a body userId that differs from the verified sub (IDOR)', async () => {
+    jwtVerify.mockResolvedValue({ payload: { sub: SUB } })
+    await expect(
+      resolveVerifiedUserId(reqWith({ authorization: 'Bearer good.jwt' }), {
+        userId: OTHER_SUB,
+      }),
+    ).rejects.toBeInstanceOf(TenantAuthError)
+  })
+
+  it('rejects an invalid/expired token (never falls through to body trust)', async () => {
+    jwtVerify.mockRejectedValue(new Error('signature verification failed'))
+    await expect(
+      resolveVerifiedUserId(reqWith({ authorization: 'Bearer bad.jwt' }), { userId: SUB }),
+    ).rejects.toBeInstanceOf(TenantAuthError)
+  })
+
+  it('rejects a verified token that carries no sub claim', async () => {
+    jwtVerify.mockResolvedValue({ payload: { email: 'a@b.c' } })
+    await expect(
+      resolveVerifiedUserId(reqWith({ authorization: 'Bearer good.jwt' }), {}),
+    ).rejects.toBeInstanceOf(TenantAuthError)
+  })
+
+  it('with issuer configured but NO token, falls back to the body userId (verified:false)', async () => {
+    const out = await resolveVerifiedUserId(reqWith(), { userId: SUB })
+    expect(out).toEqual({ userId: SUB, verified: false })
+    expect(jwtVerify).not.toHaveBeenCalled()
+  })
+
+  it('fallback with NO token and NO body userId is rejected', async () => {
+    delete process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID
+    await expect(resolveVerifiedUserId(reqWith(), {})).rejects.toBeInstanceOf(TenantAuthError)
   })
 })
