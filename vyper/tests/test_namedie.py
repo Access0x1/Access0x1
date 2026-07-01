@@ -9,7 +9,11 @@ checked against a constructed expected (head + tier polygon + brand color + zinc
 color is the SAME derivation, the die and identicon for any name can never disagree.
 """
 
+import random
+
 import pytest
+
+import namemath_ref as ref
 
 # Reuse the canonical Solidity-extracted ground truth + the test vectors from the NameMath suite.
 from test_conformance import (
@@ -17,6 +21,7 @@ from test_conformance import (
     EXPECTED_COLOR_HEX,
     EXPECTED_COLOR_OF,
     NODE_A,
+    NODE_BG,
 )
 
 # ─── die geometry (mirrors NameDie.vy's baked constants) ───────────────────────────────────────
@@ -47,12 +52,12 @@ def _die_svg(points: str, color_hex: str) -> str:
 
 
 # ─── COLOR conforms to NameMath byte-for-byte (the headline guarantee) ─────────────────────────
-@pytest.mark.parametrize("node", ALL_NODES, ids=["A", "B", "ZERO"])
+@pytest.mark.parametrize("node", ALL_NODES, ids=["A", "B", "ZERO", "BG"])
 def test_colorOf_conforms_to_namemath(name_die, node):
     assert bytes(name_die.colorOf(node)) == EXPECTED_COLOR_OF[node]
 
 
-@pytest.mark.parametrize("node", ALL_NODES, ids=["A", "B", "ZERO"])
+@pytest.mark.parametrize("node", ALL_NODES, ids=["A", "B", "ZERO", "BG"])
 def test_colorHex_conforms_to_namemath(name_die, node):
     out = name_die.colorHex(node)
     assert out == EXPECTED_COLOR_HEX[node]
@@ -77,14 +82,14 @@ def test_sides_tier_name(name_die, char_len, sides, tier, name):
 
 
 # ─── DIE SVG byte-for-byte (head + tier polygon + brand color + stroke) ────────────────────────
-@pytest.mark.parametrize("node", ALL_NODES, ids=["A", "B", "ZERO"])
+@pytest.mark.parametrize("node", ALL_NODES, ids=["A", "B", "ZERO", "BG"])
 @pytest.mark.parametrize("char_len", [3, 4, 5])
 def test_dieRawSVG_byte_for_byte(name_die, node, char_len):
     sides = name_die.sidesOf(char_len)
     assert name_die.dieRawSVG(node, char_len) == _die_svg(_POINTS[sides], EXPECTED_COLOR_HEX[node])
 
 
-@pytest.mark.parametrize("node", ALL_NODES, ids=["A", "B", "ZERO"])
+@pytest.mark.parametrize("node", ALL_NODES, ids=["A", "B", "ZERO", "BG"])
 def test_dieSVG_data_uri_wrapper(name_die, node):
     assert name_die.dieSVG(node, 4) == _DATA_URI + _die_svg(_HEX, EXPECTED_COLOR_HEX[node])
 
@@ -99,3 +104,66 @@ def test_tiers_render_distinct_dice(name_die):
     rare = name_die.dieRawSVG(NODE_A, 4)
     standard = name_die.dieRawSVG(NODE_A, 5)
     assert legendary != rare != standard != legendary
+
+
+# ─── DIFFERENTIAL FUZZ: NameDie color path == NameMath reference over the random input space ─────
+# NameDie re-derives the brand color itself (it does not import NameMath). The headline guarantee is
+# that this independent re-derivation is byte-for-byte identical to NameMath's — INCLUDING the I-4
+# nudge — so a name's die and identicon can never disagree. We prove it against the same faithful
+# Solidity reference the NameMath fuzz uses, over a large deterministic-random node sample.
+_FUZZ_SEED = 0xD1E5EED
+_FUZZ_N = 256
+
+_EDGE_NODES = [
+    b"\x00" * 32,
+    b"\xff" * 32,
+    NODE_BG,  # background-collision node: NameDie must nudge exactly like NameMath (0xE5E5E4)
+    NODE_A,
+]
+
+
+def _fuzz_nodes():
+    rng = random.Random(_FUZZ_SEED)
+    yield from _EDGE_NODES
+    for _ in range(_FUZZ_N):
+        yield rng.getrandbits(256).to_bytes(32, "big")
+
+
+@pytest.mark.parametrize("node", list(_fuzz_nodes()))
+def test_namedie_colorOf_conforms_to_reference(name_die, node):
+    assert bytes(name_die.colorOf(node)) == ref.color_of(node)
+
+
+@pytest.mark.parametrize("node", list(_fuzz_nodes()))
+def test_namedie_colorHex_conforms_to_reference(name_die, node):
+    assert name_die.colorHex(node) == ref.color_hex(node)
+
+
+def test_namedie_color_never_equals_background(name_die):
+    # Same I-4 guarantee as NameMath: the die fill can never be the neutral background for any node.
+    bg = bytes.fromhex("f4f4f5")
+    for node in list(_fuzz_nodes()):
+        assert bytes(name_die.colorOf(node)) != bg
+
+
+# ─── DIE SVG differential over color x tier: die fill == NameMath color, geometry == baked tier ──
+@pytest.mark.parametrize("node", list(_fuzz_nodes())[:32])
+@pytest.mark.parametrize("char_len", [3, 4, 5, 1, 2, 6, 32, 0])
+def test_namedie_dieRawSVG_differential(name_die, node, char_len):
+    sides = name_die.sidesOf(char_len)
+    assert name_die.dieRawSVG(node, char_len) == _die_svg(_POINTS[sides], ref.color_hex(node))
+
+
+# ─── sides/tier/tierName totality across a wide char_len range (boundary enumeration) ────────────
+@pytest.mark.parametrize("char_len", list(range(0, 12)) + [63, 255, 2**256 - 1])
+def test_namedie_tier_boundaries_total(name_die, char_len):
+    sides = name_die.sidesOf(char_len)
+    tier = name_die.tierOf(char_len)
+    name = name_die.tierName(char_len)
+    # Exhaustive expected mapping mirrors the documented inverse-rarity curve.
+    if char_len <= 3:
+        assert (sides, tier, name) == (3, 0, "LEGENDARY")
+    elif char_len == 4:
+        assert (sides, tier, name) == (6, 1, "RARE")
+    else:
+        assert (sides, tier, name) == (9, 2, "STANDARD")

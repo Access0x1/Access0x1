@@ -30,7 +30,11 @@
               word2: 0x05                              (string byte-length = 5)
               word3: "color" left-aligned, zero-padded
             We build that 128-byte preimage explicitly with `concat` so the keccak preimage is
-            identical to Solidity's, then slice the leading 3 bytes.
+            identical to Solidity's, then slice the leading 3 bytes. FINALLY apply the I-4
+            legibility nudge: if that raw color equals the neutral background `_BG` (0xF4F4F5),
+            XOR in a fixed nudge (`_BG ^ 0x111111 == 0xE5E5E4`) so the foreground can never paint
+            invisible. This branch MUST be mirrored (Solidity `colorOf` carries it) or the twins
+            diverge on the ~1-in-2^24 colliding namehash.
 
         identiconSVG(node):
             seed = keccak256(abi.encode("identicon", node))   (same tuple-encode rule, 9-char tag)
@@ -64,6 +68,15 @@ _COLOR_TAG: constant(bytes32) = 0x636f6c6f72000000000000000000000000000000000000
 # `abi.encode("identicon", node)` word2 (length 9) and word3 ("identicon" left-aligned, padded).
 _IDENTICON_LEN: constant(bytes32) = 0x0000000000000000000000000000000000000000000000000000000000000009
 _IDENTICON_TAG: constant(bytes32) = 0x6964656e7469636f6e0000000000000000000000000000000000000000000000
+
+# Legibility nudge (mirrors NameMath.sol `colorOf`, audit finding I-4): for the ~1-in-2^24 namehash
+# whose raw brand color equals the neutral background `_BG`, the canonical Solidity library XORs a
+# fixed nudge so the foreground can never paint invisible into the backdrop. Precomputed
+# `_BG ^ 0x111111 == 0xE5E5E4` so this twin stays byte-for-byte identical to Solidity (and to the
+# NameDie.vy twin, which already carries the nudge). Without this branch, `_color_of` diverges from
+# the Solidity ground truth on exactly that colliding node.
+_BG: constant(bytes3) = 0xF4F4F5
+_BG_NUDGED: constant(bytes3) = 0xE5E5E4
 
 # Single-character decimal digits, sliced by value in `_to_string`.
 _DIGITS: constant(Bytes[10]) = b"0123456789"
@@ -122,7 +135,12 @@ def _color_of(node: bytes32) -> bytes3:
     # Build the EXACT Solidity `abi.encode("color", node)` 128-byte preimage, hash it, take the
     # leading (high) 3 bytes -- matching Solidity's `bytes3(keccak256(...))`.
     h: bytes32 = keccak256(concat(_ABI_OFFSET_40, node, _COLOR_LEN, _COLOR_TAG))
-    return convert(slice(h, 0, 3), bytes3)
+    c: bytes3 = convert(slice(h, 0, 3), bytes3)
+    # I-4 legibility nudge -- mirror Solidity `colorOf`: `color == BG ? color ^ NUDGE : color`.
+    # `_BG_NUDGED == _BG ^ 0x111111`, so this is byte-for-byte identical to the canonical library.
+    if c == _BG:
+        return _BG_NUDGED
+    return c
 
 
 @internal
