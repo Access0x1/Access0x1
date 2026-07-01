@@ -7,6 +7,7 @@ vi.mock("@unlink-xyz/sdk", () => ({
 }));
 
 import { handlePayout, type PayoutDeps } from "../app/api/payout/route.js";
+import { TenantAuthError } from "../lib/branding/tenant.js";
 import {
   ShieldFailedError,
   WithdrawFailedError,
@@ -27,6 +28,19 @@ function req(body: unknown): Request {
 function makeDeps(overrides?: Partial<PayoutDeps>): { deps: PayoutDeps; calls: string[] } {
   const calls: string[] = [];
   const deps: PayoutDeps = {
+    // Default resolver: identity comes from the "verified" token; a mismatching
+    // body userId is rejected. Tests override this to exercise auth outcomes.
+    resolveVerifiedUserId: vi.fn(async (_req: Request, body: unknown) => {
+      const bodyUserId =
+        body && typeof body === "object" && "userId" in body
+          ? (body as { userId?: unknown }).userId
+          : undefined;
+      const verified = USER_ID;
+      if (typeof bodyUserId === "string" && bodyUserId.trim() && bodyUserId !== verified) {
+        throw new TenantAuthError("Signed-in identity does not match the requested user.");
+      }
+      return { userId: verified, verified: true };
+    }),
     ensureRegistered: vi.fn(async () => {
       calls.push("ensureRegistered");
     }),
@@ -71,13 +85,54 @@ describe("POST /api/payout (handlePayout)", () => {
     expect(res.status).toBe(400);
   });
 
-  it("400 when userId is missing", async () => {
+  // ── IDOR guard: identity comes from the VERIFIED JWT, never the body ─────────
+
+  it("401 when a body userId differs from the verified JWT sub (IDOR rejected)", async () => {
     const { deps } = makeDeps();
+    const res = await handlePayout(
+      req({
+        amountUsd: 4.2,
+        depositAmountUsd: 50,
+        destination: VALID_DEST,
+        // Attacker asserts SOMEONE ELSE's id in the body.
+        userId: "dyn|sub-VICTIM",
+      }),
+      deps,
+    );
+    expect(res.status).toBe(401);
+    // No funds path was entered.
+    expect(deps.ensureRegistered).not.toHaveBeenCalled();
+    expect(deps.shieldAndWithdraw).not.toHaveBeenCalled();
+  });
+
+  it("401 when identity resolution fails (no/invalid token)", async () => {
+    const { deps } = makeDeps({
+      resolveVerifiedUserId: vi.fn(async () => {
+        throw new TenantAuthError();
+      }),
+    });
+    const res = await handlePayout(
+      req({ amountUsd: 4.2, depositAmountUsd: 50, destination: VALID_DEST, userId: USER_ID }),
+      deps,
+    );
+    expect(res.status).toBe(401);
+    expect(deps.ensureRegistered).not.toHaveBeenCalled();
+    expect(deps.shieldAndWithdraw).not.toHaveBeenCalled();
+  });
+
+  it("uses the VERIFIED sub for ensureRegistered, not any body userId", async () => {
+    const resolveVerifiedUserId = vi.fn(async () => ({
+      userId: "dyn|sub-VERIFIED",
+      verified: true,
+    }));
+    const { deps } = makeDeps({ resolveVerifiedUserId });
+    // Body omits userId entirely — the verified sub is what drives the path.
     const res = await handlePayout(
       req({ amountUsd: 4.2, depositAmountUsd: 50, destination: VALID_DEST }),
       deps,
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect(deps.ensureRegistered).toHaveBeenCalledWith("dyn|sub-VERIFIED");
   });
 
   it("400 on invalid JSON body", async () => {

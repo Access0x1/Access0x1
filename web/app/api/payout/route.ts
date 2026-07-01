@@ -1,9 +1,15 @@
 /**
  * POST /api/payout — the private payout leg endpoint.
  *
- * Flow (spec §4): validate body -> ensureRegistered(userId) -> shieldAndWithdraw
- * -> return { depositTx, withdrawTx }. This is a post-settlement async action,
- * entirely OFF the Solidity CEI money path (spec §9.4) — it never calls the router.
+ * Flow (spec §4): verify caller identity -> validate body -> ensureRegistered(userId)
+ * -> shieldAndWithdraw -> return { depositTx, withdrawTx }. This is a post-settlement
+ * async action, entirely OFF the Solidity CEI money path (spec §9.4) — it never calls
+ * the router.
+ *
+ * AUTH (money-path IDOR guard): `userId` is the Dynamic JWT `sub` and is derived
+ * from the SERVER-VERIFIED token (via `resolveVerifiedUserId`), NEVER trusted from
+ * the request body. A body-supplied `userId` that disagrees with the verified `sub`
+ * is rejected — an attacker cannot drive another identity's withdrawal path.
  *
  * The merchant's Unlink account is derived from a server key pair (`account.fromKeys`)
  * for the transfer/withdraw legs; the seed-backed (browser) derivation is a separate
@@ -17,6 +23,10 @@
  * (`export async function POST`) and typechecks without the Next types installed.
  */
 import { isAddress } from "viem";
+import {
+  resolveVerifiedUserId,
+  TenantAuthError,
+} from "../../../lib/branding/tenant.js";
 import { ensureRegistered, getMerchantClient } from "../../../lib/unlink/payoutService.js";
 import {
   shieldAndWithdraw,
@@ -54,6 +64,15 @@ function json(body: unknown, status: number): Response {
  * server account + `getMerchantClient`. Exported for the route's own test only.
  */
 export interface PayoutDeps {
+  /**
+   * Resolve the caller's identity (`userId` = Dynamic JWT `sub`) from the
+   * SERVER-VERIFIED token, cross-checking any body `userId`. Injected so tests can
+   * exercise the auth outcomes without standing up the real JWKS.
+   */
+  resolveVerifiedUserId: (
+    req: Request,
+    body: unknown,
+  ) => Promise<{ userId: string; verified: boolean }>;
   ensureRegistered: typeof ensureRegistered;
   shieldAndWithdraw: (params: {
     depositAmountUsdc: number;
@@ -75,7 +94,20 @@ export async function handlePayout(req: Request, deps: PayoutDeps): Promise<Resp
     return json({ error: "invalid_json" }, 400);
   }
 
-  const { amountUsd, depositAmountUsd, destination, userId } = body;
+  const { amountUsd, depositAmountUsd, destination } = body;
+
+  // ── Auth (money-path IDOR guard): derive userId from the VERIFIED JWT ─────────
+  // The `sub` comes from the server-verified Dynamic token — a body-supplied
+  // `userId` is only allowed to CONFIRM it (must match), never to assert it.
+  let userId: string;
+  try {
+    ({ userId } = await deps.resolveVerifiedUserId(req, body));
+  } catch (err) {
+    if (err instanceof TenantAuthError) {
+      return json({ error: err.message }, 401);
+    }
+    return json({ error: "unauthorized" }, 401);
+  }
 
   // ── Validation (spec §4 error table) ─────────────────────────────────────────
   if (typeof amountUsd !== "number" || !Number.isFinite(amountUsd) || amountUsd <= 0) {
@@ -94,9 +126,6 @@ export async function handlePayout(req: Request, deps: PayoutDeps): Promise<Resp
   }
   if (typeof destination !== "string" || !isAddress(destination)) {
     return json({ error: "destination must be a valid 0x address" }, 400);
-  }
-  if (typeof userId !== "string" || userId.length === 0) {
-    return json({ error: "userId is required" }, 400);
   }
 
   // ── Register BEFORE shielding (call-order asserted by tests) ──────────────────
@@ -145,6 +174,7 @@ export async function handlePayout(req: Request, deps: PayoutDeps): Promise<Resp
  */
 export async function POST(req: Request): Promise<Response> {
   const deps: PayoutDeps = {
+    resolveVerifiedUserId,
     ensureRegistered,
     shieldAndWithdraw: (args) => buildServerPayout(args),
   };
