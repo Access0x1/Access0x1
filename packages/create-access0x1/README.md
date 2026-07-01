@@ -3,14 +3,11 @@
 Scaffolds the [Access0x1](https://github.com/Access0x1/Access0x1) starter — a non-custodial,
 USD-priced (Chainlink) crypto payments stack — from `templates/starter/` at the repo root.
 
-Once published it runs as the standard npm initializer: `npm create access0x1@latest my-app`.
-
-> **Publish gate (owner-only).** The metadata here is publish-ready, but `package.json` keeps
-> `"private": true` on purpose. The single step to ship it is the owner's call — see
-> **[Publishing](#publishing-owner-only)** below.
->
-> Until then, end users fetch the template directly with `degit` (below); this CLI also works as a
-> thin wrapper from a local checkout of this repo (it does the `{{TOKEN}}` substitution for you).
+Access0x1 is **distributed from GitHub — it is not published to any npm registry.** You scaffold a
+new app by copying the template straight from the repo with [`degit`](https://github.com/Rich-Harris/degit)
+(below), or by running this CLI from a checkout of this repo (it does the `{{TOKEN}}` substitution for
+you). There is no `npm create` / `npx create-access0x1@latest` path — and that's by design, not a
+pending step.
 
 ## Get the starter (no CLI needed) — recommended
 
@@ -23,16 +20,9 @@ npm run setup        # detect/install Foundry, install deps, build the contracts
 `degit` copies `templates/starter/` verbatim; replace the `{{...}}` placeholders by hand, or use the
 CLI below to have them filled in.
 
-## Or use this CLI
+## Or use this CLI (from a repo checkout)
 
-Once published (see [Publishing](#publishing-owner-only)), as the standard npm initializer:
-
-```bash
-npm create access0x1@latest my-checkout -- --chain base --features checkout,invoices --yes
-npx create-access0x1 my-checkout --chain base --features checkout,invoices --yes
-```
-
-Or directly from a checkout of this repo (no publish required):
+The CLI runs straight from a checkout of this repo — no registry, no publish:
 
 ```bash
 node packages/create-access0x1/bin/index.mjs my-checkout --chain base --features checkout,invoices --yes
@@ -83,26 +73,18 @@ Without `--yes` (and on a TTY), the CLI prompts interactively for the directory,
 - **No-deploy default.** The generated app runs against a router you configure in `.env.local`, so
   it boots out of the box once you paste a router address you trust. Deploying your own is optional.
 
-## Publishing (owner-only)
+## Distribution (no npm publish)
 
-The metadata in `package.json` is publish-ready (`bin`, `files`, `engines`, `repository`, `homepage`,
-`bugs`, `keywords`, `publishConfig.access: public`). **The one remaining step is the owner's call:**
+Access0x1 is **not published to any npm registry — on purpose.** Everything ships from GitHub:
 
-```bash
-# 1. Flip the publish gate: set "private": false in packages/create-access0x1/package.json
-# 2. From the package directory, publish:
-cd packages/create-access0x1 && npm publish
-```
+- **Scaffold a new app:** `npx degit Access0x1/Access0x1/templates/starter my-checkout` (copies the
+  template straight from the repo — no registry), or run this CLI from a checkout
+  (`node packages/create-access0x1/bin/index.mjs …`).
+- **Consume the SDK:** reference `@access0x1/react` as a git dependency in your app's `package.json`
+  (`"@access0x1/react": "github:Access0x1/Access0x1#main"`), or vendor `packages/react/`.
 
-That's it — there is no build step (the CLI is plain ESM). `publishConfig.access` is already `public`,
-so the unscoped `create-access0x1` name publishes publicly.
-
-> **Stub note — template distribution.** `files` ships only `bin`, `README.md`, and `LICENSE`; the
-> `templates/starter/` tree lives at the repo root and is **not** bundled into the npm tarball. A
-> freshly `npx`'d `create-access0x1` therefore needs the template resolvable on disk (running from a
-> checkout) OR the publish step must first vendor `templates/starter/` into the package and add it to
-> `files`. Wire that in before flipping the gate if you want a standalone `npx` to scaffold without a
-> local checkout; until then the recommended path stays `npx degit …/templates/starter` (above).
+The CLI is plain ESM (no build step). It reads `templates/starter/` from the repo checkout it runs in,
+so it does not need to be packaged — the `degit` path stays the recommended zero-checkout route.
 
 ## Requirements
 

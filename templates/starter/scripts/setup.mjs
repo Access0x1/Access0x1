@@ -10,9 +10,9 @@
  *   2. `forge install` the Solidity submodules (forge-std + openzeppelin-contracts) into contracts/lib.
  *   3. `npm install` inside contracts/ so Foundry can resolve the `@chainlink/contracts` remapping
  *      (chainlink-brownie-contracts is deprecated — the npm package is the canonical source).
- *   4. Ensure `@access0x1/react` is available: first tries the npm registry; if not published yet,
- *      packs it from the local Access0x1 repo checkout (via `npm pack`) and wires a `file:` reference
- *      into app/package.json. A vendor/ directory at the project root holds the tarball.
+ *   4. Ensure `@access0x1/react` is available: Access0x1 is distributed from GitHub, not any npm
+ *      registry, so this packs it from the local Access0x1 repo checkout (via `npm pack`) and wires a
+ *      `file:` reference into app/package.json. A vendor/ directory at the project root holds the tarball.
  *   5. `npm install` inside app/ so the Next.js checkout can build.
  *   6. `forge build` to prove the vendored contracts compile end to end.
  *
@@ -149,11 +149,11 @@ function npmInstall(dir, label, env) {
 }
 
 /**
- * Check whether @access0x1/react is on the npm registry. If not, find the local
- * Access0x1 repo (walks up from this file, then checks known sibling paths), packs a
- * tarball with `npm pack`, stashes it in vendor/, and rewrites app/package.json to use
- * a `file:` reference. This keeps `npm run setup` self-contained even before the
- * package is published to npm.
+ * Wire @access0x1/react from the local Access0x1 repo (Access0x1 is distributed from GitHub,
+ * not any npm registry). Finds the local repo (walks up from this file, then checks known
+ * sibling paths), packs a tarball with `npm pack`, stashes it in vendor/, and rewrites
+ * app/package.json to use a `file:` reference. This keeps `npm run setup` self-contained
+ * without ever touching a registry.
  */
 function ensureAccess0x1React() {
   heading('@access0x1/react — locate or pack');
@@ -169,18 +169,7 @@ function ensureAccess0x1React() {
     }
   }
 
-  // Check npm registry (silent).
-  console.log(dim('  checking npm registry for @access0x1/react…'));
-  const { ok: onNpm } = runQuiet('npm', ['view', '@access0x1/react', 'version']);
-  if (onNpm) {
-    console.log(`  ${green('✓')} @access0x1/react is on npm — standard npm install will handle it.`);
-    return;
-  }
-
-  console.log(
-    yellow('  @access0x1/react is not yet published to npm.') +
-      dim(' Locating the local Access0x1 repo to pack it…'),
-  );
+  console.log(dim('  Access0x1 is git-distributed (no npm registry) — locating the local repo to pack it…'));
 
   // Candidate locations for the packages/react directory — relative to THIS script
   // only (no hardcoded user-specific path). When the starter lives inside an
@@ -204,7 +193,7 @@ function ensureAccess0x1React() {
 
   if (!pkgDir) {
     console.error(red('\n  Could not locate the @access0x1/react source directory.'));
-    console.error(dim('  The package is not yet on npm and no local Access0x1 checkout was found'));
+    console.error(dim('  Access0x1 is git-distributed (no npm registry) and no local checkout was found'));
     console.error(dim('  relative to this script. Choose one:'));
     console.error(dim('    a) Point setup at your Access0x1 checkout (the dir containing packages/):'));
     console.error(dim('         ACCESS0X1_REPO=/path/to/Access0x1 npm run setup'));
@@ -212,7 +201,7 @@ function ensureAccess0x1React() {
     console.error(dim('         cd /path/to/Access0x1/packages/react && npm ci && npm run build && npm pack'));
     console.error(dim('       Copy the resulting .tgz into vendor/ here, then run:'));
     console.error(dim('         npm --prefix app install --save @access0x1/react@file:../vendor/<tarball>.tgz'));
-    throw new Error('@access0x1/react not on npm and local source not found — see instructions above.');
+    throw new Error('@access0x1/react local source not found — see instructions above.');
   }
 
   console.log(dim(`  Found source at: ${pkgDir}`));
@@ -276,7 +265,7 @@ async function main() {
   npmInstall(CONTRACTS, 'Contract deps (@chainlink/contracts)');
   ensureAccess0x1React();
   // Skip the app's preinstall guard here: setup is the sanctioned path — it has
-  // just resolved @access0x1/react (a file: tarball, or confirmed it on npm), so the
+  // just resolved @access0x1/react (wired as a local file: tarball), so the
   // "run setup first" guard would be a false positive on this very install.
   npmInstall(APP, 'App deps (Next.js + @access0x1/react)', {
     ACCESS0X1_SKIP_PREINSTALL_CHECK: '1',

@@ -7,10 +7,12 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > **Testnet only — and we say so.** Access0x1 is an ETHGlobal NY 2026 build.
 > Every contract is deployed to **public testnets only**; there are **no mainnet
 > deployments and no mainnet claims**. The packages (`@access0x1/react`,
-> `create-access0x1`) are at `0.1.0` and are **not yet published to the public npm
-> registry** — install them from source (`npm pack`) as the docs describe. Because
-> nothing has been tagged or released yet, the current state lives under
-> **[Unreleased]**; it will be cut to a tagged version on the first published release.
+> `create-access0x1`) are at `0.1.0` and are **git-distributed — consumed straight
+> from this GitHub repo, not published to any npm registry (by design)**. Consume
+> the SDK as a git dependency (`github:Access0x1/Access0x1#main`) or vendor it, and
+> scaffold with `npx degit …/templates/starter`, as the docs describe. Because
+> nothing has been tagged yet, the current state lives under **[Unreleased]**; it
+> will be cut to a tagged version on the first release.
 >
 > Entries are dated, not invented. Deployment claims here are read from the committed
 > `broadcast/DeployAll.s.sol/<chainId>/` records and the live tables in

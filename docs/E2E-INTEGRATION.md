@@ -89,11 +89,18 @@ cast call $ROUTER "nextMerchantId()(uint256)" --rpc-url $RPC
 ## Stage 2 — the developer adds `<PayButton>` to a React app
 
 `@access0x1/react` is viem/wagmi-native and ships a single drop-in component.
-Install it (it is `v0.1.0`; pack it locally from a repo checkout until it lands on
-npm — see [GETTING-STARTED.md → Path 1](./GETTING-STARTED.md#1-install)):
+It is **git-distributed (no npm registry)** — reference the repo as a git dependency
+(or vendor `packages/react/`; see [GETTING-STARTED.md → Path 1](./GETTING-STARTED.md#1-install)):
+
+```jsonc
+// package.json
+"dependencies": {
+  "@access0x1/react": "github:Access0x1/Access0x1#main"   // or pin a commit SHA
+}
+```
 
 ```bash
-npm install @access0x1/react viem wagmi
+npm install viem wagmi   # peers your app provides
 ```
 
 Pass the `merchantId` from Stage 1 and the `routerAddress` you read from

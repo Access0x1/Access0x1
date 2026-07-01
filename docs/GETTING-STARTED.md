@@ -46,16 +46,22 @@ It is viem/wagmi-native and ships a single drop-in component, `<PayButton>`.
 
 ### 1. Install
 
-The SDK is at `v0.1.0` and not yet on the public npm registry. The starter
-template (Path 3) wires it for you automatically; to add it to an existing app,
-pack it locally from a repo checkout:
+The SDK is distributed **from GitHub, not any npm registry** — you consume it as a
+git dependency. The starter template (Path 3) wires it for you automatically; to
+add it to an existing app, reference the repo in your `package.json`:
+
+```jsonc
+// package.json
+"dependencies": {
+  "@access0x1/react": "github:Access0x1/Access0x1#main"   // or pin a commit SHA
+}
+```
 
 ```sh
-# from your clone of Access0x1
-cd packages/react && npm pack          # -> access0x1-react-0.1.0.tgz
-cd /path/to/your-app
-npm install /path/to/access0x1-react-0.1.0.tgz
+npm install   # builds the SDK's dist/ via its prepare script on install
 ```
+
+Prefer to vendor it? Copy `packages/react/` into your repo — no registry involved.
 
 Peer deps: `react`, plus [`viem`](https://viem.sh) and (optionally)
 [`wagmi`](https://wagmi.sh) for wallet wiring.

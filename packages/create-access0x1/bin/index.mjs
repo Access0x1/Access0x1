@@ -14,12 +14,12 @@
  * address. Every address is an env placeholder with a "confirm at booth / fill from your deploy"
  * note. The only chain values baked in are the public chain IDs (which are facts, not secrets).
  *
- * Zero runtime dependencies: only Node builtins (fs/path/url/readline) so `npx create-access0x1`
- * is instant. No build step — this is plain ESM (.mjs).
+ * Zero runtime dependencies: only Node builtins (fs/path/url/readline) so it runs instantly straight
+ * from a repo checkout. No build step — this is plain ESM (.mjs). Access0x1 is git-distributed, not
+ * published to any npm registry, so this CLI is run from the repo (not via `npx create-access0x1`).
  *
- * Usage:
- *   npm create access0x1@latest my-app
- *   npx create-access0x1 my-app --chain base --features checkout,subscriptions --yes
+ * Usage (from a checkout of the Access0x1 repo):
+ *   node packages/create-access0x1/bin/index.mjs my-app --chain base --features checkout,subscriptions --yes
  */
 
 import { createRequire } from 'node:module';
@@ -149,9 +149,8 @@ function printHelp() {
   console.log(`
 ${bold('create-access0x1')} — scaffold a non-custodial, USD-priced crypto checkout + your own contracts.
 
-${bold('Usage')}
-  npm create access0x1@latest ${cyan('<target-dir>')} ${dim('[options]')}
-  npx create-access0x1 ${cyan('<target-dir>')} ${dim('[options]')}
+${bold('Usage')} ${dim('(run from a checkout of the Access0x1 repo — git-distributed, not on npm)')}
+  node packages/create-access0x1/bin/index.mjs ${cyan('<target-dir>')} ${dim('[options]')}
 
 ${bold('Options')}
   --chain <key>              Settlement chain (default: arc). Deployed: arc, base, zksync.
@@ -161,7 +160,7 @@ ${bold('Options')}
   --help, -h                  Show this help
 
 ${bold('Example')}
-  npx create-access0x1 my-checkout --chain base --features checkout,invoices --yes
+  node packages/create-access0x1/bin/index.mjs my-checkout --chain base --features checkout,invoices --yes
 `);
 }
 

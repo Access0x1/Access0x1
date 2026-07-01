@@ -15,15 +15,16 @@
  *
  * HOW CHAIN VALUES ARE SET
  * ─────────────────────────
- * This file works out of the box after `degit` AND after `npm create access0x1`.
+ * This file works out of the box after `degit` AND after the create-access0x1 CLI.
  *
  * - After `npx degit`: CHAIN_KEY defaults to '{{CHAIN}}' (unsubstituted); the CHAIN_DEFAULTS
  *   lookup table falls back to Arc Testnet (the lead chain). Edit CHAIN_KEY to 'base' or 'zksync'
  *   to target a different chain — the lookup table fills the rest automatically.
  *
- * - After `npm create access0x1 --chain base` (or `arc`/`zksync`): the create-access0x1 CLI
- *   substitutes '{{CHAIN}}', '{{CHAIN_NAME}}', and '{{ROUTER_ENV}}' with the correct values.
- *   CHAIN_DEFAULTS is still present as a human-readable reference; the resolved values win.
+ * - After the create-access0x1 CLI (`node packages/create-access0x1/bin/index.mjs … --chain base`,
+ *   from a repo checkout — Access0x1 is git-distributed, not on npm): the CLI substitutes '{{CHAIN}}',
+ *   '{{CHAIN_NAME}}', and '{{ROUTER_ENV}}' with the correct values. CHAIN_DEFAULTS is still present as
+ *   a human-readable reference; the resolved values win.
  */
 
 import type { Hex } from '@access0x1/react';
