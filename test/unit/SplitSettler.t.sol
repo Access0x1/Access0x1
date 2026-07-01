@@ -789,4 +789,82 @@ contract SplitSettlerTest is Test, ProxyDeployer {
         );
         UUPSUpgradeable(address(settler)).upgradeToAndCall(v2, "");
     }
+
+    /*//////////////////////////////////////////////////////////////
+                       COVERAGE — WITHDRAW-TO EDGES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice COVERAGE: the ERC-20 branch of {withdrawTo} on the HAPPY path — a credited payee redirects
+    ///         its OWN token credit to a fresh receivable address, the credit zeroes, and the tokens land.
+    ///         Complements {test_withdrawToRevertsWhenRedirectFails}, which only exercises the revert side
+    ///         of the same `safeTransfer` branch.
+    function test_withdrawTo_erc20_happyPath() public {
+        _settleTokenAs(payer, splitId);
+        uint256 sellerCredit = settler.withdrawable(seller, address(usdc));
+        assertGt(sellerCredit, 0, "seller must be credited before redirect");
+
+        address rescue = makeAddr("erc20Rescue");
+        vm.prank(seller);
+        settler.withdrawTo(address(usdc), rescue);
+
+        assertEq(usdc.balanceOf(rescue), sellerCredit, "redirected tokens land at the rescue address");
+        assertEq(settler.withdrawable(seller, address(usdc)), 0, "credit zeroed after redirect");
+    }
+
+    /// @notice COVERAGE: the native `!ok` revert branch of {withdrawTo}. A payee credited in native settles
+    ///         its OWN credit to a receiver that rejects ETH; the low-level send fails, so the WHOLE
+    ///         withdrawTo reverts with {SplitSettler__WithdrawToFailed} and the credit is fully restored
+    ///         (funds are never stranded or half-moved).
+    function test_withdrawTo_native_revertsWhenReceiverRejects() public {
+        RevertingReceiver rr = new RevertingReceiver();
+
+        uint256 gross = router.quote(merchantId, address(0), USD);
+        vm.deal(payer, gross);
+        vm.prank(payer);
+        settler.settleNative{ value: gross }(splitId, USD, keccak256("wto-native"));
+
+        uint256 sellerCredit = settler.withdrawable(seller, address(0));
+        assertGt(sellerCredit, 0, "seller must hold a native credit");
+
+        vm.prank(seller);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISplitSettler.SplitSettler__WithdrawToFailed.selector, address(rr), sellerCredit
+            )
+        );
+        settler.withdrawTo(address(0), address(rr));
+
+        // The reverted send restores the credit exactly — nothing lost, nothing double-counted.
+        assertEq(settler.withdrawable(seller, address(0)), sellerCredit, "credit restored on revert");
+    }
+
+    /// @notice COVERAGE: the `leg == 0 → continue` skip in the fan-out. A 1-bps leg over a tiny net floors
+    ///         to zero, so it is skipped (no credit, no event) while the remainder leg still absorbs the
+    ///         entire net — Σ(credits) == net holds with a dropped dust leg.
+    function test_settleToken_zeroDustLegSkipped() public {
+        // Two payees: a 1-bps sliver and the 9999-bps remainder. Over a tiny net the sliver floors to 0.
+        address sliver = makeAddr("sliver");
+        ISplitSettler.Payee[] memory p = new ISplitSettler.Payee[](2);
+        p[0] = ISplitSettler.Payee({ account: sliver, shareBps: 1 }); // 0.01%
+        p[1] = ISplitSettler.Payee({ account: seller, shareBps: 9999 }); // 99.99%
+        vm.prank(merchantOwner);
+        uint256 id = settler.createSplit(merchantId, p, 1);
+
+        // $0.00000100 → a handful of USDC base units; net (after 1% router fee) is small enough that
+        // net * 1 / 10_000 == 0, exercising the `leg == 0 → continue` skip on the sliver leg.
+        uint256 tinyUsd = 100; // 100 * 1e-8 USD
+        uint256 gross = router.quote(merchantId, address(usdc), tinyUsd);
+        (, uint256 net) = _routerSplit(gross);
+        assertEq(net * 1 / 10_000, 0, "sliver leg must floor to zero for this test to be meaningful");
+
+        usdc.mint(payer, gross);
+        vm.startPrank(payer);
+        usdc.approve(address(settler), gross);
+        settler.settleToken(id, address(usdc), tinyUsd, keccak256("dust"));
+        vm.stopPrank();
+
+        // The sliver leg was skipped (no credit); the remainder leg absorbs the whole net.
+        assertEq(settler.withdrawable(sliver, address(usdc)), 0, "zero-dust leg is skipped, uncredited");
+        assertEq(settler.withdrawable(seller, address(usdc)), net, "remainder leg absorbs the full net");
+    }
 }
