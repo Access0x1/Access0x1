@@ -11,6 +11,9 @@ import { SmartWallet1271 } from "../mocks/SmartWallet1271.sol";
 import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {
+    ERC20Permit
+} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {
@@ -38,6 +41,33 @@ contract FeeSkimGasless3009 is MockUSDCGasless {
     function _update(address from, address to, uint256 value) internal override {
         if (from != address(0) && to != address(0)) {
             uint256 fee = value / 100; // 1% skim
+            super._update(from, to, value - fee);
+            if (fee > 0) super._update(from, address(0xdead), fee);
+        } else {
+            super._update(from, to, value);
+        }
+    }
+}
+
+/// @notice A 6-decimal EIP-2612 `permit` token that SKIMS 1% on every transfer (burned to a sink).
+///         Drives the `_pullAndRoute` shortfall guard on the PERMIT rail: after `safeTransferFrom`
+///         the contract holds less than `gross`, so `received != gross` must revert
+///         {GaslessPayIn__PullShortfall}. The existing {FeeSkimGasless3009} only exercises the 3009
+///         rail's own (separate) shortfall check; this closes the permit-rail branch.
+contract FeeSkimPermit2612 is ERC20, ERC20Permit {
+    constructor() ERC20("Fee USDC", "fUSDC") ERC20Permit("Fee USDC") { }
+
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function _update(address from, address to, uint256 value) internal override {
+        if (from != address(0) && to != address(0)) {
+            uint256 fee = value / 100; // 1% skim (mint/burn are exempt so funding stays exact)
             super._update(from, to, value - fee);
             if (fee > 0) super._update(from, address(0xdead), fee);
         } else {
@@ -315,6 +345,48 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             27,
             bytes32(0),
             bytes32(0),
+            ORDER_ID
+        );
+    }
+
+    /// @notice COVERAGE: the `_pullAndRoute` shortfall guard on the PERMIT rail. A 2612-permit token that
+    ///         skims 1% on transfer delivers less than `gross` into the contract, so `received != gross`
+    ///         reverts {GaslessPayIn__PullShortfall} BEFORE any routing/approval — the fee-on-transfer
+    ///         reject that the router doctrine forbids, enforced here on the gasless path too. Complements
+    ///         {test_payInWithAuthorization_feeOnTransfer_revertsShortfall}, which covers the SEPARATE 3009
+    ///         pull path's own shortfall check.
+    function test_payInWithPermit_feeOnTransfer_revertsShortfall() public {
+        FeeSkimPermit2612 fot = new FeeSkimPermit2612();
+        MockV3Aggregator fotFeed = new MockV3Aggregator(8, 1e8);
+        vm.startPrank(owner);
+        router.setTokenAllowed(address(fot), true);
+        router.setPriceFeed(address(fot), address(fotFeed));
+        vm.stopPrank();
+
+        uint256 gross = router.quote(merchantId, address(fot), USD_AMOUNT);
+        fot.mint(buyer, gross);
+
+        bytes32 digest = _permitDigest(
+            address(fot), buyer, address(payIn), gross, 0, block.timestamp + 1 hours
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
+
+        uint256 received = gross - gross / 100; // 1% skim → contract receives less than gross
+        vm.prank(relayer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGaslessPayIn.GaslessPayIn__PullShortfall.selector, gross, received
+            )
+        );
+        payIn.payInWithPermit(
+            merchantId,
+            address(fot),
+            USD_AMOUNT,
+            buyer,
+            IGaslessPayIn.Permit({ value: gross, deadline: block.timestamp + 1 hours }),
+            v,
+            r,
+            s,
             ORDER_ID
         );
     }

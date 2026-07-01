@@ -790,4 +790,66 @@ contract RefundsTest is Test, ProxyDeployer {
         );
         UUPSUpgradeable(address(refunds)).upgradeToAndCall(v2, "");
     }
+
+    /*//////////////////////////////////////////////////////////////
+                       COVERAGE — WITHDRAW-TO EDGES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice COVERAGE: the ERC-20 branch of {withdrawTo}. A buyer whose token claim push failed (a
+    ///         blocklisted recipient) holds a QUEUED credit; it redirects that credit to a fresh, non-
+    ///         blocklisted address. Exercises the `safeTransfer` branch of {withdrawTo} on the happy path
+    ///         (the existing token withdrawTo test only exercises the ZeroAddress / NothingToWithdraw
+    ///         reverts; the queued-native redirect test only exercises the native branch).
+    function test_withdrawTo_erc20_redirectsQueuedCredit() public {
+        BlocklistToken bl = new BlocklistToken();
+        bl.mint(merchantOwner, 100e6);
+        vm.startPrank(merchantOwner);
+        bl.approve(address(refunds), 100e6);
+        refunds.requestRefund(merchantId, ORDER, buyer, address(bl), 100e6, deadline);
+        vm.stopPrank();
+
+        // The buyer cannot receive `bl` → the claim push fails and the credit queues to the pull-map.
+        bl.setBlocked(buyer, true);
+        vm.prank(buyer);
+        refunds.claim(merchantId, ORDER);
+        assertEq(refunds.withdrawable(buyer, address(bl)), 100e6, "credit queued after failed push");
+
+        // The buyer redirects ITS OWN queued credit to a fresh, non-blocklisted address.
+        address rescue = makeAddr("erc20Rescue");
+        vm.expectEmit(true, true, true, true);
+        emit IRefunds.WithdrawnTo(buyer, rescue, address(bl), 100e6);
+        vm.prank(buyer);
+        refunds.withdrawTo(address(bl), rescue);
+
+        assertEq(bl.balanceOf(rescue), 100e6, "redirected tokens land at the rescue address");
+        assertEq(refunds.withdrawable(buyer, address(bl)), 0, "credit zeroed after redirect");
+    }
+
+    /// @notice COVERAGE: the native `!ok` revert branch of {withdrawTo}. A party holding a QUEUED native
+    ///         credit redirects it to a receiver that rejects ETH; the low-level send fails, so the whole
+    ///         withdrawTo reverts with {Refunds__WithdrawToFailed} and the credit is fully restored.
+    function test_withdrawTo_native_revertsWhenReceiverRejects() public {
+        RevertingReceiver rr = new RevertingReceiver();
+        vm.prank(merchantOwner);
+        refunds.requestRefund{ value: 1 ether }(
+            merchantId, ORDER, address(rr), address(0), 1 ether, deadline
+        );
+        // rr rejects ETH → the claim push fails and the credit queues to rr's pull-map.
+        vm.prank(address(rr));
+        refunds.claim(merchantId, ORDER);
+        assertEq(refunds.withdrawable(address(rr), address(0)), 1 ether, "native credit queued");
+
+        // Redirecting to ANOTHER reverting receiver still fails the send → the whole call reverts.
+        RevertingReceiver rr2 = new RevertingReceiver();
+        vm.prank(address(rr));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IRefunds.Refunds__WithdrawToFailed.selector, address(rr2), 1 ether
+            )
+        );
+        refunds.withdrawTo(address(0), address(rr2));
+
+        // The reverted send restores the credit exactly.
+        assertEq(refunds.withdrawable(address(rr), address(0)), 1 ether, "credit restored on revert");
+    }
 }
