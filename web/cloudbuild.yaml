@@ -5,20 +5,73 @@
 # (shipped to every browser) — not secrets. Each deployer supplies their own via
 # --substitutions, so the open-source repo stays BYO-keys (nothing hardcoded).
 #
-# Usage:
+# Server-only secrets (NULLIFIER_STORE_URL / DATABASE_URL, ANTHROPIC_API_KEY, …)
+# are NEVER passed here — they are injected at runtime via Secret Manager on the
+# Cloud Run service. See DEPLOY-GCP.md for the full deploy path.
+#
+# Usage (only _IMAGE is required; every _NEXT_PUBLIC_* defaults to empty so any
+# feature left unset stays OFF, matching .env.example's fail-soft contract):
 #   gcloud builds submit --config cloudbuild.yaml \
-#     --substitutions=_DYNAMIC_ENV=<env-id>,_IMAGE=<artifact-registry-tag> .
+#     --substitutions=\
+#_IMAGE=<artifact-registry-tag>,\
+#_DYNAMIC_ENV=<dynamic-env-id>,\
+#_DEFAULT_CHAIN_ID=5042002,\
+#_ROUTER_ARC=0x...,_USDC_ARC=0x...,_ARC_RPC_URL=https://...,\
+#_ROUTER_BASE_SEPOLIA=0x...,_USDC_BASE_SEPOLIA=0x...,_BASE_SEPOLIA_RPC_URL=https://...,\
+#_ROUTER_ZKSYNC_SEPOLIA=0x...,_USDC_ZKSYNC_SEPOLIA=0x...,_ZKSYNC_SEPOLIA_RPC_URL=https://... \
+#     .
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      # --- Dynamic auth (public env id) ------------------------------------
       - '--build-arg'
       - 'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=${_DYNAMIC_ENV}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_DEFAULT_CHAIN_ID=${_DEFAULT_CHAIN_ID}'
+      # --- Arc (default chain: router + USDC + RPC) ------------------------
+      - '--build-arg'
+      - 'NEXT_PUBLIC_ROUTER_ARC=${_ROUTER_ARC}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_USDC_ARC=${_USDC_ARC}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_ARC_RPC_URL=${_ARC_RPC_URL}'
+      # --- Base Sepolia ---------------------------------------------------
+      - '--build-arg'
+      - 'NEXT_PUBLIC_ROUTER_BASE_SEPOLIA=${_ROUTER_BASE_SEPOLIA}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_USDC_BASE_SEPOLIA=${_USDC_BASE_SEPOLIA}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL=${_BASE_SEPOLIA_RPC_URL}'
+      # --- zkSync Sepolia -------------------------------------------------
+      - '--build-arg'
+      - 'NEXT_PUBLIC_ROUTER_ZKSYNC_SEPOLIA=${_ROUTER_ZKSYNC_SEPOLIA}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_USDC_ZKSYNC_SEPOLIA=${_USDC_ZKSYNC_SEPOLIA}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_ZKSYNC_SEPOLIA_RPC_URL=${_ZKSYNC_SEPOLIA_RPC_URL}'
       - '-t'
       - '${_IMAGE}'
       - '-f'
       - 'Dockerfile'
       - '.'
+# Default every NEXT_PUBLIC_* substitution to empty so `gcloud builds submit`
+# without an override still builds (feature stays OFF / fail-soft, matching the
+# Dockerfile's "leave any unset to keep that feature off"). _IMAGE has no default
+# and MUST be supplied. Cloud Build rejects unreferenced substitutions unless we
+# allow-loose; here every declared substitution is referenced above.
+substitutions:
+  _DYNAMIC_ENV: ''
+  _DEFAULT_CHAIN_ID: ''
+  _ROUTER_ARC: ''
+  _USDC_ARC: ''
+  _ARC_RPC_URL: ''
+  _ROUTER_BASE_SEPOLIA: ''
+  _USDC_BASE_SEPOLIA: ''
+  _BASE_SEPOLIA_RPC_URL: ''
+  _ROUTER_ZKSYNC_SEPOLIA: ''
+  _USDC_ZKSYNC_SEPOLIA: ''
+  _ZKSYNC_SEPOLIA_RPC_URL: ''
 images:
   - '${_IMAGE}'
 options:
