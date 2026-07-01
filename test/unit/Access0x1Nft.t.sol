@@ -397,4 +397,57 @@ contract Access0x1NftTest is Test, ProxyDeployer {
         );
         UUPSUpgradeable(address(nftMarket)).upgradeToAndCall(v2, "");
     }
+
+    // ── Fuzz: escrow-lifecycle custody conservation ──────────────────────────────
+    //
+    // The money spine is deeply fuzz/invariant-tested; the NFT-escrow lifecycle
+    // previously had unit tests only (audit sidecar-coverage finding). These fuzz the
+    // list price across the full sane range and assert the two custody invariants that
+    // make an escrow safe — no NFT and no payment token is ever stranded:
+    //   buy    → the NFT lands with the buyer; the marketplace and router hold ZERO of
+    //            any token (payment is pulled-and-forwarded in one tx), and the fee legs
+    //            conserve (net + platform + merchant == gross).
+    //   cancel → the NFT returns to the seller; nothing is stranded.
+    // Each iteration mints a fresh token and self-funds the buyer, so runs are independent.
+
+    function testFuzz_buy_custodyConserved(uint256 priceUsd8) public {
+        priceUsd8 = bound(priceUsd8, 1e8, 100_000e8); // $1 .. $100k
+        uint256 tid = collection.mint(seller);
+        vm.prank(seller);
+        uint256 listingId =
+            nftMarket.list(merchantId, address(collection), tid, address(usdc), priceUsd8);
+        // Escrowed while the listing is active.
+        assertEq(collection.ownerOf(tid), address(nftMarket), "escrowed on list");
+
+        uint256 gross = router.quote(merchantId, address(usdc), priceUsd8);
+        (uint256 platformFee, uint256 merchantFee, uint256 net) = _legs(gross);
+        usdc.mint(buyer, gross); // keep each fuzz run self-funded
+        vm.prank(buyer);
+        usdc.approve(address(nftMarket), gross);
+        vm.prank(buyer);
+        nftMarket.buy(listingId, priceUsd8, gross);
+
+        // NFT delivered; nothing stranded anywhere.
+        assertEq(collection.ownerOf(tid), buyer, "NFT to buyer");
+        assertEq(collection.balanceOf(address(nftMarket)), 0, "no NFT custody after buy");
+        assertEq(usdc.balanceOf(address(nftMarket)), 0, "no payment custody (marketplace)");
+        assertEq(usdc.balanceOf(address(router)), 0, "no payment custody (router)");
+        assertEq(net + platformFee + merchantFee, gross, "fee conservation");
+    }
+
+    function testFuzz_cancel_returnsNftNoCustody(uint256 priceUsd8) public {
+        priceUsd8 = bound(priceUsd8, 1e8, 100_000e8);
+        uint256 tid = collection.mint(seller);
+        vm.prank(seller);
+        uint256 listingId =
+            nftMarket.list(merchantId, address(collection), tid, address(usdc), priceUsd8);
+        assertEq(collection.ownerOf(tid), address(nftMarket), "escrowed on list");
+
+        vm.prank(seller);
+        nftMarket.cancelListing(listingId);
+
+        // Returned to the seller; the marketplace holds no NFT.
+        assertEq(collection.ownerOf(tid), seller, "NFT back to seller");
+        assertEq(collection.balanceOf(address(nftMarket)), 0, "no NFT custody after cancel");
+    }
 }
