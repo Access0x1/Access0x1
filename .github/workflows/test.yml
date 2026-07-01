@@ -14,7 +14,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
           submodules: recursive
@@ -23,7 +23,7 @@ jobs:
       # installer in ~/.foundryup). Keyed on the pinned Foundry version below, so the
       # cache is rebuilt only when that version changes. A miss just re-runs foundryup.
       - name: Cache Foundry toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.foundry
@@ -31,7 +31,7 @@ jobs:
           key: ${{ runner.os }}-foundry-stable
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@c7450ba673e133f5ee30098b3b54f444d3a2ca2d # v1.8.0
         with:
           version: stable
 
@@ -39,7 +39,7 @@ jobs:
         run: forge --version
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -85,12 +85,12 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -109,3 +109,43 @@ jobs:
 
       - name: Run tests (vitest)
         run: npm test
+
+  # The publishable SDK packages (@access0x1/react + create-access0x1) had no CI
+  # coverage — their vitest suites only ran on a maintainer's machine. This job
+  # runs them on every push/PR so a regression in the public SDK is caught here.
+  packages:
+    name: SDK packages (@access0x1/react + create-access0x1)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        # SHA-pinned: v4.4.0 (supply-chain hardening — a moved tag can't swap the action).
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/react/package-lock.json
+
+      # @access0x1/react — typecheck then the vitest suite.
+      - name: Install @access0x1/react deps
+        working-directory: packages/react
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck @access0x1/react
+        working-directory: packages/react
+        run: npm run typecheck
+
+      - name: Test @access0x1/react (vitest)
+        working-directory: packages/react
+        run: npm test
+
+      # create-access0x1 ships a zero-dependency Node bin and has no test suite;
+      # syntax-check the entrypoint so a broken scaffolder can't be published.
+      - name: Syntax-check create-access0x1 bin
+        working-directory: packages/create-access0x1
+        run: node --check bin/index.mjs
