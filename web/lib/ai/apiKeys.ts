@@ -19,11 +19,14 @@
  *  - The key prefix (`ak_…`) is a non-secret label kept for display/audit only;
  *    it is never sufficient to authenticate.
  *
- * PERSISTENCE: an in-process map pinned on `globalThis` (same pattern as the OIDC
- * subject store + the session meter). The `issueKey` / `resolveKey` interface is
- * the SEAM a durable KV/Postgres `api_keys` table swaps behind later — a real
- * deployment would issue keys out of band and load them here at boot; this module
- * never invents a key it did not register.
+ * PERSISTENCE: an in-process map pinned on `globalThis` is the SYNCHRONOUS hot read
+ * surface (so `registerKey` / `resolveKey` stay sync — no call-site changes). When
+ * a durable backend is configured (`NULLIFIER_STORE_URL` / `DATABASE_URL`) each
+ * registration is mirrored DURABLY via `lib/storage/durableKv.ts`, and the map
+ * HYDRATES from it at boot — so an issued API key SURVIVES a Cloud Run
+ * scale-to-zero instead of evaporating. With no DB it is fail-soft: the unchanged
+ * in-memory behaviour. ONLY the SHA-256 hash + binding are persisted (never the
+ * plaintext key), so the durable copy carries nothing that can authenticate.
  *
  * Server-only by construction: it reads no browser-visible state and the hash is
  * computed with `node:crypto`.
@@ -31,6 +34,10 @@
 
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { SessionId } from "./sessionMeter.js";
+import { durableSet, hydrate } from "../storage/durableKv.js";
+
+/** The durable-KV namespace for issued API keys (key = the non-secret index). */
+const KV_NAMESPACE = "ai:apiKey";
 
 /** What an API key resolves to: the SessionGrant session it spends on + the price. */
 export interface KeyBinding {
@@ -94,7 +101,54 @@ export function registerKey(plaintextKey: string, binding: KeyBinding): void {
   if (plaintextKey.length < 16) {
     throw new RangeError("registerKey: key must be at least 16 characters");
   }
-  registry().set(indexOf(plaintextKey), { hashHex: sha256Hex(plaintextKey), binding });
+  const index = indexOf(plaintextKey);
+  const stored: StoredKey = { hashHex: sha256Hex(plaintextKey), binding };
+  registry().set(index, stored);
+  // Write-through to the durable backend (best-effort, fail-soft, no-op without a
+  // DB). Only the HASH + binding are persisted — never the plaintext key — so the
+  // durable row carries nothing that can authenticate. The bigint price is encoded
+  // as a decimal string since JSON cannot represent bigint.
+  durableSet(KV_NAMESPACE, index, serializeStoredKey(stored));
+}
+
+/** The JSON-safe shape persisted durably (bigint → decimal string). */
+interface DurableStoredKey {
+  hashHex: string;
+  sessionId: string;
+  pricePerCallAtomic: string;
+  label: string;
+}
+
+/** Encode a {@link StoredKey} into its JSON-safe durable form. */
+function serializeStoredKey(stored: StoredKey): DurableStoredKey {
+  return {
+    hashHex: stored.hashHex,
+    sessionId: stored.binding.sessionId,
+    pricePerCallAtomic: stored.binding.pricePerCallAtomic.toString(),
+    label: stored.binding.label,
+  };
+}
+
+/** Decode a durable row back into a {@link StoredKey}, or null when malformed. */
+function deserializeStoredKey(value: unknown): StoredKey | null {
+  if (typeof value !== "object" || value === null) return null;
+  const v = value as Partial<DurableStoredKey>;
+  if (typeof v.hashHex !== "string" || typeof v.sessionId !== "string") return null;
+  if (typeof v.pricePerCallAtomic !== "string" || typeof v.label !== "string") return null;
+  let price: bigint;
+  try {
+    price = BigInt(v.pricePerCallAtomic);
+  } catch {
+    return null;
+  }
+  return {
+    hashHex: v.hashHex,
+    binding: {
+      sessionId: v.sessionId as SessionId,
+      pricePerCallAtomic: price,
+      label: v.label,
+    },
+  };
 }
 
 /**
@@ -112,8 +166,32 @@ export function resolveKey(presentedKey: string): KeyBinding | null {
   return stored.binding;
 }
 
+/**
+ * Hydrate the in-memory registry from the durable backend (durable → memory at
+ * boot), restoring each issued key's hash + binding. No-op without a DB. Returns
+ * the number of keys restored. The module also runs it once at load (below).
+ */
+export async function hydrateApiKeysFromDurable(): Promise<number> {
+  return hydrate(KV_NAMESPACE, (index, value) => {
+    const stored = deserializeStoredKey(value);
+    if (stored) registry().set(index, stored);
+  });
+}
+
 /** Test-only: wipe the registry. NOT used in production paths. */
 export function __resetApiKeysForTests(): void {
   const g = globalThis as unknown as Record<string, Map<string, StoredKey> | undefined>;
   g[GLOBAL_KEY] = new Map<string, StoredKey>();
+}
+
+// ── Durable hydration on first load, once per process (fail-soft, no-op w/o DB) ──
+const HYDRATE_FLAG_KEY = "__ax1_ai_api_keys_hydrated__";
+{
+  const g = globalThis as unknown as Record<string, boolean | undefined>;
+  if (!g[HYDRATE_FLAG_KEY]) {
+    g[HYDRATE_FLAG_KEY] = true;
+    void hydrateApiKeysFromDurable().catch(() => {
+      // Fail-soft: never let hydration break the store module load.
+    });
+  }
 }
