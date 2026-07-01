@@ -150,6 +150,15 @@ agent, ENS identity (`NEXT_PUBLIC_ENS_PARENT`, `NAMESTONE_API_KEY`), World ID
 (`NEXT_PUBLIC_WORLD_APP_ID`), OIDC (`NEXT_PUBLIC_OIDC_CLIENT_ID`), funding/on-ramp, the ERC-7677
 paymaster, and the payout-swap rails. Leave any of them blank to keep that feature off.
 
+### Data persistence
+
+Self-onboarded merchant **branding + checkout-slug routing** (and verification profiles, issued AI
+API keys, the agent spend meter) are **in-memory unless a durable store is configured**. Set
+`NULLIFIER_STORE_URL` (or the shared `DATABASE_URL`) — the same Postgres URL the replay store reads —
+to persist them; with neither set these stores fail soft (in-memory, lost on restart / Cloud Run
+scale-to-zero) and each logs a one-time boot warning so you know persistence is off. See the durable
+replay-store block in [`.env.example`](.env.example).
+
 ## Embed integration
 
 A merchant adds crypto checkout to **any** HTML page by pasting one tag — no build step, no npm, no
