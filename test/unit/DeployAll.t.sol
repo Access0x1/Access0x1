@@ -12,6 +12,11 @@ import { Access0x1Subscriptions } from "../../src/Access0x1Subscriptions.sol";
 import { Access0x1Escrow } from "../../src/Access0x1Escrow.sol";
 import { AutomationGateway } from "../../src/AutomationGateway.sol";
 import { Access0x1ProvenanceRegistry } from "../../src/Access0x1ProvenanceRegistry.sol";
+import { GaslessPayIn } from "../../src/GaslessPayIn.sol";
+import { PriceOracleAdapter } from "../../src/PriceOracleAdapter.sol";
+import { Receivables } from "../../src/Receivables.sol";
+import { Refunds } from "../../src/Refunds.sol";
+import { SplitSettler } from "../../src/SplitSettler.sol";
 
 /// @notice deploy-multichain unit suite. Two halves:
 ///         (1) HelperConfig per-chain branch selection — `vm.chainId` forces each branch and proves
@@ -471,6 +476,59 @@ contract DeployAllTest is Test {
             "gateway not wired to the Subscriptions it drives"
         );
         assertEq(gateway.owner(), BROADCASTER, "automation gateway owner not wired");
+    }
+
+    /// @dev Owns `ROUTER_OWNER` for its own LOCAL run (reads no TOKEN_*/lanes keys another test owns).
+    ///      Proves the one-command deploy lands + wires the FIVE settlement extensions that complete
+    ///      the 18-of-18 mirror set: {GaslessPayIn}, {Refunds}, {SplitSettler}, {Receivables} (each
+    ///      composing the freshly deployed Router spine) and the standalone {PriceOracleAdapter} — so a
+    ///      chain cut over by `make deploy-<chain>` carries the WHOLE canonical surface, never a
+    ///      13-contract subset. Receivables' ERC-721 init args (name/symbol) are pinned so the
+    ///      collection identity can never silently drift from the script constants.
+    function test_deployAll_local_deploysAndWiresSettlementExtensions() public {
+        vm.chainId(LOCAL);
+        _ownerIsBroadcaster();
+
+        DeployAll deployer = new DeployAll();
+        (Access0x1Router router,,) = deployer.run();
+
+        // GaslessPayIn — composes the Router (the gasless first-dollar pay-in settles through the
+        // audited spine) and is owner-wired to the broadcaster.
+        GaslessPayIn gasless = deployer.gaslessPayIn();
+        assertTrue(address(gasless) != address(0), "gasless pay-in not deployed");
+        assertEq(gasless.router(), address(router), "gasless pay-in not wired to the Router spine");
+        assertEq(gasless.owner(), BROADCASTER, "gasless pay-in owner not wired");
+
+        // Refunds — composes the Router (time-boxed, merchant-authorized refunds by orderId).
+        Refunds refundsC = deployer.refunds();
+        assertTrue(address(refundsC) != address(0), "refunds not deployed");
+        assertEq(
+            address(refundsC.router()), address(router), "refunds not wired to the Router spine"
+        );
+        assertEq(refundsC.owner(), BROADCASTER, "refunds owner not wired");
+
+        // SplitSettler — composes the Router (one USD payment fanned out to N payees by bps).
+        SplitSettler settler = deployer.splitSettler();
+        assertTrue(address(settler) != address(0), "split settler not deployed");
+        assertEq(
+            address(settler.router()), address(router), "split settler not wired to the Router"
+        );
+        assertEq(settler.owner(), BROADCASTER, "split settler owner not wired");
+
+        // Receivables — composes the Router; its ERC-721 identity comes from the script's init args.
+        Receivables recv = deployer.receivables();
+        assertTrue(address(recv) != address(0), "receivables not deployed");
+        assertEq(
+            address(recv.router()), address(router), "receivables not wired to the Router spine"
+        );
+        assertEq(recv.owner(), BROADCASTER, "receivables owner not wired");
+        assertEq(recv.name(), "Access0x1 Receivables", "receivables ERC-721 name not initialized");
+        assertEq(recv.symbol(), "ACXRCV", "receivables ERC-721 symbol not initialized");
+
+        // PriceOracleAdapter — standalone (owner only, no router); deployed + owner-wired.
+        PriceOracleAdapter adapter = deployer.priceOracleAdapter();
+        assertTrue(address(adapter) != address(0), "price oracle adapter not deployed");
+        assertEq(adapter.owner(), BROADCASTER, "price oracle adapter owner not wired");
     }
 
     /*//////////////////////////////////////////////////////////////
