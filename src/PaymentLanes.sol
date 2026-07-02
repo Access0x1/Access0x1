@@ -309,12 +309,13 @@ contract PaymentLanes is
         if (to == address(0)) revert PaymentLanes__ZeroAddress();
         uint256 bal = _balanceOf[from][id];
         if (bal < amount) revert PaymentLanes__InsufficientBalance(from, id, bal, amount);
-        unchecked {
-            // bal >= amount checked above; the credit cannot overflow because the debit conserves
-            // total issued for this id (a lane balance never exceeds what was credited).
-            _balanceOf[from][id] = bal - amount;
-            _balanceOf[to][id] += amount;
-        }
+        // Left CHECKED (no `unchecked`) on this value path: the debit can't underflow (bal >= amount
+        // checked above) and the credit can't overflow (a lane balance never exceeds what was credited
+        // — conservation), so 0.8.28's checked math is a no-op on every valid path but adds a defensive
+        // revert on the impossible case. The gas delta on a claim/transfer is negligible; the property
+        // "no unchecked arithmetic anywhere on the money path" is worth more to an institutional auditor.
+        _balanceOf[from][id] = bal - amount;
+        _balanceOf[to][id] += amount;
         emit Transfer(caller, from, to, id, amount);
     }
 
