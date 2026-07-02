@@ -238,6 +238,7 @@ contract SplitSettler is
         Split storage s = _requireActive(id);
         if (token == NATIVE) revert SplitSettler__WrongSettlePath(id, token);
         uint256 merchantId = s.merchantId;
+        _requireConduit(merchantId);
 
         // STAGE 1 — pull the gross from the payer and settle it through the router fee-split. The router
         // quotes USD→token in-tx (allowlist + feed + staleness), takes the platform fee ONCE → treasury,
@@ -287,6 +288,7 @@ contract SplitSettler is
     {
         Split storage s = _requireActive(id);
         uint256 merchantId = s.merchantId;
+        _requireConduit(merchantId);
 
         uint256 gross = router.quote(merchantId, NATIVE, usdAmount8);
         if (msg.value < gross) revert SplitSettler__Underpaid(gross, msg.value);
@@ -516,5 +518,23 @@ contract SplitSettler is
     ///      how every owner-equality check rejects an unknown merchant (no caller is address(0)).
     function _merchantOwner(uint256 merchantId) private view returns (address owner_) {
         (, owner_,,,,) = router.merchants(merchantId);
+    }
+
+    /// @dev The LIVE conduit re-check. {createSplit} expects the merchant's router `payout` to be this
+    ///      contract so the router's net returns here to fan out, but the merchant owner can
+    ///      `updateMerchant` to repoint `payout` to ANY address after creation, with the merchant still
+    ///      active. Re-verify the live payout at EVERY settle — a pure router view read, before any pull or
+    ///      fan-out (CEI-clean) — and revert loudly if it was moved. Without it the router would push the
+    ///      net to the NEW payout, the settle's balance-delta net would read 0, and {_fanOut} would credit
+    ///      every payee nothing: the payees robbed, the money swallowed to the wrong address. Reverting
+    ///      keeps every payee's claim intact. Tradeoff (no upside for an attacker): a merchant who repoints
+    ///      payout now BLOCKS its own split's settlement (griefing) rather than being able to STEAL — theft
+    ///      is the real risk; a griefing merchant gains nothing (it was already paid when it repointed) and
+    ///      settlement resumes once payout is restored to this conduit.
+    function _requireConduit(uint256 merchantId) private view {
+        (address payout,,,,,) = router.merchants(merchantId);
+        if (payout != address(this)) {
+            revert SplitSettler__MerchantPayoutNotConduit(merchantId, payout);
+        }
     }
 }

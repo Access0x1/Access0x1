@@ -236,6 +236,21 @@ contract Receivables is
 
         uint256 merchantId = r.merchantId;
         uint256 amountUsd8 = r.amountUsd8;
+
+        // CONDUIT RE-CHECK (live): mint enforced the merchant's router payout == this contract, but the
+        // merchant owner can `updateMerchant` to repoint payout AFTER mint while still active. Re-verify
+        // the LIVE payout here — a pure router view read, before any burn/state mutation (CEI-clean) — and
+        // revert loudly if it was moved. Otherwise the router would push the net to the NEW payout, the
+        // balance-delta below would read 0, and this contract would forward 0 to the creditor with the NFT
+        // already burned: the creditor robbed, the money silently swallowed. Reverting keeps the claim
+        // intact. Tradeoff (no upside for an attacker): a merchant who repoints payout now BLOCKS its own
+        // settlement (griefing) rather than being able to STEAL — and it gains nothing (it was already paid
+        // when the receivable was factored). Settlement resumes once payout is restored to the conduit.
+        (address payout,) = _merchantPayoutAndOwner(merchantId);
+        if (payout != address(this)) {
+            revert Receivables__MerchantPayoutNotConduit(merchantId, payout);
+        }
+
         // Snapshot the creditor (current holder) BEFORE the burn — they are the net beneficiary.
         address creditor = ownerOf(tokenId);
 
@@ -296,6 +311,17 @@ contract Receivables is
 
         uint256 merchantId = r.merchantId;
         uint256 amountUsd8 = r.amountUsd8;
+
+        // CONDUIT RE-CHECK (live): see {pay}. The merchant owner can repoint payout away from this conduit
+        // after mint while still active; without this re-verify the router would push the net to the new
+        // payout, the native balance-delta below would read 0, and the burned NFT's holder would be paid
+        // nothing. Re-read the LIVE payout (a pure view read, before the burn — CEI-clean) and revert loudly
+        // instead of swallowing. The griefing-not-theft tradeoff is documented in {pay}.
+        (address payout,) = _merchantPayoutAndOwner(merchantId);
+        if (payout != address(this)) {
+            revert Receivables__MerchantPayoutNotConduit(merchantId, payout);
+        }
+
         address creditor = ownerOf(tokenId);
 
         // EFFECTS — terminal flip + burn before any interaction.

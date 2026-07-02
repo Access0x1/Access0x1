@@ -493,6 +493,37 @@ contract SplitSettlerTest is Test, ProxyDeployer {
         assertEq(settler.withdrawable(seller, address(usdt)), net * 7000 / 10_000);
     }
 
+    function test_settleToken_revertsWhenPayoutRepointed() public {
+        // The CONDUIT-REPOINT theft guard. createSplit binds a merchant whose router `payout` is this
+        // settler, but the merchant OWNER can `updateMerchant` to repoint payout to ANY address after the
+        // split is created, with the merchant still ACTIVE. Without a LIVE re-check at settle, the router
+        // would push the net to the NEW payout (e.g. the merchant), the settler's balance-delta net would
+        // read 0, and _fanOut would credit every payee nothing — the payees robbed, the money swallowed to
+        // the wrong address. The guard re-reads the live payout BEFORE the fan-out and reverts.
+        address stolenPayout = makeAddr("stolenPayout");
+        vm.prank(merchantOwner);
+        router.updateMerchant(merchantId, stolenPayout, address(0), 0, true);
+
+        uint256 gross = router.quote(merchantId, address(usdc), USD);
+        usdc.mint(payer, gross);
+        vm.startPrank(payer);
+        usdc.approve(address(settler), gross);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISplitSettler.SplitSettler__MerchantPayoutNotConduit.selector,
+                merchantId,
+                stolenPayout
+            )
+        );
+        settler.settleToken(splitId, address(usdc), USD, keccak256("o"));
+        vm.stopPrank();
+
+        // Nothing settled: no payee credited, the stolen payout got nothing, no custody in the settler.
+        assertEq(settler.withdrawable(seller, address(usdc)), 0);
+        assertEq(usdc.balanceOf(stolenPayout), 0);
+        assertEq(usdc.balanceOf(address(settler)), 0);
+    }
+
     /*//////////////////////////////////////////////////////////////
                             SETTLE NATIVE
     //////////////////////////////////////////////////////////////*/
@@ -565,6 +596,33 @@ contract SplitSettlerTest is Test, ProxyDeployer {
         );
         vm.prank(payer);
         settler.settleNative{ value: gross }(splitId, USD, keccak256("o"));
+    }
+
+    function test_settleNative_revertsWhenPayoutRepointed() public {
+        // The native mirror of the conduit-repoint theft guard (see test_settleToken_revertsWhenPayout...).
+        // The merchant owner repoints payout to a third address after the split is created, still active;
+        // without the live re-check the router would push the net there, the balance-delta net would read
+        // 0, and _fanOut would credit every payee nothing. The guard reverts before the fan-out.
+        address stolenPayout = makeAddr("stolenPayout");
+        vm.prank(merchantOwner);
+        router.updateMerchant(merchantId, stolenPayout, address(0), 0, true);
+
+        uint256 gross = router.quote(merchantId, address(0), USD);
+        vm.deal(payer, gross);
+        vm.prank(payer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISplitSettler.SplitSettler__MerchantPayoutNotConduit.selector,
+                merchantId,
+                stolenPayout
+            )
+        );
+        settler.settleNative{ value: gross }(splitId, USD, keccak256("o"));
+
+        // Nothing settled: no payee credited, the stolen payout got nothing, no native custody in settler.
+        assertEq(settler.withdrawable(seller, address(0)), 0);
+        assertEq(stolenPayout.balance, 0);
+        assertEq(address(settler).balance, 0);
     }
 
     /*//////////////////////////////////////////////////////////////

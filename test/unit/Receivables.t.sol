@@ -471,6 +471,43 @@ contract ReceivablesTest is Test, ProxyDeployer {
         assertEq(IERC721(address(recv)).ownerOf(id), creditor);
     }
 
+    function test_pay_revertsWhenPayoutRepointedAwayFromConduit() public {
+        // The CONDUIT-REPOINT theft guard. mint() checks the merchant's router `payout` is this contract,
+        // but the merchant OWNER can `updateMerchant` to repoint payout to ANY address AFTER the mint,
+        // with the merchant still ACTIVE. Without a LIVE re-check at settle, the router would push the net
+        // to the NEW payout (e.g. the merchant), pay() would measure a balance delta of 0 and forward 0 to
+        // the creditor, and the NFT would already be burned — the creditor robbed, the money swallowed.
+        // The guard re-reads the live payout BEFORE the burn and reverts, so nothing settles to the wrong
+        // address: the creditor keeps the claim, the token still exists.
+        uint256 id = _mintToken(debtor);
+
+        // The merchant owner repoints payout to a third address (still ACTIVE — this is the attack).
+        address stolenPayout = makeAddr("stolenPayout");
+        vm.prank(merchantOwner);
+        router.updateMerchant(merchantId, stolenPayout, feeRecipient, MERCHANT_FEE_BPS, true);
+
+        uint256 gross = router.quote(merchantId, address(usdc), 1000e8);
+        usdc.mint(debtor, gross);
+        vm.startPrank(debtor);
+        usdc.approve(address(recv), gross);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IReceivables.Receivables__MerchantPayoutNotConduit.selector,
+                merchantId,
+                stolenPayout
+            )
+        );
+        recv.pay(id, ORDER);
+        vm.stopPrank();
+
+        // Nothing settled: the creditor was NOT robbed, the router pushed nowhere, the NFT still exists.
+        assertEq(usdc.balanceOf(creditor), 0);
+        assertEq(usdc.balanceOf(stolenPayout), 0);
+        assertTrue(recv.isPayable(id));
+        assertEq(IERC721(address(recv)).ownerOf(id), creditor);
+        assertEq(uint8(recv.receivableOf(id).status), uint8(IReceivables.Status.OPEN));
+    }
+
     /*//////////////////////////////////////////////////////////////
                               PAY NATIVE
     //////////////////////////////////////////////////////////////*/
@@ -605,6 +642,37 @@ contract ReceivablesTest is Test, ProxyDeployer {
         // Rolled back: still OPEN, still held by the (contract) creditor.
         assertTrue(recv.isPayable(id));
         assertEq(IERC721(address(recv)).ownerOf(id), address(badCreditor));
+    }
+
+    function test_payNative_revertsWhenPayoutRepointedAwayFromConduit() public {
+        // The native mirror of the conduit-repoint theft guard (see test_pay_revertsWhen...). A merchant
+        // owner repoints payout to a third address after mint, still active; without the live re-check the
+        // router would push the net there, the balance-delta net would read 0, and the burned NFT's holder
+        // would get nothing. The guard reverts before the burn, so the creditor keeps the claim.
+        uint256 id = _mintNative(debtor);
+
+        address stolenPayout = makeAddr("stolenPayout");
+        vm.prank(merchantOwner);
+        router.updateMerchant(merchantId, stolenPayout, feeRecipient, MERCHANT_FEE_BPS, true);
+
+        uint256 gross = router.quote(merchantId, address(0), 1000e8);
+        vm.deal(debtor, gross);
+        vm.prank(debtor);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IReceivables.Receivables__MerchantPayoutNotConduit.selector,
+                merchantId,
+                stolenPayout
+            )
+        );
+        recv.payNative{ value: gross }(id, ORDER);
+
+        // Nothing settled: creditor not robbed, no push to the stolen payout, the NFT still exists + OPEN.
+        assertEq(creditor.balance, 0);
+        assertEq(stolenPayout.balance, 0);
+        assertTrue(recv.isPayable(id));
+        assertEq(IERC721(address(recv)).ownerOf(id), creditor);
+        assertEq(uint8(recv.receivableOf(id).status), uint8(IReceivables.Status.OPEN));
     }
 
     /*//////////////////////////////////////////////////////////////
