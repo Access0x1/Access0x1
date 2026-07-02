@@ -807,7 +807,9 @@ contract SplitSettlerTest is Test, ProxyDeployer {
         vm.prank(seller);
         settler.withdrawTo(address(usdc), rescue);
 
-        assertEq(usdc.balanceOf(rescue), sellerCredit, "redirected tokens land at the rescue address");
+        assertEq(
+            usdc.balanceOf(rescue), sellerCredit, "redirected tokens land at the rescue address"
+        );
         assertEq(settler.withdrawable(seller, address(usdc)), 0, "credit zeroed after redirect");
     }
 
@@ -835,7 +837,9 @@ contract SplitSettlerTest is Test, ProxyDeployer {
         settler.withdrawTo(address(0), address(rr));
 
         // The reverted send restores the credit exactly — nothing lost, nothing double-counted.
-        assertEq(settler.withdrawable(seller, address(0)), sellerCredit, "credit restored on revert");
+        assertEq(
+            settler.withdrawable(seller, address(0)), sellerCredit, "credit restored on revert"
+        );
     }
 
     /// @notice COVERAGE: the `leg == 0 → continue` skip in the fan-out. A 1-bps leg over a tiny net floors
@@ -855,7 +859,9 @@ contract SplitSettlerTest is Test, ProxyDeployer {
         uint256 tinyUsd = 100; // 100 * 1e-8 USD
         uint256 gross = router.quote(merchantId, address(usdc), tinyUsd);
         (, uint256 net) = _routerSplit(gross);
-        assertEq(net * 1 / 10_000, 0, "sliver leg must floor to zero for this test to be meaningful");
+        assertEq(
+            net * 1 / 10_000, 0, "sliver leg must floor to zero for this test to be meaningful"
+        );
 
         usdc.mint(payer, gross);
         vm.startPrank(payer);
@@ -864,7 +870,11 @@ contract SplitSettlerTest is Test, ProxyDeployer {
         vm.stopPrank();
 
         // The sliver leg was skipped (no credit); the remainder leg absorbs the whole net.
-        assertEq(settler.withdrawable(sliver, address(usdc)), 0, "zero-dust leg is skipped, uncredited");
-        assertEq(settler.withdrawable(seller, address(usdc)), net, "remainder leg absorbs the full net");
+        assertEq(
+            settler.withdrawable(sliver, address(usdc)), 0, "zero-dust leg is skipped, uncredited"
+        );
+        assertEq(
+            settler.withdrawable(seller, address(usdc)), net, "remainder leg absorbs the full net"
+        );
     }
 }

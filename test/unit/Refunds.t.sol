@@ -850,6 +850,8 @@ contract RefundsTest is Test, ProxyDeployer {
         refunds.withdrawTo(address(0), address(rr2));
 
         // The reverted send restores the credit exactly.
-        assertEq(refunds.withdrawable(address(rr), address(0)), 1 ether, "credit restored on revert");
+        assertEq(
+            refunds.withdrawable(address(rr), address(0)), 1 ether, "credit restored on revert"
+        );
     }
 }
