@@ -41,11 +41,11 @@ make verify-chain CHAIN=84532 RPC=$BASE_SEPOLIA_RPC_URL [VERIFIER_URL=<blockscou
 RESUME=1 make deploy-base-sepolia        # retry verify against the existing broadcast, no re-deploy
 ```
 
-**Redeploy these (pre-mirror today, each has a `make deploy-<chain>` target):** `deploy-arc` ·
-`deploy-ethereum-sepolia` · `deploy-optimism-sepolia` · `deploy-avalanche-fuji` ·
-`deploy-robinhood-testnet` · `deploy-galileo` (run `make bootstrap-createx-galileo` first). Tempo (42431)
-and Hoodi (560048) have no Makefile target — deploy them with a direct `forge script script/DeployAll.s.sol
---rpc-url <rpc> --account deployer --sender $DEPLOYER --broadcast`. **Base Sepolia (84532) is already
+**Every chain now has a first-class `make deploy-<chain>` target** — including the two former
+hold-outs, `deploy-hoodi` (560048) and `deploy-tempo` (42431 — TIP-20 stablecoin fees, see the caveat
+on the target + `docs/CHAIN-ADDRESSES.md`) — so the raw `forge script` fallback is no longer needed.
+Re-derive the live pre-mirror list from the table below (or `make deploy-pick`); 0G Galileo still
+needs `make bootstrap-createx-galileo` once before its first deploy. **Base Sepolia (84532) is already
 mirrored — do NOT redeploy it** (its CREATE3 salt is claimed; a redeploy reverts).
 
 ## Status at a glance
@@ -81,13 +81,20 @@ from the broadcasts by `make sync`) is the live per-chain source of truth. Chain
 > `1` (no merchant) on every chain; a consuming app (e.g. your app) needs `registerMerchant` run on the
 > mirror before it can settle there. That registration is a keystore-signed, owner-run tx.
 
-**Mirror coverage — 13 of 18 deployable contracts.** `DeployAll` mirrors the money spine + the auth +
-commerce surface (Router, PaymentLanes, SessionGrant, HouseTokenFactory, Subscriptions, Bookings,
-Invoices, GiftCards, Nft, Escrow, AutomationGateway, ProvenanceRegistry, + the Receiver). **NOT yet in
-the mirror:** `GaslessPayIn`, `PriceOracleAdapter`, `Receivables`, `Refunds`, `SplitSettler` — all UUPS +
-tested in `src/`, but never wired into `DeployAll`, so they have no canonical cross-chain address. Adding
-them is **additive** (the existing 13 addresses don't change; regenerate `mirror-manifest.json`) and is
-the open task to use CREATE3 to its fullest.
+**Mirror coverage — 18 of 18 deployable contracts.** `DeployAll` mirrors the FULL first-party
+surface: the money spine + auth + commerce set (Router, PaymentLanes, SessionGrant, HouseTokenFactory,
+Subscriptions, Bookings, Invoices, GiftCards, Nft, Escrow, AutomationGateway, ProvenanceRegistry, +
+the Receiver) AND the five settlement extensions — `GaslessPayIn`, `PriceOracleAdapter`, `Receivables`,
+`Refunds`, `SplitSettler` — each deployed impl→`ERC1967Proxy` through the same CREATE3 path (uniform
+owner + mirror-Router init args; salts from the deployer + label, never `block.chainid`).
+`script/mirror-manifest.json` pins all 35 addresses (17 impl+proxy pairs + the Receiver) and
+`make mirror-manifest` re-derives it byte-identical; the dry-run proof that the five deploy + wire is
+`test_deployAll_local_deploysAndWiresSettlementExtensions` (`test/unit/DeployAll.t.sol`). The
+extension was **additive** — the original 13 addresses did not move. Per-chain truth: chains cut over
+since the extension carry the full 18-set (re-derive per chain: `grep -ci <ext-proxy-addr>
+broadcast/DeployAll.s.sol/<id>/run-latest.json`); **Base Sepolia (84532) was mirrored BEFORE the
+extension and still carries the original 13 on-chain** — its salts are claimed, so backfilling the
+five there needs a skip-existing additive pass (the open follow-up), never a redeploy.
 
 ## How to read the live state (don't trust the table — verify)
 
