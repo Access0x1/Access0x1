@@ -248,7 +248,9 @@ contract GaslessPayIn is
         uint256 received = IERC20(token).balanceOf(address(this)) - balBefore;
         if (received != gross) revert GaslessPayIn__PullShortfall(gross, received);
 
-        _route(merchantId, token, buyer, gross, usdAmount8, orderId, Rail.AUTHORIZATION_3009);
+        _route(
+            merchantId, token, buyer, gross, usdAmount8, orderId, Rail.AUTHORIZATION_3009, balBefore
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -272,7 +274,7 @@ contract GaslessPayIn is
         uint256 received = IERC20(token).balanceOf(address(this)) - balBefore;
         if (received != gross) revert GaslessPayIn__PullShortfall(gross, received);
 
-        _route(merchantId, token, buyer, gross, usdAmount8, orderId, rail);
+        _route(merchantId, token, buyer, gross, usdAmount8, orderId, rail, balBefore);
     }
 
     /// @dev The shared settlement core: approve the router for EXACTLY `gross`, route through its audited
@@ -290,7 +292,8 @@ contract GaslessPayIn is
         uint256 gross,
         uint256 usdAmount8,
         bytes32 orderId,
-        Rail rail
+        Rail rail,
+        uint256 balBefore
     ) private {
         IERC20(token).forceApprove(address(routerContract), gross);
         routerContract.payToken(merchantId, token, usdAmount8, orderId);
@@ -298,12 +301,14 @@ contract GaslessPayIn is
         // approval can ever be reused (it is already 0 on the happy path).
         IERC20(token).forceApprove(address(routerContract), 0);
 
-        // Zero-custody invariant: the contract must retain NO balance of the routed token. The router
-        // pulled exactly `gross` and pushed net + fee out in the same tx, so this is 0 on the happy path;
-        // a non-zero residual (a misbehaving token, an unexpected router accounting) reverts the whole
-        // pay-in rather than stranding funds here.
-        uint256 residual = IERC20(token).balanceOf(address(this));
-        if (residual != 0) revert GaslessPayIn__CustodyResidual(token, residual);
+        // Zero-custody invariant measured as a DELTA against the pre-pull baseline — NOT an absolute
+        // zero. We pulled `gross` in (balance rose to balBefore+gross) and the router pulled exactly
+        // that back out and pushed net+fee onward, so the balance must return to `balBefore`. An
+        // absolute `== 0` check would let a 1-wei dust donation sent to this contract BEFORE the pay-in
+        // permanently brick the token's gasless rail (every settle would then see residual != 0 and
+        // revert); the delta check retains no NEW token yet is immune to pre-existing dust.
+        uint256 balAfter = IERC20(token).balanceOf(address(this));
+        if (balAfter != balBefore) revert GaslessPayIn__CustodyResidual(token, balAfter);
 
         emit GaslessPayInSettled(merchantId, buyer, msg.sender, token, gross, rail, orderId);
     }

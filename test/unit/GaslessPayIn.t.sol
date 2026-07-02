@@ -279,6 +279,44 @@ contract GaslessPayInTest is Test, ProxyDeployer {
         assertEq(usdc.allowance(address(payIn), address(router)), 0);
     }
 
+    function test_payInWithPermit_dustDonationDoesNotBrickRail() public {
+        // A griefer sends 1 wei of the token to the contract BEFORE anyone pays. The old
+        // absolute `residual != 0` custody check would then revert EVERY future pay-in for
+        // this token (permanent DoS). The delta check must see the balance return to its
+        // pre-pull baseline (the dust) and settle normally.
+        usdc.mint(address(payIn), 1);
+
+        uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
+        usdc.mint(buyer, gross);
+        bytes32 digest = _permitDigest(
+            address(usdc), buyer, address(payIn), gross, 0, block.timestamp + 1 hours
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
+        (uint256 platformFee, uint256 merchantFee, uint256 net) = _split(gross);
+
+        vm.prank(relayer);
+        payIn.payInWithPermit(
+            merchantId,
+            address(usdc),
+            USD_AMOUNT,
+            buyer,
+            IGaslessPayIn.Permit({ value: gross, deadline: block.timestamp + 1 hours }),
+            v,
+            r,
+            s,
+            ORDER_ID
+        );
+
+        // Settled normally despite the dust; the pre-existing 1 wei stays put (delta == 0),
+        // never reverted — the rail is not brickable by a donation.
+        assertEq(usdc.balanceOf(payout), net);
+        assertEq(usdc.balanceOf(treasury), platformFee);
+        assertEq(usdc.balanceOf(feeRecipient), merchantFee);
+        assertEq(
+            usdc.balanceOf(address(payIn)), 1, "pre-existing dust untouched, pay-in still settled"
+        );
+    }
+
     function test_payInWithPermit_allowanceCeilingPullsOnlyGross() public {
         // Buyer signs a permit for MORE than the gross (a ceiling); only the gross is pulled.
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
