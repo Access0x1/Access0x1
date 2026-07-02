@@ -163,11 +163,38 @@ interface IGaslessPayIn {
 
     /// @notice An EIP-3009 transfer authorization window + nonce. `value` MUST equal the quoted gross
     ///         exactly (a 3009 auth pulls a fixed amount, not an allowance).
+    /// @dev    The `nonce` is NO LONGER buyer-random: it MUST equal the STRUCTURED intent hash
+    ///         {intentNonce}(chainid, this, merchantId, token, usdAmount8, buyer, orderId). The token's own
+    ///         single-use marking still supplies replay protection; the structured value additionally binds
+    ///         the buyer's signature to the exact merchant/amount/order the relayer must settle (a relayer
+    ///         cannot redirect the pay-in without breaking the 3009 signature). See {intentNonce}.
     struct Authorization {
         uint256 value; // the signed transfer amount (MUST equal the quoted gross)
         uint256 validAfter; // at/after this unix time the auth is valid
         uint256 validBefore; // before this unix time the auth is valid
-        bytes32 nonce; // the random 32-byte single-use authorization nonce
+        bytes32 nonce; // MUST equal the structured intent hash (see {intentNonce})
+    }
+
+    /// @notice The Access0x1-domain EIP-712 intent a buyer co-signs to bind a PERMIT-rail (EIP-2612 /
+    ///         ERC-7597) pay-in to a specific merchant, amount, order, and ceiling. A permit sets only a
+    ///         plain token ALLOWANCE — it binds neither the merchant nor the order — so on its own a
+    ///         relayer could redirect the pay-in (or re-pull the residual allowance to another merchant).
+    ///         This second, Access0x1-domain signature closes that: the contract recomputes the intent hash
+    ///         from calldata, verifies it against `buyer` (ECDSA or ERC-1271), and requires
+    ///         `gross <= maxValue` (the buyer-signed ceiling) and `block.timestamp <= deadline`.
+    /// @dev    Verified with the EIP-712 type string
+    ///         `PayInIntent(uint256 merchantId,address token,uint256 usdAmount8,uint256 maxValue,bytes32 orderId,address buyer,uint256 deadline)`
+    ///         over this contract's domain (name "Access0x1 GaslessPayIn", version "1"), so it can NEVER be
+    ///         replayed against the token or another chain/contract. Paired with the single-use `orderId`
+    ///         ledger, a residual-allowance re-pull has no valid, unused intent and reverts.
+    struct PayInIntent {
+        uint256 merchantId; // the router merchant the buyer intends to pay
+        address token; // the pay-in ERC-20
+        uint256 usdAmount8; // the USD price (8 decimals) the buyer intends
+        uint256 maxValue; // the ceiling on the token gross the buyer authorizes (>= the quoted gross)
+        bytes32 orderId; // the single-use order reference this intent settles
+        address buyer; // the token holder (must equal the pay-in `buyer`)
+        uint256 deadline; // the unix time after which this intent is invalid
     }
 
     // ──────────────────────── errors ────────────────────────
@@ -194,6 +221,26 @@ interface IGaslessPayIn {
     ///         invariant was violated, so the whole tx reverts (no funds are ever left stranded here).
     error GaslessPayIn__CustodyResidual(address token, uint256 residual);
 
+    /// @notice The EIP-3009 authorization `nonce` did not equal the STRUCTURED intent hash the buyer must
+    ///         sign ({intentNonce}(chainid, this, merchantId, token, usdAmount8, buyer, orderId)) — the
+    ///         relayer tried to settle a merchant / amount / order the buyer never authorized.
+    error GaslessPayIn__IntentMismatch(bytes32 expected, bytes32 got);
+
+    /// @notice The buyer's Access0x1-domain {PayInIntent} co-signature did not recover to `buyer` (EOA
+    ///         ECDSA or ERC-1271) — the permit-rail pay-in is not bound to this merchant/amount/order.
+    error GaslessPayIn__IntentSignatureInvalid();
+
+    /// @notice The buyer's {PayInIntent} `deadline` has passed — the bound permit-rail intent has expired.
+    error GaslessPayIn__IntentExpired(uint256 deadline, uint256 nowTs);
+
+    /// @notice The router's quoted gross exceeded the buyer-signed `maxValue` ceiling in the {PayInIntent}
+    ///         — settling would pull more than the buyer authorized for this order.
+    error GaslessPayIn__IntentValueExceeded(uint256 gross, uint256 maxValue);
+
+    /// @notice The `orderId` was already settled on a permit rail — a residual-allowance re-pull (or any
+    ///         replay of the bound intent) is rejected. Each bound `orderId` settles at most once.
+    error GaslessPayIn__OrderReplay(bytes32 orderId);
+
     // ──────────────────────── views ────────────────────────
 
     /// @notice The router every pay-in settles through (its live `platformFeeBps`/`platformTreasury`
@@ -212,22 +259,59 @@ interface IGaslessPayIn {
         view
         returns (uint256 gross);
 
+    /// @notice The STRUCTURED nonce a buyer MUST use as their EIP-3009 authorization `nonce` on the 3009
+    ///         rail — `keccak256(abi.encode(chainid, this, merchantId, token, usdAmount8, buyer, orderId))`.
+    ///         Binding the token's own single-use nonce to the intent means the buyer's 3009 signature
+    ///         covers the exact merchant/amount/order; a relayer cannot redirect the pay-in without breaking
+    ///         it, and no new on-chain replay state is needed (the token still marks the nonce used).
+    /// @param merchantId The router merchant the payment settles to.
+    /// @param token      The pay-in ERC-20.
+    /// @param usdAmount8 The USD price (8 decimals).
+    /// @param buyer      The payer who signs the authorization.
+    /// @param orderId    The order reference echoed into the router receipt.
+    /// @return The structured nonce to sign into the EIP-3009 authorization.
+    function intentNonce(
+        uint256 merchantId,
+        address token,
+        uint256 usdAmount8,
+        address buyer,
+        bytes32 orderId
+    ) external view returns (bytes32);
+
+    /// @notice The EIP-712 digest a buyer signs to authorize a PERMIT-rail (EIP-2612 / ERC-7597) pay-in —
+    ///         the {PayInIntent} hashed over this contract's own domain. A buyer's wallet builds this from
+    ///         the same fields the relayer will submit; the contract recomputes and verifies it, so a
+    ///         relayer cannot redirect a permit-rail pay-in or re-pull a residual allowance.
+    /// @param intent The full {PayInIntent} (merchant, token, amount, ceiling, order, buyer, deadline).
+    /// @return The EIP-712 typed-data digest to sign for the permit rails.
+    function intentDigest(PayInIntent calldata intent) external view returns (bytes32);
+
     // ──────────────────────── mutating ────────────────────────
 
-    /// @notice Settle a gasless pay-in funded by an EIP-2612 `permit` (split `v,r,s`). Submits the
-    ///         buyer's permit to grant this contract an allowance, pulls exactly the quoted gross, and
-    ///         routes it through the router fee-split — all in one relayer-submitted tx, no prior approve.
-    /// @dev    The permit is submitted tolerantly (a front-run that already set the allowance is not
-    ///         fatal): the pull is what must succeed. Any unused residual allowance is reset to 0.
-    /// @param merchantId The router merchant to pay.
-    /// @param token      The allowlisted pay-in ERC-20 (must support EIP-2612).
-    /// @param usdAmount8 The USD price (8 decimals).
-    /// @param buyer      The token holder who signed the permit (the `owner`).
-    /// @param permitData The signed allowance + deadline (the allowance must be >= the quoted gross).
-    /// @param v          ECDSA recovery id of the permit signature.
-    /// @param r          ECDSA `r` of the permit signature.
-    /// @param s          ECDSA `s` of the permit signature.
-    /// @param orderId    An opaque order reference echoed into the router receipt.
+    /// @notice Settle a gasless pay-in funded by an EIP-2612 `permit` (split `v,r,s`) AND bound to a
+    ///         merchant/amount/order by the buyer's {PayInIntent} co-signature. Submits the buyer's permit
+    ///         to grant this contract an allowance, verifies the intent binds this exact settlement, pulls
+    ///         exactly the quoted gross, and routes it through the router fee-split — all in one
+    ///         relayer-submitted tx, no prior approve.
+    /// @dev    The permit alone binds only a token allowance (not the merchant/order), so a second,
+    ///         Access0x1-domain {PayInIntent} signature is REQUIRED: the contract recomputes
+    ///         {intentDigest} from calldata and verifies it against `buyer` (ECDSA / ERC-1271), requires
+    ///         `gross <= permitData.value`, `gross <= maxValue`, and `block.timestamp <= intentDeadline`,
+    ///         and marks `orderId` single-use (a residual-allowance re-pull has no unused intent, so it
+    ///         reverts). The permit itself is submitted tolerantly (a front-run that already set the
+    ///         allowance is not fatal); the pull is the gate. Any unused residual router allowance is reset.
+    /// @param merchantId    The router merchant to pay (bound by the intent).
+    /// @param token         The allowlisted pay-in ERC-20 (must support EIP-2612).
+    /// @param usdAmount8    The USD price (8 decimals) (bound by the intent).
+    /// @param buyer         The token holder who signed the permit + intent (the `owner`).
+    /// @param permitData    The signed allowance + deadline (the allowance must be >= the quoted gross).
+    /// @param v             ECDSA recovery id of the permit signature.
+    /// @param r             ECDSA `r` of the permit signature.
+    /// @param s             ECDSA `s` of the permit signature.
+    /// @param orderId       A single-use order reference echoed into the router receipt (bound + one-shot).
+    /// @param maxValue      The buyer-signed ceiling on the token gross (>= the quoted gross).
+    /// @param intentDeadline The unix time after which the {PayInIntent} is invalid.
+    /// @param intentSig     The buyer's {PayInIntent} EIP-712 signature (ECDSA 65-byte or ERC-1271 blob).
     function payInWithPermit(
         uint256 merchantId,
         address token,
@@ -237,19 +321,26 @@ interface IGaslessPayIn {
         uint8 v,
         bytes32 r,
         bytes32 s,
-        bytes32 orderId
+        bytes32 orderId,
+        uint256 maxValue,
+        uint256 intentDeadline,
+        bytes calldata intentSig
     ) external;
 
     /// @notice Settle a gasless pay-in funded by an ERC-7597 `permit` (a single `bytes` signature, so a
-    ///         SMART-ACCOUNT / ERC-1271 buyer can authorize it, not only an EOA). Otherwise identical to
-    ///         {payInWithPermit}: submit the permit, pull the gross, route, reset the residual allowance.
-    /// @param merchantId The router merchant to pay.
-    /// @param token      The allowlisted pay-in ERC-20 (must support the ERC-7597 `bytes`-sig permit).
-    /// @param usdAmount8 The USD price (8 decimals).
-    /// @param buyer      The token holder who signed (EOA or ERC-1271 smart account).
-    /// @param permitData The signed allowance + deadline (the allowance must be >= the quoted gross).
-    /// @param signature  The buyer's permit signature bytes (ECDSA or an ERC-1271 blob).
-    /// @param orderId    An opaque order reference echoed into the router receipt.
+    ///         SMART-ACCOUNT / ERC-1271 buyer can authorize it, not only an EOA) AND bound by the buyer's
+    ///         {PayInIntent} co-signature. Otherwise identical to {payInWithPermit}: submit the permit,
+    ///         verify the intent binds this settlement, pull the gross, route, mark the order single-use.
+    /// @param merchantId    The router merchant to pay (bound by the intent).
+    /// @param token         The allowlisted pay-in ERC-20 (must support the ERC-7597 `bytes`-sig permit).
+    /// @param usdAmount8    The USD price (8 decimals) (bound by the intent).
+    /// @param buyer         The token holder who signed (EOA or ERC-1271 smart account).
+    /// @param permitData    The signed allowance + deadline (the allowance must be >= the quoted gross).
+    /// @param signature     The buyer's permit signature bytes (ECDSA or an ERC-1271 blob).
+    /// @param orderId       A single-use order reference echoed into the router receipt (bound + one-shot).
+    /// @param maxValue      The buyer-signed ceiling on the token gross (>= the quoted gross).
+    /// @param intentDeadline The unix time after which the {PayInIntent} is invalid.
+    /// @param intentSig     The buyer's {PayInIntent} EIP-712 signature (ECDSA 65-byte or ERC-1271 blob).
     function payInWithPermit7597(
         uint256 merchantId,
         address token,
@@ -257,22 +348,30 @@ interface IGaslessPayIn {
         address buyer,
         Permit calldata permitData,
         bytes calldata signature,
-        bytes32 orderId
+        bytes32 orderId,
+        uint256 maxValue,
+        uint256 intentDeadline,
+        bytes calldata intentSig
     ) external;
 
     /// @notice Settle a gasless pay-in funded by an EIP-3009 `transferWithAuthorization` (USDC-native,
-    ///         the x402 rail). Submits the buyer's authorization to pull EXACTLY the quoted gross directly
-    ///         into this contract (no allowance, no prior approve), then routes it through the router
-    ///         fee-split. The signed `value` must equal the quoted gross; the 32-byte nonce is single-use.
-    /// @param merchantId The router merchant to pay.
-    /// @param token      The allowlisted pay-in ERC-20 (must support EIP-3009).
-    /// @param usdAmount8 The USD price (8 decimals).
-    /// @param buyer      The payer who signed the authorization (the `from`).
-    /// @param auth       The signed transfer amount, validity window, and single-use nonce.
+    ///         the x402 rail), BOUND to this merchant/amount/order by a STRUCTURED authorization nonce.
+    ///         Submits the buyer's authorization to pull EXACTLY the quoted gross directly into this
+    ///         contract (no allowance, no prior approve), then routes it through the router fee-split. The
+    ///         signed `value` must equal the quoted gross, and `auth.nonce` MUST equal
+    ///         {intentNonce}(merchantId, token, usdAmount8, buyer, orderId) — so the buyer's 3009 signature
+    ///         covers the exact merchant/amount/order and a relayer cannot redirect it. The token's own
+    ///         single-use marking of that nonce still supplies replay protection (no new on-chain state).
+    /// @param merchantId The router merchant to pay (bound into the nonce).
+    /// @param token      The allowlisted pay-in ERC-20 (must support EIP-3009) (bound into the nonce).
+    /// @param usdAmount8 The USD price (8 decimals) (bound into the nonce).
+    /// @param buyer      The payer who signed the authorization (the `from`; bound into the nonce).
+    /// @param auth       The signed transfer amount, validity window, and STRUCTURED nonce
+    ///                   (`auth.nonce == intentNonce(...)`).
     /// @param v          ECDSA recovery id of the authorization signature.
     /// @param r          ECDSA `r` of the authorization signature.
     /// @param s          ECDSA `s` of the authorization signature.
-    /// @param orderId    An opaque order reference echoed into the router receipt.
+    /// @param orderId    An opaque order reference echoed into the router receipt (bound into the nonce).
     function payInWithAuthorization(
         uint256 merchantId,
         address token,
