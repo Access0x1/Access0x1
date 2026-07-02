@@ -38,6 +38,9 @@ ZIRCUIT_GARFIELD_RPC_URL ?= https://garfield-testnet.zircuit.com
 CITREA_TESTNET_RPC_URL ?= https://rpc.testnet.citrea.xyz
 FLOW_EVM_TESTNET_RPC_URL ?= https://testnet.evm.nodes.onflow.org
 CELO_SEPOLIA_RPC_URL ?= https://forno.celo-sepolia.celo-testnet.org
+# Hoodi + Tempo defaults verified live + chainId-matched 2026-07-01 (0x88bb0 = 560048, 0xa5bf = 42431).
+HOODI_RPC_URL ?= https://ethereum-hoodi-rpc.publicnode.com
+TEMPO_RPC_URL ?= https://rpc.testnet.tempo.xyz
 
 # Verification is OPT-IN. forge REJECTS an empty `--etherscan-api-key`/`--verifier-url` outright (before
 # it ever broadcasts), so we pass the verify clause ONLY when its key/URL is set — otherwise the chain
@@ -72,7 +75,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         deploy-pick mirror-manifest sync \
         deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
-        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet \
+        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet deploy-hoodi deploy-tempo \
         verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-arbitrum-sepolia verify-polygon-amoy verify-galileo verify-chain verify-all-testnets verify-all-sourcify \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
         deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
@@ -463,6 +466,22 @@ deploy-flow-evm-testnet: ## Deploy to Flow EVM testnet (chainId 545, FLOW; block
 
 deploy-celo-sepolia: ## Deploy to Celo Sepolia (chainId 11142220, CELO; celoscan/etherscan-v2 verify)
 	forge script script/DeployAll.s.sol --rpc-url $(CELO_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+# Ethereum Hoodi + Tempo Moderato — the last two pre-mirror chains that previously had NO Makefile
+# target (docs/MIRROR-CUTOVER.md sent you to a raw `forge script` invocation). Same generic CREATE3
+# mirror deploy as every sibling; HelperConfig has no dedicated branch for either, so the generic
+# fallback reads PLATFORM_TREASURY (see .env.example "Shared"). Hoodi is Etherscan-family — the one
+# V2 key verifies it inline. Tempo CAVEATS (docs/CHAIN-ADDRESSES.md): it has NO native gas token
+# (fees are USD-denominated in TIP-20 stablecoins — the generic native-gas flow may not pay fees;
+# the earlier run landed only a partial 8-contract set), and its explorer verify API is
+# non-Etherscan/non-Blockscout — TEMPO_VERIFIER_URL is deliberately UNSET by default (bs_verify
+# collapses to a clean broadcast; verify manually, or via `make verify-chain CHAIN=42431
+# RPC=$(TEMPO_RPC_URL) VERIFIER_URL=<api>` once a working verifier endpoint is confirmed).
+deploy-hoodi: ## Deploy to Ethereum Hoodi (chainId 560048, ETH; etherscan-v2 verify)
+	forge script script/DeployAll.s.sol --rpc-url $(HOODI_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+deploy-tempo: ## Deploy to Tempo Moderato (chainId 42431; TIP-20 stablecoin fees — see caveat above)
+	forge script script/DeployAll.s.sol --rpc-url $(TEMPO_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(TEMPO_VERIFIER_URL)) -vvvv
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 #  ⛔ MAINNET — AUDIT-GATED, REAL FUNDS. DO NOT RUN UNTIL A THIRD-PARTY AUDIT IS COMPLETE.            ⛔
