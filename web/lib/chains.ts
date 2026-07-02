@@ -247,6 +247,33 @@ export function getChain(chainId: number): Chain {
  * `getRouterAddress` / `getUsdcAddress` functions below fall through to these
  * statics for the known chains and remain dynamic (server-side) for others.
  */
+/**
+ * The CREATE3 mirror router — the SAME deterministic address on every chain it's
+ * deployed to (CREATE3 salt = deployer+label, never block.chainid). A plain literal
+ * (not env), so Next inlines it into the CLIENT bundle for ALL chains — not just the
+ * per-chain-env Base case below. Making the mirror the zero-config DEFAULT is the
+ * whole point of CREATE3: one address everywhere. A per-chain env value still overrides.
+ */
+export const MIRROR_ROUTER_ADDRESS =
+  '0xe92244e3368561faf21648146511DeDE3a475EB5' as Address
+
+/**
+ * Chains where the mirror router is DEPLOYED + broadcast-verified (README
+ * Deployments / MIRROR-STATUS, 2026-07). The mirror is the default router on these;
+ * a chain NOT listed has no mirror, so `getRouterAddress` fails loud rather than claim
+ * a router that isn't on-chain (doctrine #4: never claim an unproven address).
+ */
+export const MIRROR_SUPPORTED_CHAIN_IDS: readonly number[] = [
+  5042002, // Arc
+  84532, // Base Sepolia
+  11155111, // Ethereum Sepolia
+  11155420, // Optimism Sepolia
+  43113, // Avalanche Fuji
+  46630, // Robinhood
+  421614, // Arbitrum Sepolia
+  11142220, // Celo Sepolia
+]
+
 const ROUTER_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
   [baseSepolia.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_84532,
 }
@@ -267,10 +294,17 @@ const USDC_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
  */
 export function getRouterAddress(chainId: number): Address {
   const addr =
+    // 1) explicit per-chain env override (literal key → inlined client-side for Base)
     ROUTER_ADDRESS_BY_CHAIN[chainId] ??
+    // 2) server-side per-chain env (computed key, not inlined into the browser)
     (typeof window === 'undefined'
       ? (process.env[`NEXT_PUBLIC_ROUTER_ADDRESS_${chainId}`] ?? undefined)
-      : undefined)
+      : undefined) ??
+    // 3) the CREATE3 mirror as the zero-config DEFAULT on every mirrored chain —
+    //    same address everywhere, inlined client-side. This is why an integrator
+    //    needs no per-chain router env: "make everything mirrored by default."
+    (MIRROR_SUPPORTED_CHAIN_IDS.includes(chainId) ? MIRROR_ROUTER_ADDRESS : undefined)
+  // A non-mirrored, unconfigured chain still fails loud — never a silent wrong call.
   if (!addr) throw new Error(`No router address configured for chain ${chainId}`)
   return addr as Address
 }

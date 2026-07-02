@@ -9,25 +9,32 @@ function short(addr: string): string {
 }
 
 /**
- * Thin wrapper around Dynamic's auth flow. Shows "Connect wallet" when signed
- * out, and the truncated address + "Disconnect" when signed in. All connection
- * goes through Dynamic (`setShowAuthFlow`) — no wagmi `useConnect`.
+ * Thin wrapper around Dynamic's auth flow. The button says "Sign in" (not "Connect
+ * wallet") because the flow is universal: a crypto user picks a wallet, while a
+ * non-crypto user continues with email or Google and Dynamic mints an embedded
+ * wallet — "Connect wallet" reads as wallet-required and bounces the very users the
+ * email/Google door is for. When signed in it shows the user's identity (email or
+ * username if the email/Google path was used, else the truncated address) +
+ * "Sign out". All connection goes through Dynamic (`setShowAuthFlow`) — no wagmi
+ * `useConnect`. (The email/Google sections render once they're enabled on the
+ * Dynamic env's dashboard; this component needs no change for that.)
  */
 export function ConnectButton(): ReactNode {
-  const { primaryWallet, setShowAuthFlow, handleLogOut } = useDynamicContext()
+  const { primaryWallet, user, setShowAuthFlow, handleLogOut } = useDynamicContext()
 
   if (primaryWallet) {
+    const identity = user?.email ?? user?.username ?? short(primaryWallet.address)
     return (
       <div className="flex items-center gap-3">
         <span className="rounded-md bg-neutral-100 px-3 py-1.5 font-mono text-sm text-ink">
-          {short(primaryWallet.address)}
+          {identity}
         </span>
         <button
           type="button"
           onClick={() => void handleLogOut()}
           className="text-sm text-neutral-500 underline-offset-2 hover:underline"
         >
-          Disconnect
+          Sign out
         </button>
       </div>
     )
@@ -39,7 +46,7 @@ export function ConnectButton(): ReactNode {
       onClick={() => setShowAuthFlow(true)}
       className="rounded-lg bg-rail px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
     >
-      Connect wallet
+      Sign in
     </button>
   )
 }
