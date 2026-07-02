@@ -5,7 +5,7 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
-_Last updated: 2026-06-23 (ETHGlobal NY)._
+_Last updated: 2026-07-02 (ETHGlobal NY)._
 
 ---
 
@@ -45,8 +45,8 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ## 2. Tested
 
-- **1,383 contract tests, 0 failed, 0 skipped** across **104 suites** (`make test`; I re-ran `forge test`
-  for this update — 1383 passed / 0 failed / 0 skipped). The 3 `test/fork/**` Chainlink-feed tests are
+- **1,392 contract tests, 0 failed, 0 skipped** across **104 suites** (`make test`; I re-ran `forge test`
+  for this update — 1392 passed / 0 failed / 0 skipped). The 3 `test/fork/**` Chainlink-feed tests are
   counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI
   both run green; set `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed.
 - **The web + SDK suites** (Vitest) cover `@access0x1/react` and the Next.js money-adjacent routes. A
@@ -95,6 +95,14 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   oracle-fault-tolerant so a dead feed refunds the full escrow, never bricks it); and the web `/api/quote`
   input-validation bypass (a negative/zero/NaN price can never be quoted). Each carries its own regression
   tests; no existing test was weakened.
+- **Conduit + gasless + ERC-6909 hardening (this update, all merged to `main`):** the `PaymentLanes`
+  conduits (`SplitSettler` / `Receivables`) now **claim the settled net back** from their lane so a
+  downstream failure can never strand funds (#203); `GaslessPayIn`'s zero-custody assertion is a **delta
+  vs the pre-pull baseline**, not an absolute-zero check, so a pre-existing dust balance can't false-trip
+  it (#204); `PaymentLanes` now **conforms to ERC-6909** — canonical `Transfer` topics + a mandatory
+  `supportsInterface` (#205); and the **lone `unchecked` block on the `PaymentLanes` value path was
+  removed** so every money-path arithmetic is checked (#207). Each fix ships with its own regression
+  tests inside the whole-suite total; no existing test was weakened.
 - **SDK receipt-binding hardening (`@access0x1/react` `usePayment`):** the watched `PaymentReceived`
   receipt is now bound to the payment's `orderId` — the on-chain event filter only matches the indexed
   `{merchantId, buyer}`, so a concurrent payment by the same buyer to the same merchant for a **different**
@@ -123,7 +131,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   SDK** (drop-in `<PayButton>` + the `usePayment` hook — orderId-bound receipt watch with a 120s timeout
   ceiling; Vitest-covered; git-distributed — consumed as a GitHub dependency, not published to npm by design), and the `create-access0x1` scaffolder.
 
-**Seam (code present, NOT exercised in the live demo path / booth-SDK-gated):**
+**Seam (code present, NOT exercised in the live example path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),
   **Uniswap payout-swap** (receive-in-any-token rail), **paymaster** (gas sponsorship). We label these
   as seams everywhere — never as "live."
@@ -147,7 +155,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ```bash
 git clone https://github.com/Access0x1/Access0x1 && cd Access0x1
-make test                       # 1,383 contract tests, 0 failed
+make test                       # 1,392 contract tests, 0 failed
 forge coverage --ir-minimum     # the real coverage number
 make halmos                     # the symbolic fee-split + budget proofs
 make anvil && make deploy-local && make drive-local   # real local payment, no keys

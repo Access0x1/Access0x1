@@ -6,7 +6,7 @@ block, run it, and check the result against the **Expected** line under it.
 
 Everything here runs **locally** against a throwaway [Anvil](https://book.getfoundry.sh/anvil/)
 chain. No real money, no real keys, no testnet, nothing to lose. The same flows
-the automated suite proves (1,383 contract tests across 104 suites + the web gate)
+the automated suite proves (1,392 contract tests across 104 suites + the web gate)
 you will drive by hand, so you can see the money move and the guards bite.
 
 > **Naming note.** This document only uses public, standard names: Anvil, Arc,
@@ -27,8 +27,8 @@ you will drive by hand, so you can see the money move and the guards bite.
   - [B7. SessionGrant — openSession → spend → revoke](#b7-sessiongrant--opensession--spend--revoke)
   - [B8. Nft — list → buy](#b8-nft--list--buy)
 - [C. Web app — onboarding, checkout, verify, dashboard](#c-web-app--onboarding-checkout-verify-dashboard)
-- [D. The test suites (1,383 + web gate)](#d-the-test-suites-1383--web-gate)
-- [E. Pre-demo smoke checklist](#e-pre-demo-smoke-checklist)
+- [D. The test suites (1,392 + web gate)](#d-the-test-suites-1392--web-gate)
+- [E. Pre-walkthrough smoke checklist](#e-pre-walkthrough-smoke-checklist)
 
 ---
 
@@ -881,19 +881,19 @@ the `cast` walkthroughs in Section B prove the contracts.)
 
 ---
 
-## D. The test suites (1,383 + web gate)
+## D. The test suites (1,392 + web gate)
 
 The automated suites are the ground truth behind every manual flow above. Run
 them to confirm a clean tree.
 
-### D1. The contract suite — 1,383 tests
+### D1. The contract suite — 1,392 tests
 
 ```bash
 make test          # or: forge test
 ```
 
 **Expected:** the final summary line reads roughly
-`Ran 104 test suites: 1383 tests passed; 0 failed; 0 skipped`. This is the union of:
+`Ran 104 test suites: 1392 tests passed; 0 failed; 0 skipped`. This is the union of:
 
 - **`test/unit/`** — per-function correctness.
 - **`test/attack/`** — adversarial / exploit attempts that must fail.
@@ -932,22 +932,22 @@ failure — run `cd web && npm install` and re-run the gate.
 make gate
 ```
 
-**Expected:** contracts build + 1,383 tests + `forge fmt --check`, then the web
+**Expected:** contracts build + 1,392 tests + `forge fmt --check`, then the web
 gate, ending in `==> GATE GREEN`. This is the single command that proves the
 whole repo is healthy before a commit.
 
 ---
 
-## E. Pre-demo smoke checklist
+## E. Pre-walkthrough smoke checklist
 
-Run this top-to-bottom right before a demo. Each line is a hard gate — if one
+Run this top-to-bottom right before a live walkthrough. Each line is a hard gate — if one
 fails, stop and fix it before showing anyone.
 
 - [ ] **Tools present.** `forge --version && cast --version && anvil --version`
       all print (Section A1).
 - [ ] **Deps installed.** `make install` completed; a bare `make build` exits
       green (Section A3).
-- [ ] **Contracts green.** `make test` → `1383 passed; 0 failed` across 104 suites
+- [ ] **Contracts green.** `make test` → `1392 passed; 0 failed` across 104 suites
       (Section D1).
 - [ ] **Web green.** `cd web && npm run gate` → all four steps pass, ~965 tests
       across 89 files (Section D2).
@@ -962,13 +962,13 @@ fails, stop and fix it before showing anyone.
 - [ ] **A guard bit.** You watched at least one revert on purpose — the
       over-budget `renew` charging nothing (B2 step 6), the second invoice `pay`
       reverting (B4 step 3), or the over-budget `spend` reverting (B7 step 3).
-- [ ] **Web demo wired.** `cd web && npm run dev` serves `localhost:3000`,
+- [ ] **Web app wired.** `cd web && npm run dev` serves `localhost:3000`,
       `/onboard` loads and Save yields a checkout link + embed tag (Section C2);
       if showing live checkout/dashboard, `web/.env` points at the deployed chain
       (Section C5).
 - [ ] **Backup screenshots.** You have a screenshot or recording of the green
       `make test` summary and a successful checkout, in case the live network is
-      flaky on demo day.
+      flaky on the day.
 
 If every box is checked, you can hand-test any contract on request and walk the
 web flow end to end. That is the whole product, provable by eye.

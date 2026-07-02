@@ -116,7 +116,7 @@ your fee recipient. See [`MAX_FEE_BPS`](./GLOSSARY.md#basis-points-bps--max_fee_
 ## Do my buyers need crypto or a browser wallet?
 
 Not necessarily. The web layer integrates an embedded-wallet sign-in so a buyer
-who has never held crypto can complete a checkout, and the demo defaults to a
+who has never held crypto can complete a checkout, and the app defaults to a
 gas-free USDC path on Arc (where USDC is the native gas token). Both are
 **off the money path** — the on-chain settlement is the same `payNative` /
 `payToken` call either way. See the [Built on](../README.md#built-on) section for

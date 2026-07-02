@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Protocol** | Access0x1 — open, multi-chain, zero-custody payments + session-auth layer |
-| **Scope** | The first-party Solidity in `src/`: **21 contracts + 1 internal library (`OracleLib`) + 16 interfaces**. The per-instance static-tool findings (§6) and the deep money-path review (§3, §5, §7) center the money spine + the long-standing commerce set; the newer additions (`SplitSettler`, `Access0x1Escrow`, `Receivables`, `Refunds`, `GaslessPayIn`, `PriceOracleAdapter`, `AutomationGateway`, `Access0x1ProvenanceRegistry`, `Access0x1Nft`) are built, tested, and compose the same audited spine — they are reviewed here against the same money laws before any mainnet claim. |
+| **Scope** | The first-party Solidity in `src/`: **20 contracts + 2 libraries (`NameMath`, `OracleLib`) + 16 interfaces** (22 `.sol` in `src/` excluding interfaces). The per-instance static-tool findings (§6) and the deep money-path review (§3, §5, §7) center the money spine + the long-standing commerce set; the newer additions (`SplitSettler`, `Access0x1Escrow`, `Receivables`, `Refunds`, `GaslessPayIn`, `PriceOracleAdapter`, `AutomationGateway`, `Access0x1ProvenanceRegistry`, `Access0x1Nft`) are built, tested, and compose the same audited spine — they are reviewed here against the same money laws before any mainnet claim. |
 | **Commit** | The merged `main` spine + the commerce set + the fuzz/symbolic/integration tiers. |
 | **Toolchain** | Foundry (forge 1.3.5 / solc 0.8.28, EVM `cancun`, `via_ir`), Aderyn v0.1.9, Slither v0.11.5, Halmos (symbolic). |
 | **Methodology** | Foundry unit + invariant + adversarial (`test/attack/**`) + integration + fuzz + scenario suites, Halmos symbolic proofs (`test/symbolic/**`), Aderyn, Slither, `forge coverage`, manual review |
@@ -33,8 +33,8 @@
 
 ## 1. Scope
 
-The audited surface is the first-party Solidity in `src/` — **21 contracts + the
-`OracleLib` library + 16 interfaces**. Dependencies (OpenZeppelin, Chainlink,
+The audited surface is the first-party Solidity in `src/` — **20 contracts + 2
+libraries (`NameMath`, `OracleLib`) + 16 interfaces**. Dependencies (OpenZeppelin, Chainlink,
 forge-std) are out of scope and excluded from the static analysers
 (`slither.config.json` filters `lib/ node_modules/ test/ script/`; Aderyn runs
 over `src/`).
@@ -107,7 +107,7 @@ governing rule for every static-tool result is the real-audit convention:
 | Step | Result |
 | --- | --- |
 | `forge build` | **green** (solc 0.8.28, `via_ir`, `cancun`) |
-| `forge test` | **1,383 tests passed, 0 failed, 0 skipped** (104 suites) — re-run for this report |
+| `forge test` | **1,392 tests passed, 0 failed, 0 skipped** (104 suites) — re-run for this report |
 | `forge fmt --check` | **clean** |
 | `forge coverage` | lines **~98%**, branches **~97%** on the router; functions **100%** overall (`--ir-minimum`; per-contract in §4 / [`COVERAGE.md`](COVERAGE.md)) |
 | Invariants | hold under `fail_on_revert`, 0 reverts — the 6 router money invariants + the PaymentLanes firewall/conservation set + per-lifecycle invariants on the commerce primitives (Bookings, Invoices, Subscriptions, GiftCards, Escrow, GaslessPayIn, Receivables, Refunds, SplitSettler) |
@@ -168,7 +168,7 @@ path. This is the disposition for Aderyn L-1 / Slither centralization results
 ## 4. Per-contract test & coverage
 
 The authoritative whole-suite total is the `forge test` line:
-**1,383 passed / 0 failed / 0 skipped across 104 suites** (unit + attack + invariant
+**1,392 passed / 0 failed / 0 skipped across 104 suites** (unit + attack + invariant
 + integration + fuzz + scenario + fork + symbolic). Per-contract coverage is measured
 under `forge coverage --ir-minimum` (the commerce set trips `Stack too deep` under the
 non-IR coverage pipeline); the raw snapshot below is captured in
@@ -196,7 +196,7 @@ The per-contract snapshot above is the last full `--ir-minimum` coverage run com
 to [`COVERAGE.md`](COVERAGE.md); it predates the most recently-added primitives
 (`SplitSettler`, `Access0x1Escrow`, `Receivables`, `Refunds`, `GaslessPayIn`,
 `PriceOracleAdapter`, `AutomationGateway`, `Access0x1ProvenanceRegistry`), which each
-carry their own unit/invariant/attack tests inside the 1,383-test whole-suite total and
+carry their own unit/invariant/attack tests inside the 1,392-test whole-suite total and
 refresh into this table on the next coverage run.
 
 The sub-100% rows are **unreachable defence-in-depth guards**, documented and
@@ -279,7 +279,7 @@ untouched (`invariant_openCanaryUntouched`), plus isolation/continue checks.
 
 All held with **0 reverts** under `fail_on_revert` (a separate
 `continueOnRevert` profile additionally fuzzes the router under revert-tolerant
-handlers as a cross-check), inside the 1,383-test whole-suite total.
+handlers as a cross-check), inside the 1,392-test whole-suite total.
 
 ---
 
@@ -525,7 +525,7 @@ This section is intentionally conservative.
   testnet Chainlink feeds; three earlier chains carry pre-mirror per-chain deploys.
   **No mainnet deployment ships at the event, and we make no mainnet claim.**
 - **This is not a third-party audit.** It is an internal engineering audit backed
-  by 1,383 tests (0 failed), the money-path fuzz invariants, Halmos symbolic proofs,
+  by 1,392 tests (0 failed), the money-path fuzz invariants, Halmos symbolic proofs,
   and two static analysers. Strong coverage reduces — but does not eliminate — risk.
   Logic the tests didn't imagine is the residual exposure that only an independent
   audit reliably finds.
@@ -553,8 +553,8 @@ This section is intentionally conservative.
 ---
 
 *Part of the Access0x1 build (ETHGlobal NY 2026) over the full first-party `src/`
-surface (21 contracts + `OracleLib` + 16 interfaces). Whole-suite gate at this
-update: `forge test` = **1,383 passed / 0 failed / 0 skipped across 104 suites**.
+surface (20 contracts + 2 libraries + 16 interfaces). Whole-suite gate at this
+update: `forge test` = **1,392 passed / 0 failed / 0 skipped across 104 suites**.
 Analyser versions: Aderyn v0.1.9, Slither v0.11.5, Foundry forge 1.3.5 / solc 0.8.28
 / EVM cancun, plus Halmos for the symbolic proofs. Every static-tool result is
 triaged per-instance in `audit/FINDINGS.md` (the authoritative, current tracker);
