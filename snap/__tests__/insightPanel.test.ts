@@ -12,7 +12,8 @@ const MERCHANT: MerchantInfo = {
   id: 7n,
   name: 'demo.access0x1.eth',
   payout: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  feeBps: 500, // 5%
+  feeBps: 500, // 5% merchant surcharge
+  platformFeeBps: 100, // 1% platform fee — the panel must show the 6% TOTAL
 };
 
 const NATIVE_SUMMARY: PaymentSummary = {
@@ -98,10 +99,20 @@ describe('renderInsightPanel', () => {
     expect(text).toContain('Native');
   });
 
-  it('shows the fee split using the merchant feeBps', () => {
+  it('shows the fee split using platformFeeBps + merchant feeBps (the true total)', () => {
     const text = collectText(renderInsightPanel(NATIVE_SUMMARY, MERCHANT));
-    expect(text).toContain('$1.45'); // fee
-    expect(text).toContain('$27.55'); // net
+    // 6% of $29.00 = $1.74 total fee (1% platform + 5% merchant), NOT 5%/$1.45.
+    expect(text).toContain('$1.74'); // fee
+    expect(text).toContain('$27.26'); // net
+  });
+
+  it('shows the platform fee even when the merchant surcharge is zero (the bug this guards)', () => {
+    // feeBps=0 with a 1% platform fee: pre-fix the panel showed $0.00 fee / $29.00
+    // net — both wrong. It must show the $0.29 platform cut and the $28.71 net.
+    const zeroSurcharge: MerchantInfo = { ...MERCHANT, feeBps: 0, platformFeeBps: 100 };
+    const text = collectText(renderInsightPanel(NATIVE_SUMMARY, zeroSurcharge));
+    expect(text).toContain('$0.29'); // 1% of $29.00 platform fee (pre-fix showed $0.00)
+    expect(text).toContain('$28.71'); // net (pre-fix showed the full $29.00)
   });
 
   it('shows the truncated token address for payToken', () => {

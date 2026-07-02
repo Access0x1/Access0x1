@@ -13,11 +13,41 @@ import {
   isAddressEqual,
 } from 'viem/utils';
 
-import { MERCHANTS_ABI } from './abi';
+import { MERCHANTS_ABI, PLATFORM_FEE_ABI } from './abi';
 import type { MerchantInfo } from '../types';
 
 /** The zero address — an unregistered merchant slot returns this for `owner`. */
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+/**
+ * Read the router's `platformFeeBps()`. Best-effort: on any failure returns 0 so
+ * the panel degrades to showing the merchant surcharge only (never throws into
+ * `onTransaction`). The total on-chain fee is `platformFeeBps + merchant.feeBps`.
+ */
+async function fetchPlatformFeeBps(
+  routerAddress: `0x${string}`,
+  provider: EthProvider,
+): Promise<number> {
+  try {
+    const data = encodeFunctionData({
+      abi: PLATFORM_FEE_ABI,
+      functionName: 'platformFeeBps',
+    });
+    const raw = (await provider.request({
+      method: 'eth_call',
+      params: [{ to: routerAddress, data }, 'latest'],
+    })) as `0x${string}`;
+    return Number(
+      decodeFunctionResult({
+        abi: PLATFORM_FEE_ABI,
+        functionName: 'platformFeeBps',
+        data: raw,
+      }),
+    );
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * A minimal EIP-1193 request surface — the MetaMask Snap `ethereum` provider,
@@ -74,11 +104,16 @@ export async function fetchMerchantName(
     name: fallbackMerchantName(id),
     payout: ZERO_ADDRESS,
     feeBps: 0,
+    platformFeeBps: 0,
   };
 
   if (!routerAddress) {
     return fallback;
   }
+
+  // Read the platform fee once, up front — the panel needs platformFeeBps + feeBps
+  // to show the true total. Best-effort; a miss just yields 0 (merchant-surcharge only).
+  const platformFeeBps = await fetchPlatformFeeBps(routerAddress, provider);
 
   try {
     const data = encodeFunctionData({
@@ -100,7 +135,7 @@ export async function fetchMerchantName(
 
     // Unregistered slot ⇒ owner is the zero address.
     if (isAddressEqual(owner, ZERO_ADDRESS)) {
-      return fallback;
+      return { ...fallback, platformFeeBps };
     }
 
     let name = fallbackMerchantName(id);
@@ -115,7 +150,7 @@ export async function fetchMerchantName(
       }
     }
 
-    return { id, name, payout, feeBps: Number(feeBps) };
+    return { id, name, payout, feeBps: Number(feeBps), platformFeeBps };
   } catch {
     // Network error / decode failure ⇒ never throw into onTransaction.
     return fallback;

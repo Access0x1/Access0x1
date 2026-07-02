@@ -1,7 +1,7 @@
 import { encodeFunctionResult } from 'viem/utils';
 import { describe, expect, it, vi } from 'vitest';
 
-import { MERCHANTS_ABI } from '../src/router/abi';
+import { MERCHANTS_ABI, PLATFORM_FEE_ABI } from '../src/router/abi';
 import { fetchMerchantName } from '../src/router/merchant';
 import type { EthProvider } from '../src/router/merchant';
 
@@ -10,28 +10,46 @@ const PAYOUT = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;
 const OWNER = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as const;
 const ZERO = '0x0000000000000000000000000000000000000000' as const;
 
-/** Build a provider whose eth_call returns the given encoded merchants() tuple. */
+/**
+ * Build a provider that answers BOTH router reads the fetch makes: the no-arg
+ * `platformFeeBps()` call (routed by its argument-less calldata) and the
+ * `merchants(id)` tuple. Routing on calldata length keeps the double so a single
+ * mock can serve both without ordering assumptions.
+ */
 function providerReturning(
   payout: `0x${string}`,
   owner: `0x${string}`,
   feeBps: number,
+  platformFeeBps = 0,
 ): EthProvider {
-  const encoded = encodeFunctionResult({
+  const merchantsEncoded = encodeFunctionResult({
     abi: MERCHANTS_ABI,
     functionName: 'merchants',
     result: [payout, owner, ZERO, feeBps, true, ('0x' + '0'.repeat(64)) as `0x${string}`],
   });
-  return { request: vi.fn().mockResolvedValue(encoded) };
+  const platformEncoded = encodeFunctionResult({
+    abi: PLATFORM_FEE_ABI,
+    functionName: 'platformFeeBps',
+    result: platformFeeBps,
+  });
+  const request = vi.fn(async (args: { method: string; params?: unknown[] }) => {
+    const call = (args.params?.[0] ?? {}) as { data?: string };
+    // platformFeeBps() takes no args → calldata is just the 4-byte selector (10 chars).
+    if ((call.data ?? '').length <= 10) return platformEncoded;
+    return merchantsEncoded;
+  });
+  return { request };
 }
 
 describe('fetchMerchantName', () => {
-  it('returns on-chain payout + feeBps and ENS name when the resolver succeeds', async () => {
-    const provider = providerReturning(PAYOUT, OWNER, 150);
+  it('returns on-chain payout + feeBps + platformFeeBps and ENS name when the resolver succeeds', async () => {
+    const provider = providerReturning(PAYOUT, OWNER, 150, 100);
     const ens = vi.fn().mockResolvedValue('demo.access0x1.eth');
     const info = await fetchMerchantName(7n, 5042002, ROUTER, provider, ens);
     expect(info.name).toBe('demo.access0x1.eth');
     expect(info.payout.toLowerCase()).toBe(PAYOUT);
     expect(info.feeBps).toBe(150);
+    expect(info.platformFeeBps).toBe(100); // read from platformFeeBps() — the total fee needs it
   });
 
   it('falls back to "Merchant #<id>" when the ENS resolver misses', async () => {
