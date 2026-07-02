@@ -269,7 +269,7 @@ async function verifyEnsMethod(user: string, body: Record<string, unknown>): Pro
  * jose/JWKS path the branding writes use) and require the verified wallet to
  * match the user. Booth-gated: when no issuer is configured the verification
  * path falls back to the shape-checked identity (verified:false), so we accept a
- * matching session in the demo but flag it honestly via the fallback.
+ * matching session in this deployment but flag it honestly via the fallback.
  */
 async function verifyDynamicMethod(
   user: string,

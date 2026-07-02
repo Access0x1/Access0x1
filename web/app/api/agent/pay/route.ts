@@ -2,7 +2,7 @@
  * @file route.ts — POST /api/agent/pay (Next.js 15 App Router).
  *
  * The HTTP entry point for the autonomous agent. It validates the request, enforces an
- * env-configured URL allowlist (SSRF guard) and a demo call cap, then delegates to the
+ * env-configured URL allowlist (SSRF guard) and a call cap, then delegates to the
  * meter-gated x402 pay path. All errors map to structured JSON with NO secret or stack trace
  * in the body (doctrine guardrail #7 / law #4):
  *
@@ -42,10 +42,10 @@ import {
   type PrivateRailRequest,
 } from "./privateRail.js";
 
-/** Hard ceiling on a single nano-loop request — law #4: the demo fires real, bounded calls. */
+/** Hard ceiling on a single nano-loop request — law #4: the agent fires real, bounded calls. */
 const MAX_DEMO_CALLS = 50;
 
-/** Default per-call price when the body omits one (matches the demo's $0.001 micro-call). */
+/** Default per-call price when the body omits one (matches the $0.001 micro-call). */
 const DEFAULT_PRICE_USD = 0.001;
 
 /** Minimal JSON response shim so this file type-checks without importing `next/server`. */

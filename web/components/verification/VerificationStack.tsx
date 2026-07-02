@@ -190,7 +190,7 @@ export function VerificationStack(): ReactNode {
 function friendlyError(method: VerificationMethod, code: string): string {
   switch (code) {
     case 'not_configured':
-      return 'World ID isn’t switched on for this demo yet.'
+      return 'World ID isn’t switched on yet.'
     case 'already_verified':
       return 'This account already verified once. One per person.'
     case 'proof_invalid':

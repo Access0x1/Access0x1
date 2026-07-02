@@ -13,7 +13,7 @@
  *
  * The merchant's Unlink account is derived from a server key pair (`account.fromKeys`)
  * for the transfer/withdraw legs; the seed-backed (browser) derivation is a separate
- * path and never runs here (zero custody — spec §9.1). For the demo the account is
+ * path and never runs here (zero custody — spec §9.1). Here the account is
  * supplied by the caller wiring; this route owns validation, registration ordering,
  * and law-#5 error surfacing.
  *
