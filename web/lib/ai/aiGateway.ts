@@ -147,12 +147,16 @@ export function withAiGateway(handler: Handler, price: string, endpoint: string)
       throw err;
     }
 
-    // LAYER 4 — refund the reservation IFF nothing settled. The inner gateway
-    // returns 402 when it challenges or when verify/settle fails — in every 402
-    // case no USDC moved, so the budget reservation must be released. A 2xx/4xx
-    // OTHER than 402 means settle succeeded (the handler ran), so we keep the
-    // reservation: the money moved, the budget should reflect it.
-    if (response.status === 402) {
+    // LAYER 4 — refund the reservation IFF nothing settled. withGateway sets a
+    // PAYMENT-RESPONSE header EXACTLY when settle succeeded (x402.ts step 4), so its
+    // presence is the authoritative "money moved" signal. Keying off status===402
+    // alone leaked budget: withGateway also returns HTTP 500 (not 402) for a
+    // malformed payment-signature header or an unexpected facilitator error — no USDC
+    // moved in either case, yet the old check kept the reservation, letting a client
+    // burn its own SessionGrant budget with repeated garbled-signature calls. Refund
+    // whenever settlement did not happen (law #5: never charge for a payment that
+    // didn't move).
+    if (!response.headers.has("PAYMENT-RESPONSE")) {
       refundSession(sessionId, reserveAtomic);
     }
 
