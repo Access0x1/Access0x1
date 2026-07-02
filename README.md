@@ -794,15 +794,18 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **1,382 green** — unit · attack · invariant suites |
+| Tests | **1,392 green** — unit · attack · invariant suites |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
-| Invariants | **13 headline money-safety invariants** (45 total properties) across 3 suites hold at 4,096 calls each, 0 reverts |
+| Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
 
-The 13 invariants: **6 router money invariants** — native conservation · token conservation ·
+The money core: **6 router money invariants** — native conservation · token conservation ·
 platform cut always to treasury · zero-custody residual · merchant isolation · effective fee ≤
-`MAX_FEE_BPS`; **3 PaymentLanes conservation** invariants; and a **4-property cross-asset firewall** —
-all proved under handlers in [`test/invariant`](test/invariant/) and [`test/attack`](test/attack/).
+`MAX_FEE_BPS`; the **PaymentLanes conservation + 4-property cross-asset firewall**; and per-lifecycle
+invariants on every commerce/settlement primitive — all proved under handlers in
+[`test/invariant`](test/invariant/) and [`test/attack`](test/attack/), plus **halmos** symbolic proofs
+(fee-split value-conservation + SessionGrant budget-cap) in [`test/symbolic`](test/symbolic/). The full
+property-by-property map is [`docs/INVARIANTS.md`](docs/INVARIANTS.md).
 Gas hot-paths are documented in [`docs/GAS.md`](docs/GAS.md).
 
 ---
