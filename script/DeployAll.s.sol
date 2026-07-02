@@ -171,6 +171,11 @@ contract DeployAll is Script {
     Access0x1Escrow public escrow;
     AutomationGateway public automationGateway;
     Access0x1ProvenanceRegistry public provenanceRegistry;
+    GaslessPayIn public gaslessPayIn;
+    Refunds public refunds;
+    SplitSettler public splitSettler;
+    Receivables public receivables;
+    PriceOracleAdapter public priceOracleAdapter;
 
     /// @notice The broadcaster captured for the lifetime of the run — the ONLY address allowed to claim
     ///         these CREATE3 salts (CreateX's permissioned-salt guard requires `salt[0:20] == msg.sender`).
@@ -502,46 +507,63 @@ contract DeployAll is Script {
 
         // 13-17. Settlement extensions — each composes the spine (or is standalone), so they mirror too.
         //        Their init args are uniform across chains (owner + the mirror Router), so they land at
-        //        the same address everywhere. Captured as locals: nothing downstream wires them, and
-        //        _deployUUPS already records each in the manifest.
-        address gaslessPayIn = _deployUUPS(
-            "GaslessPayIn",
-            type(GaslessPayIn).creationCode,
-            abi.encodeCall(GaslessPayIn.initialize, (owner, router))
-        );
-        console2.log("GaslessPayIn          :", gaslessPayIn);
-
-        address refunds = _deployUUPS(
-            "Refunds",
-            type(Refunds).creationCode,
-            abi.encodeCall(Refunds.initialize, (owner, router))
-        );
-        console2.log("Refunds               :", refunds);
-
-        address splitSettler = _deployUUPS(
-            "SplitSettler",
-            type(SplitSettler).creationCode,
-            abi.encodeCall(SplitSettler.initialize, (owner, router))
-        );
-        console2.log("SplitSettler          :", splitSettler);
-
-        address receivables = _deployUUPS(
-            "Receivables",
-            type(Receivables).creationCode,
-            abi.encodeCall(
-                Receivables.initialize,
-                (router, owner, RECEIVABLES_NAME, RECEIVABLES_SYMBOL, RECEIVABLES_CONTRACT_URI)
+        //        the same address everywhere. Recorded as public state (like the rest of the surface) so
+        //        a test / the SDK can read every wired address after run(); nothing downstream wires
+        //        them, and _deployUUPS already records each in the manifest.
+        gaslessPayIn = GaslessPayIn(
+            _deployUUPS(
+                "GaslessPayIn",
+                type(GaslessPayIn).creationCode,
+                abi.encodeCall(GaslessPayIn.initialize, (owner, router))
             )
         );
-        console2.log("Receivables           :", receivables);
+        console2.log("GaslessPayIn          :", address(gaslessPayIn));
+
+        refunds = Refunds(
+            _deployUUPS(
+                "Refunds",
+                type(Refunds).creationCode,
+                abi.encodeCall(Refunds.initialize, (owner, router))
+            )
+        );
+        console2.log("Refunds               :", address(refunds));
+
+        splitSettler = SplitSettler(
+            payable(_deployUUPS(
+                    "SplitSettler",
+                    type(SplitSettler).creationCode,
+                    abi.encodeCall(SplitSettler.initialize, (owner, router))
+                ))
+        );
+        console2.log("SplitSettler          :", address(splitSettler));
+
+        receivables = Receivables(
+            payable(_deployUUPS(
+                    "Receivables",
+                    type(Receivables).creationCode,
+                    abi.encodeCall(
+                        Receivables.initialize,
+                        (
+                            router,
+                            owner,
+                            RECEIVABLES_NAME,
+                            RECEIVABLES_SYMBOL,
+                            RECEIVABLES_CONTRACT_URI
+                        )
+                    )
+                ))
+        );
+        console2.log("Receivables           :", address(receivables));
 
         // PriceOracleAdapter — the swappable ERC-7726 oracle surface; standalone (owner only, no router).
-        address priceOracleAdapter = _deployUUPS(
-            "PriceOracleAdapter",
-            type(PriceOracleAdapter).creationCode,
-            abi.encodeCall(PriceOracleAdapter.initialize, (owner))
+        priceOracleAdapter = PriceOracleAdapter(
+            _deployUUPS(
+                "PriceOracleAdapter",
+                type(PriceOracleAdapter).creationCode,
+                abi.encodeCall(PriceOracleAdapter.initialize, (owner))
+            )
         );
-        console2.log("PriceOracleAdapter    :", priceOracleAdapter);
+        console2.log("PriceOracleAdapter    :", address(priceOracleAdapter));
 
         // ChainRegistry is deployed once per chain by DeployChainRegistry; log its carried address so
         // the full first-party surface appears in one place. address(0) ⇒ not deployed/seeded yet.
