@@ -115,11 +115,35 @@ contract GaslessPayInHandler is Test {
         return router.quote(merchantId, address(usdc), USD_AMOUNT);
     }
 
+    /// @dev Sign the buyer's Access0x1-domain {PayInIntent} for a permit-rail settlement (EOA ECDSA).
+    function _signIntent(
+        uint256 pk,
+        address buyer,
+        uint256 maxValue,
+        bytes32 orderId,
+        uint256 deadline
+    ) internal view returns (bytes memory) {
+        bytes32 digest = payIn.intentDigest(
+            IGaslessPayIn.PayInIntent({
+                merchantId: merchantId,
+                token: address(usdc),
+                usdAmount8: USD_AMOUNT,
+                maxValue: maxValue,
+                orderId: orderId,
+                buyer: buyer,
+                deadline: deadline
+            })
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 ACTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Settle via the EIP-2612 permit rail.
+    /// @notice Settle via the EIP-2612 permit rail (bound by the buyer's {PayInIntent} co-signature and a
+    ///         single-use `orderId`).
     function payInWithPermit(uint256 buyerSeed) external {
         (address buyer, uint256 pk) = _pick(buyerSeed);
         uint256 gross = _quote();
@@ -127,6 +151,9 @@ contract GaslessPayInHandler is Test {
         uint256 nonce = usdc.nonces(buyer);
         bytes32 digest = _permitDigest(buyer, gross, nonce, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
+
+        bytes32 orderId = bytes32(++_salt); // fresh, so the single-use order gate never trips
+        bytes memory intentSig = _signIntent(pk, buyer, gross, orderId, deadline);
 
         payIn.payInWithPermit(
             merchantId,
@@ -137,12 +164,16 @@ contract GaslessPayInHandler is Test {
             v,
             r,
             s,
-            bytes32(++_salt)
+            orderId,
+            gross, // maxValue == gross (exact)
+            deadline,
+            intentSig
         );
         ghostGrossSettled += gross;
     }
 
-    /// @notice Settle via the ERC-7597 bytes-permit rail.
+    /// @notice Settle via the ERC-7597 bytes-permit rail (bound by the buyer's {PayInIntent} co-signature
+    ///         and a single-use `orderId`).
     function payInWithPermit7597(uint256 buyerSeed) external {
         (address buyer, uint256 pk) = _pick(buyerSeed);
         uint256 gross = _quote();
@@ -152,6 +183,9 @@ contract GaslessPayInHandler is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
 
+        bytes32 orderId = bytes32(++_salt);
+        bytes memory intentSig = _signIntent(pk, buyer, gross, orderId, deadline);
+
         payIn.payInWithPermit7597(
             merchantId,
             address(usdc),
@@ -159,17 +193,23 @@ contract GaslessPayInHandler is Test {
             buyer,
             IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
             sig,
-            bytes32(++_salt)
+            orderId,
+            gross,
+            deadline,
+            intentSig
         );
         ghostGrossSettled += gross;
     }
 
-    /// @notice Settle via the EIP-3009 transferWithAuthorization rail.
+    /// @notice Settle via the EIP-3009 transferWithAuthorization rail (bound by the STRUCTURED nonce).
     function payInWithAuthorization(uint256 buyerSeed) external {
         (address buyer, uint256 pk) = _pick(buyerSeed);
         uint256 gross = _quote();
         uint256 validBefore = block.timestamp + 1 hours;
-        bytes32 nonce = keccak256(abi.encodePacked("gpi_auth", ++_salt));
+        bytes32 orderId = bytes32(keccak256(abi.encodePacked("gpi_auth", ++_salt)));
+        // The 3009 nonce MUST be the structured intent nonce, so the buyer's token signature binds the
+        // merchant/amount/order (a random nonce would revert IntentMismatch).
+        bytes32 nonce = payIn.intentNonce(merchantId, address(usdc), USD_AMOUNT, buyer, orderId);
         bytes32 digest = _authDigest(buyer, gross, validBefore, nonce);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
 
@@ -184,7 +224,7 @@ contract GaslessPayInHandler is Test {
             v,
             r,
             s,
-            bytes32(_salt)
+            orderId
         );
         ghostGrossSettled += gross;
     }
