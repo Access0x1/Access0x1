@@ -9,8 +9,12 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Booth-gated tenant resolution: a valid 0x body.tenantId resolves to that wallet,
-// anything else throws TenantAuthError (→ 401), mirroring the unconfigured fallback.
+// Tenant resolution mock. A valid 0x body.tenantId resolves to that wallet with
+// verified:true (a real, cryptographically verified Dynamic JWT — the only state
+// the money path accepts); anything else throws TenantAuthError (→ 401). The
+// verified:false fallback (Dynamic auth unconfigured) is exercised in its own test
+// via mockResolvedValueOnce, since the withdraw route MUST reject it.
+import { resolveVerifiedTenant } from '@/lib/branding/tenant'
 vi.mock('@/lib/branding/tenant', () => {
   class TenantAuthError extends Error {}
   return {
@@ -18,7 +22,7 @@ vi.mock('@/lib/branding/tenant', () => {
     resolveVerifiedTenant: vi.fn(async (_req: Request, body: { tenantId?: string }) => {
       const id = (body?.tenantId ?? '').toLowerCase()
       if (!/^0x[0-9a-f]{40}$/.test(id)) throw new TenantAuthError('no tenant')
-      return { tenantId: id, verified: false }
+      return { tenantId: id, verified: true }
     }),
   }
 })
@@ -56,6 +60,20 @@ describe('POST /api/gateway/withdraw', () => {
   it('401 when the caller is not an authenticated tenant', async () => {
     const res = await POST(req({ amount: '5', destinationChain: 'baseSepolia', recipient: RECIPIENT }))
     expect(res.status).toBe(401)
+  })
+
+  it('401 when the tenant is resolved but NOT cryptographically verified (fail-closed vs the unconfigured-Dynamic fallback)', async () => {
+    // Simulate NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID unset: resolveVerifiedTenant trusts
+    // the body tenantId but returns verified:false. Even as the (public) seller
+    // address, an unverified caller must be rejected — this is the drain guard.
+    vi.mocked(resolveVerifiedTenant).mockResolvedValueOnce({ tenantId: SELLER, verified: false })
+    const client = okClient('100')
+    __setWithdrawClientFactory(() => client)
+    const res = await POST(
+      req({ tenantId: SELLER, amount: '5', destinationChain: 'baseSepolia', recipient: RECIPIENT }),
+    )
+    expect(res.status).toBe(401)
+    expect(client.withdraw).not.toHaveBeenCalled() // never signed
   })
 
   it('403 when the verified wallet is not the seller', async () => {
