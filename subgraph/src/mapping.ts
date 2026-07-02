@@ -6,18 +6,27 @@
 import { BigInt, Bytes } from "@graphprotocol/graph-ts";
 
 import { PaymentReceived } from "../generated/Access0x1Router/Access0x1Router";
-import { Merchant, Payment } from "../generated/schema";
+import { Merchant, MerchantToken, Payment } from "../generated/schema";
 
 export function handlePaymentReceived(event: PaymentReceived): void {
   // Roll the merchant aggregate first (load-or-create), so the Payment can reference it.
+  // Only usdAmount8 is summed here — it is the one cross-token-safe unit. The native
+  // token-unit totals (gross/fees/net) roll into a per-(merchant, token) row below,
+  // because e.g. 6-decimal USDC and 18-decimal native base units cannot be added.
   const merchant = loadOrCreateMerchant(event.params.merchantId);
   merchant.paymentCount = merchant.paymentCount.plus(BigInt.fromI32(1));
-  merchant.totalGross = merchant.totalGross.plus(event.params.grossAmount);
-  merchant.totalFees = merchant.totalFees.plus(event.params.feeAmount);
-  merchant.totalNet = merchant.totalNet.plus(event.params.netAmount);
   merchant.totalUsd8 = merchant.totalUsd8.plus(event.params.usdAmount8);
   merchant.lastPaymentAt = event.block.timestamp;
   merchant.save();
+
+  // Per-(merchant, token) native-unit totals — safe to sum because the token is fixed.
+  const mt = loadOrCreateMerchantToken(merchant.id, event.params.merchantId, event.params.token);
+  mt.paymentCount = mt.paymentCount.plus(BigInt.fromI32(1));
+  mt.totalGross = mt.totalGross.plus(event.params.grossAmount);
+  mt.totalFees = mt.totalFees.plus(event.params.feeAmount);
+  mt.totalNet = mt.totalNet.plus(event.params.netAmount);
+  mt.lastPaymentAt = event.block.timestamp;
+  mt.save();
 
   // One immutable Payment per event, keyed by tx hash + log index.
   const id = event.transaction.hash.concatI32(event.logIndex.toI32());
@@ -47,11 +56,34 @@ function loadOrCreateMerchant(merchantId: BigInt): Merchant {
     merchant = new Merchant(id);
     merchant.merchantId = merchantId;
     merchant.paymentCount = BigInt.zero();
-    merchant.totalGross = BigInt.zero();
-    merchant.totalFees = BigInt.zero();
-    merchant.totalNet = BigInt.zero();
     merchant.totalUsd8 = BigInt.zero();
     merchant.lastPaymentAt = BigInt.zero();
   }
   return merchant;
+}
+
+/**
+ * Load the per-(merchant, token) native-unit aggregate, or create a zeroed one.
+ * Keyed by "<merchantId>-<tokenHex>" so each token's base-unit totals stay separate
+ * (never summed across tokens with different decimals).
+ */
+function loadOrCreateMerchantToken(
+  merchantEntityId: Bytes,
+  merchantId: BigInt,
+  token: Bytes,
+): MerchantToken {
+  const id = Bytes.fromUTF8(merchantId.toString() + "-").concat(token);
+  let mt = MerchantToken.load(id);
+  if (mt == null) {
+    mt = new MerchantToken(id);
+    mt.merchant = merchantEntityId;
+    mt.merchantId = merchantId;
+    mt.token = token;
+    mt.paymentCount = BigInt.zero();
+    mt.totalGross = BigInt.zero();
+    mt.totalFees = BigInt.zero();
+    mt.totalNet = BigInt.zero();
+    mt.lastPaymentAt = BigInt.zero();
+  }
+  return mt;
 }
