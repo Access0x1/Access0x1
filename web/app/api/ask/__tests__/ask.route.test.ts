@@ -34,7 +34,7 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: Anthropic }
 })
 
-const { POST, __resetAskMetersForTests } = await import('../route.js')
+const { GET, POST, __resetAskMetersForTests } = await import('../route.js')
 
 /** Build an async-iterable that yields the given text as one text_delta event. */
 function streamOf(text: string): AsyncIterable<unknown> {
@@ -104,6 +104,25 @@ describe('happy path (mocked SDK)', () => {
     expect(params.system.toLowerCase()).toContain('access0x1 assistant')
     expect(params.system).toContain('=== FACTS ===')
     expect(params.messages[0]).toEqual({ role: 'user', content: 'How does pricing work?' })
+  })
+})
+
+describe('capability probe (GET) — the UI gates the Ask affordances on this flag', () => {
+  it('reports { configured: true } when the key is set — and never leaks the key', async () => {
+    const res = await GET()
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    const text = await res.text()
+    expect(JSON.parse(text)).toEqual({ configured: true })
+    expect(text).not.toContain('sk-test-key')
+  })
+
+  it('reports { configured: false } when no key is set, without calling the SDK', async () => {
+    vi.stubEnv('CLAUDE_API_KEY', '')
+    const res = await GET()
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ configured: false })
+    expect(streamMock).not.toHaveBeenCalled()
   })
 })
 

@@ -151,6 +151,22 @@ function jsonError(error: string, status: number, code?: string): Response {
   })
 }
 
+/**
+ * Capability probe: GET /api/ask -> `{ configured: boolean }`.
+ *
+ * The UI gates every "Ask Access0x1" affordance on this flag so an unconfigured
+ * deployment HIDES the widget (or shows an honest disabled state) instead of a
+ * dead button that errors on click. Reads the SAME env the POST handler checks
+ * and reveals ONLY a boolean — never the key, never any env detail. `no-store`
+ * so configuring a key later is picked up immediately, not cached away.
+ */
+export async function GET(): Promise<Response> {
+  return new Response(JSON.stringify({ configured: Boolean(process.env.CLAUDE_API_KEY) }), {
+    status: 200,
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+  })
+}
+
 export async function POST(request: Request): Promise<Response> {
   const apiKey = process.env.CLAUDE_API_KEY
   if (!apiKey) {
