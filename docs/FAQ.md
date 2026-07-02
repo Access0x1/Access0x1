@@ -111,7 +111,8 @@ The total fee (platform cut + your optional surcharge) is hard-capped at
 `MAX_FEE_BPS = 1000` bps (**10%**), enforced on every payment — a fee change can
 never push an existing surcharge past the cap. The platform cut always lands at
 the treasury and a merchant can never redirect it; your surcharge always lands at
-your fee recipient. See [`MAX_FEE_BPS`](./GLOSSARY.md#basis-points-bps--max_fee_bps).
+your fee recipient. See [`MAX_FEE_BPS`](./GLOSSARY.md#basis-points-bps--max_fee_bps)
+and the full fee disclosure in [PLATFORM-FEE.md](./PLATFORM-FEE.md).
 
 ## Do my buyers need crypto or a browser wallet?
 
