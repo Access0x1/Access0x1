@@ -7,14 +7,14 @@ set, not just the router core.
 
 | Layer | Result |
 | --- | --- |
-| `forge test` | **1,383 tests green, 0 failed, 0 skipped** across **104 suites** (unit + attack + invariant + integration + fuzz + scenario + fork + symbolic) — re-run for this update. The 3 `test/fork/**` Chainlink-feed tests are counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI both run green; export `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed. |
+| `forge test` | **1,392 tests green, 0 failed, 0 skipped** across **104 suites** (unit + attack + invariant + integration + fuzz + scenario + fork + symbolic) — re-run for this update. The 3 `test/fork/**` Chainlink-feed tests are counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI both run green; export `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed. |
 | `forge coverage` | lines **98.58%**, statements **97.65%**, branches **89.90%**, functions **100%** for the contracts in the snapshot below (`--ir-minimum`; per-contract table below, raw in [`COVERAGE.md`](COVERAGE.md)). The snapshot predates the most recently-added primitives — see the note under the table. |
 | Invariants | hold under `fail_on_revert`, 0 reverts — the 6 router money invariants + the PaymentLanes firewall/conservation set + per-lifecycle invariants on Bookings, Invoices, Subscriptions, GiftCards, **and the later primitives** (`Access0x1Escrow`, `GaslessPayIn`, `Receivables`, `Refunds`, `SplitSettler` each carry their own invariant suite under `test/invariant/`) |
 | `halmos` (symbolic) | fee-split value-conservation + SessionGrant budget-cap proofs pass (`make halmos`, `test/symbolic/`) |
 | `slither .` (v0.11.5) | **34 results across 13 detectors**, all triaged (false-positive / by-design / justified-with-runtime-guard); router native-send rows suppressed by inline `slither-disable` |
 | `aderyn` (v0.1.9) | **4 High + 11 Low** (category counts), all triaged (false-positive / by-design / style) |
 
-Scope: the full first-party `src/` surface — **21 contracts + the `OracleLib` library + 16 interfaces**.
+Scope: the full first-party `src/` surface — **20 contracts + 2 libraries (`NameMath`, `OracleLib`) + 16 interfaces** (22 `.sol` in `src/` excluding interfaces).
 The money spine (`Access0x1Router`), the receipt/auth ledgers (`PaymentLanes`, `SessionGrant`), the
 sidecars (`ChainRegistry`, `Access0x1Receiver`, `Access0x1ProvenanceRegistry`, `AutomationGateway`,
 `PriceOracleAdapter`), the house-token factory + token, the **commerce quintet** (`Access0x1Subscriptions`,
@@ -55,7 +55,7 @@ Measured under `forge coverage --ir-minimum` (the commerce primitives trip
 predates the most recently-added primitives (`SplitSettler`, `Access0x1Escrow`,
 `Receivables`, `Refunds`, `GaslessPayIn`, `PriceOracleAdapter`, `AutomationGateway`,
 `Access0x1ProvenanceRegistry`), which each carry their own unit/invariant/attack tests
-inside the 1,383-test whole-suite total and refresh into this table on the next run.
+inside the 1,392-test whole-suite total and refresh into this table on the next run.
 
 | Contract | Lines | Statements | Branches | Functions |
 | --- | --- | --- | --- | --- |

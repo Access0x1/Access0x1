@@ -21,7 +21,7 @@ Access0x1 is the umbrella layer everything plugs into — non-custodial payments
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 <!-- Tests count is a manual snapshot (shields.io has no live feed for it); the CI badge above is the live green/red signal. Verify the number with `make test` (or `forge test`) — the run prints `<N> tests passed`. -->
-[![Tests](https://img.shields.io/badge/Tests-1383%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/Tests-1392%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -202,7 +202,7 @@ src/
 └── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (1,382 tests)
+test/                        # unit · attack · invariant (1,392 tests)
 ```
 
 The full first-party surface is **20 production contracts + 2 libraries** (22 `.sol` files in
@@ -277,7 +277,7 @@ git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
 make install           # forge submodules + npm (@chainlink) + web + SDK — one command
 make build             # forge build
-make test              # 1,382 tests, all green
+make test              # 1,392 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.

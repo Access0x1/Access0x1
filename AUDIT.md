@@ -45,8 +45,8 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ## 2. Tested
 
-- **1,383 contract tests, 0 failed, 0 skipped** across **104 suites** (`make test`; I re-ran `forge test`
-  for this update — 1383 passed / 0 failed / 0 skipped). The 3 `test/fork/**` Chainlink-feed tests are
+- **1,392 contract tests, 0 failed, 0 skipped** across **104 suites** (`make test`; I re-ran `forge test`
+  for this update — 1392 passed / 0 failed / 0 skipped). The 3 `test/fork/**` Chainlink-feed tests are
   counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI
   both run green; set `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed.
 - **The web + SDK suites** (Vitest) cover `@access0x1/react` and the Next.js money-adjacent routes. A
@@ -155,7 +155,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ```bash
 git clone https://github.com/Access0x1/Access0x1 && cd Access0x1
-make test                       # 1,383 contract tests, 0 failed
+make test                       # 1,392 contract tests, 0 failed
 forge coverage --ir-minimum     # the real coverage number
 make halmos                     # the symbolic fee-split + budget proofs
 make anvil && make deploy-local && make drive-local   # real local payment, no keys
