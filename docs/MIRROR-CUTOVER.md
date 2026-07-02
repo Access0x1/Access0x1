@@ -53,18 +53,24 @@ mirrored — do NOT redeploy it** (its CREATE3 salt is claimed; a redeploy rever
 A chain is only ever called "mirrored" once its committed `broadcast/` record carries the manifest
 addresses — **don't trust this table, re-derive it** (see *How to read the live state* below).
 
-| Chain (id) | Deployed | Mirror set | Verified (mirror) | Recorded |
-| --- | --- | --- | --- | --- |
-| Base Sepolia (84532) | ✅ | ✅ on-chain | ⏳ pending (`make verify-base-sepolia`) | ✅ README mirror table + `web/lib/deployments.ts` |
-| Arc (5042002) | ✅ | ⏳ pre-mirror | — | pre-mirror table |
-| Ethereum Sepolia (11155111) | ✅ | ⏳ pre-mirror | — | pre-mirror table |
-| Optimism Sepolia (11155420) | ✅ | ⏳ pre-mirror | — | pre-mirror table |
-| Avalanche Fuji (43113) | ✅ | ⏳ pre-mirror | — | pre-mirror table |
-| Robinhood (46630) | ✅ | ⏳ pre-mirror | — | pre-mirror table |
-| 0G Galileo (16602) | ✅ | ⏳ pre-mirror | — | pre-mirror table |
-| Ethereum Hoodi (560048) | ✅ partial (8/24) | ⏳ pre-mirror | — | — |
-| Tempo (42431) | ✅ partial (8/24) | ⏳ pre-mirror | — | — |
-| zkSync Sepolia (300) | ⏳ not broadcast | — | — | — |
+| Chain (id) | Deployed | Mirror set | Recorded |
+| --- | --- | --- | --- |
+| Arc (5042002) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
+| Base Sepolia (84532) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table + `web/lib/deployments.ts` |
+| Ethereum Sepolia (11155111) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
+| Optimism Sepolia (11155420) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
+| Avalanche Fuji (43113) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
+| Robinhood (46630) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
+| Arbitrum Sepolia (421614) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
+| Celo Sepolia (11142220) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
+| 0G Galileo (16602) | ✅ | ⏳ pre-mirror | pre-mirror table |
+| Ethereum Hoodi (560048) | ✅ partial (8/24) | ⏳ pre-mirror | — |
+| Tempo (42431) | ✅ partial (8/24) | ⏳ pre-mirror | — |
+| zkSync Sepolia (300) | ⏳ not broadcast | — | — |
+
+Per-chain **source-verification** status lives in the README Deployments section (seven of the
+eight mirrored chains are explorer-verified as of 2026-07-01); this table tracks deploy/mirror
+state only.
 
 The mirror is **rolling out across the testnets** — the `MIRROR-STATUS` table in the README (regenerated
 from the broadcasts by `make sync`) is the live per-chain source of truth. Chains still showing
