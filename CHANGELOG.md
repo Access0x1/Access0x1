@@ -75,6 +75,23 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **GaslessPayIn merchant-binding hardening** — the gasless pay-in rails now bind the
+  buyer's signature to the exact `merchantId` / `usdAmount8` / `orderId`, closing a
+  relayer-redirection defect (a permissionless relayer could settle a buyer's pay-in to a
+  *different* merchant, and on the permit rails re-pull the residual allowance). The
+  EIP-3009 rail requires `auth.nonce == keccak256(abi.encode(chainid, this, merchantId,
+  token, usdAmount8, buyer, orderId))` (a **structured nonce** — no new state; the token's
+  single-use marking still provides replay protection). The EIP-2612 / ERC-7597 permit
+  rails now require a second, Access0x1-domain **`PayInIntent` EIP-712 co-signature**
+  (verified via OZ `SignatureChecker`, so ERC-1271 smart accounts still work) plus a
+  single-use `orderId` ledger that defeats the residual-allowance re-pull. Because
+  Access0x1 is **testnet-only pre-mainnet**, the `payInWithPermit` / `payInWithPermit7597`
+  signatures were changed *directly* (added `maxValue`, `intentDeadline`, `intentSig`)
+  rather than adding parallel functions — off-chain signers must emit the structured nonce
+  / intent signature in lockstep. One `__gap` slot was consumed for the new `_orderUsed`
+  mapping (50 → 49); `EIP712Upgradeable` adds no linear storage. See
+  [`GaslessPayIn`](src/GaslessPayIn.sol) and
+  [`test/integration/GaslessMerchantBinding.t.sol`](test/integration/GaslessMerchantBinding.t.sol).
 - **Truthful self-audit** published in [`AUDIT.md`](AUDIT.md) — states exactly what is
   deployed, tested, and verifiable, and exactly what is a seam or not yet built.
   Test suite and Slither/coverage status are reported in the [README](README.md) badges.
