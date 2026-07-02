@@ -83,6 +83,14 @@ contract PaymentLanesTest is Test, ProxyDeployer {
                                  CREDIT
     //////////////////////////////////////////////////////////////*/
 
+    function test_supportsInterface_erc6909AndErc165() public view {
+        // ERC-6909 makes supportsInterface MANDATORY — a 6909 wallet/indexer detects the ledger by it.
+        assertTrue(lanes.supportsInterface(0x0f632fb3), "declares ERC-6909");
+        assertTrue(lanes.supportsInterface(0x01ffc9a7), "declares ERC-165");
+        assertFalse(lanes.supportsInterface(0xffffffff), "not the ERC-165 invalid sentinel");
+        assertFalse(lanes.supportsInterface(0xdeadbeef), "not an unrelated interface");
+    }
+
     function test_credit_success() public {
         uint256 expectedId = lanes.laneId(block.chainid, address(usdc), merchantA);
         assertEq(

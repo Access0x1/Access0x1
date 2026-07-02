@@ -15,15 +15,21 @@ interface IPaymentLanes {
     // ──────────────────────── ERC-6909 events ────────────────────────
 
     /// @notice Emitted on every balance change (mint, burn, transfer).
-    /// @dev    `from == address(0)` on credit (mint); `to == address(0)` on claim (burn).
-    /// @param caller The address that initiated the movement (router on mint, owner/operator/spender
-    ///               on transfer, owner on claim).
-    /// @param from   The address whose balance decreased (address(0) on a mint).
-    /// @param to     The address whose balance increased (address(0) on a burn).
-    /// @param id     The lane id whose balance moved.
-    /// @param amount The amount moved.
+    /// @dev    Canonical ERC-6909 topic layout: `caller` is NOT indexed; `sender`, `receiver`, and
+    ///         `id` ARE indexed (so a 6909-aware indexer/wallet can filter by holder AND by token id).
+    ///         `sender == address(0)` on credit (mint); `receiver == address(0)` on claim (burn).
+    /// @param caller   The address that initiated the movement (router on mint, owner/operator/spender
+    ///                 on transfer, owner on claim).
+    /// @param sender   The address whose balance decreased (address(0) on a mint).
+    /// @param receiver The address whose balance increased (address(0) on a burn).
+    /// @param id       The lane id whose balance moved.
+    /// @param amount   The amount moved.
     event Transfer(
-        address indexed caller, address indexed from, address indexed to, uint256 id, uint256 amount
+        address caller,
+        address indexed sender,
+        address indexed receiver,
+        uint256 indexed id,
+        uint256 amount
     );
 
     /// @notice Emitted when an operator is granted or revoked.

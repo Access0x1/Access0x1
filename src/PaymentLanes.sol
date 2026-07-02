@@ -119,6 +119,13 @@ contract PaymentLanes is
                             ERC-6909 READ
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice ERC-165 introspection. ERC-6909 makes `supportsInterface` MANDATORY, so a
+    ///         6909-aware wallet/indexer can detect this ledger before interacting.
+    /// @dev    `0x0f632fb3` is the EIP-6909 interface id; `0x01ffc9a7` is ERC-165 itself.
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return interfaceId == 0x0f632fb3 || interfaceId == 0x01ffc9a7;
+    }
+
     /// @inheritdoc IPaymentLanes
     function balanceOf(address owner, uint256 id) external view returns (uint256) {
         return _balanceOf[owner][id];
