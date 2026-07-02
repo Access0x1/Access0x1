@@ -390,6 +390,125 @@ contract GaslessMerchantBindingTest is Test, ProxyDeployer {
         assertEq(usdc.balanceOf(payoutB), 0);
     }
 
+    /// @notice PRE-FIX THIS SUCCEEDS: the ERC-7597 mirror of the 2612 redirect. Even though both permit
+    ///         rails share `_verifyIntentAndConsumeOrder`, prove the 7597 wiring: buyer signs a
+    ///         {PayInIntent} for merchant A, relayer submits it via `payInWithPermit7597` against merchant
+    ///         B; the digest recomputed for merchant B does not recover to the buyer, so the co-signature
+    ///         is rejected and merchant B receives nothing.
+    function test_relayer_cannot_redirect_to_other_merchant_permit7597() public {
+        uint256 gross = router.quote(merchantA, address(usdc), USD_AMOUNT);
+        usdc.mint(buyer, gross);
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // The 7597 permit is a single bytes signature over the token domain.
+        (uint8 v, bytes32 r, bytes32 s) = _signPermit(buyer, gross, 0, deadline);
+        bytes memory permitSig = abi.encodePacked(r, s, v);
+        // Buyer signs the intent for merchant A.
+        bytes memory intentSigA = _signIntent(buyerPk, merchantA, gross, ORDER_X, buyer, deadline);
+
+        // Relayer submits it against merchant B on the 7597 rail.
+        vm.prank(relayer);
+        vm.expectRevert(IGaslessPayIn.GaslessPayIn__IntentSignatureInvalid.selector);
+        payIn.payInWithPermit7597(
+            merchantB,
+            address(usdc),
+            USD_AMOUNT,
+            buyer,
+            IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
+            permitSig,
+            ORDER_X,
+            gross,
+            deadline,
+            intentSigA
+        );
+        assertEq(usdc.balanceOf(payoutB), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        INTENT WINDOW + CEILING
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice The permit-rail intent expires: a buyer signs a {PayInIntent} with a `deadline`, and a
+    ///         relayer that submits it after that time reverts `GaslessPayIn__IntentExpired`. Warps one
+    ///         second past the signed intent deadline (the token permit deadline is set far ahead so the
+    ///         intent expiry — not the permit expiry — is the gate under test).
+    function test_permit_intent_expired_reverts() public {
+        uint256 gross = router.quote(merchantA, address(usdc), USD_AMOUNT);
+        usdc.mint(buyer, gross);
+        uint256 intentDeadline = block.timestamp + 1 hours;
+        uint256 permitDeadline = block.timestamp + 2 hours; // outlives the intent, so it is not the gate
+
+        (uint8 v, bytes32 r, bytes32 s) = _signPermit(buyer, gross, 0, permitDeadline);
+        bytes memory intentSig =
+            _signIntent(buyerPk, merchantA, gross, ORDER_X, buyer, intentDeadline);
+
+        // Move just past the intent deadline (still within the permit window). Refresh the price feed so
+        // its staleness guard is not what fires — the intent expiry is the gate under test.
+        vm.warp(intentDeadline + 1);
+        usdcFeed.updateAnswer(1e8);
+
+        vm.prank(relayer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGaslessPayIn.GaslessPayIn__IntentExpired.selector, intentDeadline, block.timestamp
+            )
+        );
+        payIn.payInWithPermit(
+            merchantA,
+            address(usdc),
+            USD_AMOUNT,
+            buyer,
+            IGaslessPayIn.Permit({ value: gross, deadline: permitDeadline }),
+            v,
+            r,
+            s,
+            ORDER_X,
+            gross,
+            intentDeadline,
+            intentSig
+        );
+        assertEq(usdc.balanceOf(payoutA), 0); // nothing settled
+    }
+
+    /// @notice The permit-rail ceiling bites: a buyer signs a {PayInIntent} whose `maxValue` is BELOW the
+    ///         router's quoted gross, so settling would pull more than authorized. The contract reverts
+    ///         `GaslessPayIn__IntentValueExceeded(gross, maxValue)` before any pull. The token permit
+    ///         allowance is set to the full gross so it is NOT the gate — the intent ceiling is.
+    function test_permit_intent_value_exceeded_reverts() public {
+        uint256 gross = router.quote(merchantA, address(usdc), USD_AMOUNT);
+        usdc.mint(buyer, gross);
+        uint256 deadline = block.timestamp + 1 hours;
+        uint256 tightCeiling = gross - 1; // one below the quote — the intent under-authorizes
+
+        // The permit itself covers the full gross (so PermitValueTooLow is not what fires).
+        (uint8 v, bytes32 r, bytes32 s) = _signPermit(buyer, gross, 0, deadline);
+        bytes memory intentSig =
+            _signIntent(buyerPk, merchantA, tightCeiling, ORDER_X, buyer, deadline);
+
+        vm.prank(relayer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGaslessPayIn.GaslessPayIn__IntentValueExceeded.selector, gross, tightCeiling
+            )
+        );
+        payIn.payInWithPermit(
+            merchantA,
+            address(usdc),
+            USD_AMOUNT,
+            buyer,
+            IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
+            v,
+            r,
+            s,
+            ORDER_X,
+            tightCeiling,
+            deadline,
+            intentSig
+        );
+        assertEq(usdc.balanceOf(payoutA), 0);
+        assertEq(usdc.balanceOf(buyer), gross); // untouched
+    }
+
     /*//////////////////////////////////////////////////////////////
                           ERC-1271 SMART ACCOUNT
     //////////////////////////////////////////////////////////////*/
