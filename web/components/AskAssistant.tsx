@@ -1,19 +1,47 @@
 'use client'
 
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 
 /**
  * Collapsible "Ask Access0x1" widget. Posts a question to /api/ask (the
  * server-side Claude proxy) and STREAMS the grounded answer in. The Claude key
  * lives only on the server; this component never sees it. For the full-page
  * booth experience it links out to /ask.
+ *
+ * Fail-soft capability gate: on mount the widget probes GET /api/ask (the
+ * server-side capability flag — the same env the POST handler checks) and
+ * renders NOTHING until the server confirms the assistant is configured. An
+ * unconfigured deployment therefore never shows a dead button that errors on
+ * click — the widget simply isn't there. If the probe itself fails, we stay
+ * hidden: this widget is optional chrome, so absent beats broken.
  */
-export function AskAssistant(): ReactNode {
+export function AskAssistant({
+  initialConfigured = null,
+}: {
+  /** Test/SSR seam only — the mount probe still corrects it in the browser. */
+  initialConfigured?: boolean | null
+}): ReactNode {
+  const [configured, setConfigured] = useState<boolean | null>(initialConfigured)
   const [open, setOpen] = useState(false)
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void fetch('/api/ask')
+      .then(async (res) => (res.ok ? ((await res.json()) as { configured?: boolean }) : null))
+      .then((body) => {
+        if (!cancelled) setConfigured(body?.configured === true)
+      })
+      .catch(() => {
+        if (!cancelled) setConfigured(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault()
@@ -57,6 +85,9 @@ export function AskAssistant(): ReactNode {
       setLoading(false)
     }
   }
+
+  // Not confirmed configured (unknown or explicitly off) ⇒ no widget at all.
+  if (configured !== true) return null
 
   if (!open) {
     return (
