@@ -116,6 +116,17 @@ jobs:
       - name: Run tests (vitest)
         run: npm test
 
+      # The fast lane previously stopped at vitest, so a change that broke the
+      # production `next build` (or the vanilla embed) only surfaced at deploy time.
+      # `next build` is secret-free (x402 builds its payment requirements lazily),
+      # and check:embed validates public/embed.js — both belong in CI, matching the
+      # local `gate` script.
+      - name: Production build (next build)
+        run: npm run build
+
+      - name: Embed check (public/embed.js)
+        run: npm run check:embed
+
   # The publishable SDK packages (@access0x1/react + create-access0x1) had no CI
   # coverage — their vitest suites only ran on a maintainer's machine. This job
   # runs them on every push/PR so a regression in the public SDK is caught here.
@@ -155,3 +166,58 @@ jobs:
       - name: Syntax-check create-access0x1 bin
         working-directory: packages/create-access0x1
         run: node --check bin/index.mjs
+
+  # snap/ and subgraph/ are Dependabot-tracked but had ZERO CI — a bump (or a source
+  # change) could merge completely untested. These jobs run each package's own
+  # gate so a regression is caught in CI, not on a maintainer's machine.
+  snap:
+    name: MetaMask Snap (typecheck + tests)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: snap
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: snap/package-lock.json
+      - name: Install deps
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+
+  subgraph:
+    name: Subgraph (codegen + build)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: subgraph
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: subgraph/package-lock.json
+      - name: Install deps
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      # codegen + build compile schema.graphql + src/mapping.ts against the ABI —
+      # this is what catches a mapping/schema regression (e.g. a cross-token totals bug).
+      - name: Codegen
+        run: npm run codegen
+      - name: Build
+        run: npm run build
