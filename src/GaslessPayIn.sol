@@ -9,10 +9,14 @@ import {
     Ownable2StepUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {
+    EIP712Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
+import {
     ReentrancyGuardTransient
 } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { Access0x1Router } from "./Access0x1Router.sol";
 import {
     IGaslessPayIn,
@@ -75,9 +79,18 @@ contract GaslessPayIn is
     Initializable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
+    EIP712Upgradeable,
     ReentrancyGuardTransient
 {
     using SafeERC20 for IERC20;
+
+    /// @notice The EIP-712 type hash for {PayInIntent} — the Access0x1-domain co-signature a buyer signs
+    ///         to bind a PERMIT-rail (EIP-2612 / ERC-7597) pay-in to a specific merchant, amount, order,
+    ///         and ceiling. Verified over THIS contract's domain (name "Access0x1 GaslessPayIn", version
+    ///         "1"), so the intent can never be replayed against the token or a different chain/contract.
+    bytes32 private constant PAYININTENT_TYPEHASH = keccak256(
+        "PayInIntent(uint256 merchantId,address token,uint256 usdAmount8,uint256 maxValue,bytes32 orderId,address buyer,uint256 deadline)"
+    );
 
     /// @notice The shared, audited payments router this contract composes. Set once in {initialize} and
     ///         never repointed (no setter) — the fee-split, pricing (USD→token via {OracleLib}'s
@@ -87,11 +100,24 @@ contract GaslessPayIn is
     ///         an `immutable` lives in the implementation bytecode. Effectively immutable per proxy.
     Access0x1Router public routerContract;
 
+    /// @notice PERMIT-rail single-use order ledger: `orderId ⇒ settled`. The ONLY new persistent state in
+    ///         this contract, and it exists solely to defeat the residual-allowance re-pull on the 2612 /
+    ///         7597 rails. A permit sets a plain token ALLOWANCE of `value`; after a pull of `gross < value`
+    ///         the `value − gross` residual still satisfies `safeTransferFrom`, so — even with the
+    ///         {PayInIntent} co-signature — a relayer could otherwise replay the SAME bound intent to drain
+    ///         the residual to the (correct) merchant repeatedly. Marking `orderId` used BEFORE routing
+    ///         (CEI) makes each bound order settle at most once, so no residual re-pull has an unused
+    ///         intent. The 3009 rail needs no entry here — its structured, token-single-use nonce already
+    ///         binds and one-shots the pull. Appended below `routerContract`; consumes exactly one slot
+    ///         from `__gap` (50 → 49). {EIP712Upgradeable} adds NO linear storage (ERC-7201 namespaced).
+    mapping(bytes32 orderId => bool settled) private _orderUsed;
+
     /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
     ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
     ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
-    ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
-    uint256[50] private __gap;
+    ///      the total stays 50 (`_orderUsed` took one, so this is now 49). NEVER reorder or insert a
+    ///      variable above this gap — only append.
+    uint256[49] private __gap;
 
     /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
     ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
@@ -107,10 +133,12 @@ contract GaslessPayIn is
     ///         router and sets the contract (upgrade-admin) owner. Guarded by `initializer`, so it runs
     ///         exactly once per proxy; the typical deploy is
     ///         `new ERC1967Proxy(impl, abi.encodeCall(initialize, ...))`.
-    /// @dev    Wires every base: Ownable + its 2-step extension. `initialOwner` becomes the UPGRADE ADMIN
-    ///         (the `Ownable2Step` owner); it must be non-zero (`__Ownable_init` reverts on zero). There
-    ///         is no `__UUPSUpgradeable_init()`/`__ReentrancyGuard_init()` in OZ 5.x (those bases hold no
-    ///         initializable storage). The router must be non-zero (a new router = a fresh proxy).
+    /// @dev    Wires every base: Ownable + its 2-step extension, and the EIP-712 domain used to verify the
+    ///         permit-rail {PayInIntent} co-signature (name "Access0x1 GaslessPayIn", version "1").
+    ///         `initialOwner` becomes the UPGRADE ADMIN (the `Ownable2Step` owner); it must be non-zero
+    ///         (`__Ownable_init` reverts on zero). There is no `__UUPSUpgradeable_init()` /
+    ///         `__ReentrancyGuard_init()` in OZ 5.x (those bases hold no initializable storage). The router
+    ///         must be non-zero (a new router = a fresh proxy).
     /// @param initialOwner The contract owner / upgrade admin (non-zero). Holds NO authority over any
     ///                     pay-in — the pay paths are permissionless and buyer-signed.
     /// @param router_      The deployed {Access0x1Router} every pay-in settles through.
@@ -118,6 +146,7 @@ contract GaslessPayIn is
         if (address(router_) == address(0)) revert GaslessPayIn__ZeroAddress();
         __Ownable_init(initialOwner);
         __Ownable2Step_init();
+        __EIP712_init("Access0x1 GaslessPayIn", "1");
         routerContract = router_;
     }
 
@@ -142,17 +171,47 @@ contract GaslessPayIn is
         return routerContract.quote(merchantId, token, usdAmount8);
     }
 
+    /// @inheritdoc IGaslessPayIn
+    /// @dev The 3009 rail's binding core: the buyer signs a 3009 authorization whose `nonce` equals THIS
+    ///      value, so the (otherwise merchant-blind) token signature also covers the merchant, token, USD
+    ///      amount, and order. Recomputed in {payInWithAuthorization} from calldata and required to match
+    ///      `auth.nonce`. Includes `block.chainid` + `address(this)` so a signature is bound to this
+    ///      deployment on this chain. Not stored: the token's own single-use marking of the nonce is the
+    ///      replay guard, so this rail needs no ledger of its own.
+    function intentNonce(
+        uint256 merchantId,
+        address token,
+        uint256 usdAmount8,
+        address buyer,
+        bytes32 orderId
+    ) public view returns (bytes32) {
+        return keccak256(
+            abi.encode(block.chainid, address(this), merchantId, token, usdAmount8, buyer, orderId)
+        );
+    }
+
+    /// @inheritdoc IGaslessPayIn
+    /// @dev The permit rails' binding core: the EIP-712 digest of a {PayInIntent} over this contract's own
+    ///      domain. The contract recomputes it from calldata and verifies it against `buyer` (ECDSA /
+    ///      ERC-1271) via {SignatureChecker}. Because the domain is THIS contract (not the token), the
+    ///      intent cannot be replayed against the token or another chain/contract.
+    function intentDigest(PayInIntent calldata intent) external view returns (bytes32) {
+        return _intentDigest(intent);
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 PAY-IN
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IGaslessPayIn
-    /// @dev CEI + `nonReentrant`. Quote the gross IN-TX, require the signed allowance covers it, submit
-    ///      the EIP-2612 permit TOLERANTLY (a front-run that already set the allowance must not brick the
-    ///      pay-in — the pull is the real gate), pull exactly the gross, then route. The permit is
-    ///      submitted with the EXACT `buyer`/`this`/`value`/`deadline` the buyer signed, so a relayer can
-    ///      neither alter the grant nor redirect it. A zero buyer is rejected (no real holder is address
-    ///      zero, and the token would mis-recover).
+    /// @dev CEI + `nonReentrant`. Quote the gross IN-TX, VERIFY the buyer's {PayInIntent} co-signature
+    ///      binds this exact merchant/amount/order and mark the `orderId` single-use (defeats the
+    ///      residual-allowance re-pull), require the signed allowance covers it, submit the EIP-2612 permit
+    ///      TOLERANTLY (a front-run that already set the allowance must not brick the pay-in — the pull is
+    ///      the real gate), pull exactly the gross, then route. The permit is submitted with the EXACT
+    ///      `buyer`/`this`/`value`/`deadline` the buyer signed, so a relayer can neither alter the grant
+    ///      nor redirect it; the intent binds the merchant/order the permit alone cannot. A zero buyer is
+    ///      rejected (no real holder is address zero, and the token would mis-recover).
     function payInWithPermit(
         uint256 merchantId,
         address token,
@@ -162,11 +221,25 @@ contract GaslessPayIn is
         uint8 v,
         bytes32 r,
         bytes32 s,
-        bytes32 orderId
+        bytes32 orderId,
+        uint256 maxValue,
+        uint256 intentDeadline,
+        bytes calldata intentSig
     ) external nonReentrant {
         if (buyer == address(0)) revert GaslessPayIn__ZeroBuyer();
 
         uint256 gross = routerContract.quote(merchantId, token, usdAmount8);
+        _verifyIntentAndConsumeOrder(
+            merchantId,
+            token,
+            usdAmount8,
+            buyer,
+            orderId,
+            gross,
+            maxValue,
+            intentDeadline,
+            intentSig
+        );
         if (permitData.value < gross) {
             revert GaslessPayIn__PermitValueTooLow(permitData.value, gross);
         }
@@ -185,8 +258,10 @@ contract GaslessPayIn is
 
     /// @inheritdoc IGaslessPayIn
     /// @dev As {payInWithPermit} but via the ERC-7597 `bytes`-signature permit, so an ERC-1271 SMART
-    ///      ACCOUNT buyer can authorize the allowance (the token validates the blob against `buyer`). The
-    ///      permit is likewise submitted tolerantly; the pull is the gate. CEI + `nonReentrant`.
+    ///      ACCOUNT buyer can authorize the allowance (the token validates the blob against `buyer`), and
+    ///      the {PayInIntent} co-signature is likewise verified via {SignatureChecker} so the SAME smart
+    ///      account can bind the intent. The permit is submitted tolerantly; the pull is the gate; the
+    ///      `orderId` is marked single-use. CEI + `nonReentrant`.
     function payInWithPermit7597(
         uint256 merchantId,
         address token,
@@ -194,11 +269,25 @@ contract GaslessPayIn is
         address buyer,
         Permit calldata permitData,
         bytes calldata signature,
-        bytes32 orderId
+        bytes32 orderId,
+        uint256 maxValue,
+        uint256 intentDeadline,
+        bytes calldata intentSig
     ) external nonReentrant {
         if (buyer == address(0)) revert GaslessPayIn__ZeroBuyer();
 
         uint256 gross = routerContract.quote(merchantId, token, usdAmount8);
+        _verifyIntentAndConsumeOrder(
+            merchantId,
+            token,
+            usdAmount8,
+            buyer,
+            orderId,
+            gross,
+            maxValue,
+            intentDeadline,
+            intentSig
+        );
         if (permitData.value < gross) {
             revert GaslessPayIn__PermitValueTooLow(permitData.value, gross);
         }
@@ -231,6 +320,17 @@ contract GaslessPayIn is
     ) external nonReentrant {
         if (buyer == address(0)) revert GaslessPayIn__ZeroBuyer();
 
+        // STRUCTURED-NONCE INTENT BINDING (the 3009 core). The 3009 `nonce` is buyer-chosen; require it to
+        // equal the intent hash over (chainid, this, merchantId, token, usdAmount8, buyer, orderId). The
+        // buyer's token signature therefore also covers the merchant/amount/order — a relayer that passes a
+        // different merchantId/usdAmount8/orderId recomputes a different expected nonce, so `auth.nonce`
+        // no longer matches and this reverts BEFORE any pull. No new state: the token still marks the nonce
+        // single-use, so replay protection is unchanged.
+        bytes32 expectedNonce = intentNonce(merchantId, token, usdAmount8, buyer, orderId);
+        if (auth.nonce != expectedNonce) {
+            revert GaslessPayIn__IntentMismatch(expectedNonce, auth.nonce);
+        }
+
         uint256 gross = routerContract.quote(merchantId, token, usdAmount8);
         if (auth.value != gross) {
             revert GaslessPayIn__AuthorizationValueMismatch(auth.value, gross);
@@ -256,6 +356,70 @@ contract GaslessPayIn is
     /*//////////////////////////////////////////////////////////////
                                 INTERNAL
     //////////////////////////////////////////////////////////////*/
+
+    /// @dev The permit-rail binding gate (2612 + 7597), run BEFORE the permit is submitted (CEI: effects
+    ///      before interactions). Three checks + one effect:
+    ///        1. `block.timestamp <= intentDeadline` — the buyer's intent has not expired;
+    ///        2. `gross <= maxValue` — the router quote is within the buyer-signed ceiling;
+    ///        3. the {PayInIntent} EIP-712 signature recovers to `buyer` (ECDSA or ERC-1271 via
+    ///           {SignatureChecker}), binding merchant/token/usdAmount8/maxValue/orderId/buyer/deadline;
+    ///        4. mark `orderId` single-use (revert on replay) — so a residual-allowance re-pull, which
+    ///           would carry the same bound intent, has no unused order and reverts.
+    ///      The order gate is set here (before the external permit/pull) so no reentrant or repeated call
+    ///      inside the same order can slip a second settlement through.
+    function _verifyIntentAndConsumeOrder(
+        uint256 merchantId,
+        address token,
+        uint256 usdAmount8,
+        address buyer,
+        bytes32 orderId,
+        uint256 gross,
+        uint256 maxValue,
+        uint256 intentDeadline,
+        bytes calldata intentSig
+    ) private {
+        if (block.timestamp > intentDeadline) {
+            revert GaslessPayIn__IntentExpired(intentDeadline, block.timestamp);
+        }
+        if (gross > maxValue) revert GaslessPayIn__IntentValueExceeded(gross, maxValue);
+
+        bytes32 digest = _intentDigest(
+            PayInIntent({
+                merchantId: merchantId,
+                token: token,
+                usdAmount8: usdAmount8,
+                maxValue: maxValue,
+                orderId: orderId,
+                buyer: buyer,
+                deadline: intentDeadline
+            })
+        );
+        if (!SignatureChecker.isValidSignatureNow(buyer, digest, intentSig)) {
+            revert GaslessPayIn__IntentSignatureInvalid();
+        }
+
+        if (_orderUsed[orderId]) revert GaslessPayIn__OrderReplay(orderId);
+        _orderUsed[orderId] = true;
+    }
+
+    /// @dev EIP-712 digest of a {PayInIntent} over this contract's domain. Shared by the external
+    ///      {intentDigest} view (off-chain signers read it) and the internal verification.
+    function _intentDigest(PayInIntent memory intent) private view returns (bytes32) {
+        return _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    PAYININTENT_TYPEHASH,
+                    intent.merchantId,
+                    intent.token,
+                    intent.usdAmount8,
+                    intent.maxValue,
+                    intent.orderId,
+                    intent.buyer,
+                    intent.deadline
+                )
+            )
+        );
+    }
 
     /// @dev The permit-rail tail: pull exactly `gross` from `buyer` via `safeTransferFrom` (the allowance
     ///      the just-submitted permit granted), verifying the balance delta to reject a fee-on-transfer /
