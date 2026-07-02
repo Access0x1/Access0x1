@@ -78,7 +78,7 @@ zkEVM (240), Cronos (338), Soneium Minato (1946), Hedera (296), Corn (21000001),
 Sei atlantic-2 (1328), BOB Sepolia (808813), Bitlayer (200810), Plume (98867), Abstract (11124), Lisk
 Sepolia (4202), Metal L2 (1740), Superseed (53302), opBNB (5611), Neo X T4 (12227332), Kaia Kairos
 (1001), TAC (2391), Plasma (9746), Berachain Bepolia (80069), Jovay (2019775), AB (26888), Pharos
-Atlantic (688689), Morph Hoodi (2910), Ethereum Hoodi (560048), MegaETH (6343), Monad (10143), DogeOS
+Atlantic (688689), Morph Hoodi (2910), Ethereum Hoodi (560048), MegaETH (6342), Monad (10143), DogeOS
 (6281971), ADI (99999), Ronin Saigon (202601), Edge (33431), Robinhood (46630), Tempo Moderato (42431),
 Creditcoin (102031). Each carries USDC/feeds on its own chain in a few cases (Hedera, Monad, Sei, Plume,
 Pharos, Morph, Edge) — wire + on-chain-verify those before relying on pricing.

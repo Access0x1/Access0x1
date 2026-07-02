@@ -3,8 +3,10 @@
 A [The Graph](https://thegraph.com) subgraph that indexes the **public**
 `Access0x1Router.PaymentReceived` event into a queryable payment history +
 per-merchant totals. It is **protocol-level, open infrastructure**: anyone
-integrating Access0x1 can query it; the Access0x1 dashboard (and any integrating
-app) reads it for a payments view.
+integrating Access0x1 can query it. The Access0x1 dashboard reads router events
+directly on-chain today (`web/lib/contracts.ts`); it *can* switch to this subgraph
+for a payments view once that query is wired — this subgraph is the ready
+integration point, not yet a live dependency of the dashboard.
 
 ## Why it's safe to depend on (and why it isn't a dependency)
 
