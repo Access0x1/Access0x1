@@ -133,6 +133,12 @@ interface ISplitSettler is IERC2981 {
     /// @notice Caller is not the owner of the split's router merchant.
     error SplitSettler__NotMerchantOwner(uint256 merchantId, address caller);
 
+    /// @notice The split's router merchant `payout` is not this contract, so the router's net would not
+    ///         return here to fan out to the payees. Checked LIVE at settle (not just at create): if the
+    ///         merchant owner repoints `payout` away from this conduit after creation, settlement reverts
+    ///         instead of routing the net to the wrong address and fanning out zero to the payees.
+    error SplitSettler__MerchantPayoutNotConduit(uint256 merchantId, address payout);
+
     /// @notice {settleNative} was called for a token-denominated settlement, or {settleToken} with a
     ///         native asset (use {settleNative} for the native path).
     error SplitSettler__WrongSettlePath(uint256 id, address asset);
