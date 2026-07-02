@@ -200,6 +200,52 @@ contract GaslessPayInTest is Test, ProxyDeployer {
         net = gross - platformFee - merchantFee;
     }
 
+    /// @dev The structured 3009 nonce the buyer must sign (the contract requires `auth.nonce` to match).
+    function _structuredNonce(
+        uint256 merchantId_,
+        address token,
+        uint256 usdAmount8,
+        address buyer_,
+        bytes32 orderId
+    ) internal view returns (bytes32) {
+        return payIn.intentNonce(merchantId_, token, usdAmount8, buyer_, orderId);
+    }
+
+    /// @dev Sign the buyer's Access0x1-domain {PayInIntent} for a permit-rail settlement (EOA ECDSA).
+    function _signIntent(
+        uint256 pk,
+        uint256 merchantId_,
+        address token,
+        uint256 usdAmount8,
+        uint256 maxValue,
+        bytes32 orderId,
+        address buyer_,
+        uint256 deadline
+    ) internal view returns (bytes memory) {
+        bytes32 digest = payIn.intentDigest(
+            IGaslessPayIn.PayInIntent({
+                merchantId: merchantId_,
+                token: token,
+                usdAmount8: usdAmount8,
+                maxValue: maxValue,
+                orderId: orderId,
+                buyer: buyer_,
+                deadline: deadline
+            })
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    /// @dev The default intent params every happy-path permit test uses (exact ceiling, 1-hour window).
+    function _defaultIntent(uint256 gross)
+        internal
+        view
+        returns (uint256 maxValue, uint256 intentDeadline)
+    {
+        return (gross, block.timestamp + 1 hours);
+    }
+
     /*//////////////////////////////////////////////////////////////
                               INITIALIZE
     //////////////////////////////////////////////////////////////*/
@@ -238,10 +284,12 @@ contract GaslessPayInTest is Test, ProxyDeployer {
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
         usdc.mint(buyer, gross);
 
-        bytes32 digest = _permitDigest(
-            address(usdc), buyer, address(payIn), gross, 0, block.timestamp + 1 hours
-        );
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = _permitDigest(address(usdc), buyer, address(payIn), gross, 0, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(usdc), USD_AMOUNT, gross, ORDER_ID, buyer, deadline
+        );
 
         (uint256 platformFee, uint256 merchantFee, uint256 net) = _split(gross);
 
@@ -261,11 +309,14 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             address(usdc),
             USD_AMOUNT,
             buyer,
-            IGaslessPayIn.Permit({ value: gross, deadline: block.timestamp + 1 hours }),
+            IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
             v,
             r,
             s,
-            ORDER_ID
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
         );
 
         // net → merchant payout, platform fee → treasury, merchant fee → feeRecipient; zero custody.
@@ -288,10 +339,12 @@ contract GaslessPayInTest is Test, ProxyDeployer {
 
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
         usdc.mint(buyer, gross);
-        bytes32 digest = _permitDigest(
-            address(usdc), buyer, address(payIn), gross, 0, block.timestamp + 1 hours
-        );
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = _permitDigest(address(usdc), buyer, address(payIn), gross, 0, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(usdc), USD_AMOUNT, gross, ORDER_ID, buyer, deadline
+        );
         (uint256 platformFee, uint256 merchantFee, uint256 net) = _split(gross);
 
         vm.prank(relayer);
@@ -300,11 +353,14 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             address(usdc),
             USD_AMOUNT,
             buyer,
-            IGaslessPayIn.Permit({ value: gross, deadline: block.timestamp + 1 hours }),
+            IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
             v,
             r,
             s,
-            ORDER_ID
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
         );
 
         // Settled normally despite the dust; the pre-existing 1 wei stays put (delta == 0),
@@ -323,10 +379,13 @@ contract GaslessPayInTest is Test, ProxyDeployer {
         uint256 ceiling = gross * 2;
         usdc.mint(buyer, ceiling);
 
-        bytes32 digest = _permitDigest(
-            address(usdc), buyer, address(payIn), ceiling, 0, block.timestamp + 1 hours
-        );
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = _permitDigest(address(usdc), buyer, address(payIn), ceiling, 0, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
+        // The intent ceiling (maxValue) mirrors the buyer-signed permit ceiling; only the gross is pulled.
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(usdc), USD_AMOUNT, ceiling, ORDER_ID, buyer, deadline
+        );
 
         vm.prank(relayer);
         payIn.payInWithPermit(
@@ -334,11 +393,14 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             address(usdc),
             USD_AMOUNT,
             buyer,
-            IGaslessPayIn.Permit({ value: ceiling, deadline: block.timestamp + 1 hours }),
+            IGaslessPayIn.Permit({ value: ceiling, deadline: deadline }),
             v,
             r,
             s,
-            ORDER_ID
+            ORDER_ID,
+            ceiling,
+            deadline,
+            intentSig
         );
 
         assertEq(usdc.balanceOf(buyer), ceiling - gross); // only the gross left the buyer
@@ -349,6 +411,7 @@ contract GaslessPayInTest is Test, ProxyDeployer {
     }
 
     function test_payInWithPermit_revertsOnZeroBuyer() public {
+        uint256 deadline = block.timestamp + 1 hours;
         vm.prank(relayer);
         vm.expectRevert(IGaslessPayIn.GaslessPayIn__ZeroBuyer.selector);
         payIn.payInWithPermit(
@@ -356,16 +419,25 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             address(usdc),
             USD_AMOUNT,
             address(0),
-            IGaslessPayIn.Permit({ value: 100e6, deadline: block.timestamp + 1 hours }),
+            IGaslessPayIn.Permit({ value: 100e6, deadline: deadline }),
             27,
             bytes32(0),
             bytes32(0),
-            ORDER_ID
+            ORDER_ID,
+            100e6,
+            deadline,
+            hex""
         );
     }
 
     function test_payInWithPermit_revertsOnLowPermitValue() public {
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
+        uint256 deadline = block.timestamp + 1 hours;
+        // A valid intent (ceiling gross) so execution reaches the permit-value check; the permit value is
+        // one short of the gross, so PermitValueTooLow reverts.
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(usdc), USD_AMOUNT, gross, ORDER_ID, buyer, deadline
+        );
         vm.prank(relayer);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -377,11 +449,14 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             address(usdc),
             USD_AMOUNT,
             buyer,
-            IGaslessPayIn.Permit({ value: gross - 1, deadline: block.timestamp + 1 hours }),
+            IGaslessPayIn.Permit({ value: gross - 1, deadline: deadline }),
             27,
             bytes32(0),
             bytes32(0),
-            ORDER_ID
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
         );
     }
 
@@ -402,10 +477,12 @@ contract GaslessPayInTest is Test, ProxyDeployer {
         uint256 gross = router.quote(merchantId, address(fot), USD_AMOUNT);
         fot.mint(buyer, gross);
 
-        bytes32 digest = _permitDigest(
-            address(fot), buyer, address(payIn), gross, 0, block.timestamp + 1 hours
-        );
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = _permitDigest(address(fot), buyer, address(payIn), gross, 0, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(fot), USD_AMOUNT, gross, ORDER_ID, buyer, deadline
+        );
 
         uint256 received = gross - gross / 100; // 1% skim → contract receives less than gross
         vm.prank(relayer);
@@ -419,11 +496,14 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             address(fot),
             USD_AMOUNT,
             buyer,
-            IGaslessPayIn.Permit({ value: gross, deadline: block.timestamp + 1 hours }),
+            IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
             v,
             r,
             s,
-            ORDER_ID
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
         );
     }
 
@@ -435,6 +515,10 @@ contract GaslessPayInTest is Test, ProxyDeployer {
         uint256 deadline = block.timestamp + 1 hours;
         bytes32 digest = _permitDigest(address(usdc), buyer, address(payIn), gross, 0, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
+
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(usdc), USD_AMOUNT, gross, ORDER_ID, buyer, deadline
+        );
 
         // Front-run: anyone can land the permit directly on the token.
         vm.prank(stranger);
@@ -452,37 +536,31 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             v,
             r,
             s,
-            ORDER_ID
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
         );
         uint256 totalFee = gross * (PLATFORM_FEE_BPS + MERCHANT_FEE_BPS) / 10_000;
         assertEq(usdc.balanceOf(payout), gross - totalFee);
         assertEq(usdc.balanceOf(address(payIn)), 0);
     }
 
-    function test_payInWithPermit_replayRevertsViaTokenNonce() public {
+    function test_payInWithPermit_replayRevertsViaOrderGate() public {
+        // Replaying the SAME bound `orderId` now reverts on the single-use order ledger BEFORE the token
+        // nonce/allowance is even touched — a stronger guard than the old token-nonce-only reliance (it
+        // also blocks a residual-allowance re-pull with the same intent). Retains the original intent:
+        // a captured settlement cannot be replayed.
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
         usdc.mint(buyer, gross * 2);
         uint256 deadline = block.timestamp + 1 hours;
         bytes32 digest = _permitDigest(address(usdc), buyer, address(payIn), gross, 0, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
-
-        vm.prank(relayer);
-        payIn.payInWithPermit(
-            merchantId,
-            address(usdc),
-            USD_AMOUNT,
-            buyer,
-            IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
-            v,
-            r,
-            s,
-            ORDER_ID
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(usdc), USD_AMOUNT, gross, ORDER_ID, buyer, deadline
         );
 
-        // A replay: the token nonce is spent, so the permit can't re-set the allowance; the prior
-        // settlement already consumed the buyer's first allowance, so the pull now reverts (no allowance).
         vm.prank(relayer);
-        vm.expectRevert(); // ERC20InsufficientAllowance from the token transferFrom
         payIn.payInWithPermit(
             merchantId,
             address(usdc),
@@ -492,7 +570,30 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             v,
             r,
             s,
-            ORDER_ID
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
+        );
+
+        // A replay with the same bound order reverts on the single-use order ledger.
+        vm.prank(relayer);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGaslessPayIn.GaslessPayIn__OrderReplay.selector, ORDER_ID)
+        );
+        payIn.payInWithPermit(
+            merchantId,
+            address(usdc),
+            USD_AMOUNT,
+            buyer,
+            IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
+            v,
+            r,
+            s,
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
         );
     }
 
@@ -507,6 +608,9 @@ contract GaslessPayInTest is Test, ProxyDeployer {
         bytes32 digest = _permitDigest(address(usdc), buyer, address(payIn), gross, 0, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(usdc), USD_AMOUNT, gross, ORDER_ID, buyer, deadline
+        );
 
         (uint256 platformFee, uint256 merchantFee, uint256 net) = _split(gross);
         vm.expectEmit(true, true, true, true, address(payIn));
@@ -527,7 +631,10 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             buyer,
             IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
             sig,
-            ORDER_ID
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
         );
 
         assertEq(usdc.balanceOf(payout), net);
@@ -548,6 +655,11 @@ contract GaslessPayInTest is Test, ProxyDeployer {
         bytes32 digest = _permitDigest(address(usdc), w, address(payIn), gross, 0, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
         bytes memory sig = abi.encodePacked(r, s, v);
+        // The PayInIntent's `buyer` is the smart account; the co-signature is the EOA signer's ECDSA sig,
+        // which the account's ERC-1271 validates via {SignatureChecker}.
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(usdc), USD_AMOUNT, gross, ORDER_ID, w, deadline
+        );
 
         (,, uint256 net) = _split(gross);
         vm.prank(relayer);
@@ -558,7 +670,10 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             w,
             IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
             sig,
-            ORDER_ID
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
         );
         assertEq(usdc.balanceOf(payout), net);
         assertEq(usdc.balanceOf(address(payIn)), 0);
@@ -566,6 +681,7 @@ contract GaslessPayInTest is Test, ProxyDeployer {
     }
 
     function test_payInWithPermit7597_revertsOnZeroBuyer() public {
+        uint256 deadline = block.timestamp + 1 hours;
         vm.prank(relayer);
         vm.expectRevert(IGaslessPayIn.GaslessPayIn__ZeroBuyer.selector);
         payIn.payInWithPermit7597(
@@ -573,14 +689,21 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             address(usdc),
             USD_AMOUNT,
             address(0),
-            IGaslessPayIn.Permit({ value: 100e6, deadline: block.timestamp + 1 hours }),
+            IGaslessPayIn.Permit({ value: 100e6, deadline: deadline }),
             hex"",
-            ORDER_ID
+            ORDER_ID,
+            100e6,
+            deadline,
+            hex""
         );
     }
 
     function test_payInWithPermit7597_revertsOnLowPermitValue() public {
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId, address(usdc), USD_AMOUNT, gross, ORDER_ID, buyer, deadline
+        );
         vm.prank(relayer);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -592,9 +715,12 @@ contract GaslessPayInTest is Test, ProxyDeployer {
             address(usdc),
             USD_AMOUNT,
             buyer,
-            IGaslessPayIn.Permit({ value: gross - 1, deadline: block.timestamp + 1 hours }),
+            IGaslessPayIn.Permit({ value: gross - 1, deadline: deadline }),
             hex"",
-            ORDER_ID
+            ORDER_ID,
+            gross,
+            deadline,
+            intentSig
         );
     }
 
@@ -605,7 +731,9 @@ contract GaslessPayInTest is Test, ProxyDeployer {
     function test_payInWithAuthorization_settlesThroughFeeSplit() public {
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
         usdc.mint(buyer, gross);
-        bytes32 nonce = keccak256("auth-nonce-1");
+        // The 3009 nonce is now the STRUCTURED intent nonce, binding merchant/amount/order into the
+        // buyer's token signature.
+        bytes32 nonce = _structuredNonce(merchantId, address(usdc), USD_AMOUNT, buyer, ORDER_ID);
         uint256 validAfter = 0;
         uint256 validBefore = block.timestamp + 1 hours;
 
@@ -672,6 +800,9 @@ contract GaslessPayInTest is Test, ProxyDeployer {
 
     function test_payInWithAuthorization_revertsOnValueMismatch() public {
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
+        // Use the CORRECT structured nonce so execution passes the intent-binding gate and reaches the
+        // value-mismatch check (the value is gross+1, not the quoted gross).
+        bytes32 nonce = _structuredNonce(merchantId, address(usdc), USD_AMOUNT, buyer, ORDER_ID);
         vm.prank(relayer);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -687,7 +818,7 @@ contract GaslessPayInTest is Test, ProxyDeployer {
                 value: gross + 1, // not equal to gross
                 validAfter: 0,
                 validBefore: block.timestamp + 1 hours,
-                nonce: keccak256("n")
+                nonce: nonce
             }),
             27,
             bytes32(0),
@@ -699,7 +830,7 @@ contract GaslessPayInTest is Test, ProxyDeployer {
     function test_payInWithAuthorization_replayRevertsViaTokenNonce() public {
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
         usdc.mint(buyer, gross * 2);
-        bytes32 nonce = keccak256("auth-nonce-replay");
+        bytes32 nonce = _structuredNonce(merchantId, address(usdc), USD_AMOUNT, buyer, ORDER_ID);
         uint256 validBefore = block.timestamp + 1 hours;
         bytes32 digest =
             _authDigest(address(usdc), buyer, address(payIn), gross, 0, validBefore, nonce);
@@ -732,7 +863,7 @@ contract GaslessPayInTest is Test, ProxyDeployer {
 
         uint256 gross = router.quote(merchantId, address(fot), USD_AMOUNT);
         fot.mint(buyer, gross);
-        bytes32 nonce = keccak256("fot-nonce");
+        bytes32 nonce = _structuredNonce(merchantId, address(fot), USD_AMOUNT, buyer, ORDER_ID);
         uint256 validBefore = block.timestamp + 1 hours;
         bytes32 digest =
             _authDigest(address(fot), buyer, address(payIn), gross, 0, validBefore, nonce);
@@ -771,7 +902,7 @@ contract GaslessPayInTest is Test, ProxyDeployer {
 
         uint256 gross = router.quote(merchantId, address(usdc), USD_AMOUNT);
         usdc.mint(buyer, gross);
-        bytes32 nonce = keccak256("zero-fee");
+        bytes32 nonce = _structuredNonce(merchantId, address(usdc), USD_AMOUNT, buyer, ORDER_ID);
         uint256 validBefore = block.timestamp + 1 hours;
         bytes32 digest =
             _authDigest(address(usdc), buyer, address(payIn), gross, 0, validBefore, nonce);
