@@ -165,7 +165,7 @@ Two classes:
 | `AGENT_ALLOW_INSECURE` | `/api/agent/pay` | local-dev ONLY fail-open. **Never set in production.** |
 | `AP2_MANDATE_SECRET` | `/api/ap2/mandate` | Optional caller check; the route only derives (moves no money). |
 | `SELLER_PRIVATE_KEY` | arc-gasfree | Signs Circle Gateway withdraws (`/api/gateway/withdraw`). |
-| `BUYER_PRIVATE_KEY` | demo scripts only | Ephemeral buyer EOA for `fund-gateway` / `demo-loop`. Not needed for serving. |
+| `BUYER_PRIVATE_KEY` | local scripts only | Ephemeral buyer EOA for the `fund-gateway` / `demo-loop` local scripts. Not needed for serving. |
 | `UNLINK_API_KEY` | unlink-private | `createUnlinkAdmin`; backend-only. Requires the §2 booth install to take effect. |
 | `UNLINK_PAYOUT_PRIVATE_KEY` / `UNLINK_PRIVATE_PAY_KEY` | unlink-private | Server payout keys (transfer/withdraw only — zero custody). |
 | `WORLD_SIGNING_KEY` | `/api/world/sign` | Signs the World ID RP request. Returned once at registration — persist it. |

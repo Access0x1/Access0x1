@@ -107,7 +107,7 @@ stays at ~0 — and prices every payment in **USD on-chain, inside the settlemen
 never from an off-chain quote you have to trust. The buyer pays exactly the USD amount the contract priced,
 and no intermediary ever holds the funds.
 
-- **Gas-free USDC checkout on Arc — by default.** The demo checkout connects to **Arc Testnet**
+- **Gas-free USDC checkout on Arc — by default.** The app's checkout connects to **Arc Testnet**
   out of the box (the app's default chain), where **Circle USDC is the native gas token**. A buyer
   pays in USDC and settles in USDC: there is **no separate gas coin to top up and no Paymaster to
   run** — the Arc + Circle stack does that work, so checkout is gas-free with zero extra contract
@@ -402,8 +402,8 @@ reference, grouped by what you're doing.
 | `make web-dev` | Run the web app locally (`next dev`). |
 | `make web-build` | Production build of the web app (`next build`). |
 | `make cre-build` | Build the CRE workflow (needs the CRE CLI). |
-| `make cre-sim` | Simulate the CRE workflow (the demoable artifact; deploy is Early-Access). |
-| `make vyper-build` | Compile the Vyper `NameMath` + `NameDie` demonstrators (cancun); no-op if vyper not installed. |
+| `make cre-sim` | Simulate the CRE workflow (the runnable artifact; deploy is Early-Access). |
+| `make vyper-build` | Compile the Vyper `NameMath` + `NameDie` reference implementations (cancun); no-op if vyper not installed. |
 | `make vyper-test` | Run the Vyper==Solidity byte-for-byte conformance test; no-op if mox not installed. |
 | `make zksync-build` | `forge build --zksync` (zksolc) — zkEVM build check; see `docs/ZKSYNC-TESTING.md`. |
 | `make deploy-usd-mock-feed` | Deploy a $1 USDC/USD mock feed to a chain that lacks one — `make deploy-usd-mock-feed RPC=<url>`. |

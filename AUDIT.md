@@ -131,7 +131,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   SDK** (drop-in `<PayButton>` + the `usePayment` hook — orderId-bound receipt watch with a 120s timeout
   ceiling; Vitest-covered; git-distributed — consumed as a GitHub dependency, not published to npm by design), and the `create-access0x1` scaffolder.
 
-**Seam (code present, NOT exercised in the live demo path / booth-SDK-gated):**
+**Seam (code present, NOT exercised in the live example path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),
   **Uniswap payout-swap** (receive-in-any-token rail), **paymaster** (gas sponsorship). We label these
   as seams everywhere — never as "live."

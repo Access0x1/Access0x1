@@ -311,7 +311,7 @@ Chainlink feed address on every chain** (each re-verified on-chain on 2026-06-17
 | Chain | id | USDC pay-in | Notes |
 | --- | --- | --- | --- |
 | **Arc Testnet** | `5042002` | `0x3600…0000` (native) | USDC **is** the native gas token → "no gas fee" copy is truthful here, and only here. Source-verified. |
-| **Base Sepolia** | `84532` | `0x036CbD…dCF7e` | The primary EVM demo chain. Source-verified. Carries the live demo merchant. |
+| **Base Sepolia** | `84532` | `0x036CbD…dCF7e` | The primary EVM example chain. Source-verified. Carries the live example merchant. |
 | **zkSync Sepolia** | `300` | see [CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) | One-command deploy-ready via the EraVM path; not yet broadcast at time of writing. |
 
 Beyond these three, the **CREATE3 mirror** (one address — see below) is live on a total of **eight

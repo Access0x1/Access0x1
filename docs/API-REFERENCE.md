@@ -106,7 +106,7 @@ plain EOA — the protocol holds zero custody.
 | [`POST /api/payout-swap`](#post-apipayout-swap) | internal secret | Off-CEI "receive in any coin" same-chain swap. |
 | [`POST /api/onramp/session`](#post-apionrampsession-post-apiofframpsession) | none | Build a hosted fiat on-ramp checkout URL. |
 | [`POST /api/offramp/session`](#post-apionrampsession-post-apiofframpsession) | none | Build a hosted fiat off-ramp ("cash out") URL. |
-| [`GET /api/premium/quote`](#priced-demo-endpoints) · [`GET /api/premium/dataset`](#priced-demo-endpoints) · [`POST /api/premium/compute`](#priced-demo-endpoints) | x402 | Priced demo endpoints proving the gas-free settle path. |
+| [`GET /api/premium/quote`](#priced-example-endpoints) · [`GET /api/premium/dataset`](#priced-example-endpoints) · [`POST /api/premium/compute`](#priced-example-endpoints) | x402 | Priced example endpoints proving the gas-free settle path. |
 
 ---
 
@@ -682,7 +682,7 @@ For on-ramp `address` is the destination wallet; for off-ramp it is the source w
 
 ---
 
-### Priced demo endpoints
+### Priced example endpoints
 
 Source: [`web/app/api/premium/quote/route.ts`](../web/app/api/premium/quote/route.ts) ·
 [`dataset`](../web/app/api/premium/dataset/route.ts) ·

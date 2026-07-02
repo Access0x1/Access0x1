@@ -962,13 +962,13 @@ fails, stop and fix it before showing anyone.
 - [ ] **A guard bit.** You watched at least one revert on purpose — the
       over-budget `renew` charging nothing (B2 step 6), the second invoice `pay`
       reverting (B4 step 3), or the over-budget `spend` reverting (B7 step 3).
-- [ ] **Web demo wired.** `cd web && npm run dev` serves `localhost:3000`,
+- [ ] **Web app wired.** `cd web && npm run dev` serves `localhost:3000`,
       `/onboard` loads and Save yields a checkout link + embed tag (Section C2);
       if showing live checkout/dashboard, `web/.env` points at the deployed chain
       (Section C5).
 - [ ] **Backup screenshots.** You have a screenshot or recording of the green
       `make test` summary and a successful checkout, in case the live network is
-      flaky on demo day.
+      flaky on the day.
 
 If every box is checked, you can hand-test any contract on request and walk the
 web flow end to end. That is the whole product, provable by eye.

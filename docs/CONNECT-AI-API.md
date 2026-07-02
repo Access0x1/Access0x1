@@ -82,7 +82,7 @@ const { sessionId } = connectAiApi({
   expiry:   Math.floor(Date.now() / 1000) + 86_400, // 24h, matches on-chain
   pricePerCallAtomic: 1000n,   // $0.001 per call
   apiKey: "ak_live_…",         // the key you hand the developer (never logged)
-  label: "claude-haiku demo",
+  label: "claude-haiku example",
 });
 ```
 
