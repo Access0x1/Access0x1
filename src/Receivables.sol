@@ -24,6 +24,7 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Access0x1Router } from "./Access0x1Router.sol";
+import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 import { IReceivables } from "./interfaces/IReceivables.sol";
 
 /// @title  Receivables
@@ -262,6 +263,16 @@ contract Receivables is
         // Defensive: the router pulled the full approval via its own balance-delta check; reset any
         // residual to 0 so no dangling allowance survives (zero-custody hygiene).
         IERC20(token).forceApprove(address(router), 0);
+        // If the router routes the net through PaymentLanes, it was minted to THIS contract as an
+        // ERC-6909 lane (our payout id), NOT pushed back as ERC-20 — so the delta below would read 0
+        // and the creditor would be paid nothing while the net sat stranded in an unclaimable lane
+        // (and the NFT is about to burn). Claim our own lane back to ERC-20 first so `net` is exact
+        // whether or not lanes are wired. claim() releases ONLY this asset and reverts if empty, so
+        // we only call it when lanes are active and a credit happened.
+        address lanes = router.paymentLanes();
+        if (lanes != address(0)) {
+            IPaymentLanes(lanes).claim(token);
+        }
         uint256 net = IERC20(token).balanceOf(address(this)) - balBefore;
 
         // Forward the router's net to the creditor (holder-at-settlement). zero net custody.

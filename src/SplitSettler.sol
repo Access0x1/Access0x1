@@ -17,6 +17,7 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 import { IERC2981 } from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Access0x1Router } from "./Access0x1Router.sol";
+import { IPaymentLanes } from "./interfaces/IPaymentLanes.sol";
 import { ISplitSettler } from "./interfaces/ISplitSettler.sol";
 
 /// @title  SplitSettler
@@ -253,6 +254,16 @@ contract SplitSettler is
         router.payToken(merchantId, token, usdAmount8, orderId);
         // The router pulled the full approval; reset any dangling allowance to 0 defensively.
         IERC20(token).forceApprove(address(router), 0);
+        // If the router routes the net through PaymentLanes, it was minted to THIS contract as an
+        // ERC-6909 lane (credited to our payout id), NOT pushed back as ERC-20 — so the balance
+        // delta below would read 0 and _fanOut would credit every payee nothing while the net sat
+        // stranded in a lane. Claim our own lane back to ERC-20 first so `net` is exact whether or
+        // not lanes are wired. claim() releases ONLY this asset (cross-asset firewall) and reverts
+        // if empty, so we only call it when lanes are active and a credit happened.
+        address lanes = router.paymentLanes();
+        if (lanes != address(0)) {
+            IPaymentLanes(lanes).claim(token);
+        }
         uint256 net = IERC20(token).balanceOf(address(this)) - balBefore;
 
         // STAGE 2 — fan the returned net out to the payee legs (pull-credits, never-blockable).
