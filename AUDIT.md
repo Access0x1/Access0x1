@@ -5,7 +5,7 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
-_Last updated: 2026-06-23 (ETHGlobal NY)._
+_Last updated: 2026-07-02 (ETHGlobal NY)._
 
 ---
 
@@ -95,6 +95,14 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   oracle-fault-tolerant so a dead feed refunds the full escrow, never bricks it); and the web `/api/quote`
   input-validation bypass (a negative/zero/NaN price can never be quoted). Each carries its own regression
   tests; no existing test was weakened.
+- **Conduit + gasless + ERC-6909 hardening (this update, all merged to `main`):** the `PaymentLanes`
+  conduits (`SplitSettler` / `Receivables`) now **claim the settled net back** from their lane so a
+  downstream failure can never strand funds (#203); `GaslessPayIn`'s zero-custody assertion is a **delta
+  vs the pre-pull baseline**, not an absolute-zero check, so a pre-existing dust balance can't false-trip
+  it (#204); `PaymentLanes` now **conforms to ERC-6909** — canonical `Transfer` topics + a mandatory
+  `supportsInterface` (#205); and the **lone `unchecked` block on the `PaymentLanes` value path was
+  removed** so every money-path arithmetic is checked (#207). Each fix ships with its own regression
+  tests inside the whole-suite total; no existing test was weakened.
 - **SDK receipt-binding hardening (`@access0x1/react` `usePayment`):** the watched `PaymentReceived`
   receipt is now bound to the payment's `orderId` — the on-chain event filter only matches the indexed
   `{merchantId, buyer}`, so a concurrent payment by the same buyer to the same merchant for a **different**
