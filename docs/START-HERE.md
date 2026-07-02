@@ -19,6 +19,7 @@ that matches what you want to do and follow the link.
 | Read this when you want to… | Doc |
 | --- | --- |
 | Onboard a store step by step (register → payout → fee → test → go live) | [INTEGRATION-CHECKLIST.md](./INTEGRATION-CHECKLIST.md) |
+| Know exactly what the rail charges (the 1% platform fee, disclosed) | [PLATFORM-FEE.md](./PLATFORM-FEE.md) |
 | Drop a pay button into your React app | [GETTING-STARTED.md → Path 1](./GETTING-STARTED.md#path-1--accept-your-first-payment-react-sdk) · SDK barrel: [`packages/react/src/index.ts`](../packages/react/src/index.ts) |
 | Look up a React SDK type, hook, or error code | [SDK-REFERENCE.md](./SDK-REFERENCE.md) |
 | Run the whole wired stack locally with no keys | [GETTING-STARTED.md → Path 2](./GETTING-STARTED.md#path-2--run-the-whole-thing-locally-no-keys) |

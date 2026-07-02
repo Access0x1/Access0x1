@@ -50,8 +50,11 @@ owner (the only address that can update your config).
 - [ ] **Your surcharge** (`feeBps`) is optional and in basis points (100 bps = 1%).
       `feeBps + platformFeeBps` must not exceed `MAX_FEE_BPS` (10%) or the call
       reverts — see [FAQ → fees](./FAQ.md#what-stops-the-platform-from-taking-a-huge-fee).
-- [ ] The **platform fee** is set by the protocol owner, not you; your buyer is
-      never charged more than the cap regardless.
+- [ ] The **platform fee** (default 1% = 100 bps, routed to the platform
+      treasury) is set by the protocol owner, not you; your buyer is never
+      charged more than the cap regardless. The full disclosure — exact split
+      arithmetic, live reads, edge behavior — is
+      [PLATFORM-FEE.md](./PLATFORM-FEE.md).
 - [ ] (Optional) To transfer merchant ownership later, use the two-step
       `proposeMerchantOwner` / `acceptMerchantOwner` handshake — a config update can
       never hand control to another address.
