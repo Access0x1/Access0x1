@@ -111,6 +111,20 @@ export async function POST(req: Request): Promise<Response> {
   let callerWallet: string;
   try {
     const resolved = await resolveVerifiedTenant(req, authBody);
+    // FAIL CLOSED on this money path. resolveVerifiedTenant returns
+    // { verified:false } — trusting the body-supplied tenantId — whenever Dynamic
+    // JWT verification is not configured (NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID unset).
+    // SELLER_ADDRESS is public (it is the payTo in every 402 challenge), so without
+    // this guard an attacker could POST { tenantId: <seller>, recipient: <attacker> }
+    // with no token, match the seller check below, and drain the Gateway balance.
+    // A withdrawal signed with SELLER_PRIVATE_KEY must never accept an unverified,
+    // body-asserted identity — require a cryptographically verified caller.
+    if (!resolved.verified) {
+      return Response.json(
+        { error: "unauthorized: withdrawal requires a verified Dynamic session" },
+        { status: 401 },
+      );
+    }
     callerWallet = resolved.tenantId;
   } catch (err) {
     if (err instanceof TenantAuthError) {

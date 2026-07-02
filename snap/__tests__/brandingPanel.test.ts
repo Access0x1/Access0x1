@@ -64,6 +64,7 @@ const MERCHANT: MerchantInfo = {
   name: 'Merchant #7',
   payout: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   feeBps: 500,
+  platformFeeBps: 0,
 };
 
 const SUMMARY: PaymentSummary = {

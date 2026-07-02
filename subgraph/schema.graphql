@@ -33,10 +33,25 @@ type Merchant @entity(immutable: false) {
   id: Bytes!
   merchantId: BigInt!
   paymentCount: BigInt!
-  totalGross: BigInt!
-  totalFees: BigInt!
-  totalNet: BigInt!
+  "USD amount, 8 decimals — the ONLY unit-safe cross-token running total."
   totalUsd8: BigInt!
   lastPaymentAt: BigInt!
   payments: [Payment!]! @derivedFrom(field: "merchant")
+  "Per-token native-unit totals — token base units are NOT comparable across tokens (6-dec USDC vs 18-dec native), so they live here, one row per (merchant, token), never summed into one BigInt."
+  tokenTotals: [MerchantToken!]! @derivedFrom(field: "merchant")
+}
+
+"Per-(merchant, token) native-unit running totals. Splitting by token is what keeps grossAmount/feeAmount/netAmount meaningful — summing a 6-decimal USDC amount with an 18-decimal native amount into one field produces garbage money."
+type MerchantToken @entity(immutable: false) {
+  "merchantId + token address, UTF-8 encoded."
+  id: Bytes!
+  merchant: Merchant!
+  merchantId: BigInt!
+  "Settlement token (address(0) = native)."
+  token: Bytes!
+  paymentCount: BigInt!
+  totalGross: BigInt!
+  totalFees: BigInt!
+  totalNet: BigInt!
+  lastPaymentAt: BigInt!
 }

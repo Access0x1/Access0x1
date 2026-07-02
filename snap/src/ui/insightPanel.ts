@@ -105,7 +105,14 @@ export function renderInsightPanel(
   merchant: MerchantInfo,
   branding?: MerchantBranding,
 ): JSXElement {
-  const { fee, net } = computeFeeSplit(summary.usdAmount8, merchant.feeBps);
+  // The on-chain fee is platformFeeBps + the merchant surcharge (see _splitFee).
+  // Showing only merchant.feeBps understated the fee and overstated the net — a
+  // truthfulness failure on the signing screen. The contract caps the sum at
+  // MAX_FEE_BPS at registration, so no re-cap is needed here.
+  const { fee, net } = computeFeeSplit(
+    summary.usdAmount8,
+    merchant.platformFeeBps + merchant.feeBps,
+  );
 
   // White-label header (logo + "Pay {name}" + description + verified badge),
   // followed by a divider, ABOVE the payment insight. Omitted with no branding.

@@ -36,6 +36,18 @@ export const MERCHANTS_ABI = parseAbi([
 ]);
 
 /**
+ * The `platformFeeBps()` public getter. The on-chain fee that settles on every
+ * payment is `platformFeeBps + merchant.feeBps` (see `_splitFee` in
+ * `Access0x1Router.sol`), so the insight panel must read BOTH — showing only the
+ * merchant surcharge understates the fee and overstates the merchant's net.
+ * The contract enforces `feeBps + platformFeeBps <= MAX_FEE_BPS` at registration,
+ * so the sum never needs re-capping here.
+ */
+export const PLATFORM_FEE_ABI = parseAbi([
+  'function platformFeeBps() view returns (uint16)',
+]);
+
+/**
  * 4-byte selector of `payNative(uint256,uint256,bytes32)`.
  * @warn BOOTH-CONFIRM — verify with `cast sig` against the deployed ABI.
  */

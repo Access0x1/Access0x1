@@ -54,15 +54,23 @@ UUPS=(
 )
 SINGLE=( Access0x1Receiver )
 
-# label -> mirror address (computed purely from the salt).
+# label -> mirror address (computed purely from the salt). Retries the RPC a few
+# times: computeCreate3Address is a pure view call, so any non-empty result is
+# deterministic and safe to retry; only a transient RPC error (429/timeout on the
+# public endpoint) yields empty. Returns non-zero ONLY after all retries fail — the
+# caller MUST treat that as fatal, never as address(0).
 mirror_addr() {
-  local label="$1" tag tag11 raw guarded addr
+  local label="$1" tag tag11 raw guarded addr attempt
   tag="$(cast keccak "${NS}${label}")"      # 0x + 64 hex (keccak of the UTF-8 string)
   tag11="${tag:2:22}"                         # bytes11 = leftmost 11 bytes = 22 hex
   raw="${DEP_NO0X}00${tag11}"                 # rawSalt body: 40 + 2 + 22 = 64 hex (32 bytes)
   guarded="$(cast keccak "0x${PAD_DEPLOYER}${raw}")"   # keccak( padded-deployer ‖ rawSalt ) over 64 bytes
-  addr="$(cast call "$CREATEX" "computeCreate3Address(bytes32)(address)" "$guarded" --rpc-url "$RPC" 2>/dev/null)"
-  printf '%s' "$addr"
+  for attempt in 1 2 3 4 5; do
+    addr="$(cast call "$CREATEX" "computeCreate3Address(bytes32)(address)" "$guarded" --rpc-url "$RPC" 2>/dev/null)"
+    [ -n "$addr" ] && { printf '%s' "$addr"; return 0; }
+    sleep 1
+  done
+  return 1   # all retries exhausted — signal failure, print nothing
 }
 
 echo "Computing CREATE3 mirror addresses (deployer ${DEPLOYER}, via ${RPC})…"
@@ -84,8 +92,15 @@ for c in "${SINGLE[@]}"; do rows+=("$c"); done
 n=${#rows[@]}; i=0
 for label in "${rows[@]}"; do
   i=$((i + 1))
-  a="$(mirror_addr "$label")"
-  [ -z "$a" ] && a="0x0000000000000000000000000000000000000000"
+  # Fail loud on a transient RPC error — a manifest with a zero address for a real
+  # contract is worse than none (it becomes the "source of truth" for README rows +
+  # verify tooling). Abort before the file is trusted; the partial $OUT is left for
+  # inspection but the non-zero exit tells `make sync` / CI not to use it.
+  if ! a="$(mirror_addr "$label")"; then
+    echo "✗ FATAL: could not compute mirror address for '${label}' after retries (RPC ${RPC})." >&2
+    echo "  Re-run against a healthier RPC (RPC=<url> $0). Manifest NOT trustworthy — aborting." >&2
+    exit 1
+  fi
   printf "  %-32s %s\n" "$label" "$a"
   comma=","; [ "$i" -eq "$n" ] && comma=""
   echo "    \"${label}\": \"${a}\"${comma}" >> "$OUT"

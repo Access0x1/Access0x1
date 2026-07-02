@@ -144,4 +144,25 @@ describe("layer 3/4 — settle keeps the reservation, a miss refunds it", () => 
     expect(res.status).toBe(402);
     expect(remaining(sessionId as `0x${string}`)).toBe(5_000n); // refunded
   });
+
+  it("malformed payment-signature → inner 500 (NOT 402), reservation still refunded", async () => {
+    // decodeHeader throws on a non-base64/non-JSON signature → withGateway returns
+    // HTTP 500, not 402. No USDC settled and no PAYMENT-RESPONSE header is set, so the
+    // reservation MUST be released — keying the refund off status===402 alone leaked
+    // budget on this path (a client could burn its own budget with garbled sigs).
+    const bad = new Request("http://localhost:3000/api/ai/chat", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${API_KEY}`,
+        "payment-signature": "!!!not-base64-json!!!",
+      },
+      body: JSON.stringify({ prompt: "hi" }),
+    });
+    const res = await wrapped()(bad);
+    expect(res.status).toBe(500);
+    expect(res.headers.has("PAYMENT-RESPONSE")).toBe(false);
+    expect(remaining(sessionId as `0x${string}`)).toBe(5_000n); // refunded, not debited
+    expect(settle).not.toHaveBeenCalled();
+  });
 });

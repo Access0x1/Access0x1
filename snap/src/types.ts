@@ -46,6 +46,12 @@ export interface MerchantInfo {
   payout: `0x${string}`;
   /** The merchant's surcharge in basis points (on top of the platform fee). */
   feeBps: number;
+  /**
+   * The platform fee in basis points, read from the router's `platformFeeBps()`.
+   * The TOTAL fee that settles on-chain is `platformFeeBps + feeBps`; the insight
+   * panel must show that sum, not the merchant surcharge alone.
+   */
+  platformFeeBps: number;
 }
 
 /**
