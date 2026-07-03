@@ -28,8 +28,9 @@ Pick the path that matches your stack:
 | [1. React SDK (`@access0x1/react`)](#1--react-sdk-access0x1react) | React / Next.js apps | ~5 min | yes (npm) | Add checkout to your Next.js app |
 | [2. One-tag `embed.js`](#2--one-tag-embedjs-any-html) | Any HTML page, no framework | ~2 min | no | Drop a Buy button on a Shopify / Webflow page |
 | [3. Hosted no-code link](#3--hosted-no-code-link) | Non-coders, invoices, QR, bios | ~1 min | none | Share a pay link in a bio or as a QR code |
+| [4. Run the whole app as YOUR brand](#4--run-the-whole-hosted-app-as-your-brand-clone--config) | Self-hosters: clone + a 5-var `.env`, zero code | ~10 min | yes (npm) | Your own branded checkout + dashboard + onboarding, self-hosted |
 
-> **Step 0 — get a `merchantId` (shared by all three paths).** Onboarding is a single
+> **Step 0 — get a `merchantId` (shared by every path).** Onboarding is a single
 > permissionless `registerMerchant(payout, feeRecipient, feeBps, nameHash)` call on the router
 > → it returns your `merchantId`; the caller becomes the merchant owner (see the README
 > "Contract surface"). The easiest way is the **hosted onboarding wizard** at `/onboard` on the
@@ -264,6 +265,55 @@ https://<your-access0x1-host>/m/42?amount=2900000000&chainId=84532
 
 Generate a QR from that URL and you have an in-person, no-code, no-app point of sale. The same link
 works in an invoice or a "Pay" button on a no-code site builder.
+
+---
+
+## 4 — Run the whole hosted app as YOUR brand (clone + config)
+
+Everything in paths 1–3 assumes someone hosts the app. This path is you hosting it — and it is
+**config-only**: clone, write a short `.env.local` with *your* info, build, run. **Zero code to
+write.** The router defaults to the CREATE3 mirror, Arc USDC defaults to the chain's native system
+token, and the RPC defaults to the public endpoint, so nothing below asks you for an address.
+
+```bash
+git clone https://github.com/Access0x1/Access0x1.git
+cd Access0x1/web
+npm ci
+
+cat > .env.local <<'EOF'
+# "your info" — this is ALL of it (values are an example; use your own)
+FEATURED_MERCHANT_SLUG=yourbrand
+FEATURED_MERCHANT_NAME=Your Brand
+FEATURED_MERCHANT_DESCRIPTION=One line about your business
+FEATURED_MERCHANT_BRAND_COLOR="#E8590C"
+FEATURED_MERCHANT_MERCHANT_ID=1
+EOF
+
+npm run build
+npm run start        # http://localhost:3000
+```
+
+What you get, with those five vars and nothing else:
+
+- `/` **redirects to `/c/yourbrand`** — your white-labeled checkout: your name, your description,
+  your brand color, an auto-generated monogram logo, on the default chain (Arc Testnet, gas-free USDC).
+- `/onboard`, `/dashboard`, `/deployments`, `/verify` all live — the full onboarding wizard,
+  merchant dashboard, and the deployed-contract verification view.
+- `/api/branding/yourbrand` returns your seeded brand row, pointed at the mirror router.
+
+Honest notes (what each extra var actually buys you):
+
+- **The pay card goes live when your `merchantId` is real.** `FEATURED_MERCHANT_MERCHANT_ID` must be
+  a merchant that exists **on-chain** on your default chain — register once at your own `/onboard`
+  (one wallet signature, permissionless) and set the id it gives you. Until then the checkout page
+  renders your brand and says payments aren't switched on yet (we never fake a checkout).
+- **Wallet connect UI needs `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`** (free at dynamic.xyz). Without it
+  the app still builds and serves; connecting a wallet is what needs it.
+- **Data durability needs `DATABASE_URL`** (any Postgres). Without it the app runs fully in-memory
+  and reminds you at boot — fine for trying it out, not for production.
+- Quote the hex color — an unquoted `#` starts a comment in `.env` files.
+- Every other var in [`web/.env.example`](../web/.env.example) is an **optional** seam (World ID,
+  ENS subnames, x402, on-ramps, private payouts, …); each one is fail-soft and off until set.
 
 ---
 

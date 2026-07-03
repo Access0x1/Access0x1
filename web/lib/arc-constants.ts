@@ -15,17 +15,22 @@
  * unique to this file — are defined below.
  */
 
-import { ARC_TESTNET_ID, DEFAULT_ARC_RPC_URL } from "./chains.js";
+import {
+  ARC_TESTNET_ID,
+  ARC_TESTNET_USDC_ADDRESS,
+  DEFAULT_ARC_RPC_URL,
+} from "./chains.js";
 
 /** CAIP-2 network id for Arc Testnet (chain id 5042002). confirm at booth */
 export const ARC_TESTNET_NETWORK = `eip155:${ARC_TESTNET_ID}` as const;
 
 /**
  * Arc Testnet USDC — the Arc system contract. Real USDC, not a mock token
- * (doctrine guardrail #2). confirm at booth
+ * (doctrine guardrail #2). Single-sourced from the chain registry
+ * (`chains.ts`) so the checkout's zero-config Arc default and this protocol
+ * constant can never drift. confirm at booth
  */
-export const ARC_TESTNET_USDC =
-  "0x3600000000000000000000000000000000000000" as const;
+export const ARC_TESTNET_USDC = ARC_TESTNET_USDC_ADDRESS;
 
 /**
  * Circle Gateway Wallet on Arc Testnet — the EIP-712 `verifyingContract` the
