@@ -36,6 +36,19 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`Access0x1GiftCards`](src/Access0x1GiftCards.sol),
   [`Access0x1Escrow`](src/Access0x1Escrow.sol), [`Refunds`](src/Refunds.sol),
   [`Receivables`](src/Receivables.sol)).
+- **Tokenization kit** — vanilla, cloneable bases so a clone can tokenize out of the
+  box: [`Access0x1RwaToken`](src/Access0x1RwaToken.sol), an ERC-7943 (uRWA)
+  compliant-asset NFT (per-tokenId freezing, authorized `forcedTransfer`, overridable
+  `canSend`/`canReceive` policy gates enforced at the single `_update` choke-point);
+  and [`Access0x1Account`](src/Access0x1Account.sol), a minimal non-upgradeable
+  ERC-6551 token bound account (the smart-contract wallet an NFT owns — holder-only
+  CALL-only `execute`, a never-reverting return-bomb-hardened EIP-6551 + ERC-1271
+  signer surface, and
+  ERC-20/721/1155 custody with an ownership-cycle guard on the bound token). The
+  EIP-6551 interfaces live under [`src/interfaces/`](src/interfaces/); the official
+  reference registry is vendored for tests only
+  ([`test/vendor/ERC6551Registry.sol`](test/vendor/ERC6551Registry.sol)) — production
+  uses the canonical singleton at `0x000000006551c19487814612e58FE06813775758`.
 - **Auth + agent primitives** — ERC-6909 [`PaymentLanes`](src/PaymentLanes.sol)
   multi-token receipts, and ERC-7702 / ERC-6492 [`SessionGrant`](src/SessionGrant.sol)
   for budget-scoped, time-bounded agent allowances authorized with one signature.
