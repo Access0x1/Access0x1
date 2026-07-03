@@ -226,6 +226,23 @@ function artifactBytecode(contractName) {
 function main() {
   const checkOnly = process.argv.includes('--check')
 
+  // 0) FAIL-SOFT for a web-only checkout (no `forge build` has run): without the
+  //    Foundry artifacts under out/, every deployment would be filtered away and
+  //    this script would OVERWRITE the committed-as-generated maps with EMPTY
+  //    ones — gutting the /deployments dashboard for anyone who clones the repo
+  //    and only builds web/. The committed maps ARE the vendored source of truth
+  //    for that flow, so when out/ is absent we keep them verbatim and skip
+  //    regeneration (both write and --check modes). Run `forge build` first to
+  //    regenerate from fresh artifacts.
+  if (!existsSync(OUT_DIR)) {
+    console.log(
+      'gen-deployments: out/ not found (no forge build) — keeping the committed ' +
+        'lib/deployments.ts + lib/currentBytecode.ts as-is. Run `forge build` at the ' +
+        'repo root to regenerate.',
+    )
+    return
+  }
+
   // 1) Every chain dir present under broadcast/, minus purely-local Anvil ids.
   const chainIds = readdirSync(BROADCAST_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory() && /^\d+$/.test(d.name))
