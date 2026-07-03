@@ -65,7 +65,9 @@ export const arcTestnet = defineChain({
   nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_ARC_RPC_URL ?? DEFAULT_ARC_RPC_URL],
+      // `||` (not `??`): a BLANK env value (e.g. a wholesale-copied .env.example)
+      // must fall back to the public default, never yield an empty RPC URL.
+      http: [process.env.NEXT_PUBLIC_ARC_RPC_URL || DEFAULT_ARC_RPC_URL],
     },
   },
   testnet: true,
@@ -258,6 +260,18 @@ export const MIRROR_ROUTER_ADDRESS =
   '0xe92244e3368561faf21648146511DeDE3a475EB5' as Address
 
 /**
+ * Arc Testnet USDC — the chain-spec NATIVE/system USDC (`0x3600…0000`). On Arc,
+ * USDC IS the gas token, so this address is a public chain fact (like the chain
+ * id itself), not a per-deploy value — which is why it may live as a literal
+ * (same precedent as {@link MIRROR_ROUTER_ADDRESS}). Defined HERE (the chain
+ * registry) and re-exported by `arc-constants.ts` so the two can never drift;
+ * `getUsdcAddress` uses it as the zero-config default for Arc, and a
+ * `NEXT_PUBLIC_USDC_ADDRESS_5042002` env value still overrides it.
+ */
+export const ARC_TESTNET_USDC_ADDRESS =
+  '0x3600000000000000000000000000000000000000' as const
+
+/**
  * Chains where the mirror router is DEPLOYED + broadcast-verified (README
  * Deployments / MIRROR-STATUS, 2026-07). The mirror is the default router on these;
  * a chain NOT listed has no mirror, so `getRouterAddress` fails loud rather than claim
@@ -274,12 +288,22 @@ export const MIRROR_SUPPORTED_CHAIN_IDS: readonly number[] = [
   11142220, // Celo Sepolia
 ]
 
+// Every documented checkout chain gets a LITERAL env key here so Next inlines
+// the value into the CLIENT bundle (a computed `..._${chainId}` key never
+// inlines — the browser would see undefined even with the env set). An empty
+// string (e.g. a wholesale-copied .env.example) normalizes to undefined via
+// `|| undefined` so the mirror/Arc defaults below still apply — a blank var can
+// never shadow a working default.
 const ROUTER_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
-  [baseSepolia.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_84532,
+  [ARC_TESTNET_ID]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_5042002 || undefined,
+  [baseSepolia.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_84532 || undefined,
+  [zksyncSepoliaTestnet.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_300 || undefined,
 }
 
 const USDC_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
-  [baseSepolia.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_84532,
+  [ARC_TESTNET_ID]: process.env.NEXT_PUBLIC_USDC_ADDRESS_5042002 || undefined,
+  [baseSepolia.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_84532 || undefined,
+  [zksyncSepoliaTestnet.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_300 || undefined,
 }
 
 /**
@@ -294,11 +318,12 @@ const USDC_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
  */
 export function getRouterAddress(chainId: number): Address {
   const addr =
-    // 1) explicit per-chain env override (literal key → inlined client-side for Base)
+    // 1) explicit per-chain env override (literal key → inlined client-side)
     ROUTER_ADDRESS_BY_CHAIN[chainId] ??
-    // 2) server-side per-chain env (computed key, not inlined into the browser)
+    // 2) server-side per-chain env (computed key, not inlined into the browser);
+    //    `|| undefined` so a blank var never shadows the mirror default below
     (typeof window === 'undefined'
-      ? (process.env[`NEXT_PUBLIC_ROUTER_ADDRESS_${chainId}`] ?? undefined)
+      ? (process.env[`NEXT_PUBLIC_ROUTER_ADDRESS_${chainId}`] || undefined)
       : undefined) ??
     // 3) the CREATE3 mirror as the zero-config DEFAULT on every mirrored chain —
     //    same address everywhere, inlined client-side. This is why an integrator
@@ -319,8 +344,15 @@ export function getUsdcAddress(chainId: number): Address {
   const addr =
     USDC_ADDRESS_BY_CHAIN[chainId] ??
     (typeof window === 'undefined'
-      ? (process.env[`NEXT_PUBLIC_USDC_ADDRESS_${chainId}`] ?? undefined)
-      : undefined)
+      ? (process.env[`NEXT_PUBLIC_USDC_ADDRESS_${chainId}`] || undefined)
+      : undefined) ??
+    // Zero-config default for the LEAD chain: Arc's USDC is the chain-spec
+    // native/system token (see {@link ARC_TESTNET_USDC_ADDRESS}) — a public
+    // chain fact, not a guessed deploy address. Same doctrine carve-out as the
+    // CREATE3 mirror default in getRouterAddress; env above still overrides.
+    // Without this, the default-chain checkout quote fails CLIENT-SIDE on a
+    // fresh clone (the computed env key is never inlined into the browser).
+    (chainId === ARC_TESTNET_ID ? ARC_TESTNET_USDC_ADDRESS : undefined)
   if (!addr) throw new Error(`No USDC address configured for chain ${chainId}`)
   return addr as Address
 }
