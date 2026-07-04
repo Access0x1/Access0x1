@@ -327,9 +327,13 @@ export function BrandingForm({
         {logoError ? <p className="text-sm text-red-600">{logoError}</p> : null}
       </div>
 
-      {/* Live preview — the result before saving (CR live-preview law) */}
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
-        <p className="mb-3 text-xs font-medium uppercase tracking-widest text-neutral-400">
+      {/* Live preview — the result before saving (CR live-preview law). A
+          DELIBERATE `.light` island: this shows the customer-facing checkout,
+          which is a bright white-label card, so it stays light on the dark app
+          chassis. `.light` re-defines --foreground/--card within it, so
+          BrandPreview's `text-ink` reads dark-on-light here. */}
+      <div className="light rounded-2xl border border-border bg-card p-5">
+        <p className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           This is what customers see
         </p>
         <BrandPreview
@@ -388,7 +392,9 @@ function DoneScreen({
         </p>
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
+      {/* The customer-facing preview stays a bright white-label island (`.light`)
+          on the dark chassis, so BrandPreview's `text-ink` reads dark-on-light. */}
+      <div className="light rounded-2xl border border-border bg-card p-5">
         <BrandPreview
           name={branding.displayName}
           description={branding.description}

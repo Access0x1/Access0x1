@@ -6,9 +6,22 @@
  * Access0x1 brand chassis — "access0x1 across night water".
  *
  * The whole brand is a token swap: these are the shadcn/ui CSS variables in HSL
- * channel-triple form so components compose `hsl(var(--token) / <alpha>)`. Dark
- * is the DEFAULT theme (night water, ink #0B1020). A `.light` swap is provided
- * for surfaces that opt into it.
+ * channel-triple form so components compose `hsl(var(--token) / <alpha>)`.
+ *
+ * TWO themes, both LOAD-BEARING:
+ *   - `:root` (dark, night water, ink #0B1020) — the DEFAULT app chassis. Every
+ *     merchant surface (onboard / dashboard / verify / settings) renders on it.
+ *   - `.light` — a token swap to a bright surface. NOT dead / optional: it is
+ *     the deliberate LIGHT ISLAND used for (a) the merchant-preview card ("what
+ *     customers see") and (b) the white-label customer CHECKOUT card, both of
+ *     which sit as bright cards ON the dark chassis. Wrapping a subtree in
+ *     `.light` re-defines --foreground/--card/--border etc. within it, so the
+ *     Tailwind tokens (text-foreground, text-ink, bg-card, border-border) flip
+ *     to their light values automatically inside the island.
+ *
+ * RETHEME RECIPE (cloner-facing): edit --primary + --ax1-rail (the CTA/accent)
+ * and --background in `:root` to rebrand the WHOLE app; a light-first clone can
+ * apply `.light` at the root instead. That is the entire brand — one token swap.
  *
  * Source of truth: brand-assets/web-design/globals.css + BRAND.md.
  *   --ink #0B1020 · --surface #11162A · --line #283153 · --text #F5F7FB
@@ -52,7 +65,10 @@
 }
 
 .light {
-  /* optional light theme = token swap (web2-easy alternate) */
+  /* Light-island token swap — LOAD-BEARING (see header). Applied to the
+     merchant-preview card and the white-label checkout card so they read as
+     deliberate bright surfaces on the dark chassis; also a cloner's opt-in for
+     a light-first rebrand. Re-defines the same shadcn variables as :root. */
   --background: 222 40% 98%;
   --foreground: 225 47% 8%;
   --card: 0 0% 100%;
