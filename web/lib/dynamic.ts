@@ -26,9 +26,17 @@ export function buildDynamicSettings(): DynamicContextProps['settings'] {
   return {
     environmentId: environmentId ?? '',
     walletConnectors: [EthereumWalletConnectors],
-    // Pure wallet connect: skip the email/social + ownership-signing step. The payment tx itself is
-    // the proof of ownership, so the modal opens as a clean OpenSea-style wallet picker, not a sign-in.
-    initialAuthenticationMode: 'connect-only',
+    // MERCHANT sign-in is a real account, so the modal offers BOTH doors: email/
+    // social sign-up (Dynamic mints an embedded wallet for a non-crypto merchant)
+    // AND external wallet connect (a crypto merchant brings their own) — matching
+    // what the live site already shows and the product intent ("use a wallet that
+    // was just created, or your own"). `connect-and-sign` pairs the connection with
+    // an ownership signature so the session is an authenticated user, not just a
+    // connected address; it is the SDK's own default. AuthMode is exactly
+    // 'connect-only' | 'connect-and-sign' (verified in the installed
+    // @dynamic-labs/types). Email/social must also be enabled on the Dynamic env's
+    // dashboard — the env this deploy uses has email ON (it works live today).
+    initialAuthenticationMode: 'connect-and-sign',
     // Show EVERY wallet the Dynamic dashboard enables (plus any EIP-6963 browser extension), but float
     // the popular ones to the top — the rest stay one scroll away. SortWallets REORDERS, never hides.
     walletsFilter: SortWallets([
