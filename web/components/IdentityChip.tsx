@@ -2,6 +2,7 @@
 
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import type { ReactNode } from 'react'
+import { usePrimaryEnsName } from '@/lib/ens/usePrimaryEnsName'
 
 /** Truncate an EVM address for display: 0x1234…abcd. */
 function short(addr: string): string {
@@ -18,6 +19,13 @@ function short(addr: string): string {
  * phrase, works everywhere on the rail", not shown a bare 0x address they don't
  * recognize. A crypto merchant who connected MetaMask should see that named.
  *
+ * PRIMARY-NAME RECOGNITION: when the connected wallet HAS a verified primary ENS
+ * name (mainnet, coinType 60 — the identity namespace), we recognize it via
+ * {@link usePrimaryEnsName} and render it as the PRIMARY identity line (bold
+ * `rensley.eth`), with the email/address demoted to the secondary mono line. The
+ * user should see their own name, the way they set it — not a bare 0x. When there
+ * is NO primary name (the common case), the chip renders exactly as before.
+ *
  * Provenance is read from the INSTALLED SDK's real connector API
  * (@dynamic-labs/sdk-react-core 4.88): `primaryWallet.connector.isEmbeddedWallet`
  * (boolean) distinguishes the Dynamic-minted embedded wallet from an external
@@ -32,6 +40,9 @@ function short(addr: string): string {
  */
 export function IdentityChip(): ReactNode {
   const { primaryWallet, user, setShowAuthFlow, handleLogOut } = useDynamicContext()
+  // Recognize the wallet's own primary name on mainnet. Dormant-safe: with no
+  // wallet the hook fetches nothing and returns null.
+  const { name: primaryName } = usePrimaryEnsName(primaryWallet?.address)
 
   if (!primaryWallet) return null
 
@@ -42,15 +53,74 @@ export function IdentityChip(): ReactNode {
 
   // The account identity: email/username when the email/social door was used
   // (the embedded-wallet case), else the truncated address.
-  const identity = user?.email ?? user?.username ?? short(address)
+  const account = user?.email ?? user?.username ?? short(address)
 
   return (
-    <div className="flex flex-col items-end gap-1.5">
+    <IdentityChipView
+      address={address}
+      account={account}
+      primaryName={primaryName}
+      isEmbedded={isEmbedded}
+      connectorName={connectorName}
+      onUseOwnWallet={() => setShowAuthFlow(true)}
+      onSignOut={() => void handleLogOut()}
+    />
+  )
+}
+
+/**
+ * Pure presentational identity panel — no Dynamic context, no hook, no effects.
+ * Split out so both states (a recognized primary name vs the email/address
+ * default) are deterministically SSR-testable, mirroring MerchantIdentityView.
+ *
+ * When `primaryName` is a non-empty string it becomes the PRIMARY line (bold),
+ * and `account` (email/username/short-address) drops to the secondary mono line
+ * alongside the provenance. When it's null, `account` is the primary line exactly
+ * as the panel rendered before — no fabricated name is ever shown.
+ */
+export function IdentityChipView({
+  address,
+  account,
+  primaryName,
+  isEmbedded,
+  connectorName,
+  onUseOwnWallet,
+  onSignOut,
+}: {
+  /** The connected wallet address (the payout/identity address). */
+  address: string
+  /** Email / username / short-address — the account label. */
+  account: string
+  /** The verified primary ENS name, or null to show `account` as primary. */
+  primaryName: string | null
+  /** True for a Dynamic-minted embedded wallet (vs an external EOA). */
+  isEmbedded: boolean
+  /** Human connector name (e.g. "MetaMask") for the external case. */
+  connectorName: string
+  /** Open Dynamic's auth/link flow ("use your own wallet instead"). */
+  onUseOwnWallet: () => void
+  /** Sign the user out. */
+  onSignOut: () => void
+}): ReactNode {
+  const hasPrimaryName = primaryName !== null && primaryName.length > 0
+  // The primary (top, bold) line is the recognized ENS name when present, else
+  // the account label. The provenance line always names the wallet source.
+  const provenance =
+    (isEmbedded ? 'Your wallet — created for this account: ' : `Your wallet — ${connectorName}: `) +
+    short(address)
+
+  return (
+    <div className="flex flex-col items-end gap-1.5" data-primary-name={hasPrimaryName ? 'true' : 'false'}>
       <div className="flex items-center gap-3">
         <div className="flex flex-col items-end gap-0.5 rounded-lg border border-border bg-secondary px-3 py-1.5">
           <span className="max-w-[12rem] truncate text-sm font-medium text-foreground">
-            {identity}
+            {hasPrimaryName ? primaryName : account}
           </span>
+          {/* When a primary name leads, show the account label under it so the
+              user still sees which email/wallet this is. */}
+          {hasPrimaryName ? (
+            <span className="max-w-[12rem] truncate text-xs text-muted-foreground">{account}</span>
+          ) : null}
           <span
             className="font-mono text-xs text-muted-foreground"
             title={
@@ -59,13 +129,12 @@ export function IdentityChip(): ReactNode {
                 : `Connected with ${connectorName}`
             }
           >
-            {isEmbedded ? 'Your wallet — created for this account: ' : `Your wallet — ${connectorName}: `}
-            {short(address)}
+            {provenance}
           </span>
         </div>
         <button
           type="button"
-          onClick={() => void handleLogOut()}
+          onClick={onSignOut}
           className="text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
         >
           Sign out
@@ -77,7 +146,7 @@ export function IdentityChip(): ReactNode {
         // Wallet users already picked their wallet, so they get nothing extra.
         <button
           type="button"
-          onClick={() => setShowAuthFlow(true)}
+          onClick={onUseOwnWallet}
           className="text-xs text-rail underline-offset-2 hover:underline"
         >
           Use your own wallet instead
