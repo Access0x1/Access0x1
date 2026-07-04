@@ -12,10 +12,8 @@ import {
   type ClientBranding,
 } from '@/lib/branding/client'
 import { shouldRestoreSavedOnReconnect } from '@/lib/branding/doneScreen'
+import { checkoutHost, checkoutOrigin } from '@/lib/branding/checkoutHost'
 import { BrandPreview } from './BrandPreview'
-
-/** The literal, non-editable checkout-link prefix the merchant owns the tail of. */
-const LINK_PREFIX = 'pay.access0x1.com/'
 
 type SlugState = {
   checking: boolean
@@ -60,6 +58,13 @@ export function BrandingForm({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved, setSaved] = useState<ClientBranding | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // The truthful checkout-link prefix — the real host this deploy serves (or a
+  // configured dedicated checkout domain), resolved client-side. Empty during
+  // SSR/first paint; we show a neutral placeholder until it hydrates.
+  const [linkHost, setLinkHost] = useState('')
+  useEffect(() => setLinkHost(checkoutHost()), [])
+  const linkPrefix = linkHost ? `${linkHost}/c/` : 'your-domain/c/'
 
   // Prefill from the tenant's existing row (Settings edit, or returning user).
   useEffect(() => {
@@ -210,7 +215,7 @@ export function BrandingForm({
           <span className="text-sm font-medium text-ink">Your checkout link</span>
           <div className="flex items-stretch overflow-hidden rounded-lg border border-neutral-300 focus-within:border-rail">
             <span className="flex items-center bg-neutral-100 px-3 text-sm text-neutral-500">
-              {LINK_PREFIX}
+              {linkPrefix}
             </span>
             <input
               type="text"
@@ -364,8 +369,10 @@ function DoneScreen({
   branding: ClientBranding
   onEditAgain: () => void
 }): ReactNode {
+  // Honor a configured dedicated checkout domain, else the real deploy origin —
+  // the same truthful base as the editing prefix (never a hardcoded brand host).
   const [origin, setOrigin] = useState('')
-  useEffect(() => setOrigin(window.location.origin), [])
+  useEffect(() => setOrigin(checkoutOrigin()), [])
   const link = origin ? `${origin}/c/${branding.checkoutSlug}` : ''
   const embed = origin
     ? `<script src="${origin}/embed.js" data-slug="${branding.checkoutSlug}" data-amount-usd="29.00"></script>`

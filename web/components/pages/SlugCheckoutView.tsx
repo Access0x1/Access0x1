@@ -18,7 +18,8 @@ import { safeReturnUrl } from '@/lib/safeUrl'
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 /**
- * Branded hosted checkout for `pay.access0x1.com/c/{slug}` (ADR unit 5 / D4 a).
+ * Branded hosted checkout at `{host}/c/{slug}` on this deploy's own domain
+ * (ADR unit 5 / D4 a).
  *
  * Resolves the tenant by checkout slug via the PUBLIC branding endpoint, renders
  * the white-label header — Pay {name} + logo + description, themed by the
