@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { ConnectButton } from '@/components/ConnectButton'
 import { WorldIdGate } from '@/components/WorldIdGate'
+import { usePrimaryEnsName } from '@/lib/ens/usePrimaryEnsName'
 import { VerificationLevels } from './VerificationLevels'
 import {
   METHOD_INFO,
@@ -33,10 +34,19 @@ export function VerificationStack(): ReactNode {
   const { primaryWallet } = useDynamicContext()
   const user = primaryWallet?.address?.toLowerCase() ?? null
 
+  // Recognize the connected wallet's OWN primary ENS name (mainnet, coinType 60 —
+  // the identity namespace). When set, we surface it as already-recognized and
+  // prefill the manual field, so the user doesn't have to type a name they've
+  // already set. Dormant-safe: no wallet ⇒ no fetch, recognizedName null.
+  const { name: recognizedName } = usePrimaryEnsName(primaryWallet?.address)
+
   const [profile, setProfile] = useState<VerificationProfileResponse | null>(null)
   const [busy, setBusy] = useState<VerificationMethod | null>(null)
   const [errors, setErrors] = useState<Partial<Record<VerificationMethod, string>>>({})
   const [ensName, setEnsName] = useState('')
+  // Whether the user has touched the ENS field — once they type, we stop
+  // auto-prefilling so we never clobber a name they're deliberately asserting.
+  const [ensTouched, setEnsTouched] = useState(false)
   const [worldIdOpen, setWorldIdOpen] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -48,6 +58,13 @@ export function VerificationStack(): ReactNode {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // Prefill the manual ENS field with the recognized primary name — but only
+  // until the user edits it (ensTouched), so the manual "assert a different name"
+  // path is never overwritten. Augments the manual path; never replaces it.
+  useEffect(() => {
+    if (recognizedName && !ensTouched) setEnsName(recognizedName)
+  }, [recognizedName, ensTouched])
 
   const done = useCallback(
     (m: VerificationMethod) => (profile?.methods.includes(m) ?? false),
@@ -143,23 +160,52 @@ export function VerificationStack(): ReactNode {
                       </button>
                     )
                   ) : method === 'ens' ? (
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
-                        type="text"
-                        value={ensName}
-                        onChange={(e) => setEnsName(e.target.value)}
-                        placeholder="yourname.eth"
-                        className="flex-1 rounded-lg border border-input px-3 py-2 text-sm"
-                        aria-label="Your ENS name"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void run('ens', { ensName })}
-                        disabled={isBusy || !ensName.trim()}
-                        className="rounded-lg border border-rail px-3 py-2 text-sm font-medium text-rail hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {isBusy ? 'Checking…' : 'Check ENS'}
-                      </button>
+                    <div className="flex flex-col gap-2">
+                      {/* Auto-recognized primary name (mainnet). Shown as
+                          already-found with a one-tap verify, so the user
+                          doesn't retype a name they've already set. */}
+                      {recognizedName ? (
+                        <div className="flex flex-col gap-2 rounded-lg border border-green-300 bg-green-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="text-sm text-green-800">
+                            ✓ <span className="font-medium">{recognizedName}</span> — your primary
+                            name
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void run('ens', { ensName: recognizedName })}
+                            disabled={isBusy}
+                            className="shrink-0 rounded-lg border border-rail px-3 py-2 text-sm font-medium text-rail hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isBusy ? 'Checking…' : `Verify ${recognizedName}`}
+                          </button>
+                        </div>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        {recognizedName
+                          ? 'We recognized your primary ENS name from your wallet. You can verify it above, or enter a different name to assert instead.'
+                          : 'Enter the ENS name that points to this wallet. We recognize your primary name from your wallet automatically when you have one set.'}
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <input
+                          type="text"
+                          value={ensName}
+                          onChange={(e) => {
+                            setEnsTouched(true)
+                            setEnsName(e.target.value)
+                          }}
+                          placeholder="yourname.eth"
+                          className="flex-1 rounded-lg border border-input px-3 py-2 text-sm"
+                          aria-label="Your ENS name"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void run('ens', { ensName })}
+                          disabled={isBusy || !ensName.trim()}
+                          className="rounded-lg border border-rail px-3 py-2 text-sm font-medium text-rail hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isBusy ? 'Checking…' : 'Check ENS'}
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <button
