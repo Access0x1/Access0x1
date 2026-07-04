@@ -35,7 +35,10 @@ export function OnboardView(): ReactNode {
           <BrandMark size={18} />
           <h1 className="font-display text-2xl font-semibold text-foreground">Make it yours</h1>
         </div>
-        <ConnectButton />
+        {/* Ghost in the header so it never competes with the hero-gate's ONE
+            primary "Sign in" (single-CTA rule). When signed in this renders the
+            IdentityChip instead, and the hero gate is gone. */}
+        <ConnectButton variant="ghost" />
       </header>
 
       <p className="text-sm text-muted-foreground">

@@ -20,7 +20,10 @@ export function VerifyView(): ReactNode {
           </p>
           <h1 className="text-2xl font-semibold text-ink">Get Super Verified</h1>
         </div>
-        <ConnectButton />
+        {/* Ghost in the header: when signed out, VerificationStack owns the ONE
+            primary "Sign in" gate below; when signed in this becomes the
+            IdentityChip (single-CTA rule). */}
+        <ConnectButton variant="ghost" />
       </header>
 
       <p className="text-sm text-muted-foreground">
