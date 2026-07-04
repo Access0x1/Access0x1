@@ -66,7 +66,11 @@ export function MerchantProviders({ children }: { children: ReactNode }): ReactN
   }
 
   return (
-    <DynamicContextProvider settings={settings}>
+    // theme="dark" renders the Dynamic auth modal on the dark chassis (no white
+    // flash over the dark app); the exact surface/border/brand tuning lives in
+    // settings.cssOverrides (lib/dynamic.ts). `theme` is a top-level provider prop
+    // (sibling of `settings`), not a settings field.
+    <DynamicContextProvider theme="dark" settings={settings}>
       <WagmiProvider config={wagmiConfig}>
         <QueryClientProvider client={queryClient}>
           <DynamicWagmiConnector>{children}</DynamicWagmiConnector>
