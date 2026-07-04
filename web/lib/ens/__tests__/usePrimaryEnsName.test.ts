@@ -39,8 +39,8 @@ describe('fetchPrimaryEnsName', () => {
   })
 
   it('GETs /api/ens/primary with the address and returns the name', async () => {
-    const fetchFn = mockFetch(() => jsonResponse({ name: 'rensley.eth' }))
-    expect(await fetchPrimaryEnsName(ADDR)).toBe('rensley.eth')
+    const fetchFn = mockFetch(() => jsonResponse({ name: 'yourname.eth' }))
+    expect(await fetchPrimaryEnsName(ADDR)).toBe('yourname.eth')
     expect(fetchFn).toHaveBeenCalledTimes(1)
     expect(String(fetchFn.mock.calls[0][0])).toBe(
       `/api/ens/primary?address=${encodeURIComponent(ADDR)}`,

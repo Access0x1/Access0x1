@@ -22,7 +22,7 @@ function short(addr: string): string {
  * PRIMARY-NAME RECOGNITION: when the connected wallet HAS a verified primary ENS
  * name (mainnet, coinType 60 — the identity namespace), we recognize it via
  * {@link usePrimaryEnsName} and render it as the PRIMARY identity line (bold
- * `rensley.eth`), with the email/address demoted to the secondary mono line. The
+ * `yourname.eth`), with the email/address demoted to the secondary mono line. The
  * user should see their own name, the way they set it — not a bare 0x. When there
  * is NO primary name (the common case), the chip renders exactly as before.
  *

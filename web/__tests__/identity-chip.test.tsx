@@ -38,9 +38,9 @@ function render(props: Partial<Parameters<typeof IdentityChipView>[0]>): string 
 
 describe('IdentityChipView — recognized primary name', () => {
   it('leads with the primary name and demotes the account label beneath it', () => {
-    const out = render({ primaryName: 'rensley.eth', account: 'merchant@example.com' })
+    const out = render({ primaryName: 'yourname.eth', account: 'merchant@example.com' })
     expect(out).toContain('data-primary-name="true"')
-    expect(out).toContain('rensley.eth')
+    expect(out).toContain('yourname.eth')
     // The account label is still shown (as the secondary line), so the user knows
     // which email/wallet this is.
     expect(out).toContain('merchant@example.com')
@@ -62,7 +62,7 @@ describe('IdentityChipView — no primary name (prior behavior)', () => {
 
 describe('IdentityChipView — provenance + controls (always present)', () => {
   it('shows the embedded-wallet provenance + "use your own wallet" + sign out', () => {
-    const out = render({ isEmbedded: true, primaryName: 'rensley.eth' })
+    const out = render({ isEmbedded: true, primaryName: 'yourname.eth' })
     expect(out).toContain('created for this account')
     expect(out).toContain(SHORT)
     expect(out).toContain('Use your own wallet instead')

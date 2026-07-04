@@ -19,7 +19,7 @@ import { useEffect, useState } from 'react'
 
 /** What the hook returns: the verified primary name (or null) + a loading flag. */
 export interface PrimaryEnsName {
-  /** The verified primary name (e.g. `rensley.eth`), or null when none/unknown. */
+  /** The verified primary name (e.g. `yourname.eth`), or null when none/unknown. */
   name: string | null
   /** True while a fetch for the current address is in flight. */
   loading: boolean
