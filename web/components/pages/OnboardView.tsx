@@ -9,6 +9,8 @@ import { CheckoutModeForm } from '@/components/branding/CheckoutModeForm'
 import { VerificationLevelsPanel } from '@/components/verification/VerificationLevelsPanel'
 import { AskAssistant } from '@/components/AskAssistant'
 import { showOnboardCards } from '@/lib/branding/onboardGate'
+import { PageHeading } from '@/components/ui/PageHeading'
+import { SectionCard } from '@/components/ui/SectionCard'
 
 /**
  * Onboarding view: sign in (Dynamic) → the non-coder "Make it yours" branding
@@ -33,12 +35,15 @@ export function OnboardView(): ReactNode {
       <header className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <BrandMark size={18} />
-          <h1 className="font-display text-2xl font-semibold text-foreground">Make it yours</h1>
+          <PageHeading title="Make it yours" />
         </div>
-        <ConnectButton />
+        {/* Ghost in the header so it never competes with the hero-gate's ONE
+            primary "Sign in" (single-CTA rule). When signed in this renders the
+            IdentityChip instead, and the hero gate is gone. */}
+        <ConnectButton variant="ghost" />
       </header>
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-muted-foreground">
         Access0x1 turns your business into a crypto-friendly storefront — a branded checkout link that
         accepts USDC, with no code, no contract, and no gas to manage. Set your name, a one-line
         description, and a logo below to get yours, live in under two minutes.
@@ -46,25 +51,25 @@ export function OnboardView(): ReactNode {
 
       {showCards ? (
         <>
-          <section className="rounded-2xl border border-neutral-200 p-6">
+          <SectionCard>
             <BrandingForm mode="onboard" />
-          </section>
+          </SectionCard>
 
-          <section className="rounded-2xl border border-neutral-200 p-6">
-            <p className="mb-4 text-xs font-medium uppercase tracking-widest text-neutral-400">
+          <SectionCard>
+            <p className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Optional — you can skip this and decide later
             </p>
             <CheckoutModeForm mode="onboard" />
-          </section>
+          </SectionCard>
 
           <section className="flex flex-col gap-3">
-            <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Optional — raise your own trust level
             </p>
             <VerificationLevelsPanel />
           </section>
 
-          <p className="text-center text-xs text-neutral-400">
+          <p className="text-center text-xs text-muted-foreground">
             Already taking payments and want the on-chain settings? Open your{' '}
             <a href="/dashboard" className="text-rail underline-offset-2 hover:underline">
               dashboard
@@ -76,19 +81,19 @@ export function OnboardView(): ReactNode {
         // DISCONNECTED: one hero connect-gate — a single headline + ONE
         // ConnectButton + a short "what you'll build" line. Not three empty
         // card boxes each repeating a sign-in prompt.
-        <section
-          className="flex flex-col items-center gap-5 rounded-2xl border border-neutral-200 px-6 py-12 text-center"
+        <SectionCard
+          className="flex flex-col items-center gap-5 px-6 py-12 text-center"
           data-onboard-gate="connect"
         >
           <h2 className="font-display text-xl font-semibold text-foreground">
             Sign in to build your checkout
           </h2>
-          <p className="max-w-sm text-sm text-neutral-500">
+          <p className="max-w-sm text-sm text-muted-foreground">
             Connect your wallet and you’ll set your business name, a one-line description, and a logo
             — then get a branded checkout link that accepts USDC. It takes under two minutes.
           </p>
           <ConnectButton />
-        </section>
+        </SectionCard>
       )}
 
       <AskAssistant />

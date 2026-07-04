@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react'
 import { ConnectButton } from '@/components/ConnectButton'
 import { VerificationStack } from '@/components/verification/VerificationStack'
+import { PageHeading } from '@/components/ui/PageHeading'
+import { SectionCard } from '@/components/ui/SectionCard'
 
 /**
  * /verify — the Super Verification page. One panel: every way to verify, what
@@ -14,24 +16,22 @@ export function VerifyView(): ReactNode {
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-rail">
-            Super Verification
-          </p>
-          <h1 className="text-2xl font-semibold text-ink">Get Super Verified</h1>
-        </div>
-        <ConnectButton />
+        <PageHeading eyebrow="Super Verification" title="Get Super Verified" />
+        {/* Ghost in the header: when signed out, VerificationStack owns the ONE
+            primary "Sign in" gate below; when signed in this becomes the
+            IdentityChip (single-CTA rule). */}
+        <ConnectButton variant="ghost" />
       </header>
 
-      <p className="text-sm text-neutral-600">
+      <p className="text-sm text-muted-foreground">
         There are many ways to prove you&apos;re real. Each one you add raises your trust — verify
         enough and you become <span className="font-medium text-rail">Super Verified</span>, the
         highest tier. Merchants can choose to accept only verified or Super Verified buyers.
       </p>
 
-      <section className="rounded-2xl border border-neutral-200 p-6">
+      <SectionCard>
         <VerificationStack />
-      </section>
+      </SectionCard>
 
       <a href="/dashboard" className="text-sm text-rail underline-offset-2 hover:underline">
         ← Back to dashboard

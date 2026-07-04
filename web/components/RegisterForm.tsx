@@ -185,7 +185,7 @@ export function RegisterForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Acme Coffee"
-          className="rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-rail"
+          className="rounded-lg border border-input px-3 py-2 outline-none focus:border-rail"
         />
       </label>
 
@@ -197,13 +197,13 @@ export function RegisterForm({
           step="0.01"
           value={priceUsd}
           onChange={(e) => setPriceUsd(e.target.value)}
-          className="rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-rail"
+          className="rounded-lg border border-input px-3 py-2 outline-none focus:border-rail"
         />
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">
-          Fee recipient <span className="text-neutral-400">(optional — 0x address or ENS name)</span>
+          Fee recipient <span className="text-muted-foreground">(optional — 0x address or ENS name)</span>
         </span>
         <input
           type="text"
@@ -221,10 +221,10 @@ export function RegisterForm({
             }
           }}
           placeholder="0x… or name.eth (defaults to your payout)"
-          className="rounded-lg border border-neutral-300 px-3 py-2 font-mono text-sm outline-none focus:border-rail"
+          className="rounded-lg border border-input px-3 py-2 font-mono text-sm outline-none focus:border-rail"
         />
         {ensResolving ? (
-          <span className="text-xs text-neutral-500" data-testid="ens-resolving">
+          <span className="text-xs text-muted-foreground" data-testid="ens-resolving">
             Resolving ENS name…
           </span>
         ) : resolvedFeeRecipient ? (

@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react'
 import { ConnectButton } from '@/components/ConnectButton'
 import { CheckoutModeForm } from '@/components/branding/CheckoutModeForm'
+import { PageHeading } from '@/components/ui/PageHeading'
+import { SectionCard } from '@/components/ui/SectionCard'
 
 /**
  * Settings → Checkout (World ID ADR D0 / D4): the flat hub, sibling to
@@ -13,18 +15,13 @@ export function SettingsCheckoutView(): ReactNode {
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-rail">
-            Settings · Checkout
-          </p>
-          <h1 className="text-2xl font-semibold text-ink">Who can pay you</h1>
-        </div>
-        <ConnectButton />
+        <PageHeading eyebrow="Settings · Checkout" title="Who can pay you" />
+        <ConnectButton variant="ghost" />
       </header>
 
-      <section className="rounded-2xl border border-neutral-200 p-6">
+      <SectionCard>
         <CheckoutModeForm mode="settings" />
-      </section>
+      </SectionCard>
 
       <a href="/dashboard" className="text-sm text-rail underline-offset-2 hover:underline">
         ← Back to dashboard

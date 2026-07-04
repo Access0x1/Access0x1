@@ -3,10 +3,14 @@ import type { Config } from 'tailwindcss'
 /**
  * Tailwind config for checkout-web.
  *
- * Brand defaults from the spec:
- *   - text / ink:   #0A0A0A
- *   - accent (rail) #6366F1  (the Access0x1 default; a merchant's on-chain
- *                             brand color overrides this at render time)
+ * Brand tokens are DRIVEN BY the CSS variables in globals.css — never hardcoded
+ * here — so a whole-app rebrand is a token swap in one place and every legacy
+ * `text-ink` / `bg-rail` class re-themes with the chassis:
+ *   - text / ink:   hsl(var(--foreground))  (chassis text — #F5F7FB on the dark
+ *                             default; flips to dark inside a `.light` island)
+ *   - accent (rail) hsl(var(--primary))     (the lit path — cyan #22D3EE on the
+ *                             dark default; a merchant's on-chain brandColor
+ *                             still overrides this at render time via inline style)
  */
 const config: Config = {
   content: [
@@ -30,9 +34,13 @@ const config: Config = {
         ],
       },
       colors: {
-        // The app's existing brand tokens (unchanged).
-        ink: '#0A0A0A',
-        rail: '#6366F1',
+        // The app's legacy brand tokens — now CHASSIS-DRIVEN (not hardcoded
+        // light-era hexes). `text-ink` == the chassis foreground and `bg-rail`/
+        // `text-rail` == the primary (cyan), so the 37 `text-ink` + `*-rail`
+        // call sites re-theme with the dark default and flip correctly inside a
+        // `.light` island. A merchant's brandColor still overrides via inline style.
+        ink: 'hsl(var(--foreground))',
+        rail: 'hsl(var(--primary))',
         // shadcn/ui tokens, driven by the CSS variables in globals.css. These
         // are additive: existing classes (text-ink, bg-rail) keep working, and
         // the new shadcn components reference bg-card, text-muted-foreground,

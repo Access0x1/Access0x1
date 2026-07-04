@@ -87,7 +87,7 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-6 px-6 py-16">
       {loading ? (
-        <div className="h-64 animate-pulse rounded-2xl bg-neutral-100" />
+        <div className="h-64 animate-pulse rounded-2xl bg-secondary" />
       ) : loadError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
           {loadError === 'Access0x1__MerchantNotFound'
@@ -95,7 +95,10 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
             : loadError}
         </div>
       ) : merchant && merchantId !== null ? (
-        <section className="rounded-2xl border border-neutral-200 p-6">
+        // White-label checkout card = a deliberate bright `.light` island on the
+        // dark chassis (the merchant's own storefront). Same treatment as the
+        // slug checkout; the CheckoutCard's brandColor seams are untouched.
+        <section className="light rounded-2xl border border-border bg-card p-6 text-foreground">
           <CheckoutCard
             chainId={chainId}
             merchantId={merchantId}

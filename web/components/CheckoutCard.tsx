@@ -368,7 +368,7 @@ export function CheckoutCard({
         <MerchantIdentity payout={merchant.payout} chainId={chainId} />
       </div>
 
-      <div className="rounded-xl border border-neutral-200 p-5">
+      <div className="rounded-xl border border-border p-5">
         <p className="text-4xl font-semibold text-ink">${usdAmount}</p>
         <p className="mt-1 text-sm text-neutral-500">
           {loadingQuote
@@ -445,7 +445,7 @@ export function CheckoutCard({
         <div
           data-testid="flow-any-token"
           data-flow="true"
-          className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-4"
+          className="rounded-xl border border-dashed border-input bg-secondary p-4"
         >
           <p className="text-sm font-medium text-neutral-700">Pay in any token</p>
           <p className="mt-1 text-xs text-neutral-500">
@@ -482,7 +482,7 @@ export function CheckoutCard({
           data-required-tier={requiredTier}
           data-tier-met={tierMet}
           className={`flex flex-col gap-2 rounded-xl border p-4 ${
-            tierMet ? 'border-green-300 bg-green-50' : 'border-neutral-200 bg-neutral-50'
+            tierMet ? 'border-green-300 bg-green-50' : 'border-border bg-secondary'
           }`}
         >
           <div className="flex items-center justify-between gap-3">

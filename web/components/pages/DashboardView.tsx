@@ -14,6 +14,8 @@ import { LinkCard } from '@/components/LinkCard'
 import { attachOnChain, loadBrandingStatus } from '@/lib/branding/client'
 import { resolveMerchantId } from '@/lib/branding/merchantId'
 import { canShowPaymentsOn } from '@/lib/branding/attachDecision'
+import { PageHeading } from '@/components/ui/PageHeading'
+import { SectionCard } from '@/components/ui/SectionCard'
 
 const PAYMENT_RECEIVED_EVENT = parseAbiItem(
   'event PaymentReceived(uint256 indexed merchantId, address indexed buyer, address indexed token, uint256 grossAmount, uint256 feeAmount, uint256 netAmount, uint256 usdAmount8, bytes32 orderId, uint64 srcChainSelector)',
@@ -233,7 +235,7 @@ export function DashboardView(): ReactNode {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-16">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-ink">Dashboard</h1>
+        <PageHeading title="Dashboard" />
         <ConnectButton />
       </header>
 
@@ -244,7 +246,7 @@ export function DashboardView(): ReactNode {
       >
         <span className="flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-ink">Get Super Verified</span>
-          <span className="text-xs text-neutral-500">
+          <span className="text-xs text-muted-foreground">
             Prove you&apos;re real — add checks, then finish with the World ID scan to reach the
             highest trust tier.
           </span>
@@ -263,12 +265,12 @@ export function DashboardView(): ReactNode {
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border border-input px-3 py-1.5 text-sm hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? 'Refreshing…' : 'Refresh'}
           </button>
           {lastUpdated !== null ? (
-            <span className="text-xs text-neutral-400">{updatedAgo(lastUpdated, now)}</span>
+            <span className="text-xs text-muted-foreground">{updatedAgo(lastUpdated, now)}</span>
           ) : null}
         </div>
       ) : null}
@@ -283,14 +285,14 @@ export function DashboardView(): ReactNode {
         </div>
       ) : merchantId === null ? (
         !merchantResolved ? (
-          <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
+          <div className="h-24 animate-pulse rounded-xl bg-secondary" />
         ) : loadError ? (
           // The branding GET failed (network / non-2xx). NOT the same as "never
           // onboarded": show a neutral retryable notice, never the start-over
           // dead-end, so a fully-onboarded merchant (esp. on a second device) is
           // not pushed back to the beginning by a transient blip.
-          <section className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-6">
-            <p className="text-sm text-neutral-600" data-testid="load-error">
+          <SectionCard className="flex flex-col gap-3 bg-secondary">
+            <p className="text-sm text-muted-foreground" data-testid="load-error">
               Couldn&apos;t load your account — refresh to try again.
             </p>
             <button
@@ -300,19 +302,19 @@ export function DashboardView(): ReactNode {
                 setMerchantResolved(false)
                 setReloadKey((k) => k + 1)
               }}
-              className="self-start rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100"
+              className="self-start rounded-lg border border-input px-3 py-1.5 text-sm hover:bg-secondary"
             >
               Refresh
             </button>
-          </section>
+          </SectionCard>
         ) : hasBranding ? (
           // Branding saved but not yet on-chain — mount the one-time register
           // step HERE (the onboard done screen points the merchant to it). On
           // success it attaches the merchantId so the slug becomes payable.
-          <section className="flex flex-col gap-4 rounded-2xl border border-rail/30 bg-rail/5 p-6">
+          <SectionCard className="flex flex-col gap-4 border-rail/30 bg-rail/5">
             <div>
               <h2 className="text-lg font-semibold text-ink">Switch on payments</h2>
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm text-muted-foreground">
                 Your branded checkout is ready. Finish the quick one-time on-chain setup to start
                 accepting USDC — no further steps after this.
               </p>
@@ -329,7 +331,7 @@ export function DashboardView(): ReactNode {
                 <p className="text-sm text-red-600">
                   {attachError ?? 'Could not switch on payments. Please try again.'}
                 </p>
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-muted-foreground">
                   Your registration is safe — this only re-runs the switch-on step, it will not
                   register again.
                 </p>
@@ -345,9 +347,9 @@ export function DashboardView(): ReactNode {
             ) : (
               <RegisterForm onRegistered={(r) => void handleRegistered(r)} />
             )}
-          </section>
+          </SectionCard>
         ) : (
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-muted-foreground">
             No merchant found in this browser.{' '}
             <a href="/onboard" className="text-rail underline-offset-2 hover:underline">
               Set up your checkout on the onboard page
@@ -357,16 +359,16 @@ export function DashboardView(): ReactNode {
         )
       ) : (
         <>
-          <p className="text-sm text-neutral-500">Merchant #{merchantId.toString()}</p>
+          <p className="text-sm text-muted-foreground">Merchant #{merchantId.toString()}</p>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           {loading ? (
-            <div className="h-32 animate-pulse rounded-xl bg-neutral-100" />
+            <div className="h-32 animate-pulse rounded-xl bg-secondary" />
           ) : rows.length === 0 ? (
-            <p className="text-sm text-neutral-500">No payments yet.</p>
+            <p className="text-sm text-muted-foreground">No payments yet.</p>
           ) : (
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-neutral-200 text-neutral-500">
+                <tr className="border-b border-border text-muted-foreground">
                   <th className="py-2 font-medium">Block</th>
                   <th className="py-2 font-medium">Received (USDC)</th>
                   <th className="py-2 font-medium">USD</th>
@@ -376,7 +378,7 @@ export function DashboardView(): ReactNode {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={`${r.txHash}-${r.buyer}`} className="border-b border-neutral-100">
+                  <tr key={`${r.txHash}-${r.buyer}`} className="border-b border-border">
                     <td className="py-2 font-mono text-xs">{r.block.toString()}</td>
                     <td className="py-2">{formatTokenAmount(r.gross, tokenDecimalsFor(chainId))}</td>
                     <td className="py-2">${amount8ToUsd(r.usd8)}</td>

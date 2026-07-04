@@ -35,7 +35,7 @@ export function BuyerConnectButton(): ReactNode {
   if (isConnected && address) {
     return (
       <div className="flex items-center gap-3">
-        <span className="rounded-md bg-neutral-100 px-3 py-1.5 font-mono text-sm text-ink">
+        <span className="rounded-md bg-secondary px-3 py-1.5 font-mono text-sm text-ink">
           {short(address)}
         </span>
         <button

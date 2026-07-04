@@ -56,8 +56,8 @@ export function TokenPicker({
                 'flex flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition-colors',
                 isSelected
                   ? 'border-rail bg-rail/5 ring-1 ring-rail'
-                  : 'border-neutral-200 hover:border-neutral-300',
-                isDisabled ? 'cursor-not-allowed opacity-50 hover:border-neutral-200' : 'cursor-pointer',
+                  : 'border-border hover:border-input',
+                isDisabled ? 'cursor-not-allowed opacity-50 hover:border-border' : 'cursor-pointer',
               ].join(' ')}
             >
               <span className="flex w-full items-center justify-between gap-2">

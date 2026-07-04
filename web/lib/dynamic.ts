@@ -26,9 +26,17 @@ export function buildDynamicSettings(): DynamicContextProps['settings'] {
   return {
     environmentId: environmentId ?? '',
     walletConnectors: [EthereumWalletConnectors],
-    // Pure wallet connect: skip the email/social + ownership-signing step. The payment tx itself is
-    // the proof of ownership, so the modal opens as a clean OpenSea-style wallet picker, not a sign-in.
-    initialAuthenticationMode: 'connect-only',
+    // MERCHANT sign-in is a real account, so the modal offers BOTH doors: email/
+    // social sign-up (Dynamic mints an embedded wallet for a non-crypto merchant)
+    // AND external wallet connect (a crypto merchant brings their own) — matching
+    // what the live site already shows and the product intent ("use a wallet that
+    // was just created, or your own"). `connect-and-sign` pairs the connection with
+    // an ownership signature so the session is an authenticated user, not just a
+    // connected address; it is the SDK's own default. AuthMode is exactly
+    // 'connect-only' | 'connect-and-sign' (verified in the installed
+    // @dynamic-labs/types). Email/social must also be enabled on the Dynamic env's
+    // dashboard — the env this deploy uses has email ON (it works live today).
+    initialAuthenticationMode: 'connect-and-sign',
     // Show EVERY wallet the Dynamic dashboard enables (plus any EIP-6963 browser extension), but float
     // the popular ones to the top — the rest stay one scroll away. SortWallets REORDERS, never hides.
     walletsFilter: SortWallets([
@@ -49,10 +57,27 @@ export function buildDynamicSettings(): DynamicContextProps['settings'] {
     ],
     // EOA/WalletConnect sessions prefer our settlement chains first.
     walletConnectPreferredChains: SUPPORTED_CHAINS.map((c) => `eip155:${c.id}` as `eip155:${number}`),
-    // Theme the modal to the Access0x1 rail (cyan): inherits the app's --ax1-rail token through the
-    // shadow DOM, with a hex fallback. A merchant's own brandColor still themes their checkout page.
-    cssOverrides:
-      '.dynamic-shadow-dom { --dynamic-brand-primary-color: var(--ax1-rail, #22d3ee); --dynamic-border-radius: 16px; }',
+    // Render the modal on the DARK "night water" chassis so it doesn't flash a
+    // white sheet over the dark app. The dark palette is selected via the
+    // provider's `theme="dark"` prop (a sibling of `settings`, set in
+    // MerchantProviders — ThemeSetting = 'light' | 'dark' | 'auto', verified in
+    // the installed @dynamic-labs/sdk-react-core). Here we tune that dark scale to
+    // OUR chassis exactly (Dynamic's dark base is a near-black; ours is ink
+    // #0B1020 / surface #11162A / line #283153) and keep the cyan brand. These are
+    // the SDK's real shadow-DOM variables (grepped from the installed package):
+    // --dynamic-base-1..4 are the surface scale, --dynamic-border-color the lines,
+    // --dynamic-brand-primary-color the CTA. A merchant's own brandColor still
+    // themes their checkout page (independent of this chassis).
+    cssOverrides: `.dynamic-shadow-dom {
+      --dynamic-brand-primary-color: var(--ax1-rail, #22d3ee);
+      --dynamic-border-radius: 16px;
+      --dynamic-base-1: #0b1020;
+      --dynamic-base-2: #11162a;
+      --dynamic-base-3: #1a2140;
+      --dynamic-base-4: #283153;
+      --dynamic-border-color: #283153;
+      --dynamic-connect-button-background: #11162a;
+    }`,
     overrides: {
       // Advertise every supported chain so the wallet can switch between them. Whether a chain can
       // actually be paid on is enforced at checkout (getRouterAddress) — never by hiding it here.

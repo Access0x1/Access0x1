@@ -175,6 +175,32 @@ are `__PLACEHOLDER__` tokens replaced at build time from your `NEXT_PUBLIC_*` en
 
 ---
 
+## Rebrand it — the whole theme is one token swap
+
+This starter's `app/app/globals.css` is intentionally minimal (just a reset + the
+`<PayButton>` spinner keyframe), so the bundled checkout inherits your own site's
+styles. If you want the **full branded app** (the reference example is the
+Access0x1 web app under `web/`, a Next + Tailwind + shadcn build), its entire
+look is a CSS-variable swap in one place — `web/app/globals.css`:
+
+- **Recolor the whole app** — edit three variables in `:root`:
+  - `--primary` (and the raw `--ax1-rail`) — your accent / primary-CTA color.
+  - `--background` — the page base.
+  - Every component reads these through the Tailwind tokens (`bg-primary`,
+    `text-foreground`, `border-border`, plus the legacy `text-ink` / `bg-rail`,
+    which are now driven by `--foreground` / `--primary`), so one edit re-themes
+    every screen. No per-component find-and-replace.
+- **Dark by default, `.light` for light clones** — `:root` is the dark "night
+  water" chassis; the `.light` class is the same tokens swapped to a bright
+  surface. It is used deliberately for light islands (the merchant-preview card
+  and the white-label customer checkout card), and a light-first clone can apply
+  `.light` at the root to flip the whole app.
+- **Per-merchant white-label is separate** — a merchant's own `brandColor` is
+  applied via inline style at checkout render time, independent of your chassis,
+  so their checkout themes to *their* brand while your app keeps yours.
+
+---
+
 ## Truth-in-copy (LAW #4)
 
 - The "Pay with USDC — no gas fee" label is shown **only on Arc**, where USDC is the native gas

@@ -169,7 +169,7 @@ export function BrandingForm({
   if (!tenantId) {
     return (
       <div className="flex flex-col items-start gap-4">
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-muted-foreground">
           Sign in to set your name, description, and logo. It takes under two minutes.
         </p>
       </div>
@@ -183,7 +183,7 @@ export function BrandingForm({
 
   const slugBadge = effectiveSlug
     ? slugState.checking
-      ? { text: 'Checking…', cls: 'text-neutral-400' }
+      ? { text: 'Checking…', cls: 'text-muted-foreground' }
       : !slugState.valid
         ? { text: 'Letters, numbers, hyphens', cls: 'text-amber-600' }
         : slugState.available
@@ -197,7 +197,7 @@ export function BrandingForm({
       <div className="flex flex-col gap-2">
         <label className="flex flex-col gap-1">
           <span className="font-medium text-ink">What is your business called?</span>
-          <span className="text-sm text-neutral-500">
+          <span className="text-sm text-muted-foreground">
             This is the name customers see when they pay — on your checkout page and right inside
             their wallet.
           </span>
@@ -207,14 +207,14 @@ export function BrandingForm({
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Joe's Barbershop"
             maxLength={80}
-            className="mt-1 rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-rail"
+            className="mt-1 rounded-lg border border-input px-3 py-2 outline-none focus:border-rail"
           />
         </label>
 
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-ink">Your checkout link</span>
-          <div className="flex items-stretch overflow-hidden rounded-lg border border-neutral-300 focus-within:border-rail">
-            <span className="flex items-center bg-neutral-100 px-3 text-sm text-neutral-500">
+          <div className="flex items-stretch overflow-hidden rounded-lg border border-input focus-within:border-rail">
+            <span className="flex items-center bg-secondary px-3 text-sm text-muted-foreground">
               {linkPrefix}
             </span>
             <input
@@ -234,7 +234,7 @@ export function BrandingForm({
             ) : null}
           </div>
           {slugState.suggestions.length > 0 ? (
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-muted-foreground">
               Try:{' '}
               {slugState.suggestions.map((s, i) => (
                 <button
@@ -252,7 +252,7 @@ export function BrandingForm({
               ))}
             </p>
           ) : null}
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-muted-foreground">
             Pick this carefully — it goes on every receipt and QR code you hand out, so it stays the
             same once you share it.
           </p>
@@ -262,7 +262,7 @@ export function BrandingForm({
       {/* 2) One-line description */}
       <label className="flex flex-col gap-1">
         <span className="font-medium text-ink">Tell customers what you do — in one line.</span>
-        <span className="text-sm text-neutral-500">
+        <span className="text-sm text-muted-foreground">
           A short, plain-English description. It shows up under your name when someone pays.
         </span>
         <input
@@ -271,14 +271,14 @@ export function BrandingForm({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="e.g. Fresh cuts & hot-towel shaves in Brooklyn"
           maxLength={140}
-          className="mt-1 rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-rail"
+          className="mt-1 rounded-lg border border-input px-3 py-2 outline-none focus:border-rail"
         />
       </label>
 
       {/* 3) Logo + brand color */}
       <div className="flex flex-col gap-2">
         <span className="font-medium text-ink">Add your logo.</span>
-        <span className="text-sm text-neutral-500">
+        <span className="text-sm text-muted-foreground">
           Drag in a square image (we recommend 200×200, PNG, SVG, or JPG). We&apos;ll show it on
           your checkout and in the wallet.
         </span>
@@ -286,7 +286,7 @@ export function BrandingForm({
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+            className="rounded-lg border border-input px-4 py-2 text-sm hover:bg-secondary"
           >
             {logoSvg ? 'Replace logo' : 'Choose a file'}
           </button>
@@ -294,12 +294,12 @@ export function BrandingForm({
             <button
               type="button"
               onClick={() => setLogoSvg(undefined)}
-              className="text-sm text-neutral-500 underline-offset-2 hover:underline"
+              className="text-sm text-muted-foreground underline-offset-2 hover:underline"
             >
               Skip for now — I&apos;ll add a logo later
             </button>
           ) : (
-            <span className="text-sm text-neutral-400">
+            <span className="text-sm text-muted-foreground">
               No logo? We&apos;ll use your initials on your brand color.
             </span>
           )}
@@ -313,13 +313,13 @@ export function BrandingForm({
               if (f) void handleLogoFile(f)
             }}
           />
-          <label className="ml-auto flex items-center gap-2 text-sm text-neutral-500">
+          <label className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
             Brand color
             <input
               type="color"
               value={hexForInput(brandColor)}
               onChange={(e) => setBrandColor(e.target.value)}
-              className="h-8 w-10 cursor-pointer rounded border border-neutral-300"
+              className="h-8 w-10 cursor-pointer rounded border border-input"
               aria-label="Brand color"
             />
           </label>
@@ -327,9 +327,13 @@ export function BrandingForm({
         {logoError ? <p className="text-sm text-red-600">{logoError}</p> : null}
       </div>
 
-      {/* Live preview — the result before saving (CR live-preview law) */}
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
-        <p className="mb-3 text-xs font-medium uppercase tracking-widest text-neutral-400">
+      {/* Live preview — the result before saving (CR live-preview law). A
+          DELIBERATE `.light` island: this shows the customer-facing checkout,
+          which is a bright white-label card, so it stays light on the dark app
+          chassis. `.light` re-defines --foreground/--card within it, so
+          BrandPreview's `text-ink` reads dark-on-light here. */}
+      <div className="light rounded-2xl border border-border bg-card p-5">
+        <p className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           This is what customers see
         </p>
         <BrandPreview
@@ -382,13 +386,15 @@ function DoneScreen({
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold text-ink">{branding.displayName} is set up.</h2>
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-muted-foreground">
           Your branded checkout page is ready to share. To start accepting USDC, finish the quick
           one-time on-chain setup from your dashboard.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
+      {/* The customer-facing preview stays a bright white-label island (`.light`)
+          on the dark chassis, so BrandPreview's `text-ink` reads dark-on-light. */}
+      <div className="light rounded-2xl border border-border bg-card p-5">
         <BrandPreview
           name={branding.displayName}
           description={branding.description}
@@ -409,7 +415,7 @@ function DoneScreen({
       >
         Switch on payments →
       </a>
-      <p className="-mt-3 text-xs text-neutral-500">
+      <p className="-mt-3 text-xs text-muted-foreground">
         Your link is branded and ready to share, but it can’t take USDC until you finish the quick
         one-time on-chain setup on your dashboard.
       </p>
@@ -423,14 +429,14 @@ function DoneScreen({
           href={link || '#'}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-ink hover:bg-neutral-50"
+          className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-ink hover:bg-secondary"
         >
           Test it
         </a>
         <button
           type="button"
           onClick={onEditAgain}
-          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-ink hover:bg-neutral-50"
+          className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-ink hover:bg-secondary"
         >
           Edit name, description, or logo
         </button>
@@ -455,7 +461,7 @@ function CopyRow({
       <span className="text-sm font-medium text-ink">{label}</span>
       <div className="flex items-start gap-2">
         <code
-          className={`grow break-all rounded-lg bg-neutral-100 px-3 py-2 ${mono ? 'text-xs' : 'text-sm'}`}
+          className={`grow break-all rounded-lg bg-secondary px-3 py-2 ${mono ? 'text-xs' : 'text-sm'}`}
         >
           {value}
         </code>
@@ -467,7 +473,7 @@ function CopyRow({
               setTimeout(() => setCopied(false), 1500)
             })
           }}
-          className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+          className="shrink-0 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-secondary"
         >
           {copied ? 'Copied' : 'Copy'}
         </button>
