@@ -38,7 +38,7 @@ export function OnboardView(): ReactNode {
         <ConnectButton />
       </header>
 
-      <p className="text-sm text-neutral-500">
+      <p className="text-sm text-muted-foreground">
         Access0x1 turns your business into a crypto-friendly storefront — a branded checkout link that
         accepts USDC, with no code, no contract, and no gas to manage. Set your name, a one-line
         description, and a logo below to get yours, live in under two minutes.
@@ -46,25 +46,25 @@ export function OnboardView(): ReactNode {
 
       {showCards ? (
         <>
-          <section className="rounded-2xl border border-neutral-200 p-6">
+          <section className="rounded-2xl border border-border bg-card p-6">
             <BrandingForm mode="onboard" />
           </section>
 
-          <section className="rounded-2xl border border-neutral-200 p-6">
-            <p className="mb-4 text-xs font-medium uppercase tracking-widest text-neutral-400">
+          <section className="rounded-2xl border border-border bg-card p-6">
+            <p className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Optional — you can skip this and decide later
             </p>
             <CheckoutModeForm mode="onboard" />
           </section>
 
           <section className="flex flex-col gap-3">
-            <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Optional — raise your own trust level
             </p>
             <VerificationLevelsPanel />
           </section>
 
-          <p className="text-center text-xs text-neutral-400">
+          <p className="text-center text-xs text-muted-foreground">
             Already taking payments and want the on-chain settings? Open your{' '}
             <a href="/dashboard" className="text-rail underline-offset-2 hover:underline">
               dashboard
@@ -77,13 +77,13 @@ export function OnboardView(): ReactNode {
         // ConnectButton + a short "what you'll build" line. Not three empty
         // card boxes each repeating a sign-in prompt.
         <section
-          className="flex flex-col items-center gap-5 rounded-2xl border border-neutral-200 px-6 py-12 text-center"
+          className="flex flex-col items-center gap-5 rounded-2xl border border-border bg-card px-6 py-12 text-center"
           data-onboard-gate="connect"
         >
           <h2 className="font-display text-xl font-semibold text-foreground">
             Sign in to build your checkout
           </h2>
-          <p className="max-w-sm text-sm text-neutral-500">
+          <p className="max-w-sm text-sm text-muted-foreground">
             Connect your wallet and you’ll set your business name, a one-line description, and a logo
             — then get a branded checkout link that accepts USDC. It takes under two minutes.
           </p>

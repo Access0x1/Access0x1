@@ -102,13 +102,13 @@ export function AskAssistant({
   }
 
   return (
-    <div className="fixed bottom-4 right-4 flex w-80 flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-xl">
+    <div className="fixed bottom-4 right-4 flex w-80 flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-xl">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-ink">Ask Access0x1</span>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="text-neutral-400 hover:text-ink"
+          className="text-muted-foreground hover:text-ink"
           aria-label="Close assistant"
         >
           ✕
@@ -121,7 +121,7 @@ export function AskAssistant({
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="How do I integrate Access0x1?"
           rows={3}
-          className="resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-rail"
+          className="resize-none rounded-lg border border-input px-3 py-2 text-sm outline-none focus:border-rail"
         />
         <button
           type="submit"
@@ -139,7 +139,7 @@ export function AskAssistant({
 
       <a
         href="/ask"
-        className="text-xs text-neutral-400 underline-offset-2 hover:text-ink hover:underline"
+        className="text-xs text-muted-foreground underline-offset-2 hover:text-ink hover:underline"
       >
         Open the full assistant →
       </a>

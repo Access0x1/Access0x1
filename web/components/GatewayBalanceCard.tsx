@@ -140,13 +140,13 @@ export function GatewayBalanceCard(): ReactNode {
   const destLabel = DESTINATIONS.find((d) => d.key === dest)?.label ?? dest
 
   return (
-    <section className="rounded-2xl border border-neutral-200 p-5">
+    <section className="rounded-2xl border border-border p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-neutral-500">Settled balance (Circle Gateway)</h2>
+        <h2 className="text-sm font-medium text-muted-foreground">Settled balance (Circle Gateway)</h2>
         <button
           type="button"
           onClick={() => void loadBalance()}
-          className="text-xs text-neutral-400 hover:text-neutral-600"
+          className="text-xs text-muted-foreground hover:text-muted-foreground"
         >
           refresh
         </button>
@@ -155,11 +155,11 @@ export function GatewayBalanceCard(): ReactNode {
       <div className="mt-2 flex items-baseline gap-6">
         <div>
           <div className="text-2xl font-semibold text-ink">${bal ? fmtUsdc(bal.gateway) : '—'}</div>
-          <div className="text-xs text-neutral-400">available to withdraw</div>
+          <div className="text-xs text-muted-foreground">available to withdraw</div>
         </div>
         <div>
-          <div className="text-sm text-neutral-600">${bal ? fmtUsdc(bal.wallet) : '—'}</div>
-          <div className="text-xs text-neutral-400">payout wallet</div>
+          <div className="text-sm text-muted-foreground">${bal ? fmtUsdc(bal.wallet) : '—'}</div>
+          <div className="text-xs text-muted-foreground">payout wallet</div>
         </div>
       </div>
 
@@ -167,28 +167,28 @@ export function GatewayBalanceCard(): ReactNode {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-4 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+          className="mt-4 rounded-lg border border-input px-3 py-1.5 text-sm hover:bg-secondary"
         >
           Withdraw…
         </button>
       ) : (
         <div className="mt-4 flex flex-col gap-3 border-t border-neutral-100 pt-4">
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-neutral-500">Amount (USDC)</span>
+            <span className="text-muted-foreground">Amount (USDC)</span>
             <input
               value={amount}
               onChange={(e) => onEdit(setAmount)(e.target.value)}
               inputMode="decimal"
               placeholder="0.00"
-              className="rounded-lg border border-neutral-300 px-3 py-1.5"
+              className="rounded-lg border border-input px-3 py-1.5"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-neutral-500">Destination chain</span>
+            <span className="text-muted-foreground">Destination chain</span>
             <select
               value={dest}
               onChange={(e) => onEdit(setDest)(e.target.value)}
-              className="rounded-lg border border-neutral-300 px-3 py-1.5"
+              className="rounded-lg border border-input px-3 py-1.5"
             >
               {DESTINATIONS.map((d) => (
                 <option key={d.key} value={d.key}>
@@ -198,12 +198,12 @@ export function GatewayBalanceCard(): ReactNode {
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-neutral-500">Recipient address</span>
+            <span className="text-muted-foreground">Recipient address</span>
             <input
               value={recipient}
               onChange={(e) => onEdit(setRecipient)(e.target.value)}
               placeholder="0x…"
-              className="rounded-lg border border-neutral-300 px-3 py-1.5 font-mono text-xs"
+              className="rounded-lg border border-input px-3 py-1.5 font-mono text-xs"
             />
           </label>
 
@@ -236,7 +236,7 @@ export function GatewayBalanceCard(): ReactNode {
                   type="button"
                   disabled={submitting}
                   onClick={() => setConfirming(false)}
-                  className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
+                  className="rounded-lg border border-input px-4 py-2 text-sm"
                 >
                   Cancel
                 </button>

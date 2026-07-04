@@ -7,10 +7,10 @@ import { JUDGE_BOT_TAGLINE } from '@/lib/judge/facts'
 /**
  * AskView — the judge-facing Q&A chat UI for the /ask page.
  *
- * Renders an input + send button + a streamed answer area, styled to match the
- * rest of the app (white bg, --ax1-ink text, --ax1-rail indigo accent). It POSTs
- * the question to /api/ask and streams the text/plain response into the answer
- * area token-by-token.
+ * Renders an input + send button + a streamed answer area on the dark app
+ * chassis (bg-card/bg-secondary surfaces, foreground text, the cyan --ax1-rail
+ * accent). It POSTs the question to /api/ask and streams the text/plain response
+ * into the answer area token-by-token.
  *
  * Fail-soft capability gate: /ask is a routable page, so unlike the floating
  * widget it cannot simply vanish — instead it probes GET /api/ask (the
@@ -146,7 +146,7 @@ export function AskView({
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           Ask Access0x1
         </h1>
-        <p className="text-sm leading-relaxed text-neutral-600">{JUDGE_BOT_TAGLINE}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{JUDGE_BOT_TAGLINE}</p>
       </header>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3" aria-label="Ask a question">
@@ -172,10 +172,10 @@ export function AskView({
               ? 'Unavailable on this deployment'
               : 'e.g. How does the net + fee == gross invariant work?'
           }
-          className="w-full resize-y rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm leading-relaxed text-[var(--ax1-ink)] outline-none transition focus:border-[var(--ax1-rail)] focus:ring-2 focus:ring-[var(--ax1-rail)]/20 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-400"
+          className="w-full resize-y rounded-xl border border-input bg-card px-4 py-3 text-sm leading-relaxed text-foreground outline-none transition focus:border-[var(--ax1-rail)] focus:ring-2 focus:ring-[var(--ax1-rail)]/20 disabled:cursor-not-allowed disabled:bg-secondary disabled:text-muted-foreground"
         />
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-neutral-400">
+          <span className="text-xs text-muted-foreground">
             Grounded in the repo · testnet build · no mainnet claims
           </span>
           <button
@@ -199,7 +199,7 @@ export function AskView({
               void ask(s)
             }}
             disabled={loading || unconfigured}
-            className="rounded-full border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 transition hover:border-[var(--ax1-rail)] hover:text-[var(--ax1-ink)] disabled:opacity-40"
+            className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-[var(--ax1-rail)] hover:text-foreground disabled:opacity-40"
           >
             {s}
           </button>
@@ -209,23 +209,23 @@ export function AskView({
       <section
         data-testid="ask-answer"
         aria-live="polite"
-        className="min-h-[8rem] rounded-2xl border border-neutral-200 bg-neutral-50 px-5 py-4 text-sm leading-relaxed text-[var(--ax1-ink)]"
+        className="min-h-[8rem] rounded-2xl border border-border bg-secondary px-5 py-4 text-sm leading-relaxed text-foreground"
       >
         {unconfigured ? (
-          <p className="text-neutral-500">{NOT_CONFIGURED_MSG}</p>
+          <p className="text-muted-foreground">{NOT_CONFIGURED_MSG}</p>
         ) : error ? (
           <p className="text-[var(--destructive,#dc2626)]">{error}</p>
         ) : answer ? (
           <p className="whitespace-pre-wrap">{answer}</p>
         ) : (
-          <p className="text-neutral-400">
+          <p className="text-muted-foreground">
             {loading ? 'Thinking…' : 'The answer will stream in here.'}
           </p>
         )}
       </section>
 
-      <footer className="mt-auto pt-6 text-xs text-neutral-400">
-        <a href="/onboard" className="underline transition hover:text-[var(--ax1-ink)]">
+      <footer className="mt-auto pt-6 text-xs text-muted-foreground">
+        <a href="/onboard" className="underline transition hover:text-foreground">
           ← Back to Access0x1
         </a>
       </footer>

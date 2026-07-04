@@ -86,7 +86,7 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
   return (
     <main className="mx-auto flex max-w-md flex-col gap-6 px-6 py-16">
       {loading ? (
-        <div className="h-64 animate-pulse rounded-2xl bg-neutral-100" />
+        <div className="h-64 animate-pulse rounded-2xl bg-secondary" />
       ) : loadError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
           {loadError === 'not_found'
@@ -94,8 +94,13 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
             : 'Could not load this checkout. Please try again.'}
         </div>
       ) : branding ? (
+        // The white-label checkout card is a DELIBERATE bright island (`.light`)
+        // on the dark app chassis — it is the merchant's own storefront, so it
+        // stays light and themes to their brandColor (inline style, preserved
+        // exactly). `.light` re-defines the surface/text tokens within it, so
+        // bg-card/border-border/text-ink inside read as a clean light card.
         <section
-          className="rounded-2xl border border-neutral-200 p-6"
+          className="light rounded-2xl border border-border bg-card p-6 text-foreground"
           style={{ borderTopColor: branding.brandColor, borderTopWidth: 3 }}
         >
           <div className="mb-5">
@@ -140,12 +145,12 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
               })()}
             />
           ) : (
-            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+            <div className="rounded-xl border border-border bg-secondary p-4 text-sm text-muted-foreground">
               {branding.name} hasn&apos;t switched on payments yet. Check back soon.
             </div>
           )}
 
-          <p className="mt-5 flex items-center justify-center gap-1.5 border-t border-neutral-100 pt-4 text-center text-xs text-neutral-400">
+          <p className="mt-5 flex items-center justify-center gap-1.5 border-t border-border pt-4 text-center text-xs text-muted-foreground">
             <span>Powered by</span>
             <BrandMark size={14} />
           </p>

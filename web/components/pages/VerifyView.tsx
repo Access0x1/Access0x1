@@ -23,13 +23,13 @@ export function VerifyView(): ReactNode {
         <ConnectButton />
       </header>
 
-      <p className="text-sm text-neutral-600">
+      <p className="text-sm text-muted-foreground">
         There are many ways to prove you&apos;re real. Each one you add raises your trust — verify
         enough and you become <span className="font-medium text-rail">Super Verified</span>, the
         highest tier. Merchants can choose to accept only verified or Super Verified buyers.
       </p>
 
-      <section className="rounded-2xl border border-neutral-200 p-6">
+      <section className="rounded-2xl border border-border bg-card p-6">
         <VerificationStack />
       </section>
 

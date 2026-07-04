@@ -49,7 +49,7 @@ export function FundButton({
 
   return (
     <div
-      className="flex flex-col gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-4"
+      className="flex flex-col gap-2 rounded-xl border border-border bg-secondary p-4"
       data-funding="true"
       data-bank={bank ? 'true' : 'false'}
       data-onetap={oneTap ? 'true' : 'false'}

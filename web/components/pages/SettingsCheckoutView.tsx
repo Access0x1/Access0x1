@@ -22,7 +22,7 @@ export function SettingsCheckoutView(): ReactNode {
         <ConnectButton />
       </header>
 
-      <section className="rounded-2xl border border-neutral-200 p-6">
+      <section className="rounded-2xl border border-border bg-card p-6">
         <CheckoutModeForm mode="settings" />
       </section>
 

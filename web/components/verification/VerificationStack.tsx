@@ -74,7 +74,7 @@ export function VerificationStack(): ReactNode {
   if (!user) {
     return (
       <div className="flex flex-col items-start gap-4">
-        <p className="text-sm text-neutral-600">Connect your wallet to start verifying.</p>
+        <p className="text-sm text-muted-foreground">Connect your wallet to start verifying.</p>
         <ConnectButton />
       </div>
     )
@@ -100,7 +100,7 @@ export function VerificationStack(): ReactNode {
             <li
               key={method}
               className={`rounded-xl border p-4 transition-colors ${
-                complete ? 'border-green-300 bg-green-50' : 'border-neutral-200'
+                complete ? 'border-green-300 bg-green-50' : 'border-border'
               }`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -109,7 +109,7 @@ export function VerificationStack(): ReactNode {
                     {complete ? '✓ ' : ''}
                     {info.label}
                   </span>
-                  <span className="text-sm text-neutral-500">{info.adds}</span>
+                  <span className="text-sm text-muted-foreground">{info.adds}</span>
                 </div>
                 {complete ? (
                   <span className="shrink-0 text-sm font-medium text-green-700">Verified</span>
@@ -149,7 +149,7 @@ export function VerificationStack(): ReactNode {
                         value={ensName}
                         onChange={(e) => setEnsName(e.target.value)}
                         placeholder="yourname.eth"
-                        className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                        className="flex-1 rounded-lg border border-input px-3 py-2 text-sm"
                         aria-label="Your ENS name"
                       />
                       <button

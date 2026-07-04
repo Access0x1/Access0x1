@@ -158,7 +158,7 @@ export function CheckoutModeForm({
   if (!tenantId) {
     return (
       <div className="flex flex-col items-start gap-4">
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-muted-foreground">
           Sign in to choose how customers pay you.
         </p>
       </div>
@@ -185,7 +185,7 @@ export function CheckoutModeForm({
           />
           <span className="flex flex-col gap-1">
             <span className="font-medium text-ink">This is a casino (play or wagering access)</span>
-            <span className="text-sm text-neutral-600">
+            <span className="text-sm text-muted-foreground">
               Casinos must verify with World ID. Verifying proves a real, unique person is running
               the casino and makes every player pass the World ID gate — so your checkout shows the
               “Verified Humans Only · World ID” badge. World ID proves a unique human only; it is not
@@ -233,7 +233,7 @@ export function CheckoutModeForm({
 
       <div>
         <h2 className="font-medium text-ink">Who can pay you, and how?</h2>
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-muted-foreground">
           {isCasino
             ? 'Casinos are set to verified real people (World ID) — this is locked while “casino” is on.'
             : 'Pick one. You can change this any time — and use a different choice on different products.'}
@@ -250,8 +250,8 @@ export function CheckoutModeForm({
                 isCasino ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
               } ${
                 selected
-                  ? 'border-rail bg-neutral-50'
-                  : 'border-neutral-200 hover:border-neutral-300'
+                  ? 'border-rail bg-secondary'
+                  : 'border-border hover:border-input'
               }`}
             >
               <input
@@ -265,23 +265,23 @@ export function CheckoutModeForm({
               />
               <span className="flex flex-col gap-1">
                 <span className="font-medium text-ink">{opt.label}</span>
-                <span className="text-sm text-neutral-500">{opt.helper}</span>
+                <span className="text-sm text-muted-foreground">{opt.helper}</span>
               </span>
             </label>
           )
         })}
       </fieldset>
 
-      <p className="rounded-lg bg-neutral-50 p-3 text-xs text-neutral-500">
+      <p className="rounded-lg bg-secondary p-3 text-xs text-muted-foreground">
         These pull in opposite directions. “Verified people” is about proving who someone is;
         “Private” is about hiding the trail. For a single payment you pick one — you can’t both
         prove who someone is and hide who they are at the same moment. We give you both; you choose.
       </p>
 
-      <div className="flex flex-col gap-3 border-t border-neutral-100 pt-5">
+      <div className="flex flex-col gap-3 border-t border-border pt-5">
         <div>
           <h2 className="font-medium text-ink">How verified must buyers be?</h2>
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-muted-foreground">
             Buyers raise their trust at the verification page. Require a tier and only buyers who
             meet it can pay.
           </p>
@@ -292,8 +292,8 @@ export function CheckoutModeForm({
               key={opt.value}
               className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition-colors ${
                 requiredTier === opt.value
-                  ? 'border-rail bg-neutral-50'
-                  : 'border-neutral-200 hover:border-neutral-300'
+                  ? 'border-rail bg-secondary'
+                  : 'border-border hover:border-input'
               }`}
             >
               <input
@@ -306,7 +306,7 @@ export function CheckoutModeForm({
               />
               <span className="flex flex-col gap-1">
                 <span className="font-medium text-ink">{opt.label}</span>
-                <span className="text-sm text-neutral-500">{opt.helper}</span>
+                <span className="text-sm text-muted-foreground">{opt.helper}</span>
               </span>
             </label>
           ))}

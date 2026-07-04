@@ -17,7 +17,7 @@ function CopyButton({ value }: { value: string }): ReactNode {
           setTimeout(() => setCopied(false), 1500)
         })
       }}
-      className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+      className="shrink-0 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-secondary"
     >
       {copied ? 'Copied' : 'Copy'}
     </button>
@@ -52,7 +52,7 @@ export function LinkCard({ result }: { result: RegisterResult }): ReactNode {
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold text-ink">{result.name} is live</h2>
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-muted-foreground">
           Merchant #{result.merchantId.toString()} · ${result.priceUsd} · chain {result.chainId}
         </p>
       </div>
@@ -60,7 +60,7 @@ export function LinkCard({ result }: { result: RegisterResult }): ReactNode {
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium text-ink">Payment link</span>
         <div className="flex items-center gap-2">
-          <code className="grow truncate rounded-lg bg-neutral-100 px-3 py-2 text-sm">{link}</code>
+          <code className="grow truncate rounded-lg bg-secondary px-3 py-2 text-sm">{link}</code>
           <CopyButton value={link} />
         </div>
       </div>
@@ -68,7 +68,7 @@ export function LinkCard({ result }: { result: RegisterResult }): ReactNode {
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium text-ink">Embed snippet</span>
         <div className="flex items-start gap-2">
-          <code className="grow whitespace-pre-wrap break-all rounded-lg bg-neutral-100 px-3 py-2 text-xs">
+          <code className="grow whitespace-pre-wrap break-all rounded-lg bg-secondary px-3 py-2 text-xs">
             {snippet}
           </code>
           <CopyButton value={snippet} />
@@ -90,7 +90,7 @@ export function LinkCard({ result }: { result: RegisterResult }): ReactNode {
             </a>
           </>
         ) : (
-          <div className="h-[240px] w-[240px] animate-pulse rounded-lg bg-neutral-100" />
+          <div className="h-[240px] w-[240px] animate-pulse rounded-lg bg-secondary" />
         )}
       </div>
 
@@ -103,14 +103,14 @@ export function LinkCard({ result }: { result: RegisterResult }): ReactNode {
         </a>
         <a
           href="/dashboard"
-          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-ink hover:bg-neutral-50"
+          className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-ink hover:bg-secondary"
         >
           View dashboard
         </a>
       </div>
 
-      <p className="text-xs text-neutral-400">
-        tx <TxHashLink chainId={result.chainId} hash={result.txHash} className="font-mono text-neutral-500 underline-offset-2 hover:underline" />
+      <p className="text-xs text-muted-foreground">
+        tx <TxHashLink chainId={result.chainId} hash={result.txHash} className="font-mono text-muted-foreground underline-offset-2 hover:underline" />
       </p>
     </div>
   )
