@@ -41,21 +41,25 @@ import type { NextConfig } from 'next'
  *   - `style-src 'unsafe-inline'` is required by Tailwind/Next inline styles and
  *     the brand-color inline `style={{ background }}` on the checkout card.
  *   - `img-src` allows `data:`/`blob:` so sanitized inline-SVG logos, wrapped
- *     raster data-URIs, and generated QR codes render.
+ *     raster data-URIs, and generated QR codes render — PLUS Dynamic's wallet-icon
+ *     CDN (`iconic.dynamic-static-assets.com`) and WalletConnect's wallet-logo API
+ *     (`explorer-api.walletconnect.com`), or the sign-in modal shows blank wallet
+ *     tiles (the icons are `<img>`s from those hosts, not inline SVG).
  *   - `connect-src` allows `https:`/`wss:` because wallet RPC endpoints, Dynamic
  *     auth, World ID, and Google OIDC live on many origins that vary per chain.
- *   - `frame-ancestors 'none'` + `object-src 'none'` kill clickjacking and
- *     plugin-based execution; `base-uri`/`form-action 'self'` block base-tag and
- *     form-action hijacking.
+ *   - `frame-src` allows `app.dynamicauth.com` for Dynamic's embedded-wallet /
+ *     social-auth iframe; `frame-ancestors 'none'` + `object-src 'none'` kill
+ *     clickjacking and plugin execution; `base-uri`/`form-action 'self'` block
+ *     base-tag and form-action hijacking.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://iconic.dynamic-static-assets.com https://dynamic-static-assets.com https://explorer-api.walletconnect.com",
   "font-src 'self' data:",
   "connect-src 'self' https: wss:",
-  "frame-src 'self'",
+  "frame-src 'self' https://app.dynamicauth.com",
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",

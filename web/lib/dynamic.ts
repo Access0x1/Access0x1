@@ -1,5 +1,6 @@
 import { EthereumWalletConnectors } from '@dynamic-labs/ethereum'
 import { SortWallets, type DynamicContextProps } from '@dynamic-labs/sdk-react-core'
+import { SdkViewType, SdkViewSectionType } from '@dynamic-labs/sdk-api-core'
 import { SUPPORTED_CHAINS } from './chains'
 
 /**
@@ -79,6 +80,26 @@ export function buildDynamicSettings(): DynamicContextProps['settings'] {
       --dynamic-connect-button-background: #11162a;
     }`,
     overrides: {
+      // LOGIN METHOD ORDER (owner directive): Google first, then email, then wallets.
+      // Sections render top-to-bottom in array order (SdkView.sections). The Social
+      // section features Google as its prominent `defaultItem`; it renders ONLY the
+      // social providers the Dynamic env actually enables, so this is safe/inert
+      // until Google is turned on for the env (env a4e189dd currently has email +
+      // embedded only — enabling Google needs its OAuth client + dashboard step;
+      // when enabled it appears FIRST here, no code change). Separators label the
+      // "or" dividers. Wallet section keeps the walletsFilter order below.
+      views: [
+        {
+          type: SdkViewType.Login,
+          sections: [
+            { type: SdkViewSectionType.Social, defaultItem: 'google' },
+            { type: SdkViewSectionType.Separator, label: 'or' },
+            { type: SdkViewSectionType.Email },
+            { type: SdkViewSectionType.Separator, label: 'or' },
+            { type: SdkViewSectionType.Wallet },
+          ],
+        },
+      ],
       // Advertise every supported chain so the wallet can switch between them. Whether a chain can
       // actually be paid on is enforced at checkout (getRouterAddress) — never by hiding it here.
       evmNetworks: SUPPORTED_CHAINS.map((chain) => ({
