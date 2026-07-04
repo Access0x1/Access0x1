@@ -1,0 +1,37 @@
+<svg width="280" height="64" viewBox="0 0 280 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Access0x1 horizontal lockup — mark + "Access0x1" wordmark
+    Mark is 64×64, wordmark starts at x=80
+    Font: geometric sans (Inter / Space Grotesk); rendered as paths for portability
+    Fallback: text element with system stack
+  -->
+
+  <!-- === MARK (same glyph as access0x1-mark.svg) === -->
+
+  <!-- Left pylon -->
+  <rect x="6" y="16" width="12" height="42" rx="3" fill="#22D3EE"/>
+  <!-- Right pylon -->
+  <rect x="46" y="16" width="12" height="42" rx="3" fill="#22D3EE"/>
+  <!-- Top span left -->
+  <rect x="6" y="6" width="22" height="12" rx="3" fill="#22D3EE"/>
+  <!-- Top span right -->
+  <rect x="36" y="6" width="22" height="12" rx="3" fill="#22D3EE"/>
+  <!-- Base rail -->
+  <rect x="6" y="54" width="52" height="4" rx="2" fill="#2DD4BF"/>
+
+  <!-- === WORDMARK === -->
+  <!--
+    "Access0x1" set in a tight geometric sans.
+    x=80 aligns with 16px clearance after the 64px mark.
+    Baseline at y=44, size ~28px, letter-spacing -0.02em
+  -->
+  <text
+    x="80"
+    y="44"
+    font-family="'Space Grotesk', 'Inter Display', Inter, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="30"
+    font-weight="600"
+    letter-spacing="-0.5"
+    fill="#F5F7FB"
+  >Access0x1</text>
+</svg>
