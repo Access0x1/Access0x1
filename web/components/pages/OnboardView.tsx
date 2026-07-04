@@ -37,10 +37,10 @@ export function OnboardView(): ReactNode {
           <BrandMark size={18} />
           <PageHeading title="Make it yours" />
         </div>
-        {/* Ghost in the header so it never competes with the hero-gate's ONE
-            primary "Sign in" (single-CTA rule). When signed in this renders the
-            IdentityChip instead, and the hero gate is gone. */}
-        <ConnectButton variant="ghost" />
+        {/* SIGNED OUT: render NOTHING here — the hero-gate's one primary "Sign in"
+            is the ONLY sign-in (owner: "it should only have 1 sign in"). SIGNED IN:
+            the hero gate is gone, so the header carries the IdentityChip. */}
+        {primaryWallet ? <ConnectButton variant="ghost" /> : null}
       </header>
 
       <p className="text-sm text-muted-foreground">
