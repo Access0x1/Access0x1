@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { BrandMark } from '@/components/BrandMark'
 import { ConnectButton } from '@/components/ConnectButton'
 import { VerificationStack } from '@/components/verification/VerificationStack'
 import { PageHeading } from '@/components/ui/PageHeading'
@@ -16,7 +17,10 @@ export function VerifyView(): ReactNode {
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between">
-        <PageHeading eyebrow="Super Verification" title="Get Super Verified" />
+        <div className="flex flex-col gap-1">
+          <BrandMark size={18} />
+          <PageHeading eyebrow="Super Verification" title="Get Super Verified" />
+        </div>
         {/* Ghost in the header: when signed out, VerificationStack owns the ONE
             primary "Sign in" gate below; when signed in this becomes the
             IdentityChip (single-CTA rule). */}

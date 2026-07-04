@@ -6,6 +6,7 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { getDefaultChainId, getRouterAddress, tokenDecimalsFor } from '@/lib/chains'
 import { getPublicClient } from '@/lib/wallet'
 import { amount8ToUsd, formatTokenAmount } from '@/lib/quote'
+import { BrandMark } from '@/components/BrandMark'
 import { ConnectButton } from '@/components/ConnectButton'
 import { TxHashLink } from '@/components/TxHashLink'
 import { GatewayBalanceCard } from '@/components/GatewayBalanceCard'
@@ -235,7 +236,10 @@ export function DashboardView(): ReactNode {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-16">
       <header className="flex items-center justify-between">
-        <PageHeading title="Dashboard" />
+        <div className="flex flex-col gap-1">
+          <BrandMark size={18} />
+          <PageHeading title="Dashboard" />
+        </div>
         <ConnectButton />
       </header>
 

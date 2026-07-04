@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { BrandMark } from '@/components/BrandMark'
 import { ConnectButton } from '@/components/ConnectButton'
 import { CheckoutModeForm } from '@/components/branding/CheckoutModeForm'
 import { PageHeading } from '@/components/ui/PageHeading'
@@ -15,7 +16,10 @@ export function SettingsCheckoutView(): ReactNode {
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between">
-        <PageHeading eyebrow="Settings · Checkout" title="Who can pay you" />
+        <div className="flex flex-col gap-1">
+          <BrandMark size={18} />
+          <PageHeading eyebrow="Settings · Checkout" title="Who can pay you" />
+        </div>
         <ConnectButton variant="ghost" />
       </header>
 

@@ -1,0 +1,24 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Access0x1 mark — "the bridge" glyph
+    Motif: two pylons + a top span with a negative-space gap (the crossing/void).
+    Reads as: bridge, the letter H rotated, the "0x1" in the name.
+    Crisp at 32 px, bold at any size. No gradients, no curves in the core glyph.
+    Palette: accent #22D3EE (cyan), accent-2 #2DD4BF (teal), ink #0B1020
+  -->
+
+  <!-- Left pylon: tall vertical bar -->
+  <rect x="6" y="16" width="12" height="42" rx="3" fill="#22D3EE"/>
+
+  <!-- Right pylon: tall vertical bar -->
+  <rect x="46" y="16" width="12" height="42" rx="3" fill="#22D3EE"/>
+
+  <!-- Top span: horizontal bar connecting pylons, broken in center = the void/gap -->
+  <!-- Left half of span -->
+  <rect x="6" y="6" width="22" height="12" rx="3" fill="#22D3EE"/>
+  <!-- Right half of span -->
+  <rect x="36" y="6" width="22" height="12" rx="3" fill="#22D3EE"/>
+
+  <!-- Base rail: teal accent, unbroken — the ground/settled layer -->
+  <rect x="6" y="54" width="52" height="4" rx="2" fill="#2DD4BF"/>
+</svg>
