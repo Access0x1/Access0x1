@@ -202,11 +202,11 @@ src/
 └── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (1,392 tests)
+test/                        # unit · attack · invariant (1,489 tests)
 ```
 
-The full first-party surface is **20 production contracts + 2 libraries** (22 `.sol` files in
-`src/`, plus 16 interfaces): the money spine (`Access0x1Router`), the receipt
+The full first-party surface is **22 production contracts + 2 libraries** (24 `.sol` files in
+`src/`, plus 20 interfaces): the money spine (`Access0x1Router`), the receipt
 ledger (`PaymentLanes`), the agent-auth ledger (`SessionGrant`), the per-chain reference
 (`ChainRegistry`), the CRE audit consumer (`Access0x1Receiver`), the house-token factory +
 its `HouseToken`, the five commerce primitives (subscriptions · bookings · invoices · gift cards ·
@@ -277,7 +277,7 @@ git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
 make install           # forge submodules + npm (@chainlink) + web + SDK — one command
 make build             # forge build
-make test              # 1,392 tests, all green
+make test              # 1,489 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
@@ -794,7 +794,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **1,392 green** — unit · attack · invariant suites |
+| Tests | **1,489 green** across 109 suites — unit · attack · invariant |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |

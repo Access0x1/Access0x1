@@ -16,6 +16,15 @@
 > report should be read as a guarantee of safety. See §8 (Residual Risk &
 > Mainnet Readiness) for the honest disposition.
 >
+> **Scope snapshot (2026-07-02).** The counts in this report (20 contracts + 2
+> libraries + 16 interfaces; 1,392 tests / 104 suites) are the surface **as of the
+> report date** and are kept as the historical record. Two tokenization-kit
+> contracts landed the day after (`Access0x1RwaToken` — ERC-7943, and
+> `Access0x1Account` — ERC-6551, both 2026-07-03) with their own test suites,
+> growing `src/` to 22 contracts + 2 libraries and the suite to 1,489 tests / 109
+> suites; they are **not** covered by this report's manual review (§3–§7). Current
+> counts: the README badge / a fresh `forge test`.
+>
 > **Tool-honesty note.** Both static analysers were executed over the `src/`
 > surface; every result is triaged per-instance in [`audit/FINDINGS.md`](FINDINGS.md)
 > (the curated record — the raw generated reports are gitignored). The counts quoted

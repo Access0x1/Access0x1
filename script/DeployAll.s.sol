@@ -255,12 +255,37 @@ contract DeployAll is Script {
         require(!enforce || signer == mirrorDeployer, "DeployAll: signer != canonical mirror EOA");
     }
 
+    /// @notice The predicted CREATE3 mirror address for `label` — the same math the off-chain
+    ///         manifest uses: `guarded = keccak256(bytes32(deployer) ‖ rawSalt)`, then CreateX's
+    ///         `computeCreate3Address(guarded)` (CreateX itself is the CREATE3 deployer).
+    function _mirrorAddr(string memory label) private view returns (address) {
+        bytes32 guarded =
+            keccak256(abi.encodePacked(bytes32(uint256(uint160(deployer))), _mirrorSalt(label)));
+        return CREATEX.computeCreate3Address(guarded);
+    }
+
+    /// @notice Idempotent CREATE3 deploy: if `label`'s mirror address already carries code (an
+    ///         earlier wave landed it), SKIP the deploy and return the live address — so re-running
+    ///         DeployAll on a partially-deployed chain (e.g. Base Sepolia / Arc, which carry the
+    ///         pre-quintet set) deploys ONLY what is missing instead of reverting inside CreateX
+    ///         with `FailedContractCreation` on the first collision. On a fresh chain this is a
+    ///         pure pass-through.
+    function _create3(string memory label, bytes memory initCode) private returns (address addr) {
+        addr = _mirrorAddr(label);
+        if (addr.code.length > 0) {
+            console2.log(string.concat("  = already live, skipped: ", label), addr);
+            return addr;
+        }
+        addr = CREATEX.deployCreate3(_mirrorSalt(label), initCode);
+    }
+
     /// @notice CREATE3-deploy a UUPS implementation + its `ERC1967Proxy` at MIRROR addresses. Both land
     ///         at the same address on every chain (CREATE3 ignores init code). The proxy carries its
     ///         `initialize(...)` in its constructor (so it is initialized atomically and never left
     ///         uninitialized — OZ 5.x rejects empty proxy data); CREATE3 keeps its address salt-only
     ///         regardless of that chain-specific init data. The impl ran `_disableInitializers()` in its
-    ///         constructor, so it can never be initialized directly.
+    ///         constructor, so it can never be initialized directly. Idempotent via {_create3}: on a
+    ///         chain where impl/proxy already live at their mirror addresses, the live ones are reused.
     /// @param  label        The contract's salt label (impl uses `<label>.impl`, proxy `<label>.proxy`).
     /// @param  implInitCode The implementation's full creation code (`type(C).creationCode`).
     /// @param  initCalldata The ABI-encoded initializer (`abi.encodeCall(C.initialize, (..))`).
@@ -269,12 +294,11 @@ contract DeployAll is Script {
         private
         returns (address proxy)
     {
-        address impl =
-            CREATEX.deployCreate3(_mirrorSalt(string.concat(label, ".impl")), implInitCode);
+        address impl = _create3(string.concat(label, ".impl"), implInitCode);
         _record(label, impl); // the implementation — verified AS <label> (its real source)
         bytes memory proxyInitCode =
             abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(impl, initCalldata));
-        proxy = CREATEX.deployCreate3(_mirrorSalt(string.concat(label, ".proxy")), proxyInitCode);
+        proxy = _create3(string.concat(label, ".proxy"), proxyInitCode);
         _record("ERC1967Proxy", proxy); // the proxy — verified AS ERC1967Proxy (ctor: impl, initData)
     }
 
@@ -291,6 +315,15 @@ contract DeployAll is Script {
         external
         returns (Access0x1Router router, PaymentLanes lanes, HelperConfig helperConfig)
     {
+        // Keyless dry run (`make deploy-dry`) executes on a bare local EVM where the canonical
+        // CreateX factory does not exist — etch it in from the committed fixture so the CREATE3
+        // path simulates end-to-end. Guarded to the local chainid AND to the address being empty,
+        // so this can NEVER fire on a real chain or a fork (CreateX already lives there).
+        // Same fixture the tests use (test/helpers/CreateXEtch.sol).
+        if (block.chainid == 31337 && address(CREATEX).code.length == 0) {
+            vm.etch(address(CREATEX), vm.parseBytes(vm.readFile("test/fixtures/createx.hex")));
+        }
+
         helperConfig = new HelperConfig();
         HelperConfig.NetworkConfig memory cfg = helperConfig.getConfig();
 
@@ -369,8 +402,8 @@ contract DeployAll is Script {
         //    even though its constructor takes the chain-specific forwarder (CREATE3 ignores init code).
         if (cfg.creForwarder != address(0)) {
             receiver = Access0x1Receiver(
-                CREATEX.deployCreate3(
-                    _mirrorSalt("Access0x1Receiver"),
+                _create3(
+                    "Access0x1Receiver",
                     abi.encodePacked(
                         type(Access0x1Receiver).creationCode, abi.encode(cfg.creForwarder, owner)
                     )

@@ -214,8 +214,8 @@ anvil: ## Run a local anvil node
 	anvil
 
 # ── Deploy (keystore `deployer`; set RPC + DEPLOYER in .env; mainnet is NOT here) ──
-deploy-dry: ## Deploy DRY-RUN — simulation only, no broadcast, no keys
-	forge script script/DeployAll.s.sol
+deploy-dry: ## Deploy DRY-RUN — simulation only, no broadcast, no keys (simulates as DEPLOYER when set, so owner-gated config runs and the CREATE3 addresses match the real mirror)
+	forge script script/DeployAll.s.sol $(if $(DEPLOYER),--sender $(DEPLOYER))
 
 deploy-local: ## Deploy to a local anvil (anvil's default unlocked account[0]; no keystore needed)
 	forge script script/DeployAll.s.sol --rpc-url http://localhost:8545 --broadcast $(RESUME_FLAG) --unlocked --sender $(ANVIL_SENDER) -vvvv
