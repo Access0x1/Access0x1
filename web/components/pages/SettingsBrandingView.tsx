@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react'
 import { ConnectButton } from '@/components/ConnectButton'
 import { BrandingForm } from '@/components/branding/BrandingForm'
+import { PageHeading } from '@/components/ui/PageHeading'
+import { SectionCard } from '@/components/ui/SectionCard'
 
 /**
  * Settings → Branding (ADR D2 "Editing later"): the same three fields — name,
@@ -13,18 +15,13 @@ export function SettingsBrandingView(): ReactNode {
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-rail">
-            Settings · Branding
-          </p>
-          <h1 className="text-2xl font-semibold text-ink">Name, description, logo</h1>
-        </div>
-        <ConnectButton />
+        <PageHeading eyebrow="Settings · Branding" title="Name, description, logo" />
+        <ConnectButton variant="ghost" />
       </header>
 
-      <section className="rounded-2xl border border-border bg-card p-6">
+      <SectionCard>
         <BrandingForm mode="settings" />
-      </section>
+      </SectionCard>
 
       <a href="/dashboard" className="text-sm text-rail underline-offset-2 hover:underline">
         ← Back to dashboard

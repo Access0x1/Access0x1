@@ -9,6 +9,8 @@ import { CheckoutModeForm } from '@/components/branding/CheckoutModeForm'
 import { VerificationLevelsPanel } from '@/components/verification/VerificationLevelsPanel'
 import { AskAssistant } from '@/components/AskAssistant'
 import { showOnboardCards } from '@/lib/branding/onboardGate'
+import { PageHeading } from '@/components/ui/PageHeading'
+import { SectionCard } from '@/components/ui/SectionCard'
 
 /**
  * Onboarding view: sign in (Dynamic) → the non-coder "Make it yours" branding
@@ -33,7 +35,7 @@ export function OnboardView(): ReactNode {
       <header className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <BrandMark size={18} />
-          <h1 className="font-display text-2xl font-semibold text-foreground">Make it yours</h1>
+          <PageHeading title="Make it yours" />
         </div>
         {/* Ghost in the header so it never competes with the hero-gate's ONE
             primary "Sign in" (single-CTA rule). When signed in this renders the
@@ -49,16 +51,16 @@ export function OnboardView(): ReactNode {
 
       {showCards ? (
         <>
-          <section className="rounded-2xl border border-border bg-card p-6">
+          <SectionCard>
             <BrandingForm mode="onboard" />
-          </section>
+          </SectionCard>
 
-          <section className="rounded-2xl border border-border bg-card p-6">
+          <SectionCard>
             <p className="mb-4 text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Optional — you can skip this and decide later
             </p>
             <CheckoutModeForm mode="onboard" />
-          </section>
+          </SectionCard>
 
           <section className="flex flex-col gap-3">
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
@@ -79,8 +81,8 @@ export function OnboardView(): ReactNode {
         // DISCONNECTED: one hero connect-gate — a single headline + ONE
         // ConnectButton + a short "what you'll build" line. Not three empty
         // card boxes each repeating a sign-in prompt.
-        <section
-          className="flex flex-col items-center gap-5 rounded-2xl border border-border bg-card px-6 py-12 text-center"
+        <SectionCard
+          className="flex flex-col items-center gap-5 px-6 py-12 text-center"
           data-onboard-gate="connect"
         >
           <h2 className="font-display text-xl font-semibold text-foreground">
@@ -91,7 +93,7 @@ export function OnboardView(): ReactNode {
             — then get a branded checkout link that accepts USDC. It takes under two minutes.
           </p>
           <ConnectButton />
-        </section>
+        </SectionCard>
       )}
 
       <AskAssistant />

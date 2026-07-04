@@ -14,6 +14,8 @@ import { LinkCard } from '@/components/LinkCard'
 import { attachOnChain, loadBrandingStatus } from '@/lib/branding/client'
 import { resolveMerchantId } from '@/lib/branding/merchantId'
 import { canShowPaymentsOn } from '@/lib/branding/attachDecision'
+import { PageHeading } from '@/components/ui/PageHeading'
+import { SectionCard } from '@/components/ui/SectionCard'
 
 const PAYMENT_RECEIVED_EVENT = parseAbiItem(
   'event PaymentReceived(uint256 indexed merchantId, address indexed buyer, address indexed token, uint256 grossAmount, uint256 feeAmount, uint256 netAmount, uint256 usdAmount8, bytes32 orderId, uint64 srcChainSelector)',
@@ -233,7 +235,7 @@ export function DashboardView(): ReactNode {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-16">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-ink">Dashboard</h1>
+        <PageHeading title="Dashboard" />
         <ConnectButton />
       </header>
 
@@ -289,7 +291,7 @@ export function DashboardView(): ReactNode {
           // onboarded": show a neutral retryable notice, never the start-over
           // dead-end, so a fully-onboarded merchant (esp. on a second device) is
           // not pushed back to the beginning by a transient blip.
-          <section className="flex flex-col gap-3 rounded-2xl border border-border bg-secondary p-6">
+          <SectionCard className="flex flex-col gap-3 bg-secondary">
             <p className="text-sm text-muted-foreground" data-testid="load-error">
               Couldn&apos;t load your account — refresh to try again.
             </p>
@@ -304,12 +306,12 @@ export function DashboardView(): ReactNode {
             >
               Refresh
             </button>
-          </section>
+          </SectionCard>
         ) : hasBranding ? (
           // Branding saved but not yet on-chain — mount the one-time register
           // step HERE (the onboard done screen points the merchant to it). On
           // success it attaches the merchantId so the slug becomes payable.
-          <section className="flex flex-col gap-4 rounded-2xl border border-rail/30 bg-rail/5 p-6">
+          <SectionCard className="flex flex-col gap-4 border-rail/30 bg-rail/5">
             <div>
               <h2 className="text-lg font-semibold text-ink">Switch on payments</h2>
               <p className="text-sm text-muted-foreground">
@@ -345,7 +347,7 @@ export function DashboardView(): ReactNode {
             ) : (
               <RegisterForm onRegistered={(r) => void handleRegistered(r)} />
             )}
-          </section>
+          </SectionCard>
         ) : (
           <p className="text-sm text-muted-foreground">
             No merchant found in this browser.{' '}
