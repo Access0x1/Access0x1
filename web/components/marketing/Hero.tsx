@@ -61,7 +61,7 @@ export function Hero(): ReactNode {
          * (EG-HACKER, balance 1 on Optimism). Understated — no dollar figures.
          */}
         <span className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          🏆 Verified ETHGlobal Hacker Pack holder · ENS prize winner
+          🏆 Verified ETHGlobal Hacker Pack holder
         </span>
 
         {/* Primary call-to-action: deep-links to /onboard. */}
