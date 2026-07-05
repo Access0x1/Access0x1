@@ -12,6 +12,9 @@ import { IERC721Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093
 import { CredentialSbt } from "../../src/CredentialSbt.sol";
 import { ICredentialSbt, IERC5192 } from "../../src/interfaces/ICredentialSbt.sol";
 import { SmartWallet1271, WalletFactory } from "../mocks/SmartWallet1271.sol";
+import {
+    ReentrantClaimFactory, NonceProbeFactory
+} from "../mocks/ReentrantClaimFactory.sol";
 
 /// @notice Unit + fuzz suite for {CredentialSbt}, the vanilla soulbound (ERC-5192) verified-credential
 ///         badge with levels. Covers the full lifecycle — direct {issue}, gasless {claim} from an
@@ -545,6 +548,87 @@ contract CredentialSbtTest is Test {
         bytes memory wrapped = abi.encodePacked(hex"deadbeefcafe", ERC6492_MAGIC);
         vm.expectRevert(ICredentialSbt.CredentialSbt__BadSignature.selector);
         sbt.claim(issuer, subject, CRED_TYPE, LEVEL, 0, 0, deadline, wrapped);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              CLAIM — CEI / NONCE-REUSE REGRESSION (6492 factory)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice REGRESSION (adversarially verified): the ERC-6492 wrapper's `factory` + `factoryCalldata`
+    ///         are NOT part of the signed digest, so any submitter chooses them. For a codeless (EOA)
+    ///         issuer the {claim} 6492 path CALLs that attacker factory. If the nonce is consumed only
+    ///         AFTER signature validation (the external call), the factory can RE-ENTER {claim} with a
+    ///         SECOND voucher the issuer signed under the SAME nonce (different credType) and mint a second
+    ///         badge — one nonce, two badges. The fix marks the nonce used BEFORE validation, so the
+    ///         re-entrant leg must revert {CredentialSbt__NonceUsed}. Both vouchers are genuinely
+    ///         issuer-signed (no forgery); the guard being defeated is the single-use nonce.
+    function test_claim_reentrantSameNonce_secondBadgeReverts() public {
+        uint256 sharedNonce = 77;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // Two DIFFERENT badges the issuer legitimately signed under the SAME nonce.
+        bytes memory sigA = _signVoucher(issuerPk, subject, CRED_TYPE, LEVEL, 0, sharedNonce, deadline);
+        bytes memory sigB =
+            _signVoucher(issuerPk, subject, OTHER_TYPE, LEVEL, 0, sharedNonce, deadline);
+
+        // Attacker factory staged to re-enter claim() with the TYPE_B (same-nonce) voucher.
+        ReentrantClaimFactory evil = new ReentrantClaimFactory(sbt);
+        evil.stage(issuer, subject, OTHER_TYPE, LEVEL, 0, sharedNonce, deadline, sigB);
+
+        // The outer TYPE_A voucher, ERC-6492-wrapped so the unsigned `factory` = the attacker contract.
+        // The issuer is a codeless EOA, so claim() CALLs `factory` (evil.reenter) before consuming nonce.
+        bytes memory wrapped = abi.encodePacked(
+            abi.encode(
+                address(evil), abi.encodeCall(ReentrantClaimFactory.reenter, ()), sigA
+            ),
+            ERC6492_MAGIC
+        );
+
+        vm.prank(relayer);
+        uint256 tokenId =
+            sbt.claim(issuer, subject, CRED_TYPE, LEVEL, 0, sharedNonce, deadline, wrapped);
+
+        // The outer TYPE_A claim itself still succeeds (its signature is valid) — the fix does not break
+        // legitimate claims; the 6492 factory call is best-effort and its revert is swallowed.
+        assertEq(sbt.ownerOf(tokenId), subject, "TYPE_A badge minted to subject");
+        assertTrue(sbt.hasValidCredential(subject, CRED_TYPE), "TYPE_A active");
+
+        // The attack path fired but the re-entrant TYPE_B mint was REJECTED by the nonce guard.
+        assertTrue(evil.reentered(), "factory call did fire (attack path exercised)");
+        assertFalse(evil.reentrantMinted(), "re-entrant claim must NOT have minted (was: minted twice)");
+        assertFalse(
+            sbt.hasValidCredential(subject, OTHER_TYPE), "NO second badge from the shared nonce"
+        );
+        assertEq(sbt.balanceOf(subject), 1, "exactly ONE badge from the shared nonce");
+        assertTrue(sbt.isNonceUsed(issuer, sharedNonce), "shared nonce consumed exactly once");
+    }
+
+    /// @notice REGRESSION: at the instant of the ERC-6492 factory external call, the voucher's nonce must
+    ///         already be marked used (checks-effects-interactions). A probe factory reads
+    ///         {isNonceUsed} from INSIDE the call {claim} makes during validation; under the fix it sees
+    ///         `true` (was: `false`, because the effect trailed the interaction).
+    function test_claim_nonceConsumedBeforeExternalCall() public {
+        uint256 probeNonce = 5;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        NonceProbeFactory probe = new NonceProbeFactory(sbt);
+        probe.stage(issuer, probeNonce);
+
+        bytes memory innerSig =
+            _signVoucher(issuerPk, subject, CRED_TYPE, LEVEL, 0, probeNonce, deadline);
+        bytes memory wrapped = abi.encodePacked(
+            abi.encode(address(probe), abi.encodeCall(NonceProbeFactory.probe, ()), innerSig),
+            ERC6492_MAGIC
+        );
+
+        vm.prank(relayer);
+        sbt.claim(issuer, subject, CRED_TYPE, LEVEL, 0, probeNonce, deadline, wrapped);
+
+        assertTrue(probe.probed(), "probe factory was actually called during validation");
+        assertTrue(
+            probe.sawNonceUsed(),
+            "nonce must be consumed BEFORE the external call (CEI); was false pre-fix"
+        );
     }
 
     /*//////////////////////////////////////////////////////////////

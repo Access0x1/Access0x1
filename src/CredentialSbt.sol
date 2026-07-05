@@ -250,14 +250,20 @@ contract CredentialSbt is ICredentialSbt, IERC5192, ERC721, AccessControl, EIP71
         // named `issuer` first lets the per-issuer nonce guard above be read without recovering.
         if (!hasRole(ISSUER_ROLE, issuer)) revert CredentialSbt__BadSignature();
 
+        // Effect BEFORE interaction (checks-effects-interactions): consume the nonce NOW, before signature
+        // validation. `_isValidSignatureNow` is the ONLY external-call site (the ERC-6492 factory `prepare`,
+        // whose factory + calldata are UNSIGNED wrapper legs any submitter chooses), so a re-entrant claim
+        // on the same (issuer, nonce) hits this already-set guard and reverts {CredentialSbt__NonceUsed} —
+        // one nonce can mint at most once. If validation then fails, the whole tx reverts and this flag
+        // rolls back with it, so a bad signature leaves the nonce unused (legitimate claims unaffected).
+        _nonceUsed[issuer][nonce] = true;
+
         bytes32 digest = claimDigest(subject, credType, level, expiresAt, nonce, deadline);
         if (!_isValidSignatureNow(issuer, digest, signature)) {
             revert CredentialSbt__BadSignature();
         }
 
-        // Effects: consume the nonce (before the mint, so a re-entrant claim on the same voucher fails),
-        // then advance the convenience cursor, then mint.
-        _nonceUsed[issuer][nonce] = true;
+        // Advance the convenience cursor past the used run, then mint.
         uint256 cursor = _nextNonce[issuer];
         if (nonce == cursor) {
             // Walk the cursor forward over any already-used run so the next off-chain nonce is fresh.
