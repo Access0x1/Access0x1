@@ -5,7 +5,7 @@ import { keccak256, toHex, type Address, type Hash } from 'viem'
 import { useAccount, useWalletClient } from 'wagmi'
 import { getRouterAddress, getUsdcAddress, isGasFree, tokenDecimalsFor } from '@/lib/chains'
 import { payToken, type Merchant, type PaymentReceivedEvent } from '@/lib/contracts'
-import { fetchQuote, usdToAmount8 } from '@/lib/quote'
+import { fetchQuote, parseUsdAmount8 } from '@/lib/quote'
 import { getPublicClient } from '@/lib/wallet'
 import { BrandMark } from './BrandMark'
 import { BuyerConnectButton } from './BuyerConnectButton'
@@ -99,7 +99,12 @@ export function CheckoutCard({
   // viem client `payToken` expects, so no Dynamic-specific adapter is needed.
   const { address: buyerAddress, isConnected } = useAccount()
   const { data: walletClient } = useWalletClient()
-  const usdAmount8 = usdToAmount8(Number(usdAmount))
+  // Parse the (URL-supplied) price ONCE, fail-soft: a malformed `?amount=` such
+  // as `abc`, empty, `1e999`, or a zero/negative value would otherwise make
+  // `usdToAmount8(Number(usdAmount))` throw a RangeError at render and crash the
+  // buyer-facing card. `null` here means "no valid price" — we render an honest
+  // error and never call the quote/pay path with a junk amount (law #4).
+  const usdAmount8 = parseUsdAmount8(usdAmount)
 
   // Sanitize the merchant-supplied return URL ONCE, here, before it is forwarded
   // anywhere: rendered as the receipt's "Return to merchant" href OR sent to the
@@ -251,6 +256,13 @@ export function CheckoutCard({
   const refreshQuote = useCallback(async () => {
     setLoadingQuote(true)
     setQuoteError(null)
+    // No valid price (malformed `?amount=`): never quote a junk amount — the
+    // invalid-amount UI already tells the buyer; just stop here.
+    if (usdAmount8 === null) {
+      setQuoteDisplay(null)
+      setLoadingQuote(false)
+      return
+    }
     let token: Address
     try {
       token = resolveTokenAddress()
@@ -282,6 +294,13 @@ export function CheckoutCard({
 
   async function handlePay(): Promise<void> {
     setPayError(null)
+    // Invariant backstop: the pay button only renders past the invalid-amount
+    // early return, so usdAmount8 is non-null here. Guard anyway so a junk price
+    // can never reach payToken (and to narrow the type for the settle call).
+    if (usdAmount8 === null) {
+      setPayError('This payment link has an invalid amount.')
+      return
+    }
     if (!walletClient) {
       setPayError('Connect a wallet to pay.')
       return
@@ -345,6 +364,27 @@ export function CheckoutCard({
         tokenDecimals={tokenDecimals}
         returnUrl={safeReturn}
       />
+    )
+  }
+
+  // Malformed price in the link (`?amount=abc`, empty, `1e999`, zero/negative):
+  // render an honest error instead of crashing. The merchant name still shows so
+  // the buyer knows where they are; there is no price/quote/pay to offer.
+  if (usdAmount8 === null) {
+    return (
+      <div className="flex flex-col gap-5">
+        <h1 className="text-2xl font-semibold text-ink">{merchantName}</h1>
+        <div
+          data-testid="invalid-amount"
+          className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700"
+        >
+          This payment link has an invalid amount. Please ask the merchant for a new link.
+        </div>
+        <p className="flex items-center justify-center gap-1.5 border-t border-neutral-100 pt-4 text-center text-xs text-neutral-400">
+          <span>Powered by</span>
+          <BrandMark size={14} />
+        </p>
+      </div>
     )
   }
 

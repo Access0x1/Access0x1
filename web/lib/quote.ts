@@ -5,6 +5,25 @@ export function usdToAmount8(usd: number): bigint {
   return BigInt(Math.round(usd * 1e8))
 }
 
+/**
+ * Parse a URL-supplied USD amount (e.g. the `?amount=` param) into its 8-decimal
+ * router integer, returning `null` for anything that isn't a real, positive
+ * price. Guards the exact footguns the /api/quote route documents server-side:
+ *   - `Number('abc')` / `Number('')`-ish junk → NaN → `usdToAmount8` would throw
+ *     a RangeError ("NaN cannot be converted to a BigInt") at render time,
+ *   - `1e999` → Infinity → same RangeError,
+ *   - a zero or negative price → `BigInt` silently accepts it (never quotable).
+ * Returning `null` lets the checkout fail soft (show an honest error, disable
+ * pay) instead of crashing the buyer-facing card (law #4: never a wrong/blank
+ * price, never a hard crash on a malformed link).
+ */
+export function parseUsdAmount8(raw: string | null | undefined): bigint | null {
+  if (raw == null || raw.trim() === '') return null
+  const usd = Number(raw)
+  if (!Number.isFinite(usd) || usd <= 0) return null
+  return usdToAmount8(usd)
+}
+
 /** Format an 8-decimal USD integer back to a display string (e.g. 2900000000n -> "29.00"). */
 export function amount8ToUsd(amount8: bigint): string {
   const dollars = Number(amount8) / 1e8

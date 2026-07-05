@@ -14,6 +14,7 @@ import {
   amount8ToUsd,
   formatTokenAmount,
   fetchQuote,
+  parseUsdAmount8,
 } from "../lib/quote.js";
 
 const TOKEN = "0x0000000000000000000000000000000000000001" as const;
@@ -34,6 +35,33 @@ describe("usdToAmount8 / amount8ToUsd — money math (float-safe round-trip)", (
     for (const usd of [0.01, 1, 4.2, 19.99, 100]) {
       expect(amount8ToUsd(usdToAmount8(usd))).toBe(usd.toFixed(2));
     }
+  });
+});
+
+describe("parseUsdAmount8 — fail-soft price parse (never throws, never a junk quote)", () => {
+  it("parses a real positive price to its 8-decimal integer", () => {
+    expect(parseUsdAmount8("29.00")).toBe(2900000000n);
+    expect(parseUsdAmount8("0.01")).toBe(1000000n);
+    expect(parseUsdAmount8("100")).toBe(10000000000n);
+  });
+
+  it("returns null (never throws) for a malformed amount that would crash usdToAmount8", () => {
+    // `usdToAmount8(Number('abc'))` === `BigInt(NaN)` → RangeError at render;
+    // parseUsdAmount8 must catch these and return null so checkout fails soft.
+    for (const bad of ["abc", "", "  ", "1e999", "NaN", "$5", "1,000"]) {
+      expect(parseUsdAmount8(bad)).toBeNull();
+    }
+  });
+
+  it("returns null for a zero or negative price (never quotable)", () => {
+    for (const nonPositive of ["0", "0.00", "-5", "-0.01"]) {
+      expect(parseUsdAmount8(nonPositive)).toBeNull();
+    }
+  });
+
+  it("returns null for null/undefined input", () => {
+    expect(parseUsdAmount8(null)).toBeNull();
+    expect(parseUsdAmount8(undefined)).toBeNull();
   });
 });
 
