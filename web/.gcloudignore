@@ -1,0 +1,14 @@
+# Keep the Cloud Build upload lean — the Docker build re-installs from the
+# lockfile and re-builds .next inside the container; none of these belong in
+# the source tarball.
+.gcloudignore
+.git
+node_modules/
+.next/
+coverage/
+playwright-report/
+test-results/
+e2e/.auth/
+*.log
+.env*
+!.env.example
