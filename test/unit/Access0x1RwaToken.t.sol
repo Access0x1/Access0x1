@@ -488,3 +488,159 @@ contract Access0x1RwaTokenTest is Test {
         assertFalse(token.supportsInterface(0xffffffff), "0xffffffff must be false per ERC-165");
     }
 }
+
+/// @notice A minimal clone that swaps the reference allowlist for a SEPARATE identity registry — the
+///         exact "allowlist by default, yours by override" extension the base's NatSpec promises. It
+///         overrides ONLY {canSend}/{canReceive} (routing them to an external {IdentityRegistry}) and
+///         adds nothing else: no re-implemented {_update}, no touched enforcement. The tests below
+///         prove the base's transfer gate — mint, wallet-to-wallet, and the receiver side of
+///         {forcedTransfer} — enforces the OVERRIDDEN policy unchanged, which is the whole point of
+///         the cloneable base and had no test before this.
+contract RegistryGatedRwaToken is Access0x1RwaToken {
+    IdentityRegistry public immutable registry;
+
+    constructor(string memory name_, string memory symbol_, address admin_, IdentityRegistry registry_)
+        Access0x1RwaToken(name_, symbol_, admin_)
+    {
+        registry = registry_;
+    }
+
+    /// @dev Override backed by an external registry instead of the built-in list. Still MUST NOT
+    ///      revert and MUST NOT write storage (uRWA composability contract) — a plain view read.
+    function canSend(address account) public view override returns (bool) {
+        return registry.isVerified(account);
+    }
+
+    function canReceive(address account) public view override returns (bool) {
+        return registry.isVerified(account);
+    }
+}
+
+/// @notice Stand-in for a real KYC/KYB registry the base's NatSpec says a deployment may substitute
+///         (a "registry contract, oracle, signature check"). Deliberately unrelated to the base's
+///         {WHITELIST_ROLE} allowlist so the tests prove the override — not the built-in list — is
+///         what gates transfers.
+contract IdentityRegistry {
+    mapping(address account => bool verified) private _verified;
+
+    function setVerified(address account, bool verified) external {
+        _verified[account] = verified;
+    }
+
+    function isVerified(address account) external view returns (bool) {
+        return _verified[account];
+    }
+}
+
+/// @notice Proves the base's central cloneability claim: a deployment that overrides the `virtual`
+///         {canSend}/{canReceive} with its own compliance mechanism inherits the {_update}
+///         enforcement UNCHANGED. The reference {WHITELIST_ROLE} allowlist is left empty here, so any
+///         gate that passed would prove the override is being consulted — not the built-in list.
+contract Access0x1RwaTokenOverrideTest is Test {
+    RegistryGatedRwaToken internal token;
+    IdentityRegistry internal registry;
+
+    address internal admin = makeAddr("admin");
+    address internal issuer = makeAddr("issuer"); // MINTER + BURNER
+    address internal regulator = makeAddr("regulator"); // FORCE_TRANSFER
+    address internal alice = makeAddr("alice"); // registry-verified holder
+    address internal bob = makeAddr("bob"); // registry-verified holder
+    address internal mallory = makeAddr("mallory"); // never verified anywhere
+
+    uint256 internal constant TOKEN_ID = 1;
+
+    function setUp() public {
+        registry = new IdentityRegistry();
+        token = new RegistryGatedRwaToken("Registry RWA", "RRWA", admin, registry);
+
+        // Grant only the operational roles the override tests exercise. Note: WHITELIST_ROLE is
+        // granted to nobody and the reference allowlist stays EMPTY — every gate below must be
+        // satisfied by the registry override alone.
+        vm.startPrank(admin);
+        token.grantRole(token.MINTER_ROLE(), issuer);
+        token.grantRole(token.BURNER_ROLE(), issuer);
+        token.grantRole(token.FORCE_TRANSFER_ROLE(), regulator);
+        vm.stopPrank();
+
+        registry.setVerified(alice, true);
+        registry.setVerified(bob, true);
+    }
+
+    /// @dev The override is wired: policy views read the registry, and the built-in allowlist is
+    ///      irrelevant (alice is verified in the registry but was never {setWhitelisted}).
+    function test_override_policyViewsReadTheRegistryNotTheAllowlist() public view {
+        assertTrue(token.canSend(alice), "registry-verified => canSend");
+        assertTrue(token.canReceive(alice), "registry-verified => canReceive");
+        assertFalse(token.canSend(mallory), "unverified => cannot send");
+        assertFalse(token.canReceive(mallory), "unverified => cannot receive");
+        assertFalse(token.isWhitelisted(alice), "reference allowlist untouched, override is in force");
+    }
+
+    /// @dev Mint gate honors the override: a registry-verified receiver is allowed even though the
+    ///      built-in allowlist is empty.
+    function test_override_mintHonorsRegistryReceiverGate() public {
+        vm.prank(issuer);
+        token.mint(alice, TOKEN_ID);
+        assertEq(token.ownerOf(TOKEN_ID), alice);
+    }
+
+    /// @dev Mint to an unverified receiver reverts through the SAME {_update} path with the standard
+    ///      error — the override changed the decision source, not the enforcement.
+    function test_override_mintRevertsForUnverifiedReceiver() public {
+        vm.prank(issuer);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC7943NonFungible.ERC7943CannotReceive.selector, mallory)
+        );
+        token.mint(mallory, TOKEN_ID);
+    }
+
+    /// @dev Wallet-to-wallet transfer flows through the inherited {_update}: both endpoints must be
+    ///      registry-verified.
+    function test_override_transferGatedOnBothRegistryEndpoints() public {
+        vm.prank(issuer);
+        token.mint(alice, TOKEN_ID);
+
+        vm.prank(alice);
+        token.safeTransferFrom(alice, bob, TOKEN_ID);
+        assertEq(token.ownerOf(TOKEN_ID), bob);
+    }
+
+    /// @dev De-verifying the sender in the registry blocks the transfer via the inherited sender gate
+    ///      — proving the override is consulted on every leg, not just at mint.
+    function test_override_transferRevertsWhenSenderDeverified() public {
+        vm.prank(issuer);
+        token.mint(alice, TOKEN_ID);
+
+        registry.setVerified(alice, false); // revoked after acquiring the asset
+
+        vm.prank(alice);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC7943NonFungible.ERC7943CannotSend.selector, alice)
+        );
+        token.transferFrom(alice, bob, TOKEN_ID);
+    }
+
+    /// @dev {forcedTransfer}'s receiver gate is the overridden {canReceive}: a seizure can only land
+    ///      on a registry-verified receiver, exactly as it can only land on an allowlisted one in the
+    ///      base.
+    function test_override_forcedTransferHonorsRegistryReceiverGate() public {
+        vm.prank(issuer);
+        token.mint(alice, TOKEN_ID);
+
+        vm.prank(regulator);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC7943NonFungible.ERC7943CannotReceive.selector, mallory)
+        );
+        token.forcedTransfer(alice, mallory, TOKEN_ID);
+    }
+
+    /// @dev {canTransfer} — the composite view — also reflects the override end to end.
+    function test_override_canTransferReflectsRegistry() public {
+        vm.prank(issuer);
+        token.mint(alice, TOKEN_ID);
+        assertTrue(token.canTransfer(alice, bob, TOKEN_ID), "both verified => transferable");
+
+        registry.setVerified(bob, false);
+        assertFalse(token.canTransfer(alice, bob, TOKEN_ID), "unverified receiver => not transferable");
+    }
+}
