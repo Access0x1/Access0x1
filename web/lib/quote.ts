@@ -12,16 +12,35 @@ export function usdToAmount8(usd: number): bigint {
  *   - `Number('abc')` / `Number('')`-ish junk → NaN → `usdToAmount8` would throw
  *     a RangeError ("NaN cannot be converted to a BigInt") at render time,
  *   - `1e999` → Infinity → same RangeError,
+ *   - `1e308` (and any finite USD near MAX_VALUE): the INPUT is finite so the old
+ *     `isFinite(usd)` guard passed, then `usd * 1e8` overflowed to Infinity and
+ *     `BigInt(Infinity)` threw the very RangeError this guard exists to prevent —
+ *     the scaled-result check below rejects it,
+ *   - hex/octal/binary/leading-`+`/surrounding-whitespace/scientific strings
+ *     (`0x64`, ` 100 `, `+50`, `1e3`): `Number()` silently coerces them to a value
+ *     that mismatches the displayed price and charges the buyer the wrong amount —
+ *     the plain-decimal syntax gate below rejects them,
  *   - a zero or negative price → `BigInt` silently accepts it (never quotable).
  * Returning `null` lets the checkout fail soft (show an honest error, disable
- * pay) instead of crashing the buyer-facing card (law #4: never a wrong/blank
- * price, never a hard crash on a malformed link).
+ * pay) instead of crashing the buyer-facing card or charging a wrong value
+ * (law #4: never a wrong/blank price, never a hard crash on a malformed link).
  */
 export function parseUsdAmount8(raw: string | null | undefined): bigint | null {
-  if (raw == null || raw.trim() === '') return null
+  if (raw == null) return null
+  // Require plain-decimal syntax on the RAW input BEFORE Number() so that
+  // hex/octal/binary/leading-`+`/surrounding-whitespace/scientific-notation are
+  // rejected instead of silently coerced into a value that mismatches the price.
+  // Matching the raw (not a trimmed copy) means ` 100 ` fails soft too, and
+  // empty/whitespace-only input never matches → null, as before.
+  if (!/^\d+(\.\d+)?$/.test(raw)) return null
   const usd = Number(raw)
   if (!Number.isFinite(usd) || usd <= 0) return null
-  return usdToAmount8(usd)
+  // Guard the SCALED result too (defense in depth): a finite USD near MAX_VALUE
+  // overflows `*1e8` to Infinity, which `BigInt(Infinity)` would reject with a
+  // RangeError at render. Reject it so no BigInt RangeError can ever occur.
+  const scaled = Math.round(usd * 1e8)
+  if (!Number.isFinite(scaled)) return null
+  return BigInt(scaled)
 }
 
 /** Format an 8-decimal USD integer back to a display string (e.g. 2900000000n -> "29.00"). */

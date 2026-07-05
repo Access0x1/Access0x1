@@ -63,6 +63,37 @@ describe("parseUsdAmount8 — fail-soft price parse (never throws, never a junk 
     expect(parseUsdAmount8(null)).toBeNull();
     expect(parseUsdAmount8(undefined)).toBeNull();
   });
+
+  it("returns null (never throws) for a finite USD whose *1e8 overflows to Infinity", () => {
+    // Adversarial finding: `1e308` is finite and > 0, so the input `isFinite`
+    // guard passed — but `1e308 * 1e8` === Infinity, and `BigInt(Infinity)`
+    // threw a RangeError that crashed the buyer-facing card at render. The
+    // scaled-result guard must reject it and fail soft to null instead.
+    for (const overflow of ["1e308", "5e307"]) {
+      expect(() => parseUsdAmount8(overflow)).not.toThrow();
+      expect(parseUsdAmount8(overflow)).toBeNull();
+    }
+  });
+
+  it("returns null for hex/octal/binary/+/whitespace/scientific (never charge a coerced wrong value)", () => {
+    // Adversarial finding: `Number()` silently coerces these to a value that
+    // mismatches the displayed price (e.g. `0x64` -> 100, ` 100 ` -> 100,
+    // `1e3` -> 1000), charging the buyer the wrong amount. The plain-decimal
+    // syntax gate must reject them instead of coercing.
+    for (const coerced of ["0x64", "0o10", "0b10", "+50", " 100 ", "1e3", "0xFF", " 12.50 "]) {
+      expect(parseUsdAmount8(coerced)).toBeNull();
+    }
+  });
+
+  it("still parses legit plain-decimal prices to the correct 8-decimal integer", () => {
+    // Regression: the new guards must not over-reject normal prices.
+    expect(parseUsdAmount8("0.5")).toBe(50000000n);
+    expect(parseUsdAmount8("12.50")).toBe(1250000000n);
+    expect(parseUsdAmount8("100")).toBe(10000000000n);
+    expect(parseUsdAmount8("100.12345678")).toBe(10012345678n);
+    // "0" is plain-decimal but not positive -> still null (never quotable).
+    expect(parseUsdAmount8("0")).toBeNull();
+  });
 });
 
 describe("formatTokenAmount", () => {
