@@ -81,3 +81,22 @@ describe('ReceiptScreen — return link is guarded', () => {
     expect(out).toContain('rel="noopener noreferrer"')
   })
 })
+
+describe('ReceiptScreen — screen-reader semantics', () => {
+  it('announces the confirmed payment via a polite live region', () => {
+    // When this view swaps in after settlement, role="status" + aria-live let a
+    // screen reader read "Payment confirmed" without any user focus change.
+    const out = render()
+    expect(out).toContain('role="status"')
+    expect(out).toContain('aria-live="polite"')
+  })
+
+  it('hides the decorative check glyph from assistive tech', () => {
+    // The bare "✓" carries no meaning the heading doesn't already; exposing it
+    // would read as a stray "check mark". It must be aria-hidden.
+    const out = render()
+    expect(out).toContain('aria-hidden="true"')
+    // The heading, not the glyph, is what conveys success.
+    expect(out).toContain('Payment confirmed')
+  })
+})
