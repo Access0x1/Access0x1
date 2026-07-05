@@ -30,7 +30,7 @@ const spaceGrotesk = Space_Grotesk({
  * is the canonical base URL, the shared title/description, and the social cards
  * (Open Graph + Twitter) that the convention files can't express.
  */
-const SITE_URL = 'https://access0x1.nfteria.click'
+const SITE_URL = 'https://access0x1.click'
 const TITLE = 'Access0x1 — accept USD-priced crypto with one link'
 const DESCRIPTION =
   'Onboard once, share a link, get paid in USDC. Zero custody — every payment settles ' +
