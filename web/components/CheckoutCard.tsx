@@ -577,7 +577,14 @@ export function CheckoutCard({
         </div>
       )}
 
-      {payError ? <p className="text-sm text-red-600">{payError}</p> : null}
+      {/* `role="alert"` announces a failed pay/quote/gate attempt to a screen
+          reader the moment `payError` is set — otherwise the buyer clicks Pay,
+          the attempt fails silently for them, and they have no idea why. */}
+      {payError ? (
+        <p role="alert" className="text-sm text-red-600">
+          {payError}
+        </p>
+      ) : null}
 
       <p className="flex items-center justify-center gap-1.5 border-t border-neutral-100 pt-4 text-center text-xs text-neutral-400">
         <span>Powered by</span>

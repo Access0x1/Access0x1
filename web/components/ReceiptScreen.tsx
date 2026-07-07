@@ -33,8 +33,18 @@ export function ReceiptScreen({
   // an https: URL renders the link; anything else drops it entirely.
   const safeReturn = safeReturnUrl(returnUrl)
   return (
-    <div className="flex flex-col gap-4 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-700">
+    // `role="status"` + `aria-live="polite"` announces the settled payment to a
+    // screen reader when this view swaps in after `handlePay` resolves — the
+    // buyer hears "Payment confirmed", not silence.
+    <div className="flex flex-col gap-4 text-center" role="status" aria-live="polite">
+      {/* The check is decorative: the heading below carries the meaning, so hide
+          the bare "✓" from assistive tech (it would otherwise read as a stray
+          "check mark"). Matches the aria-hidden glyph convention used across the
+          app (CasinoVerifiedBadge, FeatureGrid, the gas-sponsored badge). */}
+      <div
+        aria-hidden="true"
+        className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-700"
+      >
         ✓
       </div>
       <h2 className="text-xl font-semibold text-ink">Payment confirmed</h2>
