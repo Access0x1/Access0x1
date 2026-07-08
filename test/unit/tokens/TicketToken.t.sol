@@ -95,7 +95,9 @@ contract TicketTokenTest is Test {
     function test_mint_onlyMinter() public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, alice, ticket.MINTER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                ticket.MINTER_ROLE()
             )
         );
         vm.prank(alice);
@@ -149,7 +151,9 @@ contract TicketTokenTest is Test {
         _mint(alice, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, alice, ticket.CHECKIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                ticket.CHECKIN_ROLE()
             )
         );
         vm.prank(alice);
@@ -208,7 +212,9 @@ contract TicketTokenTest is Test {
         _mint(alice, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, alice, ticket.CHECKIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                ticket.CHECKIN_ROLE()
             )
         );
         vm.prank(alice);

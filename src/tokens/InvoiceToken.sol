@@ -116,7 +116,9 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     /// @param name_   The ERC-721 collection name.
     /// @param symbol_ The ERC-721 collection symbol.
     /// @param router_ The {Access0x1Router} that prices + fee-splits every settlement (non-zero).
-    constructor(string memory name_, string memory symbol_, address router_) ERC721(name_, symbol_) {
+    constructor(string memory name_, string memory symbol_, address router_)
+        ERC721(name_, symbol_)
+    {
         if (router_ == address(0)) revert InvoiceToken__ZeroAddress();
         router = Access0x1Router(router_);
         nextInvoiceId = 1;
@@ -135,13 +137,10 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     /// @param amountUsd8 The amount owed, USD 8 decimals (> 0).
     /// @param payer      The locked payer, or `address(0)` for "anyone may settle".
     /// @return invoiceId The minted invoice id.
-    function issue(
-        address to,
-        uint256 merchantId,
-        address token,
-        uint256 amountUsd8,
-        address payer
-    ) external returns (uint256 invoiceId) {
+    function issue(address to, uint256 merchantId, address token, uint256 amountUsd8, address payer)
+        external
+        returns (uint256 invoiceId)
+    {
         if (token == address(0)) revert InvoiceToken__ZeroAddress();
         if (amountUsd8 == 0) revert InvoiceToken__ZeroAmount();
         _requireMerchantOwner(merchantId);
@@ -248,7 +247,9 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
         // a 3009 pull IS the settlement, so its failure MUST revert.
         uint256 balBefore = IERC20(token).balanceOf(address(this));
         IERC3009Authorization(token)
-            .transferWithAuthorization(payer, address(this), gross, validAfter, validBefore, nonce, v, r, s);
+            .transferWithAuthorization(
+                payer, address(this), gross, validAfter, validBefore, nonce, v, r, s
+            );
         uint256 received = IERC20(token).balanceOf(address(this)) - balBefore;
         if (received != gross) revert InvoiceToken__PullShortfall(gross, received);
 

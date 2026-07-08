@@ -78,9 +78,7 @@ contract ExpirableTokenTest is Test {
 
     function test_mintExpirable_revertsForNonOwner() public {
         vm.prank(alice);
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
         token.mintExpirable(alice, TOKEN_ID, start, end);
     }
 
@@ -99,7 +97,9 @@ contract ExpirableTokenTest is Test {
     function test_mintExpirable_revertsOnInvertedWindow() public {
         vm.prank(owner);
         vm.expectRevert(
-            abi.encodeWithSelector(ExpirableToken.ExpirableToken__InvalidWindow.selector, end, start)
+            abi.encodeWithSelector(
+                ExpirableToken.ExpirableToken__InvalidWindow.selector, end, start
+            )
         );
         token.mintExpirable(alice, TOKEN_ID, end, start); // start > end
     }

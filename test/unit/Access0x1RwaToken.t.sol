@@ -499,9 +499,12 @@ contract Access0x1RwaTokenTest is Test {
 contract RegistryGatedRwaToken is Access0x1RwaToken {
     IdentityRegistry public immutable registry;
 
-    constructor(string memory name_, string memory symbol_, address admin_, IdentityRegistry registry_)
-        Access0x1RwaToken(name_, symbol_, admin_)
-    {
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        address admin_,
+        IdentityRegistry registry_
+    ) Access0x1RwaToken(name_, symbol_, admin_) {
         registry = registry_;
     }
 
@@ -573,7 +576,9 @@ contract Access0x1RwaTokenOverrideTest is Test {
         assertTrue(token.canReceive(alice), "registry-verified => canReceive");
         assertFalse(token.canSend(mallory), "unverified => cannot send");
         assertFalse(token.canReceive(mallory), "unverified => cannot receive");
-        assertFalse(token.isWhitelisted(alice), "reference allowlist untouched, override is in force");
+        assertFalse(
+            token.isWhitelisted(alice), "reference allowlist untouched, override is in force"
+        );
     }
 
     /// @dev Mint gate honors the override: a registry-verified receiver is allowed even though the
@@ -641,6 +646,8 @@ contract Access0x1RwaTokenOverrideTest is Test {
         assertTrue(token.canTransfer(alice, bob, TOKEN_ID), "both verified => transferable");
 
         registry.setVerified(bob, false);
-        assertFalse(token.canTransfer(alice, bob, TOKEN_ID), "unverified receiver => not transferable");
+        assertFalse(
+            token.canTransfer(alice, bob, TOKEN_ID), "unverified receiver => not transferable"
+        );
     }
 }

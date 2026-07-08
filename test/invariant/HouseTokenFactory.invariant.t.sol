@@ -89,7 +89,9 @@ contract HouseTokenFactoryInvariant is StdInvariant, Test, ProxyDeployer {
             }
             summed += len;
         }
-        assertEq(summed, factory.allTokensLength(), "owner indexes partition the global enumeration");
+        assertEq(
+            summed, factory.allTokensLength(), "owner indexes partition the global enumeration"
+        );
     }
 
     /// @notice Invariant 4 — every token's provenance record is correct AND immutable, and the factory
@@ -117,7 +119,9 @@ contract HouseTokenFactoryInvariant is StdInvariant, Test, ProxyDeployer {
             // Supply integrity + non-custody: the whole recorded supply sits with the owner, none with
             // the factory.
             uint256 supply = handler.ghostSupplyOf(token);
-            assertEq(HouseToken(token).totalSupply(), supply, "total supply == recorded initial supply");
+            assertEq(
+                HouseToken(token).totalSupply(), supply, "total supply == recorded initial supply"
+            );
             assertEq(IERC20(token).balanceOf(expectedOwner), supply, "owner holds the whole supply");
             assertEq(IERC20(token).balanceOf(address(factory)), 0, "factory holds zero balance");
         }
@@ -131,6 +135,8 @@ contract HouseTokenFactoryInvariant is StdInvariant, Test, ProxyDeployer {
     function invariant_noPhantomProvenanceFromRejectedDeploys() public view {
         // A cheap always-true sink probe: an address never deployed is never flagged. Combined with
         // invariant 1 (count == successful deploys) this pins that rejected deploys added nothing.
-        assertFalse(factory.isHouseToken(address(handler)), "a non-deployed address is never flagged");
+        assertFalse(
+            factory.isHouseToken(address(handler)), "a non-deployed address is never flagged"
+        );
     }
 }
