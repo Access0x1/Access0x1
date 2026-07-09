@@ -22,6 +22,7 @@ import { Receivables } from "../src/Receivables.sol";
 import { Refunds } from "../src/Refunds.sol";
 import { SplitSettler } from "../src/SplitSettler.sol";
 import { Access0x1Rebates } from "../src/Access0x1Rebates.sol";
+import { Access0x1SponsorRegistry } from "../src/Access0x1SponsorRegistry.sol";
 import {
     IAccess0x1Router,
     IAccess0x1Subscriptions
@@ -176,6 +177,7 @@ contract DeployAll is Script {
     Refunds public refunds;
     SplitSettler public splitSettler;
     Access0x1Rebates public rebates;
+    Access0x1SponsorRegistry public sponsorRegistry;
     Receivables public receivables;
     PriceOracleAdapter public priceOracleAdapter;
 
@@ -580,6 +582,14 @@ contract DeployAll is Script {
             )
         );
         console2.log("Access0x1Rebates      :", address(rebates));
+        sponsorRegistry = Access0x1SponsorRegistry(
+            _deployUUPS(
+                "Access0x1SponsorRegistry",
+                type(Access0x1SponsorRegistry).creationCode,
+                abi.encodeCall(Access0x1SponsorRegistry.initialize, (owner, router))
+            )
+        );
+        console2.log("Access0x1SponsorReg   :", address(sponsorRegistry));
 
         receivables = Receivables(
             payable(_deployUUPS(
