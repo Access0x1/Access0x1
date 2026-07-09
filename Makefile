@@ -73,7 +73,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         fmt fmt-check clean sizes storage-layout \
         gate aderyn slither analyze mutation halmos audit anvil \
         deploy-pick mirror-manifest sync \
-        deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
+        deploy-dry deploy-local drive-local drive-merchant-base drive-merchant-arc drive-merchant-base-dry drive-merchant-arc-dry deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
         deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet deploy-hoodi deploy-tempo \
         verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-arbitrum-sepolia verify-polygon-amoy verify-galileo verify-chain verify-all-testnets verify-all-sourcify \
@@ -85,7 +85,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         cre-build cre-sim zksync-build all
 
 help: ## Show every command
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 install: ## Install all deps: forge submodules + npm (@chainlink) + web + sdk
