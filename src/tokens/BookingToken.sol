@@ -153,7 +153,9 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     /// @param name_    The ERC-721 collection name.
     /// @param symbol_  The ERC-721 collection symbol.
     /// @param router_  The {Access0x1Router} that prices + fee-splits the release leg (non-zero).
-    constructor(string memory name_, string memory symbol_, address router_) ERC721(name_, symbol_) {
+    constructor(string memory name_, string memory symbol_, address router_)
+        ERC721(name_, symbol_)
+    {
         if (router_ == address(0)) revert BookingToken__ZeroAddress();
         router = Access0x1Router(router_);
         nextBookingId = 1;

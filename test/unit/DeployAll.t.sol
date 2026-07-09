@@ -17,6 +17,7 @@ import { PriceOracleAdapter } from "../../src/PriceOracleAdapter.sol";
 import { Receivables } from "../../src/Receivables.sol";
 import { Refunds } from "../../src/Refunds.sol";
 import { SplitSettler } from "../../src/SplitSettler.sol";
+import { Access0x1Rebates } from "../../src/Access0x1Rebates.sol";
 
 /// @notice deploy-multichain unit suite. Two halves:
 ///         (1) HelperConfig per-chain branch selection — `vm.chainId` forces each branch and proves
@@ -514,6 +515,15 @@ contract DeployAllTest is Test {
             address(settler.router()), address(router), "split settler not wired to the Router"
         );
         assertEq(settler.owner(), BROADCASTER, "split settler owner not wired");
+
+        // Access0x1Rebates — composes the Router (pre-funded promo pools; instant conditional
+        // rebate inside the settlement tx) and is owner-wired to the broadcaster.
+        Access0x1Rebates rebatesC = deployer.rebates();
+        assertTrue(address(rebatesC) != address(0), "rebates not deployed");
+        assertEq(
+            address(rebatesC.router()), address(router), "rebates not wired to the Router spine"
+        );
+        assertEq(rebatesC.owner(), BROADCASTER, "rebates owner not wired");
 
         // Receivables — composes the Router; its ERC-721 identity comes from the script's init args.
         Receivables recv = deployer.receivables();

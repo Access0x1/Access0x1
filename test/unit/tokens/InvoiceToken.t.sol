@@ -88,7 +88,13 @@ contract InvoiceTokenTest is Test, ProxyDeployer {
     ) internal view returns (bytes32) {
         bytes32 structHash = keccak256(
             abi.encode(
-                TRANSFER_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce
+                TRANSFER_WITH_AUTHORIZATION_TYPEHASH,
+                from,
+                to,
+                value,
+                validAfter,
+                validBefore,
+                nonce
             )
         );
         return MessageHashUtils.toTypedDataHash(usdc.DOMAIN_SEPARATOR(), structHash);

@@ -88,7 +88,9 @@ contract BookingTokenTest is Test, ProxyDeployer {
             abi.encodeWithSelector(BookingToken.BookingToken__MerchantNotFound.selector, 999)
         );
         vm.prank(buyer);
-        booking.mintBooking(buyer, 999, keccak256("s"), DEPOSIT_USD8, address(usdc), HOLD, keccak256("n"));
+        booking.mintBooking(
+            buyer, 999, keccak256("s"), DEPOSIT_USD8, address(usdc), HOLD, keccak256("n")
+        );
     }
 
     function test_mint_revertsHoldTooShort() public {
@@ -96,7 +98,9 @@ contract BookingTokenTest is Test, ProxyDeployer {
             abi.encodeWithSelector(BookingToken.BookingToken__HoldTooShort.selector, 30, 60)
         );
         vm.prank(buyer);
-        booking.mintBooking(buyer, merchantId, keccak256("s"), DEPOSIT_USD8, address(usdc), 30, keccak256("n"));
+        booking.mintBooking(
+            buyer, merchantId, keccak256("s"), DEPOSIT_USD8, address(usdc), 30, keccak256("n")
+        );
     }
 
     function test_mint_revertsSlotTaken() public {
@@ -108,7 +112,13 @@ contract BookingTokenTest is Test, ProxyDeployer {
         );
         vm.prank(buyer);
         booking.mintBooking(
-            buyer, merchantId, keccak256("slot-1"), DEPOSIT_USD8, address(usdc), HOLD, keccak256("n2")
+            buyer,
+            merchantId,
+            keccak256("slot-1"),
+            DEPOSIT_USD8,
+            address(usdc),
+            HOLD,
+            keccak256("n2")
         );
     }
 
@@ -119,7 +129,13 @@ contract BookingTokenTest is Test, ProxyDeployer {
         );
         vm.prank(buyer);
         booking.mintBooking(
-            buyer, merchantId, keccak256("slot-2"), DEPOSIT_USD8, address(usdc), HOLD, keccak256("n1")
+            buyer,
+            merchantId,
+            keccak256("slot-2"),
+            DEPOSIT_USD8,
+            address(usdc),
+            HOLD,
+            keccak256("n1")
         );
     }
 
@@ -227,7 +243,10 @@ contract BookingTokenTest is Test, ProxyDeployer {
         uint256 id = _mint(keccak256("slot-1"), keccak256("n1"));
         vm.expectRevert(
             abi.encodeWithSelector(
-                BookingToken.BookingToken__NotExpired.selector, id, block.timestamp + HOLD, block.timestamp
+                BookingToken.BookingToken__NotExpired.selector,
+                id,
+                block.timestamp + HOLD,
+                block.timestamp
             )
         );
         vm.prank(buyer);
@@ -292,7 +311,9 @@ contract BookingTokenTest is Test, ProxyDeployer {
 
     function test_claimRefund_revertsNothingToClaim() public {
         vm.expectRevert(
-            abi.encodeWithSelector(BookingToken.BookingToken__NothingToClaim.selector, address(usdc))
+            abi.encodeWithSelector(
+                BookingToken.BookingToken__NothingToClaim.selector, address(usdc)
+            )
         );
         vm.prank(buyer);
         booking.claimRefund(address(usdc));

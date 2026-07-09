@@ -71,9 +71,7 @@ contract TimeSlotTokenTest is Test {
 
     function test_mintSlot_revertsForNonOwner() public {
         vm.prank(alice);
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
         token.mintSlot(alice, TOKEN_ID, start, end);
     }
 

@@ -34,6 +34,8 @@
     "Refunds.proxy": "0x7dc4c23954f1c57C84D299182E693336fBd564C4",
     "SplitSettler.impl": "0x6C7254e7f71FaE5C70CE2c56a0235704Fb1504e2",
     "SplitSettler.proxy": "0x4DADeC51E103cA75aD8A567E284B19f02663eEbe",
+    "Access0x1Rebates.impl": "0xa5BFC4F3451460967ED0E0B7b0c3f18F5244bB9C",
+    "Access0x1Rebates.proxy": "0xf1038D9fD72CFF882fE35955a7FdCF1C299623bF",
     "Receivables.impl": "0xA4DF54244965fAFB2a897C4Fe67CDa891be78eC0",
     "Receivables.proxy": "0x421A5eAF9cdd39d2bcE96160C256D9368503A911",
     "PriceOracleAdapter.impl": "0xc084A2175a1af492eA79806917891E1d1C494D94",

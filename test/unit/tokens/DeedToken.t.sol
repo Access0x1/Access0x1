@@ -268,9 +268,7 @@ contract DeedTokenTest is Test {
         _mintToAlice();
         vm.prank(admin);
         deed.setFractionalizer(address(frac));
-        vm.expectRevert(
-            abi.encodeWithSelector(DeedToken.DeedToken__NotLocked.selector, DEED_ID)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DeedToken.DeedToken__NotLocked.selector, DEED_ID));
         frac.redeem(DEED_ID, bob);
     }
 

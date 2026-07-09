@@ -176,7 +176,9 @@ contract MembershipTokenTest is Test {
         vm.prank(minter);
         membership.mint(alice, tierPersonal, 1);
         vm.expectRevert(
-            abi.encodeWithSelector(MembershipToken.MembershipToken__Soulbound.selector, tierPersonal)
+            abi.encodeWithSelector(
+                MembershipToken.MembershipToken__Soulbound.selector, tierPersonal
+            )
         );
         vm.prank(alice);
         membership.safeTransferFrom(alice, bob, tierPersonal, 1, "");
@@ -202,7 +204,9 @@ contract MembershipTokenTest is Test {
         vm.prank(minter);
         membership.mint(alice, tierPersonal, 1);
         vm.expectRevert(
-            abi.encodeWithSelector(MembershipToken.MembershipToken__Soulbound.selector, tierPersonal)
+            abi.encodeWithSelector(
+                MembershipToken.MembershipToken__Soulbound.selector, tierPersonal
+            )
         );
         vm.prank(alice);
         membership.safeTransferFrom(alice, alice, tierPersonal, 1, "");

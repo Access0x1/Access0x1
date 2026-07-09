@@ -67,9 +67,7 @@ contract RentalTokenTest is Test {
 
     function test_mint_revertsForNonOwner() public {
         vm.prank(alice);
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
         token.mint(alice, TOKEN_ID);
     }
 
@@ -242,9 +240,7 @@ contract RentalTokenTest is Test {
     function test_supportsInterface_advertisesTheStandardId() public view {
         // ERC-4907 pins the id to 0xad092b5c.
         assertEq(
-            type(IERC4907).interfaceId,
-            bytes4(0xad092b5c),
-            "interface drifted from the ERC-4907 id"
+            type(IERC4907).interfaceId, bytes4(0xad092b5c), "interface drifted from the ERC-4907 id"
         );
         assertTrue(token.supportsInterface(type(IERC4907).interfaceId), "IERC4907");
         assertTrue(token.supportsInterface(type(IERC721).interfaceId), "IERC721");

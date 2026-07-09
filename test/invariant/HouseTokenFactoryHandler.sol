@@ -62,9 +62,12 @@ contract HouseTokenFactoryHandler is Test {
     /// @notice Deploy a VALID house token to one of the three owner sinks from a seed-derived caller.
     ///         Bounds decimals to `0..18` and supply to a sane range so the call always succeeds, then
     ///         appends to the ghost ledger in the SAME order the factory records it.
-    function deployValid(uint256 ownerSeed, uint256 callerSeed, uint256 decimalsSeed, uint256 supplySeed)
-        external
-    {
+    function deployValid(
+        uint256 ownerSeed,
+        uint256 callerSeed,
+        uint256 decimalsSeed,
+        uint256 supplySeed
+    ) external {
         address owner = owners[ownerSeed % 3];
         address caller = address(uint160(bound(callerSeed, 1, type(uint160).max)));
         uint8 decimals = uint8(bound(decimalsSeed, 0, 18));
