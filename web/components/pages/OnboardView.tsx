@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { BrandMark } from '@/components/BrandMark'
+import { NetworkBadge } from '@/components/NetworkBadge'
 import { ConnectButton } from '@/components/ConnectButton'
 import { BrandingForm } from '@/components/branding/BrandingForm'
 import { CheckoutModeForm } from '@/components/branding/CheckoutModeForm'
@@ -39,8 +40,14 @@ export function OnboardView(): ReactNode {
         </div>
         {/* SIGNED OUT: render NOTHING here — the hero-gate's one primary "Sign in"
             is the ONLY sign-in (owner: "it should only have 1 sign in"). SIGNED IN:
-            the hero gate is gone, so the header carries the IdentityChip. */}
-        {primaryWallet ? <ConnectButton variant="ghost" /> : null}
+            the hero gate is gone, so the header carries the IdentityChip + the
+            live-network truth chip (which chain the on-chain step will land on). */}
+        {primaryWallet ? (
+          <div className="flex flex-col items-end gap-2">
+            <ConnectButton variant="ghost" />
+            <NetworkBadge />
+          </div>
+        ) : null}
       </header>
 
       <p className="text-sm text-muted-foreground">
