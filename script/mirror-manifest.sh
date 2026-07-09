@@ -50,7 +50,7 @@ UUPS=(
   Access0x1Router PaymentLanes Access0x1Subscriptions Access0x1Escrow
   AutomationGateway Access0x1ProvenanceRegistry Access0x1Bookings
   Access0x1GiftCards Access0x1Invoices Access0x1Nft HouseTokenFactory SessionGrant
-  GaslessPayIn Refunds SplitSettler Receivables PriceOracleAdapter
+  GaslessPayIn Refunds SplitSettler Access0x1SponsorRegistry Receivables PriceOracleAdapter
 )
 SINGLE=( Access0x1Receiver )
 

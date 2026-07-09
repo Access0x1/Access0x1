@@ -17,6 +17,7 @@ import { PriceOracleAdapter } from "../../src/PriceOracleAdapter.sol";
 import { Receivables } from "../../src/Receivables.sol";
 import { Refunds } from "../../src/Refunds.sol";
 import { SplitSettler } from "../../src/SplitSettler.sol";
+import { Access0x1SponsorRegistry } from "../../src/Access0x1SponsorRegistry.sol";
 
 /// @notice deploy-multichain unit suite. Two halves:
 ///         (1) HelperConfig per-chain branch selection — `vm.chainId` forces each branch and proves
@@ -514,6 +515,15 @@ contract DeployAllTest is Test {
             address(settler.router()), address(router), "split settler not wired to the Router"
         );
         assertEq(settler.owner(), BROADCASTER, "split settler owner not wired");
+
+        // Access0x1SponsorRegistry — the on-chain "who sponsors this merchant's gas" record,
+        // authorized against the Router's live merchant registry.
+        Access0x1SponsorRegistry sponsorReg = deployer.sponsorRegistry();
+        assertTrue(address(sponsorReg) != address(0), "sponsor registry not deployed");
+        assertEq(
+            address(sponsorReg.router()), address(router), "sponsor registry not wired to Router"
+        );
+        assertEq(sponsorReg.owner(), BROADCASTER, "sponsor registry owner not wired");
 
         // Receivables — composes the Router; its ERC-721 identity comes from the script's init args.
         Receivables recv = deployer.receivables();
