@@ -22,6 +22,14 @@ vi.mock('@dynamic-labs/sdk-react-core', () => ({
   }),
 }))
 
+// The view now mounts NetworkBadge (useLiveChain → wagmi). Mock the wagmi
+// hooks — the node test env has no WagmiProvider; a disconnected state keeps
+// the badge dormant, so the existing gate assertions are unchanged.
+vi.mock('wagmi', () => ({
+  useAccount: () => ({ chainId: undefined, isConnected: false }),
+  useChainId: () => 5042002,
+}))
+
 const { OnboardView } = await import('../OnboardView')
 
 afterEach(() => {

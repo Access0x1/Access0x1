@@ -4,9 +4,12 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { parseAbiItem, type Address } from 'viem'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { getDefaultChainId, getRouterAddress, tokenDecimalsFor } from '@/lib/chains'
+import { useLiveChain } from '@/lib/live-chain'
 import { getPublicClient } from '@/lib/wallet'
 import { amount8ToUsd, formatTokenAmount } from '@/lib/quote'
 import { BrandMark } from '@/components/BrandMark'
+import { NetworkBadge } from '@/components/NetworkBadge'
+import { RailModulesCard } from '@/components/RailModulesCard'
 import { ConnectButton } from '@/components/ConnectButton'
 import { TxHashLink } from '@/components/TxHashLink'
 import { GatewayBalanceCard } from '@/components/GatewayBalanceCard'
@@ -48,7 +51,12 @@ function updatedAgo(updatedAt: number, now: number): string {
  * block, amount, USD, buyer. Rendered client-only (route wrapper, ssr: false).
  */
 export function DashboardView(): ReactNode {
-  const chainId = getDefaultChainId()
+  // LIVE-CHAIN KEYED: the receipts feed, explorer links, and decimals follow
+  // the WALLET'S current chain (re-rendering on chain/account switch), falling
+  // back to the app default only when the wallet is elsewhere/unsupported —
+  // never silently reading one chain while the wallet writes on another.
+  const live = useLiveChain()
+  const chainId = live.isSupported && live.chainId !== null ? live.chainId : getDefaultChainId()
   const { primaryWallet } = useDynamicContext()
   const tenantId = primaryWallet?.address?.toLowerCase()
 
@@ -235,12 +243,17 @@ export function DashboardView(): ReactNode {
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-16">
-      <header className="flex items-center justify-between">
+      <header className="flex items-start justify-between">
         <div className="flex flex-col gap-1">
           <BrandMark size={18} />
           <PageHeading title="Dashboard" />
         </div>
-        <ConnectButton />
+        <div className="flex flex-col items-end gap-2">
+          <ConnectButton />
+          {/* The live-network truth chip: which chain this dashboard is
+              reading, switching inline when the wallet is somewhere unusable. */}
+          <NetworkBadge />
+        </div>
       </header>
 
       {/* Get Super Verified — the visible entry point to the /verify journey. */}
@@ -286,6 +299,15 @@ export function DashboardView(): ReactNode {
             ✓ Payments are on. Your checkout link is live.
           </p>
           <LinkCard result={justRegistered} />
+          {/* WHAT the merchant now sits on: their id + the shared module
+              addresses on the chain the seat actually landed on, with
+              per-chain explorer links. */}
+          <div className="mt-6 border-t border-green-200 pt-4">
+            <RailModulesCard
+              chainId={justRegistered.chainId}
+              merchantId={justRegistered.merchantId.toString()}
+            />
+          </div>
         </div>
       ) : merchantId === null ? (
         !merchantResolved ? (
