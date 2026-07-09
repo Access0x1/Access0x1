@@ -15,6 +15,7 @@ import { TxHashLink } from '@/components/TxHashLink'
 import { GatewayBalanceCard } from '@/components/GatewayBalanceCard'
 import { RegisterForm, type RegisterResult } from '@/components/RegisterForm'
 import { LinkCard } from '@/components/LinkCard'
+import { SponsorPanel } from '@/components/SponsorPanel'
 import { attachOnChain, loadBrandingStatus } from '@/lib/branding/client'
 import { resolveMerchantId } from '@/lib/branding/merchantId'
 import { canShowPaymentsOn } from '@/lib/branding/attachDecision'
@@ -423,6 +424,11 @@ export function DashboardView(): ReactNode {
           )}
         </>
       )}
+
+      {/* The sponsor status panel — CONNECTED / NOT-YET-WIRED / not-on-this-
+          chain-yet, below the existing cards, for any bound merchant id. The
+          registry is record-only v1 (it never gates the receipts above). */}
+      {merchantId !== null ? <SponsorPanel merchantId={merchantId} /> : null}
     </main>
   )
 }
