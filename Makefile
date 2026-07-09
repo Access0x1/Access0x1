@@ -241,6 +241,22 @@ deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
 deploy-base-sepolia: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 	forge script script/DeployAll.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 
+# ── Be a merchant on the LIVE mirror + settle ONE real native payment (no faucet — pays from gas) ──
+# DriveMerchant registers a merchant and settles a real payNative in the chain's native token; the
+# broadcaster (router owner) pays from the balance it already holds. `*-dry` simulates against the live
+# chain with NO keystore/broadcast — run it first to preview the split, then run the broadcast target.
+drive-merchant-base-dry: ## Preview (no key): be a merchant + native pay on Base Sepolia
+	forge script script/DriveMerchant.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) $(if $(DEPLOYER),--sender $(DEPLOYER)) -vvv
+
+drive-merchant-arc-dry: ## Preview (no key): be a merchant + native pay on Arc testnet
+	forge script script/DriveMerchant.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) $(if $(DEPLOYER),--sender $(DEPLOYER)) -vvv
+
+drive-merchant-base: ## Be a merchant + settle one native payment on Base Sepolia (keystore `deployer`)
+	forge script script/DriveMerchant.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvv
+
+drive-merchant-arc: ## Be a merchant + settle one native payment on Arc testnet (keystore `deployer`)
+	forge script script/DriveMerchant.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvv
+
 deploy-zksync-sepolia: ## Deploy to zkSync Sepolia (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --zksync $(VERIFY_ZK) -vvvv
 
