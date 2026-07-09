@@ -13,6 +13,7 @@ import {
 } from '@/lib/branding/client'
 import { shouldRestoreSavedOnReconnect } from '@/lib/branding/doneScreen'
 import { checkoutHost, checkoutOrigin } from '@/lib/branding/checkoutHost'
+import { NetworkBadge } from '@/components/NetworkBadge'
 import { BrandPreview } from './BrandPreview'
 
 type SlugState = {
@@ -406,19 +407,35 @@ function DoneScreen({
       <CopyRow label="Your checkout link" value={link} />
       <CopyRow label="Copy embed tag" value={embed} mono />
 
-      {/* PRIMARY next step: switch on payments. The slug stays "not yet live"
-          until the merchant finishes the one-time on-chain register on the
-          dashboard — so this is the real CTA, not the "Test it" preview. */}
-      <a
-        href="/dashboard"
-        className="rounded-lg bg-rail px-4 py-3 text-center text-sm font-medium text-white transition-opacity hover:opacity-90"
+      {/* STEP 2 — the on-chain step, surfaced as an explicit numbered card
+          instead of a buried link. The register itself lives on the dashboard
+          (that card owns the attach/retry bind logic — we link, never fork it).
+          The NetworkBadge shows the REAL network the merchant seat will land
+          on — the wallet's live chain — with inline switching when unusable. */}
+      <div
+        className="flex flex-col gap-3 rounded-2xl border border-rail/30 bg-rail/5 p-5"
+        data-testid="onboard-step-2"
       >
-        Switch on payments →
-      </a>
-      <p className="-mt-3 text-xs text-muted-foreground">
-        Your link is branded and ready to share, but it can’t take USDC until you finish the quick
-        one-time on-chain setup on your dashboard.
-      </p>
+        <div className="flex items-start gap-3">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rail text-xs font-semibold text-white">
+            2
+          </span>
+          <div className="flex flex-col gap-0.5">
+            <h3 className="text-sm font-semibold text-ink">Step 2 — switch on payments</h3>
+            <p className="text-sm text-muted-foreground">
+              Your link is branded and ready to share, but it can’t take USDC until you finish this
+              quick one-time on-chain setup. It lands on the network below.
+            </p>
+          </div>
+        </div>
+        <NetworkBadge />
+        <a
+          href="/dashboard"
+          className="rounded-lg bg-rail px-4 py-3 text-center text-sm font-medium text-white transition-opacity hover:opacity-90"
+        >
+          Switch on payments →
+        </a>
+      </div>
 
       {/* Secondary: preview the (not-yet-live) page, and edit. "Test it" opens
           the real checkout page, which honestly shows "hasn't switched on

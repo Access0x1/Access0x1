@@ -29,6 +29,14 @@ vi.mock('@dynamic-labs/sdk-react-core', () => ({
   getAuthToken: () => undefined,
 }))
 
+// The view now mounts NetworkBadge (useLiveChain → wagmi). Mock the wagmi
+// hooks — the node test env has no WagmiProvider; a disconnected state keeps
+// the badge dormant and the dashboard on the default chain, as before.
+vi.mock('wagmi', () => ({
+  useAccount: () => ({ chainId: undefined, isConnected: false }),
+  useChainId: () => 5042002,
+}))
+
 // Keep the branding client hermetic: by default a failed attach (so any code
 // that wrongly flipped to "payments on" would be caught), and a pending row.
 const attachOnChainMock = vi.fn(async (..._args: unknown[]) => ({ ok: false, error: 'nope' }))

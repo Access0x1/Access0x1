@@ -91,9 +91,7 @@ contract RwaShareVaultTest is Test {
 
     function test_pause_onlyOwner() public {
         vm.prank(alice);
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
         vault.pause();
     }
 
@@ -101,9 +99,7 @@ contract RwaShareVaultTest is Test {
         vm.prank(owner);
         vault.pause();
         vm.prank(alice);
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
         vault.unpause();
     }
 

@@ -164,8 +164,7 @@ contract MembershipToken is ERC1155, AccessControl {
         string calldata uri_
     ) external onlyRole(MANAGER_ROLE) {
         if (period == 0) revert MembershipToken__ZeroPeriod();
-        tiers[tierId] =
-            Tier({ price: price, period: period, soulbound: soulbound, exists: true });
+        tiers[tierId] = Tier({ price: price, period: period, soulbound: soulbound, exists: true });
         if (bytes(uri_).length != 0) _tierURI[tierId] = uri_;
         emit TierSet(tierId, price, period, soulbound);
     }

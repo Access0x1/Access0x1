@@ -219,11 +219,7 @@ contract ReceiptTokenTest is Test {
         receipts.accruePoints(alice, 100);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IERC1155Errors.ERC1155InsufficientBalance.selector,
-                bob,
-                0,
-                10,
-                receipts.POINTS_ID()
+                IERC1155Errors.ERC1155InsufficientBalance.selector, bob, 0, 10, receipts.POINTS_ID()
             )
         );
         vm.prank(bob);

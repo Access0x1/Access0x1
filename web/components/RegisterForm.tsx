@@ -3,7 +3,9 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { isAddress, keccak256, toHex, type Address, type Hash } from 'viem'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
-import { getDefaultChainId, getRouterAddress } from '@/lib/chains'
+import { getDefaultChainId } from '@/lib/chains'
+import { ensureChain, useLiveChain } from '@/lib/live-chain'
+import { NetworkBadge } from '@/components/NetworkBadge'
 import { registerMerchant } from '@/lib/contracts'
 import { getPublicClient, getWalletClient } from '@/lib/wallet'
 import { EnsResolutionError, isEnsInput, resolveENS } from '@/lib/ens'
@@ -22,6 +24,13 @@ export interface RegisterResult {
  * nameHash = keccak256(name))`. On success it hands the result up to the page,
  * which renders the link/QR/snippet card. The typed name is stored client-side
  * (the on-chain record holds only the nameHash commitment).
+ *
+ * LIVE-CHAIN AWARE: the router resolves from the WALLET'S live chain
+ * ({@link useLiveChain}) — never the build-time default — and
+ * {@link ensureChain} pins the wallet to that same chain before the write, so
+ * the address shown, the chain signed, and the router written to can never
+ * diverge. On an unsupported network the submit is disabled with an honest
+ * message and the NetworkBadge offers the switch.
  */
 export function RegisterForm({
   onRegistered,
@@ -29,6 +38,8 @@ export function RegisterForm({
   onRegistered: (result: RegisterResult) => void
 }): ReactNode {
   const { primaryWallet, setShowAuthFlow } = useDynamicContext()
+  // The wallet's LIVE chain — re-renders on chain/account switch (wagmi store).
+  const live = useLiveChain()
   const [name, setName] = useState('')
   const [priceUsd, setPriceUsd] = useState('29.00')
   const [feeRecipient, setFeeRecipient] = useState('')
@@ -68,7 +79,9 @@ export function RegisterForm({
     if (isEnsInput(trimmed)) {
       setEnsResolving(true)
       try {
-        const chainId = getDefaultChainId()
+        // Resolve for the chain the registration will actually land on — the
+        // wallet's live chain — falling back to the app default pre-connect.
+        const chainId = live.chainId ?? getDefaultChainId()
         const addr = await resolveENS(trimmed, chainId)
         setResolvedFeeRecipient(addr)
         return addr
@@ -130,18 +143,28 @@ export function RegisterForm({
       }
     }
 
-    const chainId = getDefaultChainId()
-    let routerAddress: Address
-    try {
-      routerAddress = getRouterAddress(chainId)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Router not configured for this chain.')
+    // THE LIVE-CHAIN GUARD: the router comes from the wallet's ACTUAL chain
+    // (never the build-time default), and both are captured from the SAME
+    // LiveChain snapshot — so the write below can only ever target the router
+    // that lives on the chain it is signed on.
+    if (live.chainId === null || !live.isSupported || live.routerAddress === null) {
+      setError(
+        'Your wallet is on a network payments can’t start on — switch to a supported network above.',
+      )
       return
     }
+    const chainId = live.chainId
+    const routerAddress: Address = live.routerAddress
 
     setSubmitting(true)
     try {
-      const walletClient = await getWalletClient(primaryWallet)
+      let walletClient = await getWalletClient(primaryWallet)
+      // Pin the wallet to the resolved chain BEFORE the write (the AdminPanel
+      // prepareWallet pattern) — switch-or-throw, never a wrong-chain tx. After
+      // a switch, re-derive the client so its chain snapshot matches the chain
+      // the tx is submitted on (registerMerchant passes `chain: walletClient.chain`).
+      const switched = await ensureChain(walletClient, chainId)
+      if (switched) walletClient = await getWalletClient(primaryWallet)
       const publicClient = getPublicClient(chainId)
       const payout = walletClient.account?.address as Address
 
@@ -241,13 +264,27 @@ export function RegisterForm({
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       {primaryWallet ? (
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-lg bg-rail px-4 py-2.5 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {submitting ? 'Registering…' : 'Create payment link'}
-        </button>
+        <div className="flex flex-col gap-2">
+          {/* WHERE this registration lands: the wallet's LIVE network, always
+              visible right above the action that signs on it. */}
+          <NetworkBadge />
+          <button
+            type="submit"
+            disabled={submitting || !live.isSupported}
+            className="rounded-lg bg-rail px-4 py-2.5 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? 'Registering…' : 'Create payment link'}
+          </button>
+          {live.isSupported && live.chain ? (
+            <p className="text-xs text-muted-foreground">
+              Your merchant seat will be created on {live.chain.name}.
+            </p>
+          ) : (
+            <p className="text-xs text-amber-600" data-testid="unsupported-network">
+              Payments can’t start on this network — use a switch button above to continue.
+            </p>
+          )}
+        </div>
       ) : (
         <button
           type="button"

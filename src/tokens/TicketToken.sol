@@ -80,7 +80,11 @@ contract TicketToken is ERC721Royalty, AccessControl {
 
     /// @notice A ticket was minted for `eventId`/`seatId` at `tier` to `to`.
     event TicketMinted(
-        uint256 indexed tokenId, uint64 indexed eventId, uint64 seatId, uint32 tier, address indexed to
+        uint256 indexed tokenId,
+        uint64 indexed eventId,
+        uint64 seatId,
+        uint32 tier,
+        address indexed to
     );
 
     /// @notice A ticket's resale policy changed (transferability and/or the freeze cutoff).
@@ -262,7 +266,9 @@ contract TicketToken is ERC721Royalty, AccessControl {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        if (bps > MAX_ROYALTY_BPS) revert TicketToken__RoyaltyTooHigh(bps, MAX_ROYALTY_BPS);
+        if (bps > MAX_ROYALTY_BPS) {
+            revert TicketToken__RoyaltyTooHigh(bps, MAX_ROYALTY_BPS);
+        }
         if (bps > 0 && receiver == address(0)) revert TicketToken__ZeroAddress();
         _setTokenRoyalty(tokenId, receiver, bps);
     }
