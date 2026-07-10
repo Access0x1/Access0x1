@@ -35,6 +35,7 @@ and runs it their way. Testnets only (mainnet is owner-gated, post-audit).
 | Sector | Contract | Standard | Composes the router? | Use case |
 | --- | --- | --- | --- | --- |
 | Compliant RWA base | [`Access0x1RwaToken`](../src/Access0x1RwaToken.sol) | ERC-721 + ERC-7943 (uRWA) | no | The compliant-asset base: per-token freeze, authorized `forcedTransfer` (seizure / recovery), `canSend`/`canReceive` policy gates. Everything below that needs compliance inherits it. |
+| Verified credentials | [`CredentialSbt`](../src/CredentialSbt.sol) | ERC-721 + ERC-5192 (soulbound) + EIP-712 vouchers | no | A soulbound, level-bearing **verified-credential badge**: one contract serves many credential kinds via a `bytes32 credType`; optional expiry, issuer revoke + subject renounce, gasless claim accepting EOA / ERC-1271 / ERC-6492 issuers. Full section below. |
 | Reservations | [`BookingToken`](../src/tokens/BookingToken.sol) | ERC-721 | **yes** (release leg) | A time-slot reservation as a **transferable NFT with an attached, refundable USD deposit**. Confirm releases through the fee-split; cancel/expire refund the holder. The merchant can **never** block a refund. |
 | Ticketing | [`TicketToken`](../src/tokens/TicketToken.sol) | ERC-721 + ERC-2981 | no (sale settles via router) | Event tickets with seat/tier metadata, a resale **transfer window** (non-transferable + freeze cutoff), one-way **check-in** (flag or burn), and a param'd royalty. |
 | Commerce receipts + loyalty | [`ReceiptToken`](../src/tokens/ReceiptToken.sol) | ERC-1155 | no (sale settles via router) | Per-order **proof-of-purchase** receipts (soulbound-optional) + a fungible **loyalty-point** balance that accrues on settlement and redeems by burning (one-shot per redemption id). |
@@ -52,6 +53,7 @@ is baked in.** The shared router is the same on every mirrored testnet
 | Contract | Constructor params | Post-deploy admin knobs |
 | --- | --- | --- |
 | `Access0x1RwaToken` | `name`, `symbol`, `admin` | admin grants `MINTER`/`BURNER`/`FREEZER`/`WHITELIST`/`FORCE_TRANSFER` roles; manages the reference allowlist (or overrides `canSend`/`canReceive` with real KYC) |
+| `CredentialSbt` | `name`, `symbol`, `admin` | admin grants `ISSUER_ROLE` — issue / `setLevel` / revoke plus the voucher-signing authority (ERC-1271 smart-account issuers welcome) |
 | `BookingToken` | `name`, `symbol`, `router` | none (immutable, non-custodial) — bookings bind to a router `merchantId`; only that merchant's router owner confirms |
 | `TicketToken` | `name`, `symbol`, `admin`, `royaltyReceiver`, `royaltyBps` (≤ 1000) | admin grants `MINTER`/`CHECKIN` roles, sets default/per-token royalty; check-in role sets per-ticket transfer policy |
 | `ReceiptToken` | `baseUri`, `admin`, `pointsSoulbound` | admin grants `ISSUER` role |
@@ -103,6 +105,60 @@ InvoiceToken invoices = new InvoiceToken("Studio Invoices", "INV", routerAddress
 // EIP-3009 signature any relayer submits, bound to this exact invoice by settlementNonce(...).
 ```
 
+## `CredentialSbt` — the verified-credential badge
+
+A soulbound ERC-721 that an **issuer** grants to a **subject** as an on-chain, level-bearing,
+optionally-expiring attestation. It is the generic primitive behind a "verified-credential badge" — the
+`credType` key makes it domain-agnostic, so one deployment can attest business-verification,
+KYC-attestation, membership tiers, or anything else without a new contract.
+
+### Model
+
+- **One contract, many credential kinds.** A badge is issued under a `credType` (`bytes32`, e.g.
+  `keccak256("business-verified")`). Exactly **one active badge per `(subject, credType)`** — a second
+  issue for a live pair reverts `CredentialSbt__AlreadyIssued`; the slot frees on burn so a fresh badge
+  can be issued later.
+- **Levels.** Every badge carries a `uint8 level` (non-zero; `0` is the "no badge" sentinel). The issuer
+  can **raise or lower** it via `setLevel`, emitting `LevelChanged`.
+- **Soulbound (ERC-5192).** `locked(tokenId)` is always `true` for an existing badge, `Locked` is emitted
+  at mint (never `Unlocked`), and ERC-165 advertises the ERC-5192 id `0xb45a3c0e`. Every transfer path
+  (`transferFrom`, `safeTransferFrom`, approved-operator) hard-reverts `CredentialSbt__Soulbound`, and so
+  do `approve` / `setApprovalForAll` — an approval can only ever enable a (forbidden) transfer.
+- **Expiry.** An optional `expiresAt` (unix seconds; `0` = never). `isValid(tokenId)` and
+  `hasValidCredential(subject, credType)` return true only while the badge exists, is not revoked, and is
+  not past expiry. Expiry does **not** burn the token — it flips validity, and the badge can be re-leveled
+  or revoked as usual.
+
+### Issuance
+
+Two paths, both mint the same soulbound badge:
+
+1. **Direct** — `issue(subject, credType, level, expiresAt)`, callable by any holder of `ISSUER_ROLE`.
+2. **Gasless voucher** — the issuer signs an **EIP-712** `Credential` struct offline; anyone (typically
+   the subject, but any relayer) submits it via
+   `claim(issuer, subject, credType, level, expiresAt, nonce, deadline, signature)`. The signature is
+   validated against `issuer` accepting **EOA, ERC-1271** (deployed smart account), and **ERC-6492**
+   (counterfactual / not-yet-deployed smart account) — the same predeploy-aware validator `SessionGrant`
+   uses. The recovered signer must hold `ISSUER_ROLE`; the badge always lands on the **voucher's**
+   `subject`, so a relayer cannot redirect it. Replay is guarded by a **per-issuer nonce** (a claimed
+   `(issuer, nonce)` can never mint twice), and vouchers carry a `deadline`.
+
+### Revocation
+
+- **Issuer revoke** — `revoke(tokenId)` (holder of `ISSUER_ROLE`) burns the badge and frees the pair.
+- **Subject renounce** — `renounce(tokenId)` lets the subject burn **their own** badge; a person can always
+  renounce a credential, independent of the issuer.
+
+Burn semantics follow ERC-5484: both the issuer and the subject may burn (a fixed policy for a credential
+primitive, chosen over a per-token `BurnAuth` enum to keep the surface lean).
+
+### Custody
+
+**None.** `CredentialSbt` is a pure attestation registry — no value transfer, no `payable` function. The
+only external interaction is signature validation on the `claim` path (the ERC-6492 factory `prepare`
+call), which precedes every state change (checks-effects-interactions); the voucher nonce is marked used
+before the mint, so a re-entrant claim on the same voucher reverts.
+
 ## Security posture (what the kit guarantees)
 
 - **Money paths roll back, never swallow.** The router legs are wrapped so an oracle outage or a
@@ -124,3 +180,11 @@ Every preset has a dedicated suite under [`test/unit/tokens/`](../test/unit/toke
 revert paths, access control, fee/royalty rounding (fuzzed), the refund-never-blocked invariant,
 escrow conservation (fuzzed), and — for `InvoiceToken` — explicit relayer-redirect red-team cases.
 Run them with `forge test --match-path 'test/unit/tokens/*'`.
+
+The attestation primitives keep their own suites at the repo root:
+[`test/unit/CredentialSbt.t.sol`](../test/unit/CredentialSbt.t.sol) — the full lifecycle (direct issue,
+gasless claim with EOA / ERC-1271 / ERC-6492 issuers, level raise/lower, revoke + renounce, expiry
+validity flips, the one-active-badge-per-pair invariant, every soulbound transfer + approval revert,
+signature negatives incl. replayed nonce + malformed 6492 wrapper, and fuzz) — and
+[`test/unit/Access0x1RwaToken.t.sol`](../test/unit/Access0x1RwaToken.t.sol) — the ERC-7943 surface and
+its `_update` enforcement.
