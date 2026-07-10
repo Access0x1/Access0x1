@@ -31,10 +31,13 @@ describe("normalizeUsdc — decimal vs atomic", () => {
 });
 
 describe("GET /api/gateway/balance", () => {
-  it("missing SELLER_ADDRESS → 500", async () => {
+  it("missing SELLER_ADDRESS → honest-dormant 503 (a state, not a fault — never a 500, never a 200 zero)", async () => {
     delete process.env.SELLER_ADDRESS;
     const res = await GET();
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { ok: boolean; reason: string };
+    expect(body.ok).toBe(false);
+    expect(body.reason).toBe("not_configured");
   });
 
   it("decimal API response → both '5.000000'", async () => {

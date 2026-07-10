@@ -584,7 +584,7 @@ returns zero, never a `500` that breaks the dashboard (LAW #5).
 | Status | Body | When |
 |--------|------|------|
 | `200` | `{ "gateway": "5.000000", "wallet": "1.250000" }` | Read OK (or `"0.000000"` on any upstream error). |
-| `500` | `{ "error": "SELLER_ADDRESS is not set." }` | Seller env unset. |
+| `503` | `{ "ok": false, "reason": "not_configured", "error": "SELLER_ADDRESS is not set." }` | Seller env unset — honest-dormant state, not a server fault. |
 
 ---
 

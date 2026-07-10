@@ -51,14 +51,22 @@ export function normalizeUsdc(raw: unknown): string {
 /**
  * Read the seller's Gateway available balance and wallet USDC.
  *
- * @returns 200 { gateway, wallet } as decimal USDC; zero fallback on any error
+ * @returns 200 { gateway, wallet } as decimal USDC (zero fallback on any READ
+ *   error, per law #5); 503 { ok:false, reason:"not_configured" } when the
+ *   deployment has no SELLER_ADDRESS — unconfigured is a state, not a fault,
+ *   so it must be neither a 500 (reads as a broken server) nor a 200 zero
+ *   (reads as a real empty balance).
  */
 export async function GET(): Promise<Response> {
   const seller = process.env.SELLER_ADDRESS;
   if (!seller || seller.trim() === "") {
+    // Honest-dormant: 503 + typed body. Every consumer's `!res.ok → hide`
+    // handling keeps working (GatewayBalanceCard hides itself rather than
+    // rendering a confident wrong zero), while no monitor mistakes
+    // "not configured yet" for a server fault the way the old 500 did.
     return Response.json(
-      { error: "SELLER_ADDRESS is not set." },
-      { status: 500 },
+      { ok: false, reason: "not_configured", error: "SELLER_ADDRESS is not set." },
+      { status: 503 },
     );
   }
 
