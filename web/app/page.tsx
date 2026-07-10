@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   title: 'Access0x1 — a do-it-all center to get you and your business onchain',
   description:
     'Access0x1 is the open, on-chain layer for payments, auth, and agents. Accept ' +
-    'USD-priced crypto with one link, prove identity with ENS, and let agents act ' +
+    'USD-priced payments in USDC with one link, prove identity with ENS, and let agents act ' +
     'within scoped grants — zero custody, no contract code. Live on Arc, Base, and ' +
     'zkSync, powered by Chainlink.',
 }

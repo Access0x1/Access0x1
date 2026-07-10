@@ -73,7 +73,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         fmt fmt-check clean sizes storage-layout \
         gate aderyn slither analyze mutation halmos audit anvil \
         deploy-pick mirror-manifest sync \
-        deploy-dry deploy-local drive-local deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
+        deploy-dry deploy-local drive-local drive-merchant-base drive-merchant-arc drive-merchant-base-dry drive-merchant-arc-dry deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
         deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet deploy-hoodi deploy-tempo \
         verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-arbitrum-sepolia verify-polygon-amoy verify-galileo verify-chain verify-all-testnets verify-all-sourcify \
@@ -85,7 +85,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         cre-build cre-sim zksync-build all
 
 help: ## Show every command
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 install: ## Install all deps: forge submodules + npm (@chainlink) + web + sdk
@@ -240,6 +240,22 @@ deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
 
 deploy-base-sepolia: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 	forge script script/DeployAll.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+# ── Be a merchant on the LIVE mirror + settle ONE real native payment (no faucet — pays from gas) ──
+# DriveMerchant registers a merchant and settles a real payNative in the chain's native token; the
+# broadcaster (router owner) pays from the balance it already holds. `*-dry` simulates against the live
+# chain with NO keystore/broadcast — run it first to preview the split, then run the broadcast target.
+drive-merchant-base-dry: ## Preview (no key): be a merchant + native pay on Base Sepolia
+	forge script script/DriveMerchant.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) $(if $(DEPLOYER),--sender $(DEPLOYER)) -vvv
+
+drive-merchant-arc-dry: ## Preview (no key): be a merchant + native pay on Arc testnet
+	forge script script/DriveMerchant.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) $(if $(DEPLOYER),--sender $(DEPLOYER)) -vvv
+
+drive-merchant-base: ## Be a merchant + settle one native payment on Base Sepolia (keystore `deployer`)
+	forge script script/DriveMerchant.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvv
+
+drive-merchant-arc: ## Be a merchant + settle one native payment on Arc testnet (keystore `deployer`)
+	forge script script/DriveMerchant.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvv
 
 deploy-zksync-sepolia: ## Deploy to zkSync Sepolia (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --zksync $(VERIFY_ZK) -vvvv

@@ -83,7 +83,7 @@ const baseTwitter = {
  * bare domain before the redirect resolves. `index, follow`.
  */
 export const rootMetadata = {
-  title: 'Accept USD-priced crypto with one link · Access0x1',
+  title: 'Accept USD-priced onchain payments with one link · Access0x1',
   description:
     'Onboard once, share a link, get paid in USDC. Zero custody — every payment settles ' +
     'merchant-to-payout in a single transaction. Open-source router. Testnet.',
@@ -113,7 +113,7 @@ export const rootMetadata = {
  * server `layout.tsx` exports this; the client view renders unchanged. `index, follow`.
  */
 export const onboardMetadata = {
-  title: 'Create your crypto payment link · Access0x1',
+  title: 'Create your USDC payment link · Access0x1',
   description:
     'Make it yours: set a name, a tagline, and a logo, then accept USDC with one link — ' +
     'no code, no contract, no gas to manage. Non-custodial. Testnet build.',
@@ -124,7 +124,7 @@ export const onboardMetadata = {
     title: 'Onboard in minutes — your branded USDC checkout link',
     description:
       'Register once, share one link, get paid in USDC. Zero custody, USD-priced via ' +
-      'Chainlink. The non-custodial way to accept crypto.',
+      'Chainlink. Zero-custody by design.',
     url: `${SITE_ORIGIN}/onboard`,
     images: [{ url: '/og/onboard.png', width: 1200, height: 630, alt: 'Access0x1 — onboard' }],
   },
@@ -133,7 +133,7 @@ export const onboardMetadata = {
     title: 'Onboard in minutes — your branded USDC checkout link',
     description:
       'Register once, share one link, get paid in USDC. Zero custody, USD-priced via ' +
-      'Chainlink. The non-custodial way to accept crypto.',
+      'Chainlink. Zero-custody by design.',
     images: ['/og/onboard.png'],
   },
 } satisfies Metadata;
@@ -174,7 +174,7 @@ export const dashboardMetadata = {
  * `index, follow`.
  */
 export const askMetadata = {
-  title: 'Ask Access0x1 — crypto payments & agents AI · Access0x1',
+  title: 'Ask Access0x1 — onchain payments & agents AI · Access0x1',
   description:
     'Ask anything about onchain payments, USDC, agents, and zero-custody commerce. ' +
     'Answers grounded in the open-source Access0x1 repo. Testnet build.',
@@ -184,7 +184,7 @@ export const askMetadata = {
     ...baseOpenGraph,
     title: 'Ask Access0x1 — answers about onchain payments & agent USDC',
     description:
-      'A grounded AI assistant for the open Access0x1 stack: USD-priced crypto checkout, ' +
+      'A grounded AI assistant for the open Access0x1 stack: USD-priced onchain checkout, ' +
       'non-custodial settlement, and agent payments.',
     url: `${SITE_ORIGIN}/ask`,
     images: [{ url: '/og/ask.png', width: 1200, height: 630, alt: 'Ask Access0x1' }],
@@ -193,7 +193,7 @@ export const askMetadata = {
     ...baseTwitter,
     title: 'Ask Access0x1 — answers about onchain payments & agent USDC',
     description:
-      'A grounded AI assistant for the open Access0x1 stack: USD-priced crypto checkout, ' +
+      'A grounded AI assistant for the open Access0x1 stack: USD-priced onchain checkout, ' +
       'non-custodial settlement, and agent payments.',
     images: ['/og/ask.png'],
   },
@@ -390,18 +390,18 @@ export const softwareApplicationJsonLd = {
   '@type': 'SoftwareApplication',
   name: 'Access0x1',
   applicationCategory: 'FinanceApplication',
-  applicationSubCategory: 'Crypto payments / checkout SDK',
+  applicationSubCategory: 'Onchain payments / checkout SDK',
   operatingSystem: 'Web',
   url: SITE_ORIGIN,
   description:
     'Open-source, non-custodial onchain layer for payments, auth, and agents. Accept ' +
-    'USD-priced crypto in USDC with one link — no contract code, zero custody.',
+    'USD-priced payments in USDC with one link — no contract code, zero custody.',
   softwareVersion: '0.1.0',
   isAccessibleForFree: true,
   license: 'https://opensource.org/license/mit',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
   featureList: [
-    'USD-priced crypto checkout (Chainlink quotes)',
+    'USD-priced onchain checkout (Chainlink-interface price feeds)',
     'One-link / one-tag hosted checkout',
     'Non-custodial settlement (zero custody)',
     'Agent payments in USDC (ERC-6909 PaymentLanes, ERC-7702 sessions)',

@@ -39,8 +39,9 @@ function shortAddr(a: string): string {
  *
  * READ leg (informational, no auth): GET /api/gateway/balance → the deployment's
  * Circle Gateway available balance + payout-wallet USDC. Fail-soft by design — if the
- * deployment has no Gateway configured (the route 500s on an unset SELLER_ADDRESS),
- * the whole card hides itself rather than showing a broken zero.
+ * deployment has no Gateway configured (the route answers an honest-dormant 503 on
+ * an unset SELLER_ADDRESS), the whole card hides itself rather than showing a
+ * broken zero.
  *
  * WITHDRAW leg (money movement, auth-gated): POST /api/gateway/withdraw with the
  * caller's Dynamic JWT (and the connected wallet as the booth-fallback tenantId). The

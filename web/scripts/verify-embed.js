@@ -206,7 +206,7 @@ test('boot: injects a button after the script tag (basic injection)', () => {
   assert.ok(btn, 'button not injected');
   assert.strictEqual(btn.tagName, 'BUTTON');
   const label = btn.querySelector('.a0x1-label');
-  assert.strictEqual(label.textContent, 'Pay with Crypto');
+  assert.strictEqual(label.textContent, 'Pay with USDC');
 });
 
 test('boot: zero amount is rejected before any RPC call (no button)', () => {
