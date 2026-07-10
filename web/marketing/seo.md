@@ -28,7 +28,7 @@
 **Product (one line):** an open-source, non-custodial onchain layer for **payments +
 auth + agents** — a business onboards once, shares one link, and gets paid in USDC with
 no contract code and zero custody. Positioned as the **non-custodial Stripe alternative**
-for crypto, with first-class **agent (USDC) payments**.
+for onchain payments, with first-class **agent (USDC) payments**.
 
 **Primary domain:** `https://access0x1.xyz` · **Status:** testnet build (judged, public repo).
 
@@ -120,7 +120,7 @@ suffix `· Access0x1` is included in the count. OG title may be longer than the 
   rendered content, so it needs **no per-page metadata** — but it MUST NOT be the indexed
   homepage. The marketing/brand metadata below lives on the **root layout** (`app/layout.tsx`)
   and is what social/search see for the bare domain before the redirect resolves.
-- **Title:** `Accept USD-priced crypto with one link · Access0x1`
+- **Title:** `Accept USD-priced onchain payments with one link · Access0x1`
 - **Meta:** `Onboard once, share a link, get paid in USDC. Zero custody — every payment settles merchant-to-payout in a single transaction. Open-source router. Testnet.`
 - **OG title:** `Access0x1 — the non-custodial onchain checkout, in one link`
 - **OG description:** `Payments + auth + agents on one open router. No contract code, no custody, USD-priced in USDC. Drop it into any app in five minutes.`
@@ -132,10 +132,10 @@ suffix `· Access0x1` is included in the count. OG title may be longer than the 
   titles above (current layout title is close; align to the ≤60-char version).
 
 ### `/onboard` — create your branded checkout (CONVERSION HUB)
-- **Title:** `Create your crypto payment link · Access0x1`
+- **Title:** `Create your USDC payment link · Access0x1`
 - **Meta:** `Make it yours: set a name, a tagline, and a logo, then accept USDC with one link — no code, no contract, no gas to manage. Non-custodial. Testnet build.`
 - **OG title:** `Onboard in minutes — your branded USDC checkout link`
-- **OG description:** `Register once, share one link, get paid in USDC. Zero custody, USD-priced via Chainlink. The non-custodial way to accept crypto.`
+- **OG description:** `Register once, share one link, get paid in USDC. Zero custody, USD-priced via Chainlink. Zero-custody by design.`
 - **OG image:** `/og/onboard.png`
 - **Canonical:** `https://access0x1.xyz/onboard`
 - **Robots:** `index, follow`
@@ -187,11 +187,11 @@ suffix `· Access0x1` is included in the count. OG title may be longer than the 
   dynamic OG. Data path: `/api/branding/by-merchant/[id]`.
 
 ### `/ask` — Ask Access0x1 (AI assistant, DISCOVERY HUB for ICP C)
-- **Title:** `Ask Access0x1 — crypto payments & agents AI · Access0x1`
+- **Title:** `Ask Access0x1 — onchain payments & agents AI · Access0x1`
   - (current code title `Ask Access0x1 — AI assistant` is fine; the above adds keyword reach.)
 - **Meta:** `Ask anything about onchain payments, USDC, agents, and zero-custody commerce. Answers grounded in the open-source Access0x1 repo. Testnet build.`
 - **OG title:** `Ask Access0x1 — answers about onchain payments & agent USDC`
-- **OG description:** `A grounded AI assistant for the open Access0x1 stack: USD-priced crypto checkout, non-custodial settlement, and agent payments.`
+- **OG description:** `A grounded AI assistant for the open Access0x1 stack: USD-priced onchain checkout, non-custodial settlement, and agent payments.`
 - **OG image:** `/og/ask.png`
 - **Canonical:** `https://access0x1.xyz/ask`
 - **Robots:** `index, follow`
@@ -231,16 +231,16 @@ The primary entity. Models Access0x1 as a free developer tool.
   "@type": "SoftwareApplication",
   "name": "Access0x1",
   "applicationCategory": "FinanceApplication",
-  "applicationSubCategory": "Crypto payments / checkout SDK",
+  "applicationSubCategory": "Onchain payments / checkout SDK",
   "operatingSystem": "Web",
   "url": "https://access0x1.xyz",
-  "description": "Open-source, non-custodial onchain layer for payments, auth, and agents. Accept USD-priced crypto in USDC with one link — no contract code, zero custody.",
+  "description": "Open-source, non-custodial onchain layer for payments, auth, and agents. Accept USD-priced payments in USDC with one link — no contract code, zero custody.",
   "softwareVersion": "0.1.0",
   "isAccessibleForFree": true,
   "license": "https://opensource.org/license/mit",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "featureList": [
-    "USD-priced crypto checkout (Chainlink quotes)",
+    "USD-priced onchain checkout (Chainlink-interface price feeds)",
     "One-link / one-tag hosted checkout",
     "Non-custodial settlement (zero custody)",
     "Agent payments in USDC (ERC-6909 PaymentLanes, ERC-7702 sessions)",
