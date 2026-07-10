@@ -44,7 +44,7 @@ const FEATURES: readonly Feature[] = [
   {
     title: 'Payments',
     description:
-      'Accept USD-priced crypto with one link. A Chainlink feed quotes the price inside the pay transaction; funds settle merchant-to-payout with zero custody.',
+      'Get paid in USDC with one link. A Chainlink-interface price feed quotes the USD price inside the pay transaction; funds settle merchant-to-payout with zero custody.',
     contract: 'Access0x1Router.sol',
     glyph: '💸',
   },
@@ -100,7 +100,7 @@ export function FeatureGrid(): ReactNode {
           One center, the whole commerce stack
         </h2>
         <p className="mt-3 text-balance text-muted-foreground">
-          Twelve open-source contracts behind a single link. Turn on only what
+          A full suite of open-source contracts behind a single link. Turn on only what
           you need — every piece shares the same no-custody settlement spine.
         </p>
       </div>

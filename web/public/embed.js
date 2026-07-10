@@ -77,7 +77,7 @@
   };
 
   var DEFAULT_CHAIN_ID = 5042002;
-  var DEFAULT_LABEL = 'Pay with Crypto';
+  var DEFAULT_LABEL = 'Pay with USDC';
   /** USD amounts on-chain carry 8 decimals (router USD_DECIMALS == 8). */
   var USD_DECIMALS = 8;
   /** Function selector for quote(uint256,address,uint256). */

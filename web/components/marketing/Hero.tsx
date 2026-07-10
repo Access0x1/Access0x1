@@ -3,7 +3,7 @@
  *
  * Pure presentational, server-renderable: no hooks, no client JS. It states the
  * product one-liner ("The open-source rail for onchain identity + USD-priced
- * crypto payments") and frames the value prop, then hands the visitor straight
+ * onchain payments") and frames the value prop, then hands the visitor straight
  * to the primary CTA (rendered separately by LandingCTA so the call-to-action
  * lives in one place).
  *
@@ -19,7 +19,7 @@ import { LandingCTA } from '@/components/marketing/LandingCTA'
 
 /** The product one-liner — the single sentence the page is built around. */
 const ONE_LINER =
-  'The open-source rail for onchain identity + USD-priced crypto payments'
+  'The open-source rail for onchain identity + USD-priced payments in USDC'
 
 export function Hero(): ReactNode {
   return (
@@ -51,7 +51,7 @@ export function Hero(): ReactNode {
         {/* Sub-headline: what it means in plain terms. */}
         <p className="max-w-xl text-balance text-lg text-muted-foreground">
           Access0x1 is the open umbrella layer apps build on — the shared,
-          on-chain rail for accepting USD-priced crypto, proving identity, and
+          on-chain rail for accepting USD-priced payments in USDC, proving identity, and
           letting agents act on your behalf. Onboard once, share a link, get paid
           in USDC — zero custody, no smart-contract code to write.
         </p>

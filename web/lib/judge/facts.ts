@@ -36,10 +36,10 @@ export const FACT_SECTIONS: readonly FactSection[] = [
     title: 'What Access0x1 is',
     body:
       'Access0x1 is an open-source (MIT), multi-chain, zero-custody layer for getting a ' +
-      'business onchain: USD-priced crypto payments, a commerce suite (subscriptions, ' +
+      'business onchain: USD-priced onchain payments, a commerce suite (subscriptions, ' +
       'bookings, invoices, gift cards, NFTs), and identity/auth — white-label for ' +
       'non-coders and agent-native. A business registers once and accepts USD-priced ' +
-      'crypto with a single link: no per-merchant contract to deploy, no custody. One ' +
+      'payments in USDC with a single link: no per-merchant contract to deploy, no custody. One ' +
       'shared, multi-tenant Access0x1Router serves every merchant; a permissionless ' +
       'registerMerchant returns a merchantId and the caller owns only their own config. ' +
       'It is built so a developer writes NO Solidity to integrate — they point a drop-in ' +
@@ -175,7 +175,7 @@ export const FACT_SECTIONS: readonly FactSection[] = [
       'Circle + Arc: USDC-as-native-gas gives gas-free checkout with no Paymaster code, ' +
       'and a Circle Gateway / x402 seam (web/app/api/gateway/*) lets a seller read and ' +
       'withdraw their settled USDC. Dynamic (web/lib/dynamic.ts): an email sign-in ' +
-      'becomes an embedded wallet so a buyer who has never held crypto can still complete ' +
+      'becomes an embedded wallet so a buyer who has never held a wallet can still complete ' +
       'a USDC checkout. Unlink (web/lib/unlink): a confidential withdrawal leg lets a ' +
       'merchant shield and move settled USDC without exposing the amount, off the money ' +
       'path. World ID (web/components/WorldIdGate.tsx): an optional one-tap ' +
@@ -267,7 +267,7 @@ export const FACT_SECTIONS: readonly FactSection[] = [
       'custody and no float — revenue is purely the transparent on-chain fee on real ' +
       'settled volume. The open-source router plus the no-code, white-label checkout and ' +
       'the agent/commerce primitives are the distribution: any business or any app built ' +
-      'from the starter template can accept USD-priced crypto in minutes, and Access0x1 ' +
+      'from the starter template can accept USD-priced onchain payments in minutes, and Access0x1 ' +
       'earns on the volume that flows through the shared router.',
   },
   {
@@ -288,7 +288,7 @@ export const FACT_SECTIONS: readonly FactSection[] = [
 
 /** Short, human one-liner used in the page header and as the assistant's self-description. */
 export const JUDGE_BOT_TAGLINE =
-  'Ask anything about Access0x1 — the open, zero-custody, USD-priced crypto payments + ' +
+  'Ask anything about Access0x1 — the open, zero-custody, USD-priced onchain payments + ' +
   'agents + commerce layer. Answers are grounded in the repo (testnet build).'
 
 /**

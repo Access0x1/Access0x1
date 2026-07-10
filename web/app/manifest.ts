@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Access0x1',
     short_name: 'Access0x1',
-    description: 'Accept USD-priced crypto with one link — zero custody, no contract code.',
+    description: 'Accept USD-priced onchain payments with one link — zero custody, no contract code.',
     start_url: '/',
     display: 'standalone',
     background_color: '#0B1020',

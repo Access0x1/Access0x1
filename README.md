@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**The open-source rail for onchain identity + USD-priced crypto payments. One link, no code, no contract, no gas. Apps build on it.**
+**The open-source rail for onchain identity + USD-priced payments in USDC. One link, no code, no contract, no gas. Apps build on it.**
 
 Access0x1 is the umbrella layer everything plugs into — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), tokenization (ERC-7943 uRWA compliant assets · ERC-6551 token bound accounts), and identity, white-label for non-coders and agent-native. One shared rail per chain; apps build on top, no per-app contract code.
 
@@ -75,7 +75,7 @@ cast send --account deployer --rpc-url "$ARC_TESTNET_RPC" \
 />
 ```
 
-That's the whole loop: register once, then collect USD-priced crypto with a single drop-in — zero
+That's the whole loop: register once, then collect USD-priced payments in USDC with a single drop-in — zero
 custody, no per-merchant contract. The full walkthrough is the **[Quickstart](docs/QUICKSTART.md)**.
 
 > **ETHGlobal NY 2026 build · testnet only.** The money spine (`router-core`) is complete, green,
@@ -87,7 +87,7 @@ custody, no per-merchant contract. The full walkthrough is the **[Quickstart](do
 
 ## What it is
 
-A business registers once and accepts **USD-priced crypto with a single link** — no per-merchant
+A business registers once and accepts **USD-priced payments in USDC with a single link** — no per-merchant
 contract, no custody. One shared, multi-tenant [`Access0x1Router`](src/Access0x1Router.sol) serves
 every merchant. Each payment prices USD → token through a Chainlink feed read *inside the settlement
 transaction*, splits an exact fee, and pushes the net to the merchant in the same tx. The contract
@@ -827,7 +827,7 @@ no-op, never a blocked payment). The detail for each — file paths and exact be
 | --- | --- | --- |
 | **Circle + Arc** | USDC as the native gas token (Arc) + the Gateway / x402 settlement seam | Gas-free checkout with **zero Paymaster code** — the payer pays gas in USDC, so we wrote a chain config and a pay button |
 | **Chainlink** | `<token>/USD` Data Feeds read in-transaction (+ CRE for the audit consumer) | The settled price is trusted **on-chain**, not a frontend guess — one in-tx call gave us USD→USDC pricing |
-| **Dynamic** | Email sign-in backed by an embedded wallet | A buyer who has never held crypto completes a USDC checkout — no seed phrase, no extension |
+| **Dynamic** | Email sign-in backed by an embedded wallet | A buyer who has never held a wallet completes a USDC checkout — no seed phrase, no extension |
 | **Unlink** | Confidential-withdrawal seam (`@unlink-xyz/sdk`) | A merchant can shield a settled-USDC payout off the public ledger; absent the SDK it degrades to a standard payout |
 | **World ID** | One-tap proof-of-personhood gate before pay | Verified-human checkout that sits **in front of** settlement — a misconfigured gate degrades, never blocks |
 | **OIDC (e.g. Sign in with Google)** | Server-side ID-token verification via `jose` | "Verify for all" — any app from this template inherits an `oidc` method by setting one env var; blank ⇒ OFF |
@@ -857,7 +857,7 @@ integration let us *not* build, not a marketing wall.
   [`Access0x1Receiver`](src/Access0x1Receiver.sol).)
 - **Dynamic — an email login became an invisible wallet.** [`web/lib/dynamic.ts`](web/lib/dynamic.ts)
   and the [providers](web/app/providers.tsx) turn a normal email sign-in into an embedded wallet, so a
-  buyer who has never held crypto can still complete a USDC checkout — no seed phrase, no extension.
+  buyer who has never held a wallet can still complete a USDC checkout — no seed phrase, no extension.
 - **Unlink — confidential payouts (integration seam).** [`web/lib/unlink`](web/lib/unlink) is a private-
   withdrawal seam: with the `@unlink-xyz/sdk` installed it lets a merchant shield and move their settled
   USDC without exposing the amount on a public ledger; absent the SDK it degrades to a standard USDC

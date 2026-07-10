@@ -39,7 +39,7 @@
       },
       {
         "uri": "https://eips.ethereum.org/EIPS/eip-7715",
-        "description": "ERC-7715 / ERC-7710 spend-permissions interop (the emerging wallet spend-permissions standard). Access0x1's on-chain SessionGrant IS the standards twin: a 7715 wallet_requestExecutionPermissions grant maps onto SessionGrant.openSessionFor, the opaque 7715 `context` = abi.encode(address sessionGrant, bytes32 sessionId), and an ERC-7710 redeemDelegations redemption maps onto SessionGrant.spend. OFF-CHAIN interop seam today (SessionGrant already does the crypto); the on-chain 7710 router facade is deferred post-event. Grant in any 7715-capable wallet, redeem non-custodially against the existing SessionGrant.",
+        "description": "ERC-7715 / ERC-7710 spend-permissions interop (the emerging wallet spend-permissions standard). Access0x1's on-chain SessionGrant IS the standards twin: a 7715 wallet_requestExecutionPermissions grant maps onto SessionGrant.openSessionFor, the opaque 7715 `context` = abi.encode(address sessionGrant, bytes32 sessionId), and an ERC-7710 redeemDelegations redemption maps onto SessionGrant.spend. OFF-CHAIN interop seam today (SessionGrant already does the cryptography); the on-chain 7710 router facade is deferred post-event. Grant in any 7715-capable wallet, redeem non-custodially against the existing SessionGrant.",
         "required": false,
         "params": {
           "standards": ["ERC-7715", "ERC-7710"],

@@ -31,7 +31,7 @@ const spaceGrotesk = Space_Grotesk({
  * (Open Graph + Twitter) that the convention files can't express.
  */
 const SITE_URL = 'https://access0x1.click'
-const TITLE = 'Access0x1 — accept USD-priced crypto with one link'
+const TITLE = 'Access0x1 — accept USD-priced onchain payments with one link'
 const DESCRIPTION =
   'Onboard once, share a link, get paid in USDC. Zero custody — every payment settles ' +
   'merchant to payout in a single transaction. Powered by the open-source Access0x1 router.'
