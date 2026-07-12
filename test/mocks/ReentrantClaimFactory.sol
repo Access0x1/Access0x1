@@ -59,7 +59,9 @@ contract ReentrantClaimFactory {
         // bubble (CredentialSbt ignores the factory-call result anyway) — we record whether the mint stuck.
         try sbt.claim(
             issuer, subject, credType, level, expiresAt, nonce, deadline, innerSig
-        ) returns (uint256) {
+        ) returns (
+            uint256
+        ) {
             reentrantMinted = true;
         } catch {
             reentrantMinted = false;

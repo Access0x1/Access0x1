@@ -12,9 +12,7 @@ import { IERC721Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093
 import { CredentialSbt } from "../../src/CredentialSbt.sol";
 import { ICredentialSbt, IERC5192 } from "../../src/interfaces/ICredentialSbt.sol";
 import { SmartWallet1271, WalletFactory } from "../mocks/SmartWallet1271.sol";
-import {
-    ReentrantClaimFactory, NonceProbeFactory
-} from "../mocks/ReentrantClaimFactory.sol";
+import { ReentrantClaimFactory, NonceProbeFactory } from "../mocks/ReentrantClaimFactory.sol";
 
 /// @notice Unit + fuzz suite for {CredentialSbt}, the vanilla soulbound (ERC-5192) verified-credential
 ///         badge with levels. Covers the full lifecycle — direct {issue}, gasless {claim} from an
@@ -567,7 +565,8 @@ contract CredentialSbtTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Two DIFFERENT badges the issuer legitimately signed under the SAME nonce.
-        bytes memory sigA = _signVoucher(issuerPk, subject, CRED_TYPE, LEVEL, 0, sharedNonce, deadline);
+        bytes memory sigA =
+            _signVoucher(issuerPk, subject, CRED_TYPE, LEVEL, 0, sharedNonce, deadline);
         bytes memory sigB =
             _signVoucher(issuerPk, subject, OTHER_TYPE, LEVEL, 0, sharedNonce, deadline);
 
@@ -578,9 +577,7 @@ contract CredentialSbtTest is Test {
         // The outer TYPE_A voucher, ERC-6492-wrapped so the unsigned `factory` = the attacker contract.
         // The issuer is a codeless EOA, so claim() CALLs `factory` (evil.reenter) before consuming nonce.
         bytes memory wrapped = abi.encodePacked(
-            abi.encode(
-                address(evil), abi.encodeCall(ReentrantClaimFactory.reenter, ()), sigA
-            ),
+            abi.encode(address(evil), abi.encodeCall(ReentrantClaimFactory.reenter, ()), sigA),
             ERC6492_MAGIC
         );
 
@@ -595,7 +592,9 @@ contract CredentialSbtTest is Test {
 
         // The attack path fired but the re-entrant TYPE_B mint was REJECTED by the nonce guard.
         assertTrue(evil.reentered(), "factory call did fire (attack path exercised)");
-        assertFalse(evil.reentrantMinted(), "re-entrant claim must NOT have minted (was: minted twice)");
+        assertFalse(
+            evil.reentrantMinted(), "re-entrant claim must NOT have minted (was: minted twice)"
+        );
         assertFalse(
             sbt.hasValidCredential(subject, OTHER_TYPE), "NO second badge from the shared nonce"
         );
