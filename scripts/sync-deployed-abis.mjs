@@ -37,6 +37,10 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
+// The CANONICAL, COMMITTED deployed set. `deployments/*.json` are gitignored
+// (per-chain, regenerated locally), so they're ABSENT in CI — the mirror manifest
+// is the committed source of what DeployAll deploys everywhere.
+const MANIFEST = join(REPO_ROOT, 'script', 'mirror-manifest.json');
 const DEPLOYMENTS = join(REPO_ROOT, 'deployments');
 const OUT = join(REPO_ROOT, 'out');
 const ABIS = join(REPO_ROOT, 'abis');
@@ -44,22 +48,41 @@ const ABIS = join(REPO_ROOT, 'abis');
 const rel = (p) => relative(REPO_ROOT, p);
 const WRITE = process.argv.includes('--write');
 
-/** Union of deployed contract type names across every chain manifest (no proxies). */
+/**
+ * Every deployed contract type. Primary source is the committed
+ * script/mirror-manifest.json (keys "<Name>.impl" / "<Name>.proxy" / a bare
+ * "<Name>" for the Receiver), so this works in CI where deployments/ is absent.
+ * Also unions any local deployments/*.json (gitignored) so a locally-deployed
+ * contract not yet in the manifest is still caught.
+ */
 function deployedTypes() {
   const set = new Set();
-  if (!existsSync(DEPLOYMENTS)) return set;
-  for (const f of readdirSync(DEPLOYMENTS)) {
-    if (!f.endsWith('.json')) continue;
-    let manifest;
-    try {
-      manifest = JSON.parse(readFileSync(join(DEPLOYMENTS, f), 'utf8'));
-    } catch {
-      continue;
+
+  try {
+    const m = JSON.parse(readFileSync(MANIFEST, 'utf8'));
+    const contracts = m.contracts ?? m;
+    for (const key of Object.keys(contracts)) {
+      const base = key.replace(/\.(impl|proxy)$/, '');
+      if (base && base !== 'ERC1967Proxy') set.add(base);
     }
-    const entries = Array.isArray(manifest) ? manifest : manifest.contracts ?? [];
-    for (const e of entries) {
-      const name = e?.name;
-      if (name && name !== 'ERC1967Proxy') set.add(name);
+  } catch {
+    /* manifest missing/corrupt — fall through to deployments/, then the empty guard */
+  }
+
+  if (existsSync(DEPLOYMENTS)) {
+    for (const f of readdirSync(DEPLOYMENTS)) {
+      if (!f.endsWith('.json')) continue;
+      let manifest;
+      try {
+        manifest = JSON.parse(readFileSync(join(DEPLOYMENTS, f), 'utf8'));
+      } catch {
+        continue;
+      }
+      const entries = Array.isArray(manifest) ? manifest : manifest.contracts ?? [];
+      for (const e of entries) {
+        const name = e?.name;
+        if (name && name !== 'ERC1967Proxy') set.add(name);
+      }
     }
   }
   return set;
@@ -85,7 +108,7 @@ function serialize(abi) {
 function main() {
   const types = [...deployedTypes()].sort();
   if (types.length === 0) {
-    console.error(`ERROR: no deployed contract types found under ${rel(DEPLOYMENTS)}.`);
+    console.error(`ERROR: no deployed contract types found in ${rel(MANIFEST)} (or ${rel(DEPLOYMENTS)}/).`);
     process.exit(1);
   }
 
