@@ -64,8 +64,8 @@ addresses — **don't trust this table, re-derive it** (see *How to read the liv
 | Arbitrum Sepolia (421614) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
 | Celo Sepolia (11142220) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
 | 0G Galileo (16602) | ✅ | ⏳ pre-mirror | pre-mirror table |
-| Ethereum Hoodi (560048) | ✅ partial (8/24) | ⏳ pre-mirror | — |
-| Tempo (42431) | ✅ partial (8/24) | ⏳ pre-mirror | — |
+| Ethereum Hoodi (560048) | ✅ partial (pre-mirror set) | ⏳ pre-mirror | README MIRROR-STATUS (pre-mirror) |
+| Tempo (42431) | ✅ partial (pre-mirror set) | ⏳ pre-mirror | README MIRROR-STATUS (pre-mirror) |
 | zkSync Sepolia (300) | ⏳ not broadcast | — | — |
 
 Per-chain **source-verification** status lives in the README Deployments section (seven of the
@@ -76,25 +76,38 @@ The mirror is **rolling out across the testnets** — the `MIRROR-STATUS` table 
 from the broadcasts by `make sync`) is the live per-chain source of truth. Chains still showing
 `⏳ pre-mirror` run their own per-chain address sets until cut over.
 
-> **Mirrored ≠ usable yet.** A chain showing `✅ mirror` means the contracts are *deployed* at the mirror
-> addresses — it does NOT mean a merchant is registered. `nextMerchantId` on the mirror router is still
-> `1` (no merchant) on every chain; a consuming app (e.g. your app) needs `registerMerchant` run on the
-> mirror before it can settle there. That registration is a keystore-signed, owner-run tx.
+> **Mirrored ≠ usable everywhere.** A chain showing `✅ mirror` means the contracts are *deployed* at the
+> mirror addresses — a merchant still needs `registerMerchant` run on that chain's mirror before it can
+> settle there. As of **2026-07-08 the mirror carries real merchants + settled native payments on Base
+> Sepolia (`nextMerchantId` = 3) and Arc (`nextMerchantId` = 2)**; the other mirrored chains are still at
+> `nextMerchantId` = 1 (deployed, no merchant yet). Registration is a keystore-signed, owner-run tx.
+> Re-derive the live count per chain — never hand-claim it:
+> `cast call 0xe92244e3368561faf21648146511DeDE3a475EB5 "nextMerchantId()(uint256)" --rpc-url <CHAIN_RPC>`.
 
-**Mirror coverage — 18 of 18 deployable contracts.** `DeployAll` mirrors the FULL first-party
+**Mirror coverage — 20 of 20 deployable contracts.** `DeployAll` mirrors the FULL first-party
 surface: the money spine + auth + commerce set (Router, PaymentLanes, SessionGrant, HouseTokenFactory,
 Subscriptions, Bookings, Invoices, GiftCards, Nft, Escrow, AutomationGateway, ProvenanceRegistry, +
-the Receiver) AND the five settlement extensions — `GaslessPayIn`, `PriceOracleAdapter`, `Receivables`,
-`Refunds`, `SplitSettler` — each deployed impl→`ERC1967Proxy` through the same CREATE3 path (uniform
+the Receiver), the five settlement extensions — `GaslessPayIn`, `PriceOracleAdapter`, `Receivables`,
+`Refunds`, `SplitSettler` — AND the two sponsor-economics modules `Access0x1Rebates` +
+`Access0x1SponsorRegistry`, each deployed impl→`ERC1967Proxy` through the same CREATE3 path (uniform
 owner + mirror-Router init args; salts from the deployer + label, never `block.chainid`).
-`script/mirror-manifest.json` pins all 35 addresses (17 impl+proxy pairs + the Receiver) and
-`make mirror-manifest` re-derives it byte-identical; the dry-run proof that the five deploy + wire is
-`test_deployAll_local_deploysAndWiresSettlementExtensions` (`test/unit/DeployAll.t.sol`). The
-extension was **additive** — the original 13 addresses did not move. Per-chain truth: chains cut over
-since the extension carry the full 18-set (re-derive per chain: `grep -ci <ext-proxy-addr>
-broadcast/DeployAll.s.sol/<id>/run-latest.json`); **Base Sepolia (84532) was mirrored BEFORE the
-extension and still carries the original 13 on-chain** — its salts are claimed, so backfilling the
-five there needs a skip-existing additive pass (the open follow-up), never a redeploy.
+`script/mirror-manifest.json` pins all 39 addresses (19 impl+proxy pairs + the Receiver) and
+`make mirror-manifest` re-derives it byte-identical. Every addition was **additive** — earlier mirror
+addresses never moved. **Per-chain truth — re-derive with `cast code <proxy-addr> --rpc-url <RPC>`, NOT
+a broadcast grep (see the record-gap note): Base Sepolia (84532) is now the MOST complete chain**, live
+on-chain with the full 20-set (all five extensions + Rebates + SponsorRegistry). The open follow-up
+flips direction from the old backlog: the OTHER seven mirrored chains (Arc, Ethereum Sepolia, OP Sepolia,
+Fuji, Robinhood, Arbitrum Sepolia, Celo Sepolia) still lack the `Access0x1Rebates` +
+`Access0x1SponsorRegistry` pair — backfill them with the idempotent skip-existing `make deploy-<chain>`
+re-run (the `_create3` guard skips already-live contracts; never a redeploy).
+
+> **Broadcast-record gap on 84532.** The five-extension backfill is live on Base Sepolia but has **no
+> committed broadcast** documenting it (Rebates + SponsorRegistry ARE recorded via their own runs; the
+> five-extension quintet is not — it was executed from a machine whose broadcast never landed in this
+> repo). So the durable re-derive for the extensions is `cast code <proxy-addr>` at the manifest address,
+> NOT a `grep` of `run-latest.json` — 84532's `run-latest.json` is a config-only run and greps 0 for the
+> extension proxies (a false negative). Recovering the record is owner-run (commit the missing broadcast,
+> or capture the Basescan creation txs).
 
 ## How to read the live state (don't trust the table — verify)
 
