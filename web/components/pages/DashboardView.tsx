@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { parseAbiItem, type Address } from 'viem'
+import { type Address } from 'viem'
+import { loadReceipts } from '@/lib/dashboard-receipts'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { getDefaultChainId, getRouterAddress, tokenDecimalsFor } from '@/lib/chains'
 import { useLiveChain } from '@/lib/live-chain'
@@ -21,10 +22,6 @@ import { resolveMerchantId } from '@/lib/branding/merchantId'
 import { canShowPaymentsOn } from '@/lib/branding/attachDecision'
 import { PageHeading } from '@/components/ui/PageHeading'
 import { SectionCard } from '@/components/ui/SectionCard'
-
-const PAYMENT_RECEIVED_EVENT = parseAbiItem(
-  'event PaymentReceived(uint256 indexed merchantId, address indexed buyer, address indexed token, uint256 grossAmount, uint256 feeAmount, uint256 netAmount, uint256 usdAmount8, bytes32 orderId, uint64 srcChainSelector)',
-)
 
 interface Row {
   txHash: string
@@ -204,23 +201,10 @@ export function DashboardView(): ReactNode {
     try {
       const routerAddress = getRouterAddress(chainId)
       const client = getPublicClient(chainId)
-      const logs = await client.getLogs({
-        address: routerAddress,
-        event: PAYMENT_RECEIVED_EVENT,
-        args: { merchantId },
-        fromBlock: 'earliest',
-        toBlock: 'latest',
-      })
-      const mapped: Row[] = logs
-        .slice(-50)
-        .reverse()
-        .map((log) => ({
-          txHash: log.transactionHash,
-          buyer: log.args.buyer as Address,
-          gross: log.args.grossAmount as bigint,
-          usd8: log.args.usdAmount8 as bigint,
-          block: log.blockNumber,
-        }))
+      // Subgraph first when configured (fail-soft), else a BOUNDED chain read —
+      // never fromBlock:'earliest', which silently returns empty on range-capped
+      // public RPCs. Already newest-first, capped at 50.
+      const mapped = await loadReceipts(client, routerAddress, merchantId)
       setRows(mapped)
       setLastUpdated(Date.now())
     } catch (err) {
