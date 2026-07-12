@@ -74,6 +74,12 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
+      # THE ABI LAW: every contract in deployments/*.json must have a committed
+      # abis/<C>.json byte-identical to its fresh out/ artifact. Deploy a new
+      # contract or change a deployed interface without committing the ABI → fail.
+      - name: Deployed-contract ABIs present + current
+        run: node scripts/sync-deployed-abis.mjs
+
       # FOUNDRY_PROFILE=ci selects [profile.ci.invariant] (runs=256, depth=128 = 32,768 calls per
       # target) instead of the default 64x64=4,096, so CI actually runs the strong invariant campaign
       # the docs (AUDIT.md, audit/FINDINGS.md) claim. The fuzz/default settings are inherited unchanged.

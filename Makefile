@@ -231,9 +231,14 @@ deploy-pick: ## Interactive: pick which chains to mirror-deploy (shows gas + mir
 mirror-manifest: ## Compute every contract's CREATE3 mirror address from its salt (no deploy) -> script/mirror-manifest.json
 	@./script/mirror-manifest.sh
 
-sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status
+sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status + deployed ABIs
 	@node web/scripts/gen-deployments.mjs
 	@node web/scripts/sync-readme-status.mjs
+	@node scripts/sync-deployed-abis.mjs --write
+
+abis: build ## Regenerate abis/ (committed ABI for EVERY deployed contract) + enforce the ABI law
+	@node scripts/sync-deployed-abis.mjs --write
+	@node scripts/sync-deployed-abis.mjs
 
 deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
 	forge script script/DeployAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
