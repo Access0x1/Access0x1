@@ -21,8 +21,9 @@
 > report date** and are kept as the historical record. Two tokenization-kit
 > contracts landed the day after (`Access0x1RwaToken` — ERC-7943, and
 > `Access0x1Account` — ERC-6551, both 2026-07-03) with their own test suites,
-> growing `src/` to 22 contracts + 2 libraries and the suite to 1,489 tests / 109
-> suites; they are **not** covered by this report's manual review (§3–§7). Current
+> growing `src/` to 22 contracts + 2 libraries; the suite has since grown further
+> (Rebates/SponsorRegistry + credential-SBT) to 1,810 tests / 126 suites as of
+> 2026-07-11; none are covered by this report's manual review (§3–§7). Current
 > counts: the README badge / a fresh `forge test`.
 >
 > **Tool-honesty note.** Both static analysers were executed over the `src/`

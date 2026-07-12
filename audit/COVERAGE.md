@@ -8,13 +8,13 @@ audit run. This is the source of truth for the per-contract numbers quoted in
 | --- | --- |
 | Command | `forge coverage --ir-minimum --no-match-coverage '(test\|script)/'` |
 | Toolchain | Foundry (forge 1.3.5 / solc 0.8.28, EVM `cancun`, `via_ir`) |
-| Whole-suite gate (current) | **1,489 tests passed, 0 failed, 0 skipped** across **109 suites** (unit + attack + invariant + integration + fuzz + scenario + fork + symbolic; refreshed 2026-07-04 after the tokenization-kit additions). Coverage is instrumented over the non-fork suites; the 3 `test/fork/**` tests are no-ops without a fork RPC and do not affect line coverage. |
+| Whole-suite gate (current) | **1,810 tests passed, 0 failed, 0 skipped** across **126 suites** (unit + attack + invariant + integration + fuzz + scenario + fork + symbolic; refreshed 2026-07-11 after the Rebates/SponsorRegistry + tokenization-kit + credential-SBT additions). Coverage is instrumented over the non-fork suites; the 3 `test/fork/**` tests are no-ops without a fork RPC and do not affect line coverage. |
 
 This per-contract snapshot is the last full coverage run committed; it **predates the
 most recently-added primitives** (`SplitSettler`, `Access0x1Escrow`, `Receivables`,
 `Refunds`, `GaslessPayIn`, `PriceOracleAdapter`, `AutomationGateway`,
 `Access0x1ProvenanceRegistry`), which each carry their own unit/invariant/attack tests
-inside the 1,489-test total and refresh into this table on the next run.
+inside the 1,810-test total and refresh into this table on the next run.
 
 The `--ir-minimum` profile is required: the commerce primitives
 (`Access0x1Subscriptions`, `Access0x1Bookings`, `Access0x1Invoices`,

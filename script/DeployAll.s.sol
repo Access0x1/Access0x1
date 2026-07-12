@@ -56,18 +56,21 @@ import { ICreateX } from "./interfaces/ICreateX.sol";
 ///           16. {SplitSettler}           — one USD payment fanned out to N payees by basis points.
 ///           17. {Receivables}            — tokenized, factorable invoices (an ERC-721 the holder is paid on).
 ///           18. {PriceOracleAdapter}     — a swappable ERC-7726 price-oracle surface (standalone, owner-only).
+///           19. {Access0x1Rebates}       — merchant-prefunded conditional rebates, released in the settling tx.
+///           20. {Access0x1SponsorRegistry} — the on-chain "who sponsors this business's gas" record.
 ///
-///         The commerce + settlement surface (8–17) plus {Access0x1Escrow} COMPOSES the spine: each is constructed
+///         The commerce + settlement surface (8–17, 19–20) plus {Access0x1Escrow} COMPOSES the spine: each is constructed
 ///         with the freshly deployed Router (and, for Subscriptions/Bookings, the SessionGrant), so
 ///         `net + fee == gross`, the OracleLib staleness guard, the never-negative meter, and tenant
 ///         isolation are all inherited from the audited spine, never re-derived. {AutomationGateway}
 ///         composes {Access0x1Subscriptions} (its permissionless renew driver). They need NO router-side
 ///         registration — the Router's merchant registry is their single source of truth for
 ///         owner-authorization. {Access0x1ProvenanceRegistry} + {PriceOracleAdapter} have no on-chain
-///         deps (standalone surfaces the SDK reads). {GaslessPayIn}, {Refunds}, {SplitSettler}, and
-///         {Receivables} likewise compose the Router, so they mirror on the same uniform init args.
+///         deps (standalone surfaces the SDK reads). {GaslessPayIn}, {Refunds}, {SplitSettler},
+///         {Receivables}, {Access0x1Rebates}, and {Access0x1SponsorRegistry} likewise compose the
+///         Router, so they mirror on the same uniform init args.
 ///
-///         {ChainRegistry} is the twelfth first-party contract; it is a read-only SDK/cross-chain
+///         {ChainRegistry} is a further first-party contract outside this list; it is a read-only SDK/cross-chain
 ///         sidecar deployed once per chain by {DeployChainRegistry} and carried here in
 ///         `HelperConfig.chainRegistry` so its address is logged alongside the rest (re-deploying it
 ///         from here would fork the registry the SDK already points at). {OracleLib} is an internal
