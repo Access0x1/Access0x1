@@ -250,7 +250,7 @@ ARC_USDC_USD_FEED=<USDC/USD Chainlink feed on Arc>
 
 # Optional
 DEPLOY_PAYMENT_LANES=true
-ARC_CRE_FORWARDER=<Chainlink CRE KeystoneForwarder on Arc — confirm at CRE booth>
+ARC_CRE_FORWARDER=0x76c9cf548b4179F8901cda1f8623568b58215E62   # Chainlink CRE KeystoneForwarder on Arc (directory-verified 2026-07-12)
 ```
 
 ### 5b. Deploy
@@ -288,11 +288,14 @@ they are gas-model agnostic.
 ### 5d. Chainlink CRE consumer (optional)
 
 `DeployAll` deploys the off-money-path `Access0x1Receiver` CRE audit consumer
-only when `ARC_CRE_FORWARDER` is set. If the CRE booth confirms a
-`KeystoneForwarder` address:
+only when `ARC_CRE_FORWARDER` is set. The Arc `KeystoneForwarder` is verified from
+Chainlink's official CRE forwarder directory (2026-07-12) as
+`0x76c9cf548b4179F8901cda1f8623568b58215E62` — the same shared-lattice forwarder as
+Arbitrum Sepolia / Fuji / OP Sepolia (Base + Eth Sepolia use
+`0xF8344CFd5c43616a4366C34E3EEE75af79a74482`):
 
 ```sh
-export ARC_CRE_FORWARDER=<forwarder address from Chainlink CRE booth>
+export ARC_CRE_FORWARDER=0x76c9cf548b4179F8901cda1f8623568b58215E62
 make deploy-arc
 ```
 
