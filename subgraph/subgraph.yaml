@@ -10,13 +10,18 @@ dataSources:
     name: Access0x1Router
     # Base Sepolia is a Graph-supported network; Arc (5042002) is not indexed by
     # The Graph today, so the open analytics layer targets the Base Sepolia router.
+    # Retargeted 2026-07-11 from the pre-mirror router 0xec89…8e57 to the CREATE3
+    # MIRROR router — the same address on every chain, and the one the fleet now
+    # registers merchants + settles payments on (live since 2026-07-08).
     network: base-sepolia
     source:
-      address: "0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57"
+      address: "0xe92244e3368561faf21648146511DeDE3a475EB5"
       abi: Access0x1Router
-      # The router's CREATE block on Base Sepolia (broadcast/DeployAll.s.sol/84532),
-      # so indexing starts at deploy, not genesis.
-      startBlock: 42820891
+      # The mirror's CREATE block on Base Sepolia, live-verified by eth_getCode
+      # binary search (code absent at 43188205, present at 43188206). The mirror
+      # was CREATE3-deployed outside this repo's broadcast history, so there is no
+      # DeployAll broadcast to read the block from — re-verify with cast code.
+      startBlock: 43188206
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -24,10 +29,20 @@ dataSources:
       entities:
         - Payment
         - Merchant
+        - MerchantToken
       abis:
         - name: Access0x1Router
           file: ./abis/Access0x1Router.json
       eventHandlers:
+        # Merchant lifecycle — kept complete so no stored field goes silently stale:
+        # owner moves ONLY via the 2-step MerchantOwnerTransferred (never Updated),
+        # while payout/feeRecipient/feeBps/active are refreshed by MerchantUpdated.
+        - event: MerchantRegistered(indexed uint256,indexed address,address,address,uint16,bytes32)
+          handler: handleMerchantRegistered
+        - event: MerchantUpdated(indexed uint256,address,address,uint16,bool)
+          handler: handleMerchantUpdated
+        - event: MerchantOwnerTransferred(indexed uint256,indexed address,indexed address)
+          handler: handleMerchantOwnerTransferred
         - event: PaymentReceived(indexed uint256,indexed address,indexed address,uint256,uint256,uint256,uint256,bytes32,uint64)
           handler: handlePaymentReceived
       file: ./src/mapping.ts

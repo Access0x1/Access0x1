@@ -136,6 +136,13 @@ function merchantEntityId(merchantId: BigInt): string {
   return Bytes.fromUTF8(merchantId.toString()).toHexString();
 }
 
+// The per-(merchant, token) row id — "<merchantId>-" UTF-8 bytes, then the token
+// bytes concatenated, matching loadOrCreateMerchantToken in the mapping. The
+// native-unit totals (gross/fees/net) live HERE, never on Merchant.
+function merchantTokenEntityId(merchantId: BigInt, token: Address): string {
+  return Bytes.fromUTF8(merchantId.toString() + "-").concat(token).toHexString();
+}
+
 /** Payment entity id == txHash.concatI32(logIndex), as the handler keys it. */
 function paymentEntityId(
   event: PaymentReceived,
@@ -246,29 +253,32 @@ describe("handlePaymentReceived", () => {
     // Running totals are the exact integer sums of both events.
     assert.fieldEquals("Merchant", mid, "merchantId", "1");
     assert.fieldEquals("Merchant", mid, "paymentCount", "2");
-    assert.fieldEquals(
-      "Merchant",
-      mid,
-      "totalGross",
-      GROSS_1.plus(GROSS_2).toString(),
-    );
-    assert.fieldEquals(
-      "Merchant",
-      mid,
-      "totalFees",
-      FEE_1.plus(FEE_2).toString(),
-    );
-    assert.fieldEquals(
-      "Merchant",
-      mid,
-      "totalNet",
-      NET_1.plus(NET_2).toString(),
-    );
+    // Cross-token-safe USD total lives on the Merchant aggregate.
     assert.fieldEquals(
       "Merchant",
       mid,
       "totalUsd8",
       USD8_1.plus(USD8_2).toString(),
+    );
+    // Native-unit totals live on the per-(merchant, token) row (both payments in USDC).
+    const mtid = merchantTokenEntityId(merchantId, TOKEN_USDC);
+    assert.fieldEquals(
+      "MerchantToken",
+      mtid,
+      "totalGross",
+      GROSS_1.plus(GROSS_2).toString(),
+    );
+    assert.fieldEquals(
+      "MerchantToken",
+      mtid,
+      "totalFees",
+      FEE_1.plus(FEE_2).toString(),
+    );
+    assert.fieldEquals(
+      "MerchantToken",
+      mtid,
+      "totalNet",
+      NET_1.plus(NET_2).toString(),
     );
     // lastPaymentAt tracks the most recent event's block timestamp.
     assert.fieldEquals(
@@ -319,12 +329,22 @@ describe("handlePaymentReceived", () => {
     const midB = merchantEntityId(merchantB);
 
     assert.fieldEquals("Merchant", midA, "paymentCount", "1");
-    assert.fieldEquals("Merchant", midA, "totalGross", GROSS_1.toString());
     assert.fieldEquals("Merchant", midA, "totalUsd8", USD8_1.toString());
+    assert.fieldEquals(
+      "MerchantToken",
+      merchantTokenEntityId(merchantA, TOKEN_USDC),
+      "totalGross",
+      GROSS_1.toString(),
+    );
 
     assert.fieldEquals("Merchant", midB, "paymentCount", "1");
-    assert.fieldEquals("Merchant", midB, "totalGross", GROSS_2.toString());
     assert.fieldEquals("Merchant", midB, "totalUsd8", USD8_2.toString());
+    assert.fieldEquals(
+      "MerchantToken",
+      merchantTokenEntityId(merchantB, TOKEN_USDC),
+      "totalGross",
+      GROSS_2.toString(),
+    );
   });
 
   test("preserves a cross-chain (CCIP) source selector instead of zeroing it", () => {

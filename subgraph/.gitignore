@@ -1,3 +1,6 @@
 node_modules/
 generated/
 build/
+# matchstick compile artifacts — regenerated on every `graph test`
+tests/.bin/
+tests/.latest.json

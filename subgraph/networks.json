@@ -1,8 +1,8 @@
 {
   "base-sepolia": {
     "Access0x1Router": {
-      "address": "0xec89c9eE28AF42Ae2b917BB0bAe245EAad6E8E57",
-      "startBlock": 42820891
+      "address": "0xe92244e3368561faf21648146511DeDE3a475EB5",
+      "startBlock": 43188206
     }
   }
 }

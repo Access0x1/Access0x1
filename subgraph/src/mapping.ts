@@ -5,7 +5,12 @@
  */
 import { BigInt, Bytes } from "@graphprotocol/graph-ts";
 
-import { PaymentReceived } from "../generated/Access0x1Router/Access0x1Router";
+import {
+  MerchantOwnerTransferred,
+  MerchantRegistered,
+  MerchantUpdated,
+  PaymentReceived,
+} from "../generated/Access0x1Router/Access0x1Router";
 import { Merchant, MerchantToken, Payment } from "../generated/schema";
 
 export function handlePaymentReceived(event: PaymentReceived): void {
@@ -46,6 +51,48 @@ export function handlePaymentReceived(event: PaymentReceived): void {
   payment.blockTimestamp = event.block.timestamp;
   payment.transactionHash = event.transaction.hash;
   payment.save();
+}
+
+/**
+ * MerchantRegistered — the merchant's first appearance. Seed the identity fields
+ * (owner + fee config + nameHash) on the same aggregate the payments roll into.
+ * A newly registered merchant is active until MerchantUpdated says otherwise.
+ */
+export function handleMerchantRegistered(event: MerchantRegistered): void {
+  const merchant = loadOrCreateMerchant(event.params.id);
+  merchant.owner = event.params.owner;
+  merchant.payout = event.params.payout;
+  merchant.feeRecipient = event.params.feeRecipient;
+  merchant.feeBps = event.params.feeBps;
+  merchant.active = true;
+  merchant.nameHash = event.params.nameHash;
+  merchant.registeredAt = event.block.timestamp;
+  merchant.registeredBlock = event.block.number;
+  merchant.save();
+}
+
+/**
+ * MerchantUpdated — refresh the mutable config (payout / feeRecipient / feeBps /
+ * active). Ownership is deliberately NOT here: it moves only via the 2-step
+ * MerchantOwnerTransferred, so mirroring it from an update would be silently wrong.
+ */
+export function handleMerchantUpdated(event: MerchantUpdated): void {
+  const merchant = loadOrCreateMerchant(event.params.id);
+  merchant.payout = event.params.payout;
+  merchant.feeRecipient = event.params.feeRecipient;
+  merchant.feeBps = event.params.feeBps;
+  merchant.active = event.params.active;
+  merchant.save();
+}
+
+/**
+ * MerchantOwnerTransferred — the ONLY event that moves ownership (the second leg
+ * of the 2-step transfer). Point `owner` at the new owner.
+ */
+export function handleMerchantOwnerTransferred(event: MerchantOwnerTransferred): void {
+  const merchant = loadOrCreateMerchant(event.params.id);
+  merchant.owner = event.params.newOwner;
+  merchant.save();
 }
 
 /** Load the Merchant aggregate for a router merchant id, or create a zeroed one. */

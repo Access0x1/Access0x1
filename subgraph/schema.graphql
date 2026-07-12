@@ -32,6 +32,22 @@ type Merchant @entity(immutable: false) {
   "merchantId, UTF-8 encoded."
   id: Bytes!
   merchantId: BigInt!
+  "Current owner — set at MerchantRegistered, moved ONLY by the 2-step MerchantOwnerTransferred (never MerchantUpdated). Null until the registration event is indexed."
+  owner: Bytes
+  "Payout recipient (mutable via MerchantUpdated)."
+  payout: Bytes
+  "Fee recipient (mutable via MerchantUpdated)."
+  feeRecipient: Bytes
+  "Merchant fee in basis points (mutable via MerchantUpdated)."
+  feeBps: Int
+  "Whether the merchant is active (toggled by MerchantUpdated)."
+  active: Boolean
+  "keccak of the merchant name, set at registration."
+  nameHash: Bytes
+  "Block timestamp of MerchantRegistered."
+  registeredAt: BigInt
+  "Block number of MerchantRegistered."
+  registeredBlock: BigInt
   paymentCount: BigInt!
   "USD amount, 8 decimals — the ONLY unit-safe cross-token running total."
   totalUsd8: BigInt!
