@@ -125,35 +125,99 @@ function loadMirrorByAddress() {
  * The LAST entry for a given name wins (the latest run's address). Addresses are
  * lower-cased. Pure + map-injected so a test can feed fixtures directly.
  */
-function parseBroadcastData(data, mirrorByAddress = new Map()) {
+function parseBroadcastData(data, mirrorByAddress = new Map(), { tagMirror = false } = {}) {
   const byName = new Map()
   for (const tx of data?.transactions ?? []) {
     // 1) Legacy: a directly-named top-level CREATE.
     if (tx.transactionType === 'CREATE' && tx.contractName && tx.contractAddress) {
-      byName.set(tx.contractName, {
+      const entry = {
         contractName: tx.contractName,
         address: tx.contractAddress.toLowerCase(),
-      })
+      }
+      if (tagMirror) entry.mirror = false
+      byName.set(tx.contractName, entry)
     }
     // 2) Mirror: CreateX-deployed contracts ride in additionalContracts, nameless
     //    — name each via the manifest; the CreateX shims are not in the map.
     for (const extra of tx.additionalContracts ?? []) {
       const addr = extra?.address?.toLowerCase()
       const label = addr && mirrorByAddress.get(addr)
-      if (label) byName.set(label, { contractName: label, address: addr })
+      if (label) {
+        const entry = { contractName: label, address: addr }
+        if (tagMirror) entry.mirror = true
+        byName.set(label, entry)
+      }
     }
   }
   return [...byName.values()].sort((a, b) => a.contractName.localeCompare(b.contractName))
 }
 
 /**
- * Read a chain's broadcast/run-latest.json from disk and parse it via
- * {@link parseBroadcastData}. Returns [] when the file is absent.
+ * Read a chain's deploy record from its broadcast dir, SURVIVING config runs
+ * and PARTIAL deploys.
+ *
+ * Foundry overwrites `run-latest.json` on EVERY run of the script against a
+ * chain — including runs that deploy NOTHING (config / seeding / interaction
+ * runs are all CALLs). Reading only run-latest therefore ERASED a chain from
+ * the dashboard the moment any post-deploy config run landed (found the hard
+ * way 2026-07-13: Base Sepolia vanished from a regeneration — its run-latest
+ * was 4 CALLs / 0 deploys while the actual mirror deploy sat untouched in the
+ * timestamped history). And a "newest deployful run wins" rule is not enough
+ * either: an ADD-ON deploy (e.g. two new modules) is also a run, and taking
+ * only that run would drop every contract from the earlier full deploy.
+ *
+ * So the record is the UNION of the whole committed history: every
+ * `run-<epochMs>.json` is parsed OLDEST-FIRST, later runs overriding earlier
+ * ones PER CONTRACT NAME (a re-deploy moves that contract's address; an add-on
+ * run adds its modules; a call-only run contributes nothing). `run-latest.json`
+ * is folded in last (it is Foundry's copy of the newest run). Returns [] only
+ * when no run on that chain ever deployed anything. A corrupt/unreadable run
+ * file is skipped, never fatal (one bad history file must not kill the map).
+ */
+function parseBroadcastChainDir(dir, mirrorByAddress = new Map()) {
+  const parseFile = (file) => {
+    try {
+      return parseBroadcastData(JSON.parse(readFileSync(file, 'utf8')), mirrorByAddress, {
+        tagMirror: true,
+      })
+    } catch {
+      return []
+    }
+  }
+  const files = readdirSync(dir)
+    .map((name) => {
+      const m = /^run-(\d+)\.json$/.exec(name)
+      return m ? { name, ts: Number(m[1]) } : null
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.ts - b.ts)
+    .map(({ name }) => name)
+  if (existsSync(join(dir, 'run-latest.json'))) files.push('run-latest.json')
+
+  const byName = new Map()
+  for (const name of files) {
+    for (const d of parseFile(join(dir, name))) byName.set(d.contractName, d)
+  }
+  let merged = [...byName.values()]
+  // MIRROR SUPERSEDES LEGACY, per chain: once a chain has any CREATE3-mirror
+  // deployment (manifest-named), its pre-mirror bare CREATEs are the retired
+  // architecture — showing those dead addresses next to the live mirror would
+  // be a lie. A chain with no mirror deploys keeps its legacy view unchanged.
+  if (merged.some((d) => d.mirror)) merged = merged.filter((d) => d.mirror)
+  return merged
+    .map(({ contractName, address }) => ({ contractName, address }))
+    .sort((a, b) => a.contractName.localeCompare(b.contractName))
+}
+
+/**
+ * Read a chain's broadcast dir and parse its deploy record (run-latest first,
+ * falling back through history — see {@link parseBroadcastChainDir}). Returns
+ * [] when the chain dir is absent.
  */
 function parseBroadcast(chainId, mirrorByAddress = new Map()) {
-  const file = join(BROADCAST_DIR, String(chainId), 'run-latest.json')
-  if (!existsSync(file)) return []
-  return parseBroadcastData(JSON.parse(readFileSync(file, 'utf8')), mirrorByAddress)
+  const dir = join(BROADCAST_DIR, String(chainId))
+  if (!existsSync(dir)) return []
+  return parseBroadcastChainDir(dir, mirrorByAddress)
 }
 
 /**
@@ -354,6 +418,7 @@ function main() {
 // reads). `main()` runs only when this file is invoked directly, never on import.
 export {
   parseBroadcast,
+  parseBroadcastChainDir,
   parseBroadcastData,
   stripMetadata,
   zeroImmutables,

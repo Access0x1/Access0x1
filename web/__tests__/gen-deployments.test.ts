@@ -9,8 +9,16 @@
  * lower-cases addresses, resolves a name to its bytecode artifact, and resolves
  * chain display metadata (name/explorer) from viem with no invented explorer.
  */
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseBroadcastData, chainMeta, resolveArtifact } from '../scripts/gen-deployments.mjs'
+import {
+  parseBroadcastChainDir,
+  parseBroadcastData,
+  chainMeta,
+  resolveArtifact,
+} from '../scripts/gen-deployments.mjs'
 
 describe('parseBroadcastData — CREATE txs only', () => {
   it('keeps CREATE deployments and drops CALL txs', () => {
@@ -134,5 +142,104 @@ describe('resolveArtifact — deployment name -> bytecode artifact', () => {
     expect(resolveArtifact('Access0x1Router')).toBe('Access0x1Router')
     expect(resolveArtifact('ERC1967Proxy')).toBe('ERC1967Proxy')
     expect(resolveArtifact('Access0x1Receiver')).toBe('Access0x1Receiver')
+  })
+})
+
+describe('parseBroadcastChainDir — a config run must never erase a chain', () => {
+  const CREATE_RUN = (name: string, address: string) => ({
+    transactions: [{ transactionType: 'CREATE', contractName: name, contractAddress: address }],
+  })
+  const CALL_ONLY_RUN = {
+    transactions: [
+      { transactionType: 'CALL', function: 'setConfig(uint256)' },
+      { transactionType: 'CALL', function: 'seedPromo(bytes32)' },
+    ],
+  }
+
+  const write = (dir: string, name: string, data: unknown) =>
+    writeFileSync(join(dir, name), JSON.stringify(data))
+
+  it('falls back to the newest DEPLOY run when run-latest is call-only (the Base Sepolia regression)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bc-'))
+    write(dir, 'run-1000.json', CREATE_RUN('Access0x1Router', '0xAaA1'))
+    write(dir, 'run-latest.json', CALL_ONLY_RUN) // a later config run overwrote latest
+    expect(parseBroadcastChainDir(dir)).toEqual([
+      { contractName: 'Access0x1Router', address: '0xaaa1' },
+    ])
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('prefers run-latest when it DOES contain deployments', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bc-'))
+    write(dir, 'run-1000.json', CREATE_RUN('Access0x1Router', '0xOld1'))
+    write(dir, 'run-latest.json', CREATE_RUN('Access0x1Router', '0xNew2'))
+    expect(parseBroadcastChainDir(dir)).toEqual([
+      { contractName: 'Access0x1Router', address: '0xnew2' },
+    ])
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('walks history newest-first — the latest deployful run wins', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bc-'))
+    write(dir, 'run-1000.json', CREATE_RUN('Access0x1Router', '0xOld1'))
+    write(dir, 'run-2000.json', CREATE_RUN('Access0x1Router', '0xNew2'))
+    write(dir, 'run-latest.json', CALL_ONLY_RUN)
+    expect(parseBroadcastChainDir(dir)).toEqual([
+      { contractName: 'Access0x1Router', address: '0xnew2' },
+    ])
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('skips a corrupt history file rather than dying, and keeps walking', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bc-'))
+    write(dir, 'run-1000.json', CREATE_RUN('Access0x1Router', '0xAaA1'))
+    writeFileSync(join(dir, 'run-2000.json'), '{not json') // corrupt newest
+    write(dir, 'run-latest.json', CALL_ONLY_RUN)
+    expect(parseBroadcastChainDir(dir)).toEqual([
+      { contractName: 'Access0x1Router', address: '0xaaa1' },
+    ])
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('returns [] when no run on the chain ever deployed', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bc-'))
+    write(dir, 'run-latest.json', CALL_ONLY_RUN)
+    expect(parseBroadcastChainDir(dir)).toEqual([])
+    rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('parseBroadcastChainDir — union across history (add-on deploys keep the base)', () => {
+  it('merges an add-on deploy run WITH the earlier full deploy (per-name, later wins)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bc-'))
+    writeFileSync(
+      join(dir, 'run-1000.json'),
+      JSON.stringify({
+        transactions: [
+          { transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0xAaA1' },
+          { transactionType: 'CREATE', contractName: 'Access0x1Escrow', contractAddress: '0xBbB2' },
+        ],
+      }),
+    )
+    // The add-on run deploys ONE new module and re-deploys the Router.
+    writeFileSync(
+      join(dir, 'run-2000.json'),
+      JSON.stringify({
+        transactions: [
+          { transactionType: 'CREATE', contractName: 'Access0x1Rebates', contractAddress: '0xCcC3' },
+          { transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0xDdD4' },
+        ],
+      }),
+    )
+    writeFileSync(
+      join(dir, 'run-latest.json'),
+      JSON.stringify({ transactions: [{ transactionType: 'CALL', function: 'setConfig(uint256)' }] }),
+    )
+    expect(parseBroadcastChainDir(dir)).toEqual([
+      { contractName: 'Access0x1Escrow', address: '0xbbb2' }, // kept from the full deploy
+      { contractName: 'Access0x1Rebates', address: '0xccc3' }, // added by the add-on
+      { contractName: 'Access0x1Router', address: '0xddd4' }, // later run overrides per name
+    ])
+    rmSync(dir, { recursive: true, force: true })
   })
 })
