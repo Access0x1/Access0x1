@@ -52,7 +52,7 @@ export const metadata: Metadata = {
         url: '/og.png',
         width: 1200,
         height: 630,
-        alt: 'Access0x1 — the bridge mark on night-water, with the wordmark and tagline.',
+        alt: 'Access0x1 — the access-plug mark on night-water, with the wordmark and tagline.',
       },
     ],
   },

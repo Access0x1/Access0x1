@@ -2,6 +2,8 @@
 
 <div align="center">
 
+<img src="web/public/access0x1-mark.svg" width="96" alt="Access0x1 — the 0x1 access-plug mark: a socket, a crossed connection, a pin. Wire web2 to web3." />
+
 **The open-source rail for onchain identity + USD-priced payments in USDC. One link, no code, no contract, no gas. Apps build on it.**
 
 Access0x1 is the umbrella layer everything plugs into — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), tokenization (ERC-7943 uRWA compliant assets · ERC-6551 token bound accounts), and identity, white-label for non-coders and agent-native. One shared rail per chain; apps build on top, no per-app contract code.

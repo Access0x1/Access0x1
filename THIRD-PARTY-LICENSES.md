@@ -53,9 +53,9 @@ icon set (e.g. Font Awesome Free CC-BY-4.0, or Flaticon) is present.
 
 All icon-like graphics are **hand-authored geometric SVG** by the project:
 
-- `snap/images/icon.svg` — the Access0x1 "bridge" mark, drawn from plain
-  `<rect>` primitives (no traced third-party glyph paths). Original work,
-  MIT (covered by the repo LICENSE).
+- `snap/images/icon.svg` — the Access0x1 "access plug" mark, drawn from plain
+  `<rect>`/`<circle>`/`<path>` primitives (no traced third-party glyph paths).
+  Original work, MIT (covered by the repo LICENSE).
 - `web/components/PayButton`-family spinner (`packages/react/src/components/PayButton.tsx`)
   — an inline CSS-border spinner, explicitly "no external CSS dependency".
 - `web/lib/branding/logo.ts` — server-generated monogram SVG from initials +

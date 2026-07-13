@@ -276,8 +276,8 @@ describe('Powered by Access0x1 footer is preserved', () => {
     )
     const src = readFileSync(viewPath, 'utf8')
     // The attribution is now the "Powered by" line paired with the real
-    // Access0x1 bridge mark + wordmark (BrandMark renders "Access0x1"), instead
-    // of a bare text string — but the credit is still there, by design.
+    // Access0x1 access-plug mark + wordmark (BrandMark renders "Access0x1"),
+    // instead of a bare text string — but the credit is still there, by design.
     expect(src).toContain('Powered by')
     expect(src).toContain('<BrandMark')
   })
