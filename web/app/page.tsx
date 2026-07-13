@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { BrandMark } from '@/components/BrandMark'
@@ -64,7 +65,10 @@ export default function Home(): ReactNode {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-8">
           <BrandMark size={16} />
           <p className="text-xs text-muted-foreground">
-            Open source · zero custody · testnet-only
+            <Link href="/vision" className="text-primary hover:underline">
+              The vision →
+            </Link>{' '}
+            · Open source · zero custody · testnet-only
           </p>
         </div>
       </footer>
