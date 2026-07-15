@@ -68,6 +68,10 @@ export default function Home(): ReactNode {
             <Link href="/vision" className="text-primary hover:underline">
               The vision →
             </Link>{' '}
+            ·{' '}
+            <Link href="/contracts" className="text-primary hover:underline">
+              Explore the contracts →
+            </Link>{' '}
             · Open source · zero custody · testnet-only
           </p>
         </div>
