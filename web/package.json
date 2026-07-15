@@ -6,8 +6,9 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/gen-deployments.mjs && node scripts/replace-embed-addrs.js",
+    "prebuild": "node scripts/gen-deployments.mjs && node scripts/gen-module-abis.mjs && node scripts/replace-embed-addrs.js",
     "gen:deployments": "node scripts/gen-deployments.mjs",
+    "gen:abis": "node scripts/gen-module-abis.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -20,7 +21,7 @@
     "verify:embed": "node scripts/verify-embed.js",
     "demo": "tsx scripts/demo-loop.mts",
     "fund": "tsx scripts/fund-gateway.mts",
-    "gate": "node --check public/embed.js && node scripts/verify-embed.js && tsc --noEmit && vitest run --exclude '**/*.integration.test.ts'"
+    "gate": "node --check public/embed.js && node scripts/verify-embed.js && node scripts/gen-module-abis.mjs --check && tsc --noEmit && vitest run --exclude '**/*.integration.test.ts'"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
