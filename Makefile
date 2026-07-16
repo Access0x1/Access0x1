@@ -262,8 +262,8 @@ drive-merchant-base: ## Be a merchant + settle one native payment on Base Sepoli
 drive-merchant-arc: ## Be a merchant + settle one native payment on Arc testnet (keystore `deployer`)
 	forge script script/DriveMerchant.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvv
 
-deploy-zksync-sepolia: ## Deploy to zkSync Sepolia (keystore `deployer`)
-	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --zksync $(VERIFY_ZK) -vvvv
+deploy-zksync-sepolia: ## Deploy to zkSync Era Sepolia via its EVM interpreter (keystore `deployer`) — PLAIN EVM path, NO --zksync: zksolc cannot compile the ERC-6551 account (EXTCODECOPY unsupported on native EraVM) and native-EraVM CREATE derivation would break the mirror; Era's EVM bytecode emulation executes standard EVM initcode with EVM CREATE3 math (proven: CreateX live at its canonical address + computeCreate3Address identical to L1 + full-script simulation lands the Router at the mirror 0xe92244…5EB5)
+	forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 
 bootstrap-createx-galileo: ## Status + runbook to put CreateX on 0G Galileo (16602) so the mirror can deploy there (pre-signed keyless tx; owner funds 0xeD456e... once)
 	@./script/bootstrap-createx-galileo.sh
