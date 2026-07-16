@@ -278,6 +278,12 @@ deploy-galileo: ## Deploy to 0G Galileo testnet 16602 (keystore `deployer`) — 
 deploy-usd-mock-feed: ## Deploy a $1 USDC/USD mock feed to a chain that lacks one — make deploy-usd-mock-feed RPC=<url>
 	forge script script/DeployUsdMockFeed.s.sol --rpc-url $(RPC) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
 
+deploy-createx: ## Put canonical CreateX (0xba5Ed…ba5Ed) on a chain that lacks it — the keyless presigned deploy (vendored from pcaversaccio/createx, signer + target re-verified from the signature): funds the one-time signer EXACTLY 0.3 native (3M gas @ 100 gwei, unrecoverable if the chain rejects pre-EIP-155 — probe first with `cast publish` unfunded), then publishes. make deploy-createx RPC=<url>
+	@test -n "$(RPC)" || { echo "usage: make deploy-createx RPC=<rpcUrl>"; exit 1; }
+	cast send 0xeD456e05CaAb11d66C4c797dD6c1D6f9A7F352b5 --value 0.3ether --rpc-url $(RPC) --account $(DEPLOYER_ACCOUNT)
+	cast publish "$$(cat script/createx-presigned-3m.rawtx)" --rpc-url $(RPC)
+	@echo "CreateX code bytes now on chain:" && cast code 0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed --rpc-url $(RPC) | wc -c
+
 # Compile against the zkEVM (zksolc) — the ONLY way to catch zkSync-specific build/size/opcode issues.
 # `forge test` runs the EVM, not the zkEVM (see docs/ZKSYNC-TESTING.md): EVM-green != zkSync-green.
 # Requires the foundry-zksync fork (foundryup-zksync); no-ops with a clear message if --zksync is
