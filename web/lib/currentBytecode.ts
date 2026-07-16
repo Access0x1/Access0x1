@@ -194,6 +194,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
     "immutableRanges": []
   },
+  "Access0x1Rebates.impl": {
+    "codeHash": "0x31ee6ae038fef251b34a9aeb0277f793e54041529f675d1818eaab1b2f7e9b53",
+    "immutableRanges": [
+      [
+        1807,
+        32
+      ],
+      [
+        2209,
+        32
+      ]
+    ]
+  },
+  "Access0x1Rebates.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
+  },
   "Access0x1Router": {
     "codeHash": "0xd29606cc6661991f348792f57082f871dbcd6fe54d1c69153cfc127b503c46bd",
     "immutableRanges": [
@@ -221,6 +238,23 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     ]
   },
   "Access0x1Router.proxy": {
+    "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
+    "immutableRanges": []
+  },
+  "Access0x1SponsorRegistry.impl": {
+    "codeHash": "0x1cf58f7095e1f92a1cafff94a70d2d2e2860d018999f4e6f78005208ca96e744",
+    "immutableRanges": [
+      [
+        1252,
+        32
+      ],
+      [
+        1472,
+        32
+      ]
+    ]
+  },
+  "Access0x1SponsorRegistry.proxy": {
     "codeHash": "0x46a010df31eb642b47284650e80051e8f6239a0c995003d230b437810bc4b9b4",
     "immutableRanges": []
   },
@@ -289,14 +323,14 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     "immutableRanges": []
   },
   "GaslessPayIn.impl": {
-    "codeHash": "0xbf0a0e76d42171dde5f2153ad1f0caeb9aeeb2de6ec5b5d984ba03f71d163090",
+    "codeHash": "0xb6cc92ccdea61ff90a56b197242e9f7a4d1469a86329f458251daf65cbfbd573",
     "immutableRanges": [
       [
-        1787,
+        3078,
         32
       ],
       [
-        2048,
+        3283,
         32
       ]
     ]
@@ -336,27 +370,27 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     "immutableRanges": []
   },
   "PaymentLanes": {
-    "codeHash": "0xc8e029cd9f78ee11036865676ec65e3435461321222496e01e081e9aec65e78a",
+    "codeHash": "0xbbfb8f69511f8f1c09b82dcf247ecb3ab6843b62ff27c69c7fc1187e2eb5715e",
     "immutableRanges": [
       [
-        2511,
+        2501,
         32
       ],
       [
-        2731,
+        2721,
         32
       ]
     ]
   },
   "PaymentLanes.impl": {
-    "codeHash": "0xc8e029cd9f78ee11036865676ec65e3435461321222496e01e081e9aec65e78a",
+    "codeHash": "0xbbfb8f69511f8f1c09b82dcf247ecb3ab6843b62ff27c69c7fc1187e2eb5715e",
     "immutableRanges": [
       [
-        2511,
+        2501,
         32
       ],
       [
-        2731,
+        2721,
         32
       ]
     ]
@@ -383,14 +417,14 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     "immutableRanges": []
   },
   "Receivables.impl": {
-    "codeHash": "0xc6502c34afcd007f68384a9c95f9bd38707a332dabdb9419bfc10975c176714a",
+    "codeHash": "0xcea2772dc3095140dfcce9e7bb74835d9881de08221c065a9b9eea9683f2b90f",
     "immutableRanges": [
       [
-        6296,
+        6598,
         32
       ],
       [
-        6442,
+        6744,
         32
       ]
     ]
@@ -447,14 +481,14 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     "immutableRanges": []
   },
   "SplitSettler.impl": {
-    "codeHash": "0xf95fd9cdd7db5f7809fc265ef3760aae33bd6473b90445961fe211fe52f81eb8",
+    "codeHash": "0x55b1b1930a65a5933db2296c5733da2b4ae3c08dce315ec7f16d045a47f2303d",
     "immutableRanges": [
       [
-        4553,
+        4759,
         32
       ],
       [
-        5025,
+        5231,
         32
       ]
     ]

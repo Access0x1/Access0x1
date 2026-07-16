@@ -1051,12 +1051,28 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
         "address": "0x899b9e0b633bc46f56d7ec34ad667147d8e68ceb"
       },
       {
+        "contractName": "Access0x1Rebates.impl",
+        "address": "0xa5bfc4f3451460967ed0e0b7b0c3f18f5244bb9c"
+      },
+      {
+        "contractName": "Access0x1Rebates.proxy",
+        "address": "0xf1038d9fd72cff882fe35955a7fdcf1c299623bf"
+      },
+      {
         "contractName": "Access0x1Router.impl",
         "address": "0x3336ec82d865e8bd1f9054856ac22b45a71207db"
       },
       {
         "contractName": "Access0x1Router.proxy",
         "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+      },
+      {
+        "contractName": "Access0x1SponsorRegistry.impl",
+        "address": "0x5dad610670d2b698e6dd079733f249fd3c28c03e"
+      },
+      {
+        "contractName": "Access0x1SponsorRegistry.proxy",
+        "address": "0x9dc48b96b9fc737d4cdf0dcc7b56164e6464b736"
       },
       {
         "contractName": "Access0x1Subscriptions.impl",
