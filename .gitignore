@@ -79,6 +79,13 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
+# ── design-sync (claude.ai/design component sync — see web/.design-sync/) ──
+web/.ds-sync/
+web/ds-bundle/
+web/.design-sync/.cache/
+web/.design-sync/learnings/
+web/.design-sync/node_modules
+
 # ── Editor / OS ──
 .DS_Store
 Thumbs.db
