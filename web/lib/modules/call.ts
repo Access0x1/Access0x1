@@ -62,7 +62,7 @@ export async function writeModule(
 
 /**
  * Same submit-and-wait as {@link writeModule}, but hands back the RECEIPT too —
- * the typed business helpers (lib/business/sellables.ts) parse their creation
+ * the typed business helpers (lib/journey/sellables.ts) parse their creation
  * events (PlanSet / InvoiceCreated / CardIssued) out of it. Kept here so this
  * file stays the ONE runtime-ABI viem seam.
  */
@@ -89,5 +89,12 @@ export async function writeModuleWithReceipt(
     ...(value !== undefined ? { value } : {}),
   })
   const receipt = await publicClient.waitForTransactionReceipt({ hash })
+  // viem does NOT throw for a mined-but-reverted tx — it returns the receipt
+  // with status 'reverted'. Surface that HONESTLY here (law: money paths roll
+  // back, never swallow) so callers report "the transaction reverted on-chain"
+  // instead of a downstream "creation event not found" red herring.
+  if (receipt.status === 'reverted') {
+    throw new Error(`${functionName} reverted on-chain — no state changed (tx ${hash}).`)
+  }
   return { hash, receipt }
 }
