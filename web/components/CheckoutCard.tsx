@@ -5,7 +5,7 @@ import { keccak256, toHex, type Address, type Hash } from 'viem'
 import { useAccount, useWalletClient } from 'wagmi'
 import { getRouterAddress, getUsdcAddress, isGasFree, tokenDecimalsFor } from '@/lib/chains'
 import { payToken, type Merchant, type PaymentReceivedEvent } from '@/lib/contracts'
-import { amount8ToUsd, fetchQuote, parseUsdAmount8 } from '@/lib/quote'
+import { fetchQuote, formatCheckoutUsd, parseUsdAmount8 } from '@/lib/quote'
 import { getPublicClient } from '@/lib/wallet'
 import { BrandMark } from './BrandMark'
 import { BuyerConnectButton } from './BuyerConnectButton'
@@ -409,12 +409,12 @@ export function CheckoutCard({
       </div>
 
       <div className="rounded-xl border border-border p-5">
-        {/* Display the NORMALIZED amount derived from the same parsed 8-decimal
-            integer the pay path charges (usdAmount8, non-null past the guard
-            above) — never the raw `?amount=` string, so a crafted amount can't
-            show one figure while the charge is another, and every price renders
-            as proper 2-decimal currency. */}
-        <p className="text-4xl font-semibold text-ink">${amount8ToUsd(usdAmount8)}</p>
+        {/* The EXACT charged amount (from usdAmount8, non-null past the guard
+            above) — never the raw `?amount=` string and never a rounded value,
+            so the headline, the Pay button below, and the settled amount are
+            always identical (a crafted `?amount=29.999` shows "29.999", not a
+            misleading rounded "30.00"). */}
+        <p className="text-4xl font-semibold text-ink">${formatCheckoutUsd(usdAmount8)}</p>
         <p className="mt-1 text-sm text-neutral-500">
           {loadingQuote
             ? 'Fetching live quote…'
@@ -573,7 +573,7 @@ export function CheckoutCard({
           disabled={payDisabled}
           className="rounded-lg bg-rail px-4 py-3 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {paying ? 'Confirming…' : `Pay $${usdAmount}`}
+          {paying ? 'Confirming…' : `Pay $${formatCheckoutUsd(usdAmount8)}`}
         </button>
       ) : (
         <div className="flex flex-col gap-2">

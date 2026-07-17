@@ -49,6 +49,29 @@ export function amount8ToUsd(amount8: bigint): string {
   return dollars.toFixed(2)
 }
 
+/**
+ * Format an 8-decimal USD integer to the EXACT decimal string it represents —
+ * the value that is actually charged — with a minimum of 2 fraction digits.
+ *
+ * Unlike {@link amount8ToUsd} (fixed 2 dp), this never rounds: a `?amount=29.999`
+ * link parses to `2999900000n` and renders `"29.999"`, matching the charge,
+ * instead of `"30.00"`. Used for every buyer-facing amount on the checkout so
+ * the headline, the Pay button, and the settled amount can never disagree. Pure
+ * bigint math — no float rounding. `amount8` is assumed non-negative (a checkout
+ * amount that failed `parseUsdAmount8` never reaches a render).
+ *
+ * @param amount8 - the amount as an 8-decimal integer (from `parseUsdAmount8`).
+ * @returns the exact dollar string, e.g. `2900000000n -> "29.00"`,
+ *   `2999900000n -> "29.999"`, `100000n -> "0.001"`.
+ */
+export function formatCheckoutUsd(amount8: bigint): string {
+  const whole = amount8 / 100_000_000n
+  // 8-digit zero-padded fraction, trailing zeros trimmed, then padded to >= 2 dp.
+  let frac = (amount8 % 100_000_000n).toString().padStart(8, '0').replace(/0+$/, '')
+  if (frac.length < 2) frac = frac.padEnd(2, '0')
+  return `${whole}.${frac}`
+}
+
 /** Result of a quote fetch: either a token amount (in token decimals) or a surfaced revert reason. */
 export interface QuoteResult {
   /** Token amount in the token's own decimals, as a bigint. Present on success. */
