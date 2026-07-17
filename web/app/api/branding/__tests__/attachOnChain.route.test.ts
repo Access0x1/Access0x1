@@ -137,4 +137,21 @@ describe('POST /api/branding/attach-onchain', () => {
     expect(store.getBySlug('acme')?.merchantId).toBe('42')
     expect(store.getBySlug('acme')?.tenantId).toBe(TENANT_A)
   })
+
+  it('R1-BYPASS regression: an unverified attach fails closed in production (no payment redirect)', async () => {
+    // attach-onchain is a WRITE sibling of POST /api/branding. Repointing a
+    // victim's on-chain merchantId reroutes their live checkout's payToken to the
+    // attacker's payout — so it must share the same fail-closed write gate, not
+    // just the main route. With the production posture on, an unauthenticated
+    // (no Bearer) attach for tenant A must be rejected and its row untouched.
+    process.env.BRANDING_REQUIRE_VERIFIED_WRITES = 'true'
+    try {
+      const res = await POST(post({ tenantId: TENANT_A, merchantId: '4242' }))
+      expect(res.status).toBe(401)
+      expect(store.getByTenant(TENANT_A)?.merchantId).toBeNull() // never repointed
+      expect(store.getByMerchantId('4242')).toBeNull()
+    } finally {
+      delete process.env.BRANDING_REQUIRE_VERIFIED_WRITES
+    }
+  })
 })

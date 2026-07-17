@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
+import { resolveVerifiedTenantForWrite, TenantAuthError } from '@/lib/branding/tenant'
 import { BrandingError, getByTenant, upsertBranding } from '@/lib/branding/store'
 import { worldOperatorAction } from '@/lib/worldid/config'
 import { verifyWorldProof } from '@/lib/worldid/verify'
@@ -46,7 +46,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let tenantId: string
   try {
-    ;({ tenantId } = await resolveVerifiedTenant(request, body))
+    // Shared write gate: a World ID proof proves a unique HUMAN, but the row
+    // this marks verifiedOperator is still `tenantId` — without the gate an
+    // unverified caller could operator-verify a VICTIM's row with their own
+    // proof. Fail closed in production (World ID proof AND a verified session).
+    tenantId = await resolveVerifiedTenantForWrite(request, body)
   } catch (err) {
     if (err instanceof TenantAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 })
