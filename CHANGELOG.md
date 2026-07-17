@@ -23,6 +23,24 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`/journey` — the ordered business lifecycle** ([`web/app/journey`](web/app/journey/page.tsx)):
+  a wallet walks the order a real business operates — connect → `registerMerchant` →
+  publish a subscription plan (`setPlan`) → create an invoice (`createInvoice`) → issue a
+  gift card (`issueCard`) → share the hosted `/m/<id>` checkout link — each on-chain step
+  signed by the connected wallet and confirmed by its parsed creation event
+  ([`web/lib/journey/sellables.ts`](web/lib/journey/sellables.ts)). Steps unlock strictly
+  in order via a pure, unit-tested state machine
+  ([`web/lib/journey/steps.ts`](web/lib/journey/steps.ts)).
+- **`/simulate` — the on-chain cost simulator** ([`web/app/simulate`](web/app/simulate/page.tsx)):
+  upload an SVG (or raster) and get a provable estimate of what storing it on-chain
+  *would have cost if it just ran* — four storage strategies (calldata + keccak anchor,
+  SSTORE2 code storage chunked at EIP-170, base64 tokenURI mint, raw storage slots)
+  priced from cited protocol constants with a line-by-line formula breakdown
+  ([`web/lib/onchain-svg/estimate.ts`](web/lib/onchain-svg/estimate.ts)), cross-checked
+  against the live testnet via a zero-value `eth_estimateGas` probe and priced in USD
+  through the router's own oracle-guarded `quote()`
+  ([`web/app/api/onchain-estimate`](web/app/api/onchain-estimate/route.ts)). Nothing is
+  broadcast.
 - **Multi-tenant money spine** — a single shared
   [`Access0x1Router`](src/Access0x1Router.sol) prices a USD-denominated charge into
   the pay-in token through a Chainlink feed read *inside the settlement transaction*,

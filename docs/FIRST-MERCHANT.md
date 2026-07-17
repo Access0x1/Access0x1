@@ -30,6 +30,12 @@ every common error is paired with its fix. Already comfortable and just want the
 exhaustive per-contract command reference? That lives in
 [`docs/MANUAL-TESTING.md`](./MANUAL-TESTING.md); this doc is the gentle first lap.
 
+> **Prefer clicking to typing?** The hosted app walks the same lifecycle as an
+> ordered wizard at **`/journey`** — connect a wallet on a public testnet and it
+> drives register → plan → invoice → gift card → your live checkout link, every
+> step signed by your wallet and receipted on-chain. This doc stays the
+> command-line lap that shows you what each click really does.
+
 **Contents**
 
 - [0. What you need](#0-what-you-need)

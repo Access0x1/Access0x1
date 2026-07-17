@@ -69,6 +69,14 @@ export default function Home(): ReactNode {
               The vision →
             </Link>{' '}
             ·{' '}
+            <Link href="/journey" className="text-primary hover:underline">
+              The business journey →
+            </Link>{' '}
+            ·{' '}
+            <Link href="/simulate" className="text-primary hover:underline">
+              On-chain cost simulator →
+            </Link>{' '}
+            ·{' '}
             <Link href="/contracts" className="text-primary hover:underline">
               Explore the contracts →
             </Link>{' '}

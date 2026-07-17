@@ -108,3 +108,15 @@ carry to every row — none re-implements the fee math. Deployments are one-time
   `Session` struct shares `delegate`+`expiry`.
 - **`OracleLib` is `internal`** — it inlines into the router, so there is no library `delegatecall`
   and no link step at the cost of one staleness check per `quote`.
+
+## Simulate it yourself (`/simulate`)
+
+The web app ships an interactive counterpart to this table: upload an SVG at
+[`/simulate`](../web/app/simulate/page.tsx) and the app prices "what if this were
+stored on-chain" from the same protocol constants this document cites (EIP-2028
+calldata, EIP-7623 floor, EIP-2929/3529 SSTORE, EIP-170 code ceiling, EIP-3860
+initcode) — each strategy with a line-by-line formula breakdown — then
+cross-checks the prediction against a live testnet node with a zero-value
+`eth_estimateGas` probe. The numbers in the table above come from `forge test
+--gas-report` against the real contracts; the simulator covers the
+byte-payload storage question those reports don't ask. Nothing is broadcast.
