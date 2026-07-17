@@ -24,6 +24,7 @@ import {
   type SubnameIssueResult,
   type SubnameText,
 } from '@/lib/ens-subnames'
+import { resolveVerifiedTenantForWrite, TenantAuthError } from '@/lib/branding/tenant'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +66,23 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const owner = typeof body.owner === 'string' ? body.owner : ''
+
+  // AUTH GATE (was missing — this route signs records with the operator's
+  // Namestone key under the trusted ENS parent). The subname binds to `owner`,
+  // so the caller must PROVE they control that wallet: resolve through the
+  // shared write gate with `owner` as the tenant. A verified Dynamic JWT whose
+  // wallet != owner is rejected (cross-check in resolveVerifiedTenant); an
+  // unverified caller fails CLOSED in production (requireVerifiedWrites). Without
+  // this, anyone could overwrite a merchant's ENS records (repoint addr/router —
+  // payment redirection) or forge an ENSIP-25 agent attestation, and burn the key.
+  try {
+    await resolveVerifiedTenantForWrite(request, { ...body, tenantId: owner })
+  } catch (err) {
+    if (err instanceof TenantAuthError) {
+      return NextResponse.json({ error: err.message }, { status: 401 })
+    }
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
 
   let result: SubnameIssueResult
   // Onboarding shape (merchantId present) maps to merchant-<id> + config records.

@@ -91,9 +91,10 @@ describe('POST /api/ens/subname — fail-soft status mapping', () => {
     expect((await res.json()).error).toBe('not_configured')
   })
 
-  it('400 bad_input (bad label/owner)', async () => {
+  it('400 bad_input (bad label, valid owner passes the auth gate)', async () => {
     issueSubname.mockResolvedValue({ ok: false, code: 'bad_input' })
-    const res = await POST(post({ label: 'bad label', owner: 'nope' }))
+    // OWNER is a valid wallet so the auth gate passes; the label is what's bad.
+    const res = await POST(post({ label: 'bad label', owner: OWNER }))
     expect(res.status).toBe(400)
     expect((await res.json()).error).toBe('bad_input')
   })
@@ -103,5 +104,29 @@ describe('POST /api/ens/subname — fail-soft status mapping', () => {
     const res = await POST(post({ label: 'shop', owner: OWNER }))
     expect(res.status).toBe(502)
     expect(await res.json()).toEqual({ error: 'namestone_error', detail: 'status_422' })
+  })
+})
+
+describe('POST /api/ens/subname — auth gate (the route signs with the operator key)', () => {
+  it('401 and issues NOTHING for an unverified write in production (no ENS forge)', async () => {
+    // Without the gate, anyone could overwrite a merchant subname (repoint addr/
+    // router → payment redirect) or forge an ENSIP-25 agent attestation. With the
+    // production posture on and no verified session, the write must fail closed
+    // BEFORE reaching Namestone.
+    process.env.BRANDING_REQUIRE_VERIFIED_WRITES = 'true'
+    try {
+      const res = await POST(post({ label: 'agent-deadbeef', owner: OWNER, texts: [{ key: 'k', value: 'v' }] }))
+      expect(res.status).toBe(401)
+      expect(issueSubname).not.toHaveBeenCalled()
+      expect(issueMerchantSubname).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.BRANDING_REQUIRE_VERIFIED_WRITES
+    }
+  })
+
+  it('401 when the owner is not a valid wallet (cannot authenticate as that address)', async () => {
+    const res = await POST(post({ label: 'shop', owner: 'not-a-wallet' }))
+    expect(res.status).toBe(401)
+    expect(issueSubname).not.toHaveBeenCalled()
   })
 })
