@@ -915,9 +915,13 @@ a `<script>` tag and watch the byte count drop), then four strategy cards
 ordered cheapest-first, each with gas + native + USD figures and a "Show the
 math" table whose lines sum exactly to the total. The live panel reports what
 the node says publishing those exact bytes would have used and which calldata
-pricing regime that proves (legacy 16/4 vs the EIP-7623 floor). Kill the RPC
-env for the chain and re-upload: the pure math still renders, with the live
-failure stated honestly — never invented costs.
+pricing regime that proves (legacy 16/4 vs the EIP-7623 floor). To see the
+fail-soft path, point `NEXT_PUBLIC_ARC_RPC_URL` at an unreachable host (e.g.
+`http://127.0.0.1:9`), restart the dev server, pick **Arc Testnet**, and
+re-upload: the pure math still renders, with the live failure stated honestly
+in the panel — never invented costs. (Blanking the env falls back to the public
+default RPC by design; the non-Arc chains use viem public defaults with no env
+var, so simulate their outage by blocking the RPC host at the network level.)
 
 ---
 
