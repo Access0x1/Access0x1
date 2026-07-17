@@ -13,7 +13,12 @@
  */
 
 import { assertServerOnly } from "./serverOnly.js";
-import { durableSet, hydrate } from "../storage/durableKv.js";
+import {
+  durableDecrementClamped,
+  durableReserveWithinCap,
+  durableSet,
+  hydrate,
+} from "../storage/durableKv.js";
 
 assertServerOnly("agentMeter");
 
@@ -133,6 +138,74 @@ export function meterSpendOrThrow(usd: number): void {
   }
   ledger.spent += usd;
   persist();
+}
+
+/**
+ * DURABLE, cross-instance spend reservation — the production entry point (the async
+ * sibling of {@link meterSpendOrThrow}). The sync in-memory ledger is a PER-PROCESS
+ * ceiling: on Cloud Run each instance boots with an empty ledger, so `meterSpendOrThrow`
+ * alone lets N instances EACH spend up to the full cap (a real money-safety gap, since
+ * the durable write-through is last-write-wins, not an atomic counter). This reserves
+ * against the DURABLE row in ONE atomic statement, so the cap is enforced GLOBALLY.
+ *
+ * Order (CEI check): (1) the in-memory ceiling rejects fast and is never weaker than
+ * before; (2) the durable atomic reserve is authoritative across instances. Fail-soft:
+ * with no DB (or a DB error) the durable step returns `undefined` and we fall back to
+ * the in-memory reserve + best-effort write-through — no worse than the prior behaviour.
+ *
+ * @param usd The non-negative USD amount to reserve.
+ * @throws {RangeError} if `usd` is negative or not finite.
+ * @throws {BudgetExceeded} if the charge would breach the per-instance OR the shared cap.
+ */
+export async function reserveDailySpend(usd: number): Promise<void> {
+  if (!Number.isFinite(usd) || usd < 0) {
+    throw new RangeError(`reserveDailySpend: usd must be a non-negative finite number, got ${usd}`);
+  }
+  rollToToday();
+  const ledger = ledgerStore();
+  const cap = dailyCapUsd();
+  // (1) Per-instance ceiling — a fast reject and a floor that is never weaker than today.
+  if (ledger.spent + usd > cap) {
+    throw new BudgetExceeded(ledger.spent, cap);
+  }
+  // (2) Durable atomic reserve — authoritative across instances when a DB is configured.
+  const durable = await durableReserveWithinCap(KV_NAMESPACE, ledger.dayKey, usd, cap);
+  if (durable === null) {
+    // Over the SHARED cap even though this instance's local ledger still had room.
+    throw new BudgetExceeded(ledger.spent, cap);
+  }
+  if (typeof durable === "number") {
+    // Adopt the authoritative durable total so the hot in-memory read stays consistent.
+    ledger.spent = Math.max(ledger.spent + usd, durable);
+    return;
+  }
+  // No durable atomic path (dev / no DB / fail-soft): in-memory reserve + write-through.
+  ledger.spent += usd;
+  persist();
+}
+
+/**
+ * DURABLE refund — the async sibling of {@link meterRefund} used by the production pay
+ * path. Restores `usd` after a charge that did not settle (law #5 — refunds are never
+ * blocked). Clamps in memory immediately (the hot read stays consistent), then applies
+ * the atomic durable decrement so the SHARED total is restored too. Never throws; with
+ * no durable atomic path it falls back to the in-memory clamp + best-effort write-through.
+ *
+ * @param usd The USD amount to restore. Negative / non-finite values are ignored.
+ */
+export async function refundDailySpend(usd: number): Promise<void> {
+  if (!Number.isFinite(usd) || usd <= 0) {
+    return;
+  }
+  rollToToday();
+  const ledger = ledgerStore();
+  ledger.spent = Math.max(0, ledger.spent - usd);
+  const durable = await durableDecrementClamped(KV_NAMESPACE, ledger.dayKey, usd);
+  if (typeof durable === "number") {
+    ledger.spent = durable; // adopt the authoritative post-refund total
+    return;
+  }
+  persist(); // no atomic path: mirror the clamped in-memory total
 }
 
 /**
