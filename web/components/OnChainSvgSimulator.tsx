@@ -40,7 +40,14 @@ type SimState =
   | { phase: 'error'; message: string }
   | { phase: 'done'; report: SimulatorReport }
 
-export function OnChainSvgSimulator({ className }: { className?: string }): ReactNode {
+export function OnChainSvgSimulator({
+  className,
+  onSimulated,
+}: {
+  className?: string
+  /** Fires on each successful report — the journey's artwork step listens. */
+  onSimulated?: () => void
+}): ReactNode {
   const [chainId, setChainId] = useState<number>(getDefaultChainId())
   const [state, setState] = useState<SimState>({ phase: 'idle' })
 
@@ -68,6 +75,7 @@ export function OnChainSvgSimulator({ className }: { className?: string }): Reac
         return
       }
       setState({ phase: 'done', report: body })
+      onSimulated?.()
     } catch (err) {
       const message =
         err instanceof LogoError
