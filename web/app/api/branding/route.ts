@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
-import { resolveTenantId, resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
+import {
+  requireVerifiedWrites,
+  resolveTenantId,
+  resolveVerifiedTenant,
+  TenantAuthError,
+} from '@/lib/branding/tenant'
 import {
   BrandingError,
   getByTenant,
@@ -98,15 +103,29 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   let tenantId: string
+  let verified: boolean
   try {
     // Prefer a server-verified Dynamic JWT (Authorization: Bearer); fall back to
     // the shape-checked body tenantId when no issuer is configured (booth-gated).
-    ;({ tenantId } = await resolveVerifiedTenant(request, body))
+    ;({ tenantId, verified } = await resolveVerifiedTenant(request, body))
   } catch (err) {
     if (err instanceof TenantAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 })
     }
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
+  // Fail CLOSED on writes: the booth-gated fallback (verified:false) is a
+  // dev/demo convenience only. In production (or under an explicit
+  // BRANDING_REQUIRE_VERIFIED_WRITES) an unverified write could overwrite ANY
+  // tenant's branding, so reject it — a genuine merchant edit always carries a
+  // verified Dynamic session. Reads stay open (GET returns unauthenticated
+  // branding); only the WRITE is gated.
+  if (!verified && requireVerifiedWrites()) {
+    return NextResponse.json(
+      { error: 'A verified sign-in is required to save branding.' },
+      { status: 401 },
+    )
   }
 
   const b = body as Record<string, unknown>

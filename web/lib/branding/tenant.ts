@@ -88,6 +88,30 @@ export function isJwtVerificationConfigured(): boolean {
 }
 
 /**
+ * Whether a tenant-scoped WRITE must be cryptographically verified (a valid
+ * Dynamic JWT), rather than merely shape-checked against the body `tenantId`.
+ *
+ * The booth-gated fallback (`resolveVerifiedTenant` → `verified: false` when no
+ * issuer is configured) is a deliberate DEV/DEMO convenience — it lets the
+ * onboarding flow work at a hackathon booth before Dynamic is wired. In
+ * PRODUCTION that fallback would let an unauthenticated caller overwrite ANY
+ * tenant's branding (cross-tenant defacement), so writes must fail CLOSED there.
+ *
+ * Policy: an explicit `BRANDING_REQUIRE_VERIFIED_WRITES` (`true`/`false`) wins;
+ * otherwise default to requiring verification whenever `NODE_ENV==='production'`.
+ * A production deploy that forgot to configure Dynamic therefore rejects every
+ * write (safe) instead of silently trusting the body.
+ *
+ * @returns true when an unverified write must be rejected.
+ */
+export function requireVerifiedWrites(): boolean {
+  const flag = (process.env.BRANDING_REQUIRE_VERIFIED_WRITES ?? '').trim().toLowerCase()
+  if (flag === 'true') return true
+  if (flag === 'false') return false
+  return process.env.NODE_ENV === 'production'
+}
+
+/**
  * Dynamic's public JWKS endpoint for an environment (RS256 verification keys).
  * The URL is derived from the public environment id; no secret is involved.
  */
