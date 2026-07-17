@@ -32,7 +32,7 @@ import { verifyWorldProof } from '@/lib/worldid/verify'
 import { claimNullifier } from '@/lib/worldid/nullifierStore'
 import { worldAction } from '@/lib/worldid/config'
 import { resolveENS, EnsResolutionError } from '@/lib/ens'
-import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
+import { requireVerifiedWrites, resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
 import { verifyOidcToken } from '@/lib/oidc/verify'
 import { oidcIssuer } from '@/lib/oidc/config'
 import { claimSubject } from '@/lib/oidc/subjectStore'
@@ -277,9 +277,17 @@ async function verifyDynamicMethod(
   request: Request,
 ): Promise<Verdict> {
   try {
-    const { tenantId } = await resolveVerifiedTenant(request, { tenantId: body.user })
+    const { tenantId, verified } = await resolveVerifiedTenant(request, { tenantId: body.user })
     if (tenantId.toLowerCase() !== user.toLowerCase()) {
       return { ok: false, code: 'dynamic_mismatch', status: 401 }
+    }
+    // Fail CLOSED in production: this method GRANTS the Dynamic verification tier,
+    // which raises the trust ladder that gates trial pay + checkout modes. The
+    // booth-gated fallback (verified:false) would let anyone self-assert the tier
+    // by naming a wallet — so require a real verified session under the same
+    // policy the branding writes use. Dev/booth keeps the fallback.
+    if (!verified && requireVerifiedWrites()) {
+      return { ok: false, code: 'dynamic_unauthorized', status: 401 }
     }
     return { ok: true }
   } catch (err) {

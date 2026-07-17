@@ -48,6 +48,13 @@ vi.mock('@/lib/branding/tenant', async () => {
       if (!/^0x[0-9a-f]{40}$/.test(id)) throw new TenantAuthError()
       return { tenantId: id, verified: false }
     }),
+    // Mirrors the real policy so the fail-closed test can drive it via the flag.
+    requireVerifiedWrites: vi.fn(() => {
+      const f = (process.env.BRANDING_REQUIRE_VERIFIED_WRITES ?? '').trim().toLowerCase()
+      if (f === 'true') return true
+      if (f === 'false') return false
+      return process.env.NODE_ENV === 'production'
+    }),
   }
 })
 
@@ -192,6 +199,20 @@ describe('POST dynamic', () => {
     const res = await POST(post({ user: USER, method: 'dynamic' }))
     expect(res.status).toBe(200)
     expect((await res.json()).methods).toEqual(['dynamic'])
+  })
+
+  it('401 dynamic_unauthorized for a self-asserted (unverified) session in production', async () => {
+    // The booth fallback would let anyone claim the Dynamic trust tier by naming
+    // a wallet — which inflates the trust ladder gating trial pay. In production
+    // it must require a real verified session.
+    process.env.BRANDING_REQUIRE_VERIFIED_WRITES = 'true'
+    try {
+      const res = await POST(post({ user: USER, method: 'dynamic' }))
+      expect(res.status).toBe(401)
+      expect((await res.json()).error).toBe('dynamic_unauthorized')
+    } finally {
+      delete process.env.BRANDING_REQUIRE_VERIFIED_WRITES
+    }
   })
 })
 
