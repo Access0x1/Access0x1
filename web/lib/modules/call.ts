@@ -13,7 +13,7 @@
  * broadcast deployments map (never a literal), and a write pins the wallet to the
  * intended chain before it submits.
  */
-import type { Abi, Address, Hash, PublicClient, WalletClient } from 'viem'
+import type { Abi, Address, Hash, PublicClient, TransactionReceipt, WalletClient } from 'viem'
 
 /** A loose call surface for the two viem methods we drive dynamically. */
 type LooseCall<R> = (args: unknown) => Promise<R>
@@ -48,6 +48,33 @@ export async function writeModule(
   args: readonly unknown[],
   value?: bigint,
 ): Promise<Hash> {
+  const { hash } = await writeModuleWithReceipt(
+    wallet,
+    publicClient,
+    address,
+    abi,
+    functionName,
+    args,
+    value,
+  )
+  return hash
+}
+
+/**
+ * Same submit-and-wait as {@link writeModule}, but hands back the RECEIPT too —
+ * the typed business helpers (lib/journey/sellables.ts) parse their creation
+ * events (PlanSet / InvoiceCreated / CardIssued) out of it. Kept here so this
+ * file stays the ONE runtime-ABI viem seam.
+ */
+export async function writeModuleWithReceipt(
+  wallet: WalletClient,
+  publicClient: PublicClient,
+  address: Address,
+  abi: Abi,
+  functionName: string,
+  args: readonly unknown[],
+  value?: bigint,
+): Promise<{ hash: Hash; receipt: TransactionReceipt }> {
   const account = wallet.account
   if (!account) throw new Error('Connect a wallet to submit this transaction.')
   const write = wallet.writeContract as unknown as LooseCall<Hash>
@@ -61,6 +88,13 @@ export async function writeModule(
     // Only carry `value` when set — an undefined value is omitted by viem.
     ...(value !== undefined ? { value } : {}),
   })
-  await publicClient.waitForTransactionReceipt({ hash })
-  return hash
+  const receipt = await publicClient.waitForTransactionReceipt({ hash })
+  // viem does NOT throw for a mined-but-reverted tx — it returns the receipt
+  // with status 'reverted'. Surface that HONESTLY here (law: money paths roll
+  // back, never swallow) so callers report "the transaction reverted on-chain"
+  // instead of a downstream "creation event not found" red herring.
+  if (receipt.status === 'reverted') {
+    throw new Error(`${functionName} reverted on-chain — no state changed (tx ${hash}).`)
+  }
+  return { hash, receipt }
 }

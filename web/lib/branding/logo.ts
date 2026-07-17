@@ -100,10 +100,16 @@ export function sanitizeSvg(svg: string): string {
       // <!DOCTYPE …> and <!ENTITY …> (XXE / billion-laughs)
       .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
       .replace(/<!ENTITY[\s\S]*?>/gi, '')
-      // on*="…" / on*='…' / on*=bare event handlers
-      .replace(/\son[a-z0-9_-]+\s*=\s*"[^"]*"/gi, '')
-      .replace(/\son[a-z0-9_-]+\s*=\s*'[^']*'/gi, '')
-      .replace(/\son[a-z0-9_-]+\s*=\s*[^\s>]+/gi, '')
+      // on*="…" / on*='…' / on*=bare event handlers. The handler can be
+      // separated from the previous attribute by ANY SVG attribute boundary —
+      // whitespace OR a `/` (self-close slash) OR a closing quote with no
+      // space (`href="data:x"onerror=…`, `href="data:x"/onerror=…`). Anchoring
+      // only on `\s` let both quote- and slash-adjacent handlers survive and
+      // reach `dangerouslySetInnerHTML` (confirmed XSS). Match the boundary
+      // char in a group and re-emit it so adjacent attributes never fuse.
+      .replace(/([\s/"'`])on[a-z0-9_-]+\s*=\s*"[^"]*"/gi, '$1')
+      .replace(/([\s/"'`])on[a-z0-9_-]+\s*=\s*'[^']*'/gi, '$1')
+      .replace(/([\s/"'`])on[a-z0-9_-]+\s*=\s*[^\s>]+/gi, '$1')
       // style="…" / style='…' / style=bare presentational attrs (CSS url() beacons)
       .replace(/\sstyle\s*=\s*"[^"]*"/gi, '')
       .replace(/\sstyle\s*=\s*'[^']*'/gi, '')
@@ -127,7 +133,7 @@ function assertIsSvg(svg: string): void {
   if (
     /<script\b/i.test(svg) ||
     /<style\b/i.test(svg) ||
-    /\son[a-z0-9_-]+\s*=/i.test(svg) ||
+    /[\s/"'`]on[a-z0-9_-]+\s*=/i.test(svg) ||
     /\sstyle\s*=/i.test(svg) ||
     /javascript:/i.test(svg)
   ) {

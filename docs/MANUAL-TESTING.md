@@ -879,6 +879,50 @@ box. It reads addresses from env (doctrine: never an address from memory). Copy
 designed for a public testnet, not the local Anvil chain — local Anvil is where
 the `cast` walkthroughs in Section B prove the contracts.)
 
+### C6. The business journey (`/journey`)
+
+Open `/journey` with no wallet connected.
+
+**Expected:** a seven-step ladder at 0% — only "Connect your wallet" is ready;
+every later step is dimmed with the reason "Finish “Connect your wallet” first —
+the journey runs in order."
+
+Connect a wallet on a supported testnet and walk the steps in order:
+
+1. **Register your business** — the same form as `/onboard`'s register step;
+   on success the step flips done and shows your merchant id + a dashboard link.
+2. **Price a product** — publishes `setPlan` on Access0x1Subscriptions;
+   expected: a green line with the plan number and a working explorer tx link.
+3. **Bill a customer** — `createInvoice` on Access0x1Invoices; expected: the
+   REAL invoice id parsed from the `InvoiceCreated` event, not a counter.
+4. **Reward a customer** — `issueCard` on Access0x1GiftCards; the code you type
+   never appears on-chain (only its keccak hash — verify in the tx input data).
+5. **Share your checkout link** — the `/m/<your id>` link with a copy button;
+   opening it shows your live hosted checkout.
+6. **Your brand, as if on-chain** — the C7 simulator, inline; a successful
+   report completes the journey at 100%.
+
+On a chain where a module has no deployment, the step's submit fails with the
+honest "…is not on this chain yet" message — never a hang, never a wrong-chain
+write (the wallet is pinned to its live chain before each signature).
+
+### C7. The on-chain cost simulator (`/simulate`)
+
+Open `/simulate` (no wallet needed), pick a network, and upload any `.svg`.
+
+**Expected:** a sanitized preview (scripts/handlers stripped — try an SVG with
+a `<script>` tag and watch the byte count drop), then four strategy cards
+ordered cheapest-first, each with gas + native + USD figures and a "Show the
+math" table whose lines sum exactly to the total. The live panel reports what
+the node says publishing those exact bytes would have used and which calldata
+pricing regime that proves (legacy 16/4 vs the EIP-7623 floor). To see the
+fail-soft path, point `NEXT_PUBLIC_ARC_RPC_URL` at an unreachable host (e.g.
+`http://127.0.0.1:9`), restart the dev server, pick **Arc Testnet**, and
+re-upload: the pure math still renders, with the live failure stated honestly
+in the panel — never invented costs. (Blanking the env falls back to the public
+default RPC by design; the non-Arc chains use viem public defaults with no env
+var, so simulate their outage by blocking the RPC host at the network level.)
+
 ---
 
 ## D. The test suites (1,810 + web gate)
