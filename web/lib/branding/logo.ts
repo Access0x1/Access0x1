@@ -83,16 +83,16 @@ function byteLength(s: string): number {
  * @returns the scrubbed SVG string (still must pass {@link assertIsSvg}).
  */
 export function sanitizeSvg(svg: string): string {
-  // Strip non-whitespace C0 control bytes FIRST. `\s` (used as the attribute
-  // boundary in the on*/style scrubs below) covers \t\n\v\f\r + space, but NOT
-  // \x00-\x08 / \x0e-\x1f — so a control byte wedged between a closing quote and
-  // a handler (`<rect x="0"\x00onload=…>`) is not seen as a boundary and the
-  // handler survives BOTH the scrub and the assertIsSvg guard. These bytes have
-  // no legitimate use in SVG markup; removing them up front closes that covert
-  // separator for the on*/style/href passes and any control-char parser
-  // confusion in a downstream non-HTML consumer (the Snap renderer, a
-  // rasterizer). Done once, before the loop, since the removal is idempotent.
-  let out = svg.replace(/[\x00-\x08\x0e-\x1f]/g, '');
+  // Strip non-whitespace control bytes FIRST. `\s` (the attribute boundary in
+  // the on*/style scrubs below) covers \t\n\v\f\r + space, but NOT \x00-\x08 /
+  // \x0e-\x1f (C0) NOR \x7f-\x9f (DEL + C1) — so a control byte wedged between a
+  // closing quote and a handler (`<rect x="0"\x7fonload=…>`) is not seen as a
+  // boundary and the handler survives BOTH the scrub and the assertIsSvg guard.
+  // These bytes have no legitimate use in SVG markup; removing them up front
+  // closes that covert separator for the on*/style/href passes and any
+  // control-char parser confusion in a downstream non-HTML consumer (the Snap
+  // renderer, a rasterizer). Done once, before the loop, since it is idempotent.
+  let out = svg.replace(/[\x00-\x08\x0e-\x1f\x7f-\x9f]/g, '');
   let prev: string;
   do {
     prev = out;

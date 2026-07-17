@@ -81,12 +81,15 @@ describe('sanitizeSvg — strips all executable / fetching content', () => {
       '<svg xmlns="http://www.w3.org/2000/svg"><rect x="0"\x00onload="alert(1)"/></svg>',
       '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:x"\x01onerror=alert(2)/></svg>',
       '<svg xmlns="http://www.w3.org/2000/svg"><rect x="0"\x1fonmouseover="alert(3)"/></svg>',
+      // DEL (\x7f) + C1 (\x80-\x9f) also aren't \s — same covert-separator class.
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect x="0"\x7fonload="alert(4)"/></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect x="0"\x85onerror=alert(5)/></svg>',
     ]
     for (const svg of attacks) {
       const clean = sanitizeSvg(svg)
       expect(clean).not.toMatch(/onerror|onmouseover|onload/i)
       // The control byte itself must be gone (no covert separator left behind).
-      expect(clean).not.toMatch(/[\x00-\x08\x0e-\x1f]/)
+      expect(clean).not.toMatch(/[\x00-\x08\x0e-\x1f\x7f-\x9f]/)
       // And the belt-and-suspenders guard must accept the cleaned output.
       expect(() => sanitizeSvgLogo(clean)).not.toThrow()
     }
