@@ -269,6 +269,18 @@ contract Receivables is
         uint256 balBefore = IERC20(token).balanceOf(address(this));
         _pullExact(token, msg.sender, gross);
 
+        // Snapshot our lane balance BEFORE the settle: this payout may be a SHARED conduit and a
+        // co-tenant merchant's direct payToken can strand net in the SAME lane. We claim ONLY the delta
+        // THIS settle credits (below), never that pre-existing balance — otherwise a receivable settle
+        // would sweep another merchant's stranded funds to this creditor (cross-merchant theft).
+        address lanes = router.paymentLanes();
+        uint256 laneKey;
+        uint256 laneBefore;
+        if (lanes != address(0)) {
+            laneKey = IPaymentLanes(lanes).laneId(block.chainid, token, address(this));
+            laneBefore = IPaymentLanes(lanes).balanceOf(address(this), laneKey);
+        }
+
         // Route the FULL gross through the audited fee-split. The router pulls `gross` from here (its
         // own in-tx quote equals ours — same feed round), sends the platform cut → treasury + the
         // merchant surcharge → feeRecipient, and pushes the NET back to THIS contract (the conduit
@@ -278,15 +290,16 @@ contract Receivables is
         // Defensive: the router pulled the full approval via its own balance-delta check; reset any
         // residual to 0 so no dangling allowance survives (zero-custody hygiene).
         IERC20(token).forceApprove(address(router), 0);
-        // If the router routes the net through PaymentLanes, it was minted to THIS contract as an
-        // ERC-6909 lane (our payout id), NOT pushed back as ERC-20 — so the delta below would read 0
-        // and the creditor would be paid nothing while the net sat stranded in an unclaimable lane
-        // (and the NFT is about to burn). Claim our own lane back to ERC-20 first so `net` is exact
-        // whether or not lanes are wired. claim() releases ONLY this asset and reverts if empty, so
-        // we only call it when lanes are active and a credit happened.
-        address lanes = router.paymentLanes();
+        // If the router routed the net through PaymentLanes it was minted to THIS contract as an
+        // ERC-6909 lane (our payout id), NOT pushed back as ERC-20. Claim back ONLY the amount this
+        // settle just credited (laneAfter - laneBefore), leaving any co-tenant merchant's stranded
+        // balance untouched in the shared lane, so `net` is exact and can never include another
+        // merchant's funds (whether or not lanes are wired).
         if (lanes != address(0)) {
-            IPaymentLanes(lanes).claim(token);
+            uint256 credited = IPaymentLanes(lanes).balanceOf(address(this), laneKey) - laneBefore;
+            if (credited > 0) {
+                IPaymentLanes(lanes).claimLaneUpTo(laneKey, token, credited);
+            }
         }
         uint256 net = IERC20(token).balanceOf(address(this)) - balBefore;
 
