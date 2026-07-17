@@ -158,6 +158,17 @@ interface IPaymentLanes {
     /// @param asset The ERC-20 that funded `id` (must equal the asset bound at credit time).
     function claimLane(uint256 id, address asset) external;
 
+    /// @notice Claim AT MOST `maxAmount` of an explicit lane `id`, returning `asset`. A shared-recipient
+    ///         conduit (one payout address serving several merchants, e.g. a SplitSettler) MUST use this
+    ///         to withdraw ONLY the net it just credited — the lane-balance delta across its own
+    ///         settlement — so it can never sweep a co-tenant merchant's commingled balance on the same
+    ///         lane. Same cross-asset firewall as {claimLane}; a `maxAmount` above the balance claims the
+    ///         full balance (bounded), and 0 / an empty lane reverts {PaymentLanes__NothingToClaim}.
+    /// @param id        The lane id to claim from.
+    /// @param asset     The ERC-20 that funded `id` (must equal the asset bound at credit time).
+    /// @param maxAmount The upper bound on the amount claimed this call.
+    function claimLaneUpTo(uint256 id, address asset, uint256 maxAmount) external;
+
     /// @notice Derive the deterministic lane id for a (chainId, asset, recipient) triple.
     /// @dev    Pure — no storage read. Callers can compute lane ids off-chain for free.
     /// @param chainId_  The chain id leg (block.chainid at credit time).

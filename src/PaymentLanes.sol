@@ -232,14 +232,25 @@ contract PaymentLanes is
     /// @dev Convenience claim of the caller's own lane (`laneId(chainid, asset, caller)`).
     function claim(address asset) external nonReentrant {
         if (asset == address(0)) revert PaymentLanes__ZeroAddress();
-        _claim(_laneId(block.chainid, asset, msg.sender), asset);
+        _claim(_laneId(block.chainid, asset, msg.sender), asset, type(uint256).max);
     }
 
     /// @inheritdoc IPaymentLanes
     /// @dev Claim an explicit lane id (e.g. one received via {transfer}).
     function claimLane(uint256 id, address asset) external nonReentrant {
         if (asset == address(0)) revert PaymentLanes__ZeroAddress();
-        _claim(id, asset);
+        _claim(id, asset, type(uint256).max);
+    }
+
+    /// @inheritdoc IPaymentLanes
+    /// @dev Claim AT MOST `maxAmount` of a lane. A SHARED-recipient conduit (one payout address for
+    ///      several merchants) MUST use this to take ONLY the net it just credited — measured as the
+    ///      lane-balance delta across its own `payToken` — so it can never sweep a co-tenant merchant's
+    ///      commingled balance on the same lane. `maxAmount` above the balance claims the full balance
+    ///      (bounded, not reverting); a `maxAmount` of 0 (or an empty lane) reverts {NothingToClaim}.
+    function claimLaneUpTo(uint256 id, address asset, uint256 maxAmount) external nonReentrant {
+        if (asset == address(0)) revert PaymentLanes__ZeroAddress();
+        _claim(id, asset, maxAmount);
     }
 
     /// @dev CEI + `nonReentrant` (guarded by the public entrypoints). The caller's entire balance on
@@ -256,9 +267,10 @@ contract PaymentLanes is
     ///      the balance is zeroed (effect) before the underlying is sent back (interaction), so a
     ///      re-entrant asset finds nothing left, belt-and-suspendered by the `nonReentrant` guard on
     ///      the public entrypoints.
-    /// @param id    The lane id to burn.
-    /// @param asset The ERC-20 that funded `id`, returned to the caller. Must equal `_laneAsset[id]`.
-    function _claim(uint256 id, address asset) private {
+    /// @param id        The lane id to burn.
+    /// @param asset     The ERC-20 that funded `id`, returned to the caller. Must equal `_laneAsset[id]`.
+    /// @param maxAmount The upper bound on the claimed amount (`type(uint256).max` = the full balance).
+    function _claim(uint256 id, address asset, uint256 maxAmount) private {
         address backing = _laneAsset[id];
 
         // Cross-asset firewall: a lane that HAS a backing asset (was credited) releases ONLY that
@@ -270,13 +282,17 @@ contract PaymentLanes is
         // zero-balance revert below, so an empty/never-funded lane still reports {NothingToClaim}.
         if (backing != address(0) && asset != backing) return;
 
-        // Same-asset (or never-funded) path: the caller's full balance on `id` is claimable. An empty
-        // lane (already claimed, never funded, or one the caller does not hold) reverts.
-        uint256 amount = _balanceOf[msg.sender][id];
+        // Same-asset (or never-funded) path: claim AT MOST `maxAmount` of the caller's balance on `id`
+        // (the full balance when maxAmount is unbounded — the {claim}/{claimLane} default). A bounded
+        // claim is what lets a SHARED-recipient conduit take ONLY the net it just credited and never a
+        // co-tenant merchant's commingled balance on the same lane. An empty lane (already claimed,
+        // never funded, or one the caller does not hold) reverts; a maxAmount of 0 likewise reverts.
+        uint256 bal = _balanceOf[msg.sender][id];
+        uint256 amount = maxAmount < bal ? maxAmount : bal;
         if (amount == 0) revert PaymentLanes__NothingToClaim(msg.sender, asset);
 
-        // Effect: burn the full receipt before returning the underlying (CEI).
-        _balanceOf[msg.sender][id] = 0;
+        // Effect: burn ONLY the claimed portion before returning the underlying (CEI).
+        _balanceOf[msg.sender][id] = bal - amount;
         emit Transfer(msg.sender, msg.sender, address(0), id, amount);
 
         // Interaction: return the backing asset to the claimant.
