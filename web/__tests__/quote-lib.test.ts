@@ -94,6 +94,27 @@ describe("parseUsdAmount8 — fail-soft price parse (never throws, never a junk 
     // "0" is plain-decimal but not positive -> still null (never quotable).
     expect(parseUsdAmount8("0")).toBeNull();
   });
+
+  it("the DISPLAY amount (amount8ToUsd∘parseUsdAmount8) equals the CHARGED amount — no divergence", () => {
+    // The checkout header must render exactly what the pay path charges. Before
+    // this, the header showed the RAW `?amount=` string while the charge used
+    // the parsed value, so a crafted `?amount=4.999` displayed "$4.999" but
+    // charged the rounded "$5.00". Deriving the display from the same parsed
+    // 8-decimal integer the charge uses removes the divergence and normalizes to
+    // proper 2-decimal currency.
+    const cases: [string, string][] = [
+      ["4.999", "5.00"], // rounds up on the 8-decimal scale, same as the charge
+      ["29", "29.00"], // integer input -> proper currency format
+      ["4.9", "4.90"], // one decimal -> padded
+      ["12.5", "12.50"],
+      ["0.01", "0.01"], // already canonical -> unchanged
+    ];
+    for (const [raw, shown] of cases) {
+      const parsed = parseUsdAmount8(raw);
+      expect(parsed).not.toBeNull();
+      expect(amount8ToUsd(parsed as bigint)).toBe(shown);
+    }
+  });
 });
 
 describe("formatTokenAmount", () => {
