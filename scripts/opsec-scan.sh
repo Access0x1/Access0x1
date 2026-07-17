@@ -107,6 +107,15 @@ run_grep "internal-brand" \
   '(nfteria|githat|sebastn|clickreserv|quantl|colmado|rebato|palindrone|hemiai|realsley|allfans)' \
   && findings=$((findings + 1))
 
+# --- Internal-operation vocabulary. The private multi-app operation behind this
+# public repo is "the fleet"; strategy scratch lives in "the war room". Neither
+# word belongs in public content — they reveal that a larger private operation
+# exists. Scanned as the loaded phrases (not bare "fleet", which is generic
+# English) so a legitimate "fleet of nodes" never false-positives.
+run_grep "internal-op" \
+  '(the fleet|private[ -]fleet|war[ _-]?room)' \
+  && findings=$((findings + 1))
+
 # --- Hardcoded secret literals. -----------------------------------------------
 run_grep "stripe-secret-key" \
   'sk_(live|test)_[0-9A-Za-z]{16,}' \
