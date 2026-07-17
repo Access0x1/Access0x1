@@ -5,6 +5,9 @@ import Link from 'next/link'
 import type { Hash } from 'viem'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { useLiveChain } from '@/lib/live-chain'
+import { getRouterAddress } from '@/lib/chains'
+import { getPublicClient } from '@/lib/wallet'
+import { getMerchant } from '@/lib/contracts'
 import {
   deriveJourney,
   journeyProgress,
@@ -45,15 +48,47 @@ export function JourneyView(): ReactNode {
   const [receipts, setReceipts] = useState<Partial<Record<'plan' | 'invoice' | 'giftcard', { label: string; txHash: Hash; chainId: number }>>>({})
 
   // Restore the merchant seat this browser already registered (the dashboard's
-  // cache key), then that merchant's per-chain journey record.
+  // cache key), then VERIFY it on the live chain before trusting it — the
+  // cache is not chain- or wallet-scoped, so a seat registered on chain A (or
+  // by a different wallet) must NOT mark "Register" done on chain B. The chain
+  // is the authority (law #4: verify or it didn't happen); the cache is only a
+  // hint. An unverifiable seat clears merchantId so the step re-offers rather
+  // than inventing completion.
   useEffect(() => {
-    try {
-      const cached = localStorage.getItem('ax1_merchant_id')
-      if (cached && /^\d+$/.test(cached)) setMerchantId(BigInt(cached))
-    } catch {
-      // Storage unavailable (private mode) — the journey just starts fresh.
+    const walletAddress = primaryWallet?.address?.toLowerCase()
+    if (!walletAddress || live.chainId === null || !live.isSupported) {
+      setMerchantId(null)
+      return
     }
-  }, [])
+    let cached: string | null = null
+    try {
+      cached = localStorage.getItem('ax1_merchant_id')
+    } catch {
+      // Storage unavailable (private mode) — nothing to restore.
+    }
+    if (!cached || !/^\d+$/.test(cached)) {
+      setMerchantId(null)
+      return
+    }
+    const id = BigInt(cached)
+    const chainId = live.chainId
+    let cancelled = false
+    void (async () => {
+      try {
+        const merchant = await getMerchant(getPublicClient(chainId), getRouterAddress(chainId), id)
+        // Only trust the cached seat when it actually belongs to THIS wallet on
+        // THIS chain — otherwise the "Register" step stays open.
+        if (!cancelled) {
+          setMerchantId(merchant.owner.toLowerCase() === walletAddress ? id : null)
+        }
+      } catch {
+        if (!cancelled) setMerchantId(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [primaryWallet?.address, live.chainId, live.isSupported])
   useEffect(() => {
     if (merchantId === null || live.chainId === null) return
     try {
@@ -206,10 +241,15 @@ function ShareBody({ merchantId }: { merchantId: bigint }): ReactNode {
       <button
         type="button"
         onClick={() => {
-          void navigator.clipboard.writeText(link).then(() => {
-            setCopied(true)
-            setTimeout(() => setCopied(false), 1500)
-          })
+          navigator.clipboard.writeText(link).then(
+            () => {
+              setCopied(true)
+              setTimeout(() => setCopied(false), 1500)
+            },
+            // A denied/unavailable clipboard must not become an unhandled
+            // rejection — the link is on-screen to copy by hand regardless.
+            () => setCopied(false),
+          )
         }}
         className="rounded-md border border-input px-3 py-1 text-xs hover:bg-secondary"
       >
