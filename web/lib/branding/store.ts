@@ -22,7 +22,7 @@
  */
 
 import { keccak256, toHex } from 'viem';
-import { DEFAULT_BRAND_COLOR, normalizeBrandColor } from './logo.js';
+import { DEFAULT_BRAND_COLOR, normalizeBrandColor, sanitizeSvg } from './logo.js';
 import { asTrustTier, type TrustTier } from '../verification/tiers.js';
 import { durableSet, hydrate } from '../storage/durableKv.js';
 
@@ -406,15 +406,21 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
   }
 
   const now = Date.now();
+  // Defense in depth: re-sanitize the inline SVG at the STORAGE boundary, the
+  // same place displayName/description are sanitized. The onboarding screen
+  // passes an already-sanitized logo, but a caller that reaches upsertBranding
+  // another way (a direct POST of `logoSvgInline` to /api/branding bypasses the
+  // /api/branding/logo sanitizer) must never persist executable/fetching SVG.
+  // sanitizeSvg is idempotent, so re-scrubbing a clean logo is a no-op and it
+  // also heals any row written before this guard; '' stays ''.
+  const rawLogo = input.logoSvgInline ?? existing?.logoSvgInline ?? '';
+  const logoSvgInline = rawLogo ? sanitizeSvg(rawLogo) : '';
   const row: TenantBranding = {
     tenantId,
     displayName,
     description,
     logoUrl: input.logoUrl !== undefined ? input.logoUrl : (existing?.logoUrl ?? null),
-    // logoSvgInline is required to render; the caller passes a sanitized SVG or
-    // we keep the existing one. (The onboarding screen always supplies one —
-    // an uploaded+sanitized logo or an auto-monogram.)
-    logoSvgInline: input.logoSvgInline ?? existing?.logoSvgInline ?? '',
+    logoSvgInline,
     brandColor,
     checkoutSlug: slug,
     merchantId:
