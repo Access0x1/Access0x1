@@ -16,9 +16,31 @@ vi.mock('@/lib/oidc/verify', () => ({
 
 vi.mock('@/lib/oidc/config', () => ({ oidcIssuer: () => 'https://accounts.google.com' }))
 
+// Caller-binding seam (shared lib/verification/callerBinding → lib/branding/tenant). Kept
+// on the booth fallback (verified:false) so the existing tests run the OPEN flow; the
+// production caller-binding tests drive it via BRANDING_REQUIRE_VERIFIED_WRITES.
+vi.mock('@/lib/branding/tenant', async () => {
+  class TenantAuthError extends Error {}
+  return {
+    TenantAuthError,
+    resolveVerifiedTenant: vi.fn(async (_req: Request, body: { tenantId?: string }) => {
+      const id = (body?.tenantId ?? '').toLowerCase()
+      if (!/^0x[0-9a-f]{40}$/.test(id)) throw new TenantAuthError()
+      return { tenantId: id, verified: false }
+    }),
+    requireVerifiedWrites: vi.fn(() => {
+      const f = (process.env.BRANDING_REQUIRE_VERIFIED_WRITES ?? '').trim().toLowerCase()
+      if (f === 'true') return true
+      if (f === 'false') return false
+      return process.env.NODE_ENV === 'production'
+    }),
+  }
+})
+
 const { POST, GET } = await import('../route.js')
 const store = await import('@/lib/verification/store')
 const subjects = await import('@/lib/oidc/subjectStore')
+const tenant = await import('@/lib/branding/tenant')
 
 const USER = '0x' + '1'.repeat(40)
 
@@ -122,6 +144,41 @@ describe('POST /api/oidc/verify — one-account-per-subject dedup', () => {
     expect(second.status).toBe(409)
     expect((await second.json()).error).toBe('already_verified')
     expect(store.getProfile(OTHER).methods).toEqual([])
+  })
+})
+
+describe('POST /api/oidc/verify — caller-binding (anti-farm) in production', () => {
+  // The `oidc` badge is recorded here too, so binding it ONLY on /api/verify would leave
+  // this route as a trivial bypass. In production the caller must control `user`.
+  beforeEach(() => {
+    process.env.BRANDING_REQUIRE_VERIFIED_WRITES = 'true'
+  })
+  afterEach(() => {
+    delete process.env.BRANDING_REQUIRE_VERIFIED_WRITES
+  })
+
+  it('401 for an unverified caller — token never verified, nothing recorded', async () => {
+    verifyOidcToken.mockResolvedValue({
+      ok: true,
+      identity: { subject: 'farm-sub', email: null, agent: null },
+    })
+    const res = await POST(post({ user: USER, token: 'good.jwt' }))
+    expect(res.status).toBe(401)
+    expect((await res.json()).error).toBe('unverified_caller')
+    // The gate runs BEFORE token verification — no subject slot burned, nothing recorded.
+    expect(verifyOidcToken).not.toHaveBeenCalled()
+    expect(store.getProfile(USER).methods).toEqual([])
+  })
+
+  it('records `oidc` when the caller holds a verified session for `user`', async () => {
+    vi.mocked(tenant.resolveVerifiedTenant).mockResolvedValueOnce({ tenantId: USER, verified: true })
+    verifyOidcToken.mockResolvedValue({
+      ok: true,
+      identity: { subject: 'ok-sub', email: null, agent: null },
+    })
+    const res = await POST(post({ user: USER, token: 'good.jwt' }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).methods).toEqual(['oidc'])
   })
 })
 

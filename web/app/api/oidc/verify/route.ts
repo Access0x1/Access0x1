@@ -43,6 +43,7 @@ import { verifyOidcToken } from '@/lib/oidc/verify'
 import { oidcIssuer } from '@/lib/oidc/config'
 import { claimSubject } from '@/lib/oidc/subjectStore'
 import { DurableStoreRequiredError } from '@/lib/security/replayStore'
+import { requireCallerOwnsUser } from '@/lib/verification/callerBinding'
 
 export const dynamic = 'force-dynamic'
 
@@ -138,6 +139,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     user = normalizeUserKey(body.user)
   } catch {
     return NextResponse.json({ error: 'bad_user' }, { status: 400 })
+  }
+
+  // Caller-binding (anti-farm): the `oidc` badge is recorded against `user`, but the ID
+  // token only proves control of a provider account — NOT of `user`. Require the caller to
+  // control `user` in production (the SAME shared gate /api/verify uses, so this dedicated
+  // route can't be used to bypass that binding). Checked BEFORE verifying/claiming the
+  // token so an unauthorized caller can't burn the one-per-account subject slot on another
+  // wallet's behalf. Dev/booth keeps the open flow.
+  const binding = await requireCallerOwnsUser(request, user, body.user)
+  if (!binding.ok) {
+    return NextResponse.json({ error: binding.code, method: 'oidc' }, { status: binding.status })
   }
 
   // The ID token may arrive as `token` (preferred) or `id_token` (OIDC's own
