@@ -105,6 +105,20 @@ describe('upsertBranding — create', () => {
     })
     expect(row.brandColor).toMatch(/^#[0-9A-F]{6}$/)
   })
+
+  it('sanitizes logoSvgInline at the storage boundary (a caller that bypasses the logo sanitizer)', () => {
+    const hostile =
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:x"/onerror="alert(1)"/><script>evil()</script></svg>'
+    const row = upsertBranding({
+      tenantId: TENANT_A,
+      displayName: 'X',
+      logoSvgInline: hostile,
+    })
+    // No executable handler or <script> may be persisted, whatever the caller sent.
+    expect(row.logoSvgInline).not.toMatch(/onerror|onload|<script/i)
+    // The legitimate data: image ref is preserved (that is how rasters wrap).
+    expect(row.logoSvgInline).toContain('href="data:x"')
+  })
 })
 
 describe('upsertBranding — edit (idempotent per tenant)', () => {
