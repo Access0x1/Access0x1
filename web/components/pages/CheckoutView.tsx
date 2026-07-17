@@ -8,6 +8,7 @@ import { getPublicClient } from '@/lib/wallet'
 import { CheckoutCard } from '@/components/CheckoutCard'
 import { AskAssistant } from '@/components/AskAssistant'
 import { safeReturnUrl } from '@/lib/safeUrl'
+import { resolveCheckoutDisplayName } from '@/lib/checkout/displayName'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -77,12 +78,20 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
   // Validate at the source: only an https: URL survives; a javascript:/data:/http:
   // /evil-origin value is dropped to undefined (no link rendered) — red-report C-1.
   const returnUrl = safeReturnUrl(searchParams.get('return_url'))
-  const nameParam = searchParams.get('name') ?? undefined
-
-  const merchantName =
-    nameParam ??
-    (typeof window !== 'undefined' ? localStorage.getItem('ax1_merchant_name') : null) ??
-    `Merchant #${merchantIdParam}`
+  // The ?name= param and the localStorage fallback are BOTH attacker-controllable
+  // and unauthenticated — a crafted `/m/<id>?name=…` would paint arbitrary words
+  // onto a real merchant's pay-enabled checkout header. Run both through the
+  // single sanitizing resolver (tag/bracket strip + 80-char clamp, same bound the
+  // server applies to a merchant's own stored name) — mirrors how safeReturnUrl
+  // validates ?return_url at this same source. The unspoofable identity signal is
+  // the ENSIP-19 <MerchantIdentity> below, which an attacker cannot forge.
+  const storedName =
+    typeof window !== 'undefined' ? localStorage.getItem('ax1_merchant_name') : null
+  const merchantName = resolveCheckoutDisplayName(
+    searchParams.get('name'),
+    storedName,
+    merchantIdParam,
+  )
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-6 px-6 py-16">
