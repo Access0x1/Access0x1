@@ -76,4 +76,13 @@ describe('classifyRegime — the live node picks its own truth', () => {
   it('never claims eip7623 when the two predictions coincide (empty payload)', () => {
     expect(classifyRegime(21_000n, 21_000n, 21_000n)).toBe('legacy')
   })
+
+  it('a legacy-priced node is NOT mislabeled eip7623 when predictions are close', () => {
+    // Tiny payload: predictedFloor − predictedLegacy = 264 < tolerance, so BOTH
+    // are within range. A node answering the legacy number exactly must read
+    // 'legacy' (it is the strictly closer match), not 'eip7623'.
+    expect(classifyRegime(21_176n, 21_176n, 21_440n)).toBe('legacy')
+    // ...and a node answering the floor number reads 'eip7623'.
+    expect(classifyRegime(21_440n, 21_176n, 21_440n)).toBe('eip7623')
+  })
 })

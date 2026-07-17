@@ -119,8 +119,16 @@ export function classifyRegime(
 ): GasRegime {
   const dLegacy = live > predictedLegacy ? live - predictedLegacy : predictedLegacy - live
   const dFloor = live > predictedFloor ? live - predictedFloor : predictedFloor - live
-  if (dFloor <= tolerance && predictedFloor !== predictedLegacy) return 'eip7623'
-  if (dLegacy <= tolerance) return 'legacy'
+  const legacyOk = dLegacy <= tolerance
+  // The floor is only a MEANINGFUL match when it differs from the legacy
+  // prediction — for a tiny payload the two predictions sit within `tolerance`
+  // of each other, so a legacy-priced node answering the legacy number must NOT
+  // be mislabeled 'eip7623'. Prefer whichever prediction the node is CLOSER to,
+  // tie-breaking to 'legacy'.
+  const floorOk = dFloor <= tolerance && predictedFloor !== predictedLegacy
+  if (legacyOk && floorOk) return dFloor < dLegacy ? 'eip7623' : 'legacy'
+  if (floorOk) return 'eip7623'
+  if (legacyOk) return 'legacy'
   return 'other'
 }
 

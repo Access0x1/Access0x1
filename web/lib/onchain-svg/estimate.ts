@@ -76,6 +76,8 @@ export const GAS = {
   KECCAK_WORD: 6n,
   /** Memory expansion: 3 gas per word + words²/512 quadratic term (yellow paper). */
   MEMORY_WORD: 3n,
+  /** CALLDATACOPY/CODECOPY per-word copy cost (yellow paper G_copy = 3/word). */
+  COPY_WORD: 3n,
 } as const
 
 /**
@@ -166,6 +168,11 @@ export function memoryGas(bytes: number): bigint {
   return GAS.MEMORY_WORD * w + (w * w) / 512n
 }
 
+/** CALLDATACOPY/CODECOPY cost to bring `bytes` bytes into memory: 3·words. */
+export function copyGas(bytes: number): bigint {
+  return GAS.COPY_WORD * BigInt(words(bytes))
+}
+
 /** 32-byte words needed to hold `bytes` bytes. */
 function words(bytes: number): number {
   return Math.ceil(bytes / 32)
@@ -245,9 +252,10 @@ function calldataLines(stats: ByteStats, what: string): BreakdownLine[] {
  */
 export function estimateCalldataAnchor(stats: ByteStats): StrategyEstimate {
   const hash = keccakGas(stats.bytes)
+  const copy = copyGas(stats.bytes)
   const mem = memoryGas(stats.bytes)
   const log = GAS.LOG_BASE + 2n * GAS.LOG_TOPIC + GAS.LOG_DATA_BYTE * 32n
-  const execGas = hash + mem + GAS.SSTORE_SET_COLD + log
+  const execGas = hash + copy + mem + GAS.SSTORE_SET_COLD + log
   const tx: TxTerms = { data: stats, execGas, isCreate: false }
   const t = totals([tx])
   return {
@@ -260,6 +268,11 @@ export function estimateCalldataAnchor(stats: ByteStats): StrategyEstimate {
     breakdown: [
       { label: 'Transaction base', formula: `${formatGas(GAS.TX_BASE)} gas (intrinsic)`, gas: GAS.TX_BASE },
       ...calldataLines(stats, 'the SVG'),
+      {
+        label: 'Copy calldata into memory (to hash it)',
+        formula: `${formatGas(GAS.COPY_WORD)} gas × ${formatGas(words(stats.bytes))} words (CALLDATACOPY, G_copy)`,
+        gas: copy,
+      },
       {
         label: 'keccak-256 fingerprint',
         formula: `${formatGas(GAS.KECCAK_BASE)} + ${formatGas(GAS.KECCAK_WORD)} gas × ${formatGas(words(stats.bytes))} words`,
@@ -369,7 +382,11 @@ export function estimateTokenUriMint(stats: ByteStats): StrategyEstimate {
   const uriBytes = SVG_DATA_URI_PREFIX.length + base64Length(stats.bytes)
   // base64 output is ASCII — every byte nonzero (calldata prices it at 16).
   const uriStats: ByteStats = { bytes: uriBytes, zeroBytes: 0, nonzeroBytes: uriBytes }
-  const uriSlots = 1 + words(uriBytes) // long-string layout: length slot + ⌈n/32⌉ data slots
+  // Solidity storage layout: a string ≤ 31 bytes packs its data + length into a
+  // SINGLE slot; only a ≥ 32-byte string uses the long form (1 length slot +
+  // ⌈n/32⌉ data slots). Any real SVG data-URI is well past 32 bytes, but pricing
+  // the short case correctly keeps the estimate honest at the small edge.
+  const uriSlots = uriBytes <= 31 ? 1 : 1 + words(uriBytes)
   const storeUri = GAS.SSTORE_SET_COLD * BigInt(uriSlots)
   const mintSlots = 2n * GAS.SSTORE_SET_COLD // owner + balance, both fresh
   const transferLog = GAS.LOG_BASE + 4n * GAS.LOG_TOPIC // Transfer: sig + 3 indexed topics
@@ -414,7 +431,7 @@ export function estimateTokenUriMint(stats: ByteStats): StrategyEstimate {
     ],
     notes: [
       'Approximate at the edges: excludes ERC-721 dispatch + token-id bookkeeping beyond owner/balance (implementation-dependent, typically a few thousand gas).',
-      'This is the shape of Receivables.mint / TicketToken.mint on this rail — a real, deployed target.',
+      'This is the shape of Receivables.mint on this rail — a real, deployed target. (TicketToken.mint shares the shape but ships in-repo only, not deployed.)',
     ],
   }
 }
@@ -485,8 +502,13 @@ function splitChunks(total: number, max: number): number[] {
 
 /**
  * Distribute a payload's zero/nonzero byte counts across chunk sizes so the
- * per-chunk stats SUM EXACTLY to the whole (no drift): zeros are assigned
- * proportionally with the remainder settled in the final chunk.
+ * per-chunk stats SUM EXACTLY to the whole AND every chunk stays feasible
+ * (0 ≤ zeroBytes ≤ size, so nonzeroBytes is never negative). Each non-final
+ * chunk takes its proportional share, CLAMPED so the chunks after it can still
+ * absorb every remaining zero — the lower bound `zerosLeft − remainingAfter`
+ * guarantees the final chunk's zeros never exceed its size. Without the clamp,
+ * rounding-down on many mostly-zero chunks could leave more zeros than the last
+ * chunk can hold and emit a negative nonzeroBytes.
  */
 function apportionStats(stats: ByteStats, chunkSizes: number[]): ByteStats[] {
   const out: ByteStats[] = []
@@ -495,11 +517,16 @@ function apportionStats(stats: ByteStats, chunkSizes: number[]): ByteStats[] {
   for (let i = 0; i < chunkSizes.length; i++) {
     const size = chunkSizes[i]
     const isLast = i === chunkSizes.length - 1
-    const zeros = isLast
-      ? zerosLeft
-      : bytesLeft > 0
-        ? Math.min(zerosLeft, Math.round((stats.zeroBytes * size) / stats.bytes))
-        : 0
+    let zeros: number
+    if (isLast) {
+      zeros = zerosLeft
+    } else {
+      const remainingAfter = bytesLeft - size
+      const lower = Math.max(0, zerosLeft - remainingAfter)
+      const upper = Math.min(size, zerosLeft)
+      const target = bytesLeft > 0 ? Math.round((stats.zeroBytes * size) / stats.bytes) : 0
+      zeros = Math.min(upper, Math.max(lower, target))
+    }
     out.push({ bytes: size, zeroBytes: zeros, nonzeroBytes: size - zeros })
     zerosLeft -= zeros
     bytesLeft -= size
