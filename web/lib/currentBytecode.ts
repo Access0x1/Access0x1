@@ -417,14 +417,14 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     "immutableRanges": []
   },
   "Receivables.impl": {
-    "codeHash": "0x78a1c3e8ae66ba50582f00592f1fbb8f6650da80182d9e6b5130a24bc5c0ce2a",
+    "codeHash": "0x8c05bf1924fa99c0a65713d78f34b6a8422a9545dddf9334be47b2a2004cbcd9",
     "immutableRanges": [
       [
-        7029,
+        7367,
         32
       ],
       [
-        7175,
+        7513,
         32
       ]
     ]
