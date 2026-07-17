@@ -86,6 +86,15 @@ export function isDurableKvConfigured(): boolean {
 // One backend per (namespace) per process so we don't open a fresh pool per write.
 const backends = new Map<string, DurableKvStore>()
 
+/**
+ * Safe string for a caught error — the message only, never the raw object. A `pg` error
+ * object can carry query/connection context; logging just the message keeps a secret
+ * (e.g. a connection string) out of the logs (law #5).
+ */
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 let warned = false
 function warnInMemoryOnce(): void {
   if (warned) return
@@ -173,12 +182,13 @@ export async function durableReserveWithinCap(
     // the per-instance ceiling because the durable reserve errored. Emit a DISTINCT,
     // greppable signal (console.error, not a generic warn) so an operator can alert on a
     // DB outage silently downgrading the global cap. Still fail-soft (never fail-closed —
-    // a DB blip must not brick the agent), but no longer invisible.
+    // a DB blip must not brick the agent), but no longer invisible. Log only the error
+    // MESSAGE, never the raw error object (which could carry the connection string /
+    // query context) — no secret in logs (law #5).
     // eslint-disable-next-line no-console
     console.error(
       `[MONEY-SAFETY][cap-degraded] durable reserveWithinCap failed for ${namespace}/${key} — ` +
-        `cross-instance cap downgraded to the per-instance ceiling:`,
-      err,
+        `cross-instance cap downgraded to the per-instance ceiling: ${errMessage(err)}`,
     )
     return undefined
   }
@@ -220,9 +230,9 @@ export async function durableDecrementClamped(
   } catch (err) {
     // Fail-soft: a failed durable refund leaves the shared row slightly HIGH (an
     // over-count — the agent stops earlier, never overspends), the safe direction, so a
-    // plain warn suffices here (unlike the reserve path above).
+    // plain warn suffices here (unlike the reserve path above). Message only — no secret.
     // eslint-disable-next-line no-console
-    console.warn(`[storage/durableKv] decrementClamped failed for ${namespace}/${key}:`, err)
+    console.warn(`[storage/durableKv] decrementClamped failed for ${namespace}/${key}: ${errMessage(err)}`)
     return undefined
   }
 }
