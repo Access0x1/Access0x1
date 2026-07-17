@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
+import { resolveVerifiedTenantForWrite, TenantAuthError } from '@/lib/branding/tenant'
 import {
   asCheckoutMode,
   asHumanVerifier,
@@ -39,9 +39,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let tenantId: string
   try {
-    // Server-verified Dynamic JWT preferred; falls back to the shape-checked body
-    // tenantId when no issuer is configured (booth-gated).
-    ;({ tenantId } = await resolveVerifiedTenant(request, body))
+    // Shared write gate (same as POST /api/branding): verified JWT preferred,
+    // shape-checked fallback, unverified write fails CLOSED in production — so an
+    // unauthenticated caller can't flip a victim's checkout mode/tier (a config-DoS
+    // / reroute of a live merchant's checkout).
+    tenantId = await resolveVerifiedTenantForWrite(request, body)
   } catch (err) {
     if (err instanceof TenantAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 })

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
+import { resolveVerifiedTenantForWrite, TenantAuthError } from '@/lib/branding/tenant'
 import { attachOnChain, BrandingError, getByTenant } from '@/lib/branding/store'
 
 export const dynamic = 'force-dynamic'
@@ -38,9 +38,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let tenantId: string
   try {
-    // Server-verified Dynamic JWT preferred; falls back to the shape-checked body
-    // tenantId when no issuer is configured (booth-gated) — same as the siblings.
-    ;({ tenantId } = await resolveVerifiedTenant(request, body))
+    // Shared write gate (same as POST /api/branding): verified JWT preferred,
+    // shape-checked body fallback, and an unverified write fails CLOSED in
+    // production. Without this, an unauthenticated POST could repoint a victim's
+    // on-chain merchantId — a payment-redirection vector.
+    tenantId = await resolveVerifiedTenantForWrite(request, body)
   } catch (err) {
     if (err instanceof TenantAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 })

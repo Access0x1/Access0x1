@@ -112,6 +112,35 @@ export function requireVerifiedWrites(): boolean {
 }
 
 /**
+ * Resolve the tenant for a WRITE and enforce the verified-write policy in ONE
+ * place, so no branding write route can forget the gate. Every route that
+ * persists a tenant row (`/api/branding`, `/api/branding/attach-onchain`,
+ * `/api/branding/checkout-mode`, `/api/branding/operator-verify`) MUST resolve
+ * its tenant through this, not the bare {@link resolveVerifiedTenant} (which is
+ * for the READ path, where an unverified caller legitimately gets the
+ * unauthenticated view).
+ *
+ * Behaviour: resolves the tenant (verified Dynamic JWT preferred, shape-checked
+ * body fallback), then THROWS {@link TenantAuthError} when the resolution was
+ * unverified AND {@link requireVerifiedWrites} is in force — so an
+ * unauthenticated cross-tenant write (e.g. repointing a victim's on-chain
+ * merchant id, a payment-redirection vector) fails closed in production.
+ *
+ * @throws {TenantAuthError} on a junk tenant id, or an unverified write when the
+ *   policy requires verification.
+ */
+export async function resolveVerifiedTenantForWrite(
+  request: Request,
+  body: unknown,
+): Promise<string> {
+  const { tenantId, verified } = await resolveVerifiedTenant(request, body)
+  if (!verified && requireVerifiedWrites()) {
+    throw new TenantAuthError('A verified sign-in is required for this action.')
+  }
+  return tenantId
+}
+
+/**
  * Dynamic's public JWKS endpoint for an environment (RS256 verification keys).
  * The URL is derived from the public environment id; no secret is involved.
  */

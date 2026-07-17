@@ -72,4 +72,18 @@ describe('POST /api/branding/checkout-mode — Super Verification tier', () => {
     expect(body.branding.checkoutMode).toBe('private')
     expect(body.branding.requiredTier).toBe('verified')
   })
+
+  it('R1-BYPASS regression: an unverified checkout-mode write fails closed in production', async () => {
+    // Flipping a victim's checkout mode/tier gates or reroutes their live
+    // checkout (config DoS). This write sibling must share the fail-closed gate.
+    process.env.BRANDING_REQUIRE_VERIFIED_WRITES = 'true'
+    try {
+      const res = await POST(post({ tenantId: TENANT, requiredTier: 'super-verified' }))
+      expect(res.status).toBe(401)
+      // The victim's mode/tier is untouched (still the default from setup).
+      expect(store.getByTenant(TENANT)?.requiredTier ?? null).not.toBe('super-verified')
+    } finally {
+      delete process.env.BRANDING_REQUIRE_VERIFIED_WRITES
+    }
+  })
 })
