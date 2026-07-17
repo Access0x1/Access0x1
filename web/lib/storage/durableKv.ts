@@ -41,6 +41,29 @@ export interface DurableKvStore {
   delete(key: string): Promise<void>
   /** Every `(key, value)` in this namespace — used to hydrate the in-memory cache. */
   entries(): Promise<Array<[string, unknown]>>
+  /**
+   * OPTIONAL atomic numeric-counter ops — used ONLY by the agent spend meter, whose
+   * cap is a MONEY-SAFETY invariant that a per-process (`globalThis`) counter cannot
+   * hold across Cloud Run instances (each instance's in-memory ledger is empty, so a
+   * plain last-write-wins `set` lets N instances each spend up to the full cap). A
+   * backend that implements these enforces the cap in the DB in ONE statement, so the
+   * ceiling is global. Backends that omit them signal callers to use the non-atomic
+   * in-memory fallback (unchanged, per-instance) — hence optional.
+   */
+
+  /**
+   * Atomically add `delta` to the counter at `key` ONLY IF the resulting total stays
+   * `<= cap`, and return the NEW total; return `null` when the reservation would breach
+   * the cap (nothing written). A fresh key starts at 0. Single-statement so concurrent
+   * instances serialize on the row — the whole point.
+   */
+  reserveWithinCap?(key: string, delta: number, cap: number): Promise<number | null>
+  /**
+   * Atomically subtract `delta` from the counter at `key`, clamped at 0 (a refund can
+   * never drive the ledger negative — law #5), and return the new total. A missing key
+   * is treated as 0 (returns 0).
+   */
+  decrementClamped?(key: string, delta: number): Promise<number>
 }
 
 /**
@@ -62,6 +85,15 @@ export function isDurableKvConfigured(): boolean {
 
 // One backend per (namespace) per process so we don't open a fresh pool per write.
 const backends = new Map<string, DurableKvStore>()
+
+/**
+ * Safe string for a caught error — the message only, never the raw object. A `pg` error
+ * object can carry query/connection context; logging just the message keeps a secret
+ * (e.g. a connection string) out of the logs (law #5).
+ */
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
 
 let warned = false
 function warnInMemoryOnce(): void {
@@ -120,6 +152,89 @@ export function durableSet(namespace: string, key: string, value: unknown): void
     // eslint-disable-next-line no-console
     console.warn(`[storage/durableKv] set failed for ${namespace}/${key}:`, err)
   })
+}
+
+/**
+ * Atomic durable spend-reservation (the agent meter's cross-instance cap). Returns:
+ *   - `undefined` — NO durable atomic path (no DB, or a backend without the op, or a
+ *     DB error): the caller must fall back to its in-memory per-instance ceiling. A DB
+ *     error is logged and treated as "no durable path" (fail-soft — a transient DB
+ *     hiccup must not brick the agent; the in-memory ceiling still bounds each instance);
+ *   - `null` — durable path present and the reservation BREACHED the cap (reject);
+ *   - `number` — accepted; the new authoritative cross-instance total.
+ */
+export async function durableReserveWithinCap(
+  namespace: string,
+  key: string,
+  delta: number,
+  cap: number,
+): Promise<number | null | undefined> {
+  // The reserve/decrement pair is an ALL-OR-NOTHING capability: a backend that
+  // implements only one would reserve fail-soft (in-memory) while refunding durably,
+  // the exact asymmetry that corrupts the shared counter. Require BOTH, else treat the
+  // backend as having no atomic path (consistent fail-soft).
+  const backend = getDurableKv(namespace)
+  if (!backend || !hasAtomicCounter(backend)) return undefined
+  try {
+    return await backend.reserveWithinCap!(key, delta, cap)
+  } catch (err) {
+    // MONEY-SAFETY DEGRADATION: the authoritative cross-instance cap just fell back to
+    // the per-instance ceiling because the durable reserve errored. Emit a DISTINCT,
+    // greppable signal (console.error, not a generic warn) so an operator can alert on a
+    // DB outage silently downgrading the global cap. Still fail-soft (never fail-closed —
+    // a DB blip must not brick the agent), but no longer invisible. Log only the error
+    // MESSAGE, never the raw error object (which could carry the connection string /
+    // query context) — no secret in logs (law #5).
+    // eslint-disable-next-line no-console
+    console.error(
+      `[MONEY-SAFETY][cap-degraded] durable reserveWithinCap failed for ${namespace}/${key} — ` +
+        `cross-instance cap downgraded to the per-instance ceiling: ${errMessage(err)}`,
+    )
+    return undefined
+  }
+}
+
+/** True when a backend implements BOTH atomic counter ops (they must ship as a pair). */
+function hasAtomicCounter(backend: DurableKvStore): boolean {
+  return (
+    typeof backend.reserveWithinCap === 'function' &&
+    typeof backend.decrementClamped === 'function'
+  )
+}
+
+/**
+ * Does the configured backend for `namespace` own its rows through the ATOMIC counter
+ * pair? A counter store (the agent meter) MUST NOT also last-write-wins `durableSet` such
+ * a row — a stale write-through would clobber the authoritative atomic total and erase
+ * concurrent instances' reservations. Callers gate their write-through on this being false.
+ */
+export function durableHasAtomicCounter(namespace: string): boolean {
+  const backend = getDurableKv(namespace)
+  return backend !== null && hasAtomicCounter(backend)
+}
+
+/**
+ * Atomic durable refund (clamped at 0). Returns the new authoritative total, or
+ * `undefined` when there is no durable atomic path (no DB / unsupported / DB error) so
+ * the caller keeps its in-memory clamp. Fail-soft — a refund is never blocked (law #5).
+ */
+export async function durableDecrementClamped(
+  namespace: string,
+  key: string,
+  delta: number,
+): Promise<number | undefined> {
+  const backend = getDurableKv(namespace)
+  if (!backend || !hasAtomicCounter(backend)) return undefined
+  try {
+    return await backend.decrementClamped!(key, delta)
+  } catch (err) {
+    // Fail-soft: a failed durable refund leaves the shared row slightly HIGH (an
+    // over-count — the agent stops earlier, never overspends), the safe direction, so a
+    // plain warn suffices here (unlike the reserve path above). Message only — no secret.
+    // eslint-disable-next-line no-console
+    console.warn(`[storage/durableKv] decrementClamped failed for ${namespace}/${key}: ${errMessage(err)}`)
+    return undefined
+  }
 }
 
 /** Mirror a removal to the durable backend (best-effort, fail-soft). */

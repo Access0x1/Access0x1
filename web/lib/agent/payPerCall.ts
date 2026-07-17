@@ -2,8 +2,11 @@
  * @file payPerCall.ts — meter-gated x402 micro-payment fetch + autonomous nano-loop.
  *
  * Flow (design decision #3 — CEI at the meter level):
- *   1. {@link "./agentMeter".meterSpendOrThrow} reserves the budget — the CHECK. Over-cap
- *      throws `BudgetExceeded` with ZERO network calls.
+ *   1. {@link "./agentMeter".reserveDailySpend} reserves the budget — the CHECK. Over-cap
+ *      throws `BudgetExceeded` with ZERO network calls. This is the DURABLE reserve: it
+ *      enforces the daily cap ATOMICALLY across Cloud Run instances (a per-process ledger
+ *      would let each instance spend the full cap), falling back to the in-memory ceiling
+ *      when no DB is configured.
  *   2. `wrapFetchWithPayment(fetch, account)` from `x402-fetch` performs the paid call — the
  *      INTERACTION. It auto-intercepts HTTP 402, signs an EIP-3009 authorization off-chain via
  *      the {@link "./x402Signer".AgentX402Account}, and retries with the payment header.
@@ -19,7 +22,7 @@
  */
 
 import { assertServerOnly } from "./serverOnly.js";
-import { meterSpendOrThrow, meterRefund } from "./agentMeter.js";
+import { reserveDailySpend, refundDailySpend } from "./agentMeter.js";
 import { buildAgentX402Account, type AgentX402Account } from "./x402Signer.js";
 
 assertServerOnly("payPerCall");
@@ -109,8 +112,10 @@ export async function agentPay(args: {
 }): Promise<unknown> {
   const { url, maxValueUsd, headers } = args;
 
-  // 1. CHECK — reserve budget first. Throws BudgetExceeded with zero network effect.
-  meterSpendOrThrow(maxValueUsd);
+  // 1. CHECK — reserve budget first (DURABLE, cross-instance atomic). Throws
+  //    BudgetExceeded with zero network effect. The receipt records whether the
+  //    reservation hit the durable row, so the refund below decrements it symmetrically.
+  const reservation = await reserveDailySpend(maxValueUsd);
 
   // 2. INTERACTION — pay-and-fetch via the x402 wrapper.
   const account = await buildAgentX402Account();
@@ -121,13 +126,13 @@ export async function agentPay(args: {
     res = await paidFetch(url, headers ? { headers } : undefined);
   } catch (err) {
     // Network-level failure before any settlement: refund the reservation (law #5).
-    meterRefund(maxValueUsd);
+    await refundDailySpend(maxValueUsd, reservation);
     throw err;
   }
 
   if (res.status === 402) {
     // Payment never resolved — nothing settled, restore the budget (law #5).
-    meterRefund(maxValueUsd);
+    await refundDailySpend(maxValueUsd, reservation);
     throw new PaymentRequiredUnresolved(url);
   }
   if (!res.ok) {

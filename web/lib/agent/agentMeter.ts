@@ -13,7 +13,13 @@
  */
 
 import { assertServerOnly } from "./serverOnly.js";
-import { durableSet, hydrate } from "../storage/durableKv.js";
+import {
+  durableDecrementClamped,
+  durableHasAtomicCounter,
+  durableReserveWithinCap,
+  durableSet,
+  hydrate,
+} from "../storage/durableKv.js";
 
 assertServerOnly("agentMeter");
 
@@ -106,15 +112,24 @@ function rollToToday(): void {
 function persist(): void {
   const ledger = ledgerStore();
   if (!ledger.dayKey) return;
+  // When the backend owns the day row through the ATOMIC counter pair, the atomic ops
+  // are the SOLE authority — a last-write-wins write-through here would clobber the
+  // shared total with this instance's stale in-memory value (erasing other instances'
+  // reservations). Only write-through in the non-atomic (or no-DB) regime, for hydration.
+  if (durableHasAtomicCounter(KV_NAMESPACE)) return;
   durableSet(KV_NAMESPACE, ledger.dayKey, { dayKey: ledger.dayKey, spent: ledger.spent });
 }
 
 /**
- * Reserve `usd` against the current UTC day's budget, or throw if it would exceed the cap.
+ * Reserve `usd` against the current UTC day's budget (IN-MEMORY only), or throw if it
+ * would exceed the cap.
  *
- * This is the CEI **check**: callers MUST invoke it before any network interaction so a
- * rejected charge produces zero side effects. The charge is recorded only when it fits;
- * an over-cap request leaves the ledger untouched.
+ * ⚠️ NOT THE PRODUCTION SPEND PATH. This is the synchronous in-memory reference primitive
+ * (kept for the unit/fuzz suites that pin the ledger math). It does NOT reserve against
+ * the durable atomic row, so with a durable backend configured it BYPASSES the
+ * cross-instance cap — N instances could each spend the full cap. Production code MUST
+ * use {@link reserveDailySpend} (async, durable, cross-instance atomic). See TECH-DEBT:
+ * migrate the sync tests to the async API and delete this pair.
  *
  * @param usd The non-negative USD amount to reserve.
  * @returns void
@@ -136,10 +151,116 @@ export function meterSpendOrThrow(usd: number): void {
 }
 
 /**
- * Restore `usd` to the current UTC day's budget after a charge that did not result in a
- * delivered, paid call (law #5 — refunds are never blocked). Clamps the stored spend at
- * zero so a refund can never make the meter negative, and never throws — a bad argument
- * is treated as a no-op rather than blocking a refund.
+ * A reservation receipt. `durable` records whether the reservation hit the DURABLE
+ * atomic row (vs. the in-memory fail-soft path). A refund MUST carry it back so the
+ * durable decrement is applied ONLY when the matching reserve incremented the durable
+ * row — a durable refund against a fail-soft reserve would erase OTHER instances'
+ * budget from the shared counter (asymmetry bug).
+ */
+export interface SpendReservation {
+  durable: boolean;
+}
+
+/**
+ * DURABLE, cross-instance spend reservation — the production entry point (the async
+ * sibling of {@link meterSpendOrThrow}). The sync in-memory ledger is a PER-PROCESS
+ * ceiling: on Cloud Run each instance boots with an empty ledger, so `meterSpendOrThrow`
+ * alone lets N instances EACH spend up to the full cap (a real money-safety gap, since
+ * the durable write-through is last-write-wins, not an atomic counter). This reserves
+ * against the DURABLE row in ONE atomic statement, so the cap is enforced GLOBALLY.
+ *
+ * Order (CEI check): (1) a fast per-instance reject; (2) the durable atomic reserve is
+ * authoritative across instances. Fail-soft: with no DB (or a DB error) the durable step
+ * returns `undefined` and we fall back to an in-memory reserve.
+ *
+ * ATOMICITY (money-safety): the `await` on the durable step yields the event loop, so the
+ * pre-await check (1) is STALE by the time control returns. In the fail-soft branch we
+ * therefore RE-CHECK the cap immediately before the increment — and from that re-check to
+ * the increment there is NO further await, so check+increment is atomic within this
+ * process. Without the re-check, two concurrent requests could both pass the stale
+ * pre-check and both increment past the cap (per-instance overspend during a DB outage /
+ * no-DB config). The healthy-DB path never relies on the in-memory count — the SQL row is
+ * the authority — so its concurrency is handled in the database.
+ *
+ * @param usd The non-negative USD amount to reserve.
+ * @returns A {@link SpendReservation} to hand to {@link refundDailySpend} on rollback.
+ * @throws {RangeError} if `usd` is negative or not finite.
+ * @throws {BudgetExceeded} if the charge would breach the per-instance OR the shared cap.
+ */
+export async function reserveDailySpend(usd: number): Promise<SpendReservation> {
+  if (!Number.isFinite(usd) || usd < 0) {
+    throw new RangeError(`reserveDailySpend: usd must be a non-negative finite number, got ${usd}`);
+  }
+  rollToToday();
+  const ledger = ledgerStore();
+  const cap = dailyCapUsd();
+  // (1) Fast per-instance reject BEFORE the await (stale after it — see (3)).
+  if (ledger.spent + usd > cap) {
+    throw new BudgetExceeded(ledger.spent, cap);
+  }
+  // (2) Durable atomic reserve — authoritative across instances when a DB is configured.
+  const durable = await durableReserveWithinCap(KV_NAMESPACE, ledger.dayKey, usd, cap);
+  if (durable === null) {
+    // Over the SHARED cap even though this instance's local ledger still had room.
+    throw new BudgetExceeded(ledger.spent, cap);
+  }
+  if (typeof durable === "number") {
+    // Adopt the authoritative durable total so the hot in-memory read stays consistent.
+    ledger.spent = Math.max(ledger.spent + usd, durable);
+    return { durable: true };
+  }
+  // (3) Fail-soft (no DB / DB error): the durable atomic path is unavailable. RE-CHECK
+  // the cap now — the pre-await check is stale — then reserve. No await from here to the
+  // increment, so check+increment is atomic per process (restores the sync ceiling).
+  if (ledger.spent + usd > cap) {
+    throw new BudgetExceeded(ledger.spent, cap);
+  }
+  ledger.spent += usd;
+  persist();
+  return { durable: false };
+}
+
+/**
+ * DURABLE refund — the async sibling of {@link meterRefund} used by the production pay
+ * path. Restores `usd` after a charge that did not settle (law #5 — refunds are never
+ * blocked). Clamps in memory immediately (the hot read stays consistent), then applies
+ * the atomic durable decrement ONLY when the matching reservation was durable — a durable
+ * refund against a fail-soft reserve would subtract from a shared counter that never
+ * counted this reservation, erasing other instances' budget. Never throws.
+ *
+ * @param usd The USD amount to restore. Negative / non-finite values are ignored.
+ * @param reservation The receipt from {@link reserveDailySpend} — REQUIRED, so a
+ *   forgotten receipt is a compile error rather than a silent budget leak (a `{durable:
+ *   false}` refund of a durable reservation would never credit the shared row back).
+ */
+export async function refundDailySpend(
+  usd: number,
+  reservation: SpendReservation,
+): Promise<void> {
+  if (!Number.isFinite(usd) || usd <= 0) {
+    return;
+  }
+  rollToToday();
+  const ledger = ledgerStore();
+  ledger.spent = Math.max(0, ledger.spent - usd);
+  if (reservation.durable) {
+    const durable = await durableDecrementClamped(KV_NAMESPACE, ledger.dayKey, usd);
+    if (typeof durable === "number") {
+      ledger.spent = durable; // adopt the authoritative post-refund total
+      return;
+    }
+  }
+  persist(); // no durable path (or fail-soft reserve): mirror the clamped in-memory total
+}
+
+/**
+ * Restore `usd` to the current UTC day's budget (IN-MEMORY only) after a charge that did
+ * not result in a delivered, paid call (law #5 — refunds are never blocked). Clamps at
+ * zero so a refund can never make the meter negative, and never throws.
+ *
+ * ⚠️ NOT THE PRODUCTION REFUND PATH — the synchronous in-memory sibling of
+ * {@link meterSpendOrThrow}; production uses {@link refundDailySpend}. See that function's
+ * note and TECH-DEBT for the planned deletion of this pair.
  *
  * @param usd The USD amount to restore. Negative / non-finite values are ignored.
  * @returns void
