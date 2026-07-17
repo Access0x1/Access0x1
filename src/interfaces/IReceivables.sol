@@ -147,6 +147,11 @@ interface IReceivables is IERC4906 {
     ///         it would burn a third party's purchased receivable with no refund.
     error Receivables__AlreadyFactored(uint256 tokenId);
 
+    /// @notice Settlement was attempted while the merchant's LIVE router feeBps exceeds the receivable's
+    ///         issuance snapshot — the merchant raised its fee after the receivable was issued/factored,
+    ///         which would skim the holder's net. The fee is capped at issuance; restore it to settle.
+    error Receivables__FeeRaisedSinceMint(uint256 tokenId, uint16 mintFeeBps, uint16 liveFeeBps);
+
     /// @notice The receivable is locked to a specific debtor and `msg.sender` is not that debtor.
     error Receivables__NotAuthorizedDebtor(uint256 tokenId, address expected, address caller);
 
@@ -193,6 +198,13 @@ interface IReceivables is IERC4906 {
     /// @param tokenId The receivable queried.
     /// @return factored True once the receivable has been transferred between two real holders.
     function isFactored(uint256 tokenId) external view returns (bool factored);
+
+    /// @notice The merchant's router feeBps snapshotted at this receivable's issuance. Settlement caps the
+    ///         LIVE merchant fee at this value, so a factor can price off a firm upper bound (the merchant
+    ///         cannot raise the fee after issuance to skim the net; it may only lower it).
+    /// @param tokenId The receivable queried.
+    /// @return bps The issuance-time merchant feeBps (0 for an unminted id).
+    function feeBpsAtMint(uint256 tokenId) external view returns (uint16 bps);
 
     /// @notice The next token id {mint} will assign (the head of the monotonic id counter).
     /// @return The next receivable id (≥ 1).

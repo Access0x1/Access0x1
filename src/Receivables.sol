@@ -117,12 +117,17 @@ contract Receivables is
     ///         third party's purchased claim with no refund. Sticky: never cleared once set.
     mapping(uint256 tokenId => bool) private _factored;
 
+    /// @notice tokenId ⇒ the merchant's router feeBps at ISSUANCE. Snapshotted at {mint}; the settlement
+    ///         re-check caps the LIVE merchant fee at this value, so a merchant cannot RAISE its fee after
+    ///         selling the receivable to skim the factor's net. The factor prices off this firm cap.
+    mapping(uint256 tokenId => uint16) private _feeBpsAtMint;
+
     /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
     ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
     ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
     ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
-    ///      (`_factored` consumed one slot → 49.)
-    uint256[49] private __gap;
+    ///      (`_factored` + `_feeBpsAtMint` consumed two slots → 48.)
+    uint256[48] private __gap;
 
     /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
     ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
@@ -194,7 +199,7 @@ contract Receivables is
     ) external nonReentrant returns (uint256 tokenId) {
         if (creditor == address(0)) revert Receivables__ZeroAddress();
         if (amountUsd8 == 0) revert Receivables__ZeroAmount();
-        (address payout, address merchantOwner) = _merchantPayoutAndOwner(merchantId);
+        (address payout, address merchantOwner, uint16 feeBps) = _merchantPayoutAndOwner(merchantId);
         if (msg.sender != merchantOwner) {
             revert Receivables__NotMerchantOwner(merchantId, msg.sender);
         }
@@ -213,6 +218,12 @@ contract Receivables is
             dueBy: dueBy,
             status: Status.OPEN
         });
+        // Snapshot the merchant's router fee at issuance. The router applies the LIVE merchant fee at
+        // settlement, so without this a merchant could RAISE its feeBps after selling the receivable and
+        // skim up to that increase off the factor's net. The settlement re-check caps the applied fee at
+        // this snapshot, giving the factor a firm net floor (it prices off {feeBpsAtMint}). The receivable's
+        // fee is thus fixed-at-issuance: the merchant may lower it (helps the holder), never raise it.
+        _feeBpsAtMint[tokenId] = feeBps;
 
         // Mint the receivable to the initial creditor, then stamp its metadata URI (URI-storage emits
         // the ERC-4906 MetadataUpdate). The NFT is now a freely transferable/factorable claim.
@@ -253,9 +264,16 @@ contract Receivables is
         // intact. Tradeoff (no upside for an attacker): a merchant who repoints payout now BLOCKS its own
         // settlement (griefing) rather than being able to STEAL — and it gains nothing (it was already paid
         // when the receivable was factored). Settlement resumes once payout is restored to the conduit.
-        (address payout,) = _merchantPayoutAndOwner(merchantId);
+        (address payout,, uint16 liveFeeBps) = _merchantPayoutAndOwner(merchantId);
         if (payout != address(this)) {
             revert Receivables__MerchantPayoutNotConduit(merchantId, payout);
+        }
+        // FEE RE-CHECK (live): same "grief, never STEAL" tradeoff as the payout check, for the fee lever.
+        // The router applies the merchant's LIVE feeBps; a merchant that RAISED it after the receivable was
+        // factored would skim the increase off the holder's net. Cap it at the issuance snapshot — a raised
+        // fee BLOCKS settlement (revert) until restored, and gains nothing; lowering it only helps the holder.
+        if (liveFeeBps > _feeBpsAtMint[tokenId]) {
+            revert Receivables__FeeRaisedSinceMint(tokenId, _feeBpsAtMint[tokenId], liveFeeBps);
         }
 
         // Snapshot the creditor (current holder) BEFORE the burn — they are the net beneficiary.
@@ -337,9 +355,14 @@ contract Receivables is
         // payout, the native balance-delta below would read 0, and the burned NFT's holder would be paid
         // nothing. Re-read the LIVE payout (a pure view read, before the burn — CEI-clean) and revert loudly
         // instead of swallowing. The griefing-not-theft tradeoff is documented in {pay}.
-        (address payout,) = _merchantPayoutAndOwner(merchantId);
+        (address payout,, uint16 liveFeeBps) = _merchantPayoutAndOwner(merchantId);
         if (payout != address(this)) {
             revert Receivables__MerchantPayoutNotConduit(merchantId, payout);
+        }
+        // FEE RE-CHECK (live): see {pay}. Cap the applied merchant fee at the issuance snapshot so a
+        // post-factoring fee raise cannot skim the holder's net (grief, never steal).
+        if (liveFeeBps > _feeBpsAtMint[tokenId]) {
+            revert Receivables__FeeRaisedSinceMint(tokenId, _feeBpsAtMint[tokenId], liveFeeBps);
         }
 
         address creditor = ownerOf(tokenId);
@@ -394,7 +417,7 @@ contract Receivables is
         Receivable storage r = _receivables[tokenId];
         Status status = r.status;
         if (status != Status.OPEN) revert Receivables__NotOpen(tokenId, status);
-        (, address merchantOwner) = _merchantPayoutAndOwner(r.merchantId);
+        (, address merchantOwner,) = _merchantPayoutAndOwner(r.merchantId);
         if (msg.sender != merchantOwner) {
             revert Receivables__NotMerchantOwner(r.merchantId, msg.sender);
         }
@@ -488,6 +511,11 @@ contract Receivables is
     }
 
     /// @inheritdoc IReceivables
+    function feeBpsAtMint(uint256 tokenId) external view returns (uint16) {
+        return _feeBpsAtMint[tokenId];
+    }
+
+    /// @inheritdoc IReceivables
     function nextTokenId() external view returns (uint256) {
         return _nextTokenId;
     }
@@ -551,9 +579,9 @@ contract Receivables is
     function _merchantPayoutAndOwner(uint256 merchantId)
         private
         view
-        returns (address payout, address owner_)
+        returns (address payout, address owner_, uint16 feeBps)
     {
-        (payout, owner_,,,,) = router.merchants(merchantId);
+        (payout, owner_,, feeBps,,) = router.merchants(merchantId);
     }
 
     /// @dev The shared pay-path precondition gate: the receivable must exist + be OPEN, and (if locked)
