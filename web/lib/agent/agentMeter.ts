@@ -65,10 +65,10 @@ interface Ledger {
  * dev hot-reload) its own ledger, which silently multiplies the intended ceiling by N instances.
  * This mirrors `lib/worldid/nullifierStore.ts`, `lib/oidc/subjectStore.ts`, and the branding
  * store. The ledger is now WRITE-THROUGH to the durable store (`lib/storage/durableKv.ts`)
- * when a DB is configured — `meterSpendOrThrow`/`meterRefund` persist the day's running
- * total and the module hydrates it at boot — so a restart mid-day restores the spend
- * instead of resetting the cap. Fail-soft + no call-site changes; without a DB it is the
- * unchanged in-memory ledger.
+ * when a DB is configured — {@link reserveDailySpend}/{@link refundDailySpend} persist the
+ * day's running total and the module hydrates it at boot — so a restart mid-day restores the
+ * spend instead of resetting the cap. Fail-soft; without a DB it is the unchanged in-memory
+ * ledger.
  */
 const GLOBAL_KEY = "__ax1_agent_meter__";
 
@@ -134,11 +134,10 @@ export interface SpendReservation {
 }
 
 /**
- * DURABLE, cross-instance spend reservation — the production entry point (the async
- * sibling of {@link meterSpendOrThrow}). The sync in-memory ledger is a PER-PROCESS
- * ceiling: on Cloud Run each instance boots with an empty ledger, so `meterSpendOrThrow`
- * alone lets N instances EACH spend up to the full cap (a real money-safety gap, since
- * the durable write-through is last-write-wins, not an atomic counter). This reserves
+ * DURABLE, cross-instance spend reservation — the production entry point. A plain
+ * in-memory ledger is a PER-PROCESS ceiling: on Cloud Run each instance boots empty, so an
+ * in-memory-only check lets N instances EACH spend up to the full cap (a real money-safety
+ * gap, since a last-write-wins write-through is not an atomic counter). This reserves
  * against the DURABLE row in ONE atomic statement, so the cap is enforced GLOBALLY.
  *
  * Order (CEI check): (1) a fast per-instance reject; (2) the durable atomic reserve is
@@ -193,7 +192,7 @@ export async function reserveDailySpend(usd: number): Promise<SpendReservation> 
 }
 
 /**
- * DURABLE refund — the async sibling of {@link meterRefund} used by the production pay
+ * DURABLE refund — the counterpart to {@link reserveDailySpend}, used by the production pay
  * path. Restores `usd` after a charge that did not settle (law #5 — refunds are never
  * blocked). Clamps in memory immediately (the hot read stays consistent), then applies
  * the atomic durable decrement ONLY when the matching reservation was durable — a durable
