@@ -117,6 +117,20 @@ export async function handlePayout(req: Request, deps: PayoutDeps): Promise<Resp
     return json({ error: "unverified_caller" }, 401);
   }
 
+  // AUTHORIZATION (not just authentication). This route moves the ENV-configured
+  // payout account's private funds (buildServerPayout binds the Unlink client to
+  // UNLINK_PAYOUT_USER_ID) to a body-controlled `destination`. A verified session
+  // alone is NOT enough — on a hosted checkout every signed-in BUYER is verified,
+  // so without an owner binding any of them could redirect the merchant's payout
+  // to their own address (drain). Require the verified caller to BE the payout
+  // account's owner, mirroring gateway/withdraw's caller==owner (403) check. Only
+  // enforced when the payout id is configured; unconfigured stays the dormant
+  // pre-booth path (ensureRegistered → 503), so no legit UX regresses.
+  const payoutOwnerId = (process.env.UNLINK_PAYOUT_USER_ID ?? "").trim();
+  if (payoutOwnerId.length > 0 && userId !== payoutOwnerId) {
+    return json({ error: "forbidden" }, 403);
+  }
+
   // ── Validation (spec §4 error table) ─────────────────────────────────────────
   if (typeof amountUsd !== "number" || !Number.isFinite(amountUsd) || amountUsd <= 0) {
     return json({ error: "amountUsd must be a positive number" }, 400);
