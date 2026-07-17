@@ -121,11 +121,15 @@ function persist(): void {
 }
 
 /**
- * Reserve `usd` against the current UTC day's budget, or throw if it would exceed the cap.
+ * Reserve `usd` against the current UTC day's budget (IN-MEMORY only), or throw if it
+ * would exceed the cap.
  *
- * This is the CEI **check**: callers MUST invoke it before any network interaction so a
- * rejected charge produces zero side effects. The charge is recorded only when it fits;
- * an over-cap request leaves the ledger untouched.
+ * ⚠️ NOT THE PRODUCTION SPEND PATH. This is the synchronous in-memory reference primitive
+ * (kept for the unit/fuzz suites that pin the ledger math). It does NOT reserve against
+ * the durable atomic row, so with a durable backend configured it BYPASSES the
+ * cross-instance cap — N instances could each spend the full cap. Production code MUST
+ * use {@link reserveDailySpend} (async, durable, cross-instance atomic). See TECH-DEBT:
+ * migrate the sync tests to the async API and delete this pair.
  *
  * @param usd The non-negative USD amount to reserve.
  * @returns void
@@ -225,12 +229,13 @@ export async function reserveDailySpend(usd: number): Promise<SpendReservation> 
  * counted this reservation, erasing other instances' budget. Never throws.
  *
  * @param usd The USD amount to restore. Negative / non-finite values are ignored.
- * @param reservation The receipt from {@link reserveDailySpend}. Defaults to non-durable
- *   (in-memory only) so a caller with no receipt takes the SAFE over-count direction.
+ * @param reservation The receipt from {@link reserveDailySpend} — REQUIRED, so a
+ *   forgotten receipt is a compile error rather than a silent budget leak (a `{durable:
+ *   false}` refund of a durable reservation would never credit the shared row back).
  */
 export async function refundDailySpend(
   usd: number,
-  reservation: SpendReservation = { durable: false },
+  reservation: SpendReservation,
 ): Promise<void> {
   if (!Number.isFinite(usd) || usd <= 0) {
     return;
@@ -249,10 +254,13 @@ export async function refundDailySpend(
 }
 
 /**
- * Restore `usd` to the current UTC day's budget after a charge that did not result in a
- * delivered, paid call (law #5 — refunds are never blocked). Clamps the stored spend at
- * zero so a refund can never make the meter negative, and never throws — a bad argument
- * is treated as a no-op rather than blocking a refund.
+ * Restore `usd` to the current UTC day's budget (IN-MEMORY only) after a charge that did
+ * not result in a delivered, paid call (law #5 — refunds are never blocked). Clamps at
+ * zero so a refund can never make the meter negative, and never throws.
+ *
+ * ⚠️ NOT THE PRODUCTION REFUND PATH — the synchronous in-memory sibling of
+ * {@link meterSpendOrThrow}; production uses {@link refundDailySpend}. See that function's
+ * note and TECH-DEBT for the planned deletion of this pair.
  *
  * @param usd The USD amount to restore. Negative / non-finite values are ignored.
  * @returns void
