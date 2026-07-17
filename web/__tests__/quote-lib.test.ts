@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   usdToAmount8,
   amount8ToUsd,
+  formatCheckoutUsd,
   formatTokenAmount,
   fetchQuote,
   parseUsdAmount8,
@@ -114,6 +115,28 @@ describe("parseUsdAmount8 — fail-soft price parse (never throws, never a junk 
       expect(parsed).not.toBeNull();
       expect(amount8ToUsd(parsed as bigint)).toBe(shown);
     }
+  });
+
+  it("formatCheckoutUsd renders the EXACT charged amount (headline == button == charge)", () => {
+    // Never rounds — the displayed string equals what parseUsdAmount8 charges,
+    // so the headline, the Pay button, and the settled amount can't disagree.
+    const cases: [string, string][] = [
+      ["29.00", "29.00"],
+      ["29", "29.00"], // min 2 dp
+      ["29.999", "29.999"], // NOT rounded to 30.00 (the R2 headline bug)
+      ["0.001", "0.001"], // sub-cent shown exactly, not "0.00"
+      ["1.005", "1.005"],
+      ["100.12345678", "100.12345678"], // full 8-dp precision preserved
+      ["0.5", "0.50"],
+    ];
+    for (const [raw, shown] of cases) {
+      const parsed = parseUsdAmount8(raw);
+      expect(parsed).not.toBeNull();
+      expect(formatCheckoutUsd(parsed as bigint)).toBe(shown);
+    }
+    // Direct bigint inputs.
+    expect(formatCheckoutUsd(0n)).toBe("0.00");
+    expect(formatCheckoutUsd(2900000000n)).toBe("29.00");
   });
 });
 
