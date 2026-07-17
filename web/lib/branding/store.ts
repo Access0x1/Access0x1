@@ -267,9 +267,27 @@ export function isValidSlug(slug: string): boolean {
 }
 
 /**
- * Sanitize a one-line description to plain text: strip ALL markup/angle brackets
- * (no `<…>` ever reaches the Snap — ADR D2 step 2), collapse whitespace, clamp
- * length. Display data only; never gates money.
+ * Invisible / bidi-control characters that have no legitimate place in a plain
+ * merchant name or description but enable visual spoofing:
+ *   - bidi embeddings/overrides/isolates (U+202A–202E, U+2066–2069) — the
+ *     "Trojan Source" class: reorder how text renders vs. how it's stored,
+ *     so a name can DISPLAY as one brand while its logical text is another;
+ *   - directional marks (U+200E/200F) and deprecated format controls (U+206A–206F);
+ *   - zero-width chars (U+200B–200D, U+2060–2064, U+FEFF) — split a word
+ *     invisibly, and can slice a `<scr​ipt>` tag to slip past the markup strip;
+ *   - soft hyphen (U+00AD).
+ * Stripped FIRST (before the tag strip) so they can never break up the `<…>`
+ * pattern the markup passes depend on. Homoglyph/confusable letters (e.g.
+ * Cyrillic 'а' vs Latin 'a') are NOT normalized here — that is a heavier,
+ * separate concern, mitigated at checkout by the unspoofable ENSIP-19 identity.
+ */
+const INVISIBLE_CHARS =
+  /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/g;
+
+/**
+ * Sanitize a one-line description to plain text: strip invisible/bidi controls
+ * and ALL markup/angle brackets (no `<…>` ever reaches the Snap — ADR D2 step 2),
+ * collapse whitespace, clamp length. Display data only; never gates money.
  *
  * @param raw - the merchant-typed description.
  * @returns the clamped plain-text description.
@@ -277,6 +295,7 @@ export function isValidSlug(slug: string): boolean {
 export function sanitizeDescription(raw: string | undefined | null): string {
   if (typeof raw !== 'string') return '';
   return raw
+    .replace(INVISIBLE_CHARS, '') // drop bidi/zero-width spoofing chars first
     .replace(/<[^>]*>/g, '') // drop any tag
     .replace(/[<>]/g, '') // and stray brackets
     .replace(/\s+/g, ' ')
@@ -287,6 +306,7 @@ export function sanitizeDescription(raw: string | undefined | null): string {
 /** Sanitize/clamp a display name to plain text. */
 export function sanitizeDisplayName(raw: string): string {
   return (raw ?? '')
+    .replace(INVISIBLE_CHARS, '')
     .replace(/<[^>]*>/g, '')
     .replace(/[<>]/g, '')
     .replace(/\s+/g, ' ')

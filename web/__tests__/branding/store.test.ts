@@ -60,6 +60,23 @@ describe('normalization helpers', () => {
     expect(sanitizeDescription('a'.repeat(200)).length).toBe(140)
     expect(sanitizeDisplayName('<script>X</script> Shop')).toBe('X Shop')
   })
+
+  it('strips invisible / bidi-control chars (spoofing) from name + description', () => {
+    // Bidi override (RLO U+202E) reorders visible glyphs vs. logical text — the
+    // "Trojan Source" spoof. It must not survive.
+    expect(sanitizeDisplayName('Acme\u202Egpj.exe')).toBe('Acmegpj.exe')
+    // Zero-width chars (ZWSP U+200B, BOM U+FEFF) split a name invisibly — gone.
+    expect(sanitizeDisplayName('Ac\u200Bme\uFEFF Shop')).toBe('Acme Shop')
+    // A zero-width wedged inside a tag must not let the tag survive the strip.
+    expect(sanitizeDisplayName('<scr\u200Bipt>x</script>Shop')).toBe('xShop')
+    // Directional mark (LRM U+200E) + word joiner (U+2060) in a description.
+    expect(sanitizeDescription('Great\u200E cof\u2060fee')).toBe('Great coffee')
+    // A name that is ONLY invisibles sanitizes to empty (checkout resolver then
+    // falls back to the neutral Merchant #<id> label).
+    expect(sanitizeDisplayName('\u202E\u200B\uFEFF')).toBe('')
+    // Ordinary accented letters + emoji are untouched.
+    expect(sanitizeDisplayName('Caf\u00E9 \u2615 Shop')).toBe('Caf\u00E9 \u2615 Shop')
+  })
 })
 
 describe('upsertBranding — create', () => {
