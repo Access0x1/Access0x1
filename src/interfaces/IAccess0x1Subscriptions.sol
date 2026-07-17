@@ -245,6 +245,11 @@ interface IAccess0x1Subscriptions {
     /// @notice Caller is neither the platform owner nor the merchant owner of subscription `subId`.
     error Access0x1Subs__NotAuthorizedToCure(uint256 subId, address caller);
 
+    /// @notice The relayed-subscribe `intentSig` did not recover to `subscriber` over the SubscribeIntent
+    ///         binding the exact (merchantId, planKey, token, budgetCap, expiry, withTrial, nonce) — so
+    ///         the relayer is trying to spend the grant on a target the subscriber did not authorize.
+    error Access0x1Subs__BadSubscribeIntent(address subscriber);
+
     // ──────────────────────── admin ────────────────────────
 
     /// @notice Define or update a USD-priced plan/tier on a merchant. Only the merchant owner may call.
@@ -281,6 +286,13 @@ interface IAccess0x1Subscriptions {
     /// @notice Relayed subscribe: open the SessionGrant from an off-chain grant signature (EOA /
     ///         ERC-1271 / ERC-6492 counterfactual wallet) AND subscribe in ONE tx. The grant must name
     ///         this contract as the delegate and authorize at least one period of budget.
+    /// @dev    The SessionGrant only authorizes a BUDGET to this delegate — it does NOT bind WHICH
+    ///         merchant/plan/token the budget is spent on. `intentSig` closes that gap: the subscriber
+    ///         also signs a {SUBSCRIBE_INTENT_TYPEHASH} intent over
+    ///         (merchantId, planKey, token, subscriber, budgetCap, expiry, withTrial, nonce) at the
+    ///         grant's nonce, so a relayer/front-runner holding the grant CANNOT redirect the budget to a
+    ///         merchant the subscriber never chose. Verified with the same ERC-6492-aware validator as
+    ///         the grant, preserving the counterfactual-wallet path.
     /// @param merchantId The merchant to bill.
     /// @param planKey    The plan to subscribe to.
     /// @param token      The settlement token.
@@ -289,6 +301,7 @@ interface IAccess0x1Subscriptions {
     /// @param expiry     The session expiry (unix seconds, in the future).
     /// @param withTrial  Request a trial period.
     /// @param grantSig   The subscriber's SessionGrant signature (raw ECDSA / ERC-1271 / ERC-6492).
+    /// @param intentSig  The subscriber's SubscribeIntent signature binding the target (same wallet).
     /// @return subId     The new subscription id.
     function subscribeFor(
         uint256 merchantId,
@@ -298,8 +311,37 @@ interface IAccess0x1Subscriptions {
         uint256 budgetCap,
         uint64 expiry,
         bool withTrial,
-        bytes calldata grantSig
+        bytes calldata grantSig,
+        bytes calldata intentSig
     ) external returns (uint256 subId);
+
+    /// @notice The EIP-712 typehash for the relayed-subscribe intent that binds the target to the
+    ///         subscriber's signature (defeats a relayer redirecting the budget to another merchant).
+    /// @return The `SubscribeIntent(...)` typehash.
+    function SUBSCRIBE_INTENT_TYPEHASH() external view returns (bytes32);
+
+    /// @notice The EIP-712 digest a subscriber signs to authorize a relayed {subscribeFor} for a SPECIFIC
+    ///         target — pass its `intentSig` alongside the SessionGrant signature. `nonce` MUST be the
+    ///         subscriber's current SessionGrant nonce (the grant the intent pairs with).
+    /// @param merchantId The merchant to bill.
+    /// @param planKey    The plan.
+    /// @param token      The settlement token.
+    /// @param subscriber The session owner signing both the grant and this intent.
+    /// @param budgetCap  The session budget (must equal the grant's).
+    /// @param expiry     The session expiry (must equal the grant's).
+    /// @param withTrial  Whether a trial is requested.
+    /// @param nonce      The subscriber's current SessionGrant nonce.
+    /// @return The EIP-712 digest to sign.
+    function subscribeIntentDigest(
+        uint256 merchantId,
+        uint8 planKey,
+        address token,
+        address subscriber,
+        uint256 budgetCap,
+        uint64 expiry,
+        bool withTrial,
+        uint256 nonce
+    ) external view returns (bytes32);
 
     /// @notice Charge the next period of a subscription. PERMISSIONLESS (keeper-callable). Debits the
     ///         SessionGrant budget (hard revert past budget — the never-negative meter), then pulls the

@@ -171,6 +171,38 @@ contract Access0x1SubscriptionsTest is Test, ProxyDeployer {
         return abi.encodePacked(r, s, v);
     }
 
+    /// @dev The subscriber's SubscribeIntent signature binding the exact target to `pk`, at `nonce`.
+    ///      Params must equal the subscribeFor call (merchant/plan/token/subscriber/budget/expiry/trial).
+    function _intentSig(
+        address subscriber_,
+        uint256 pk,
+        uint256 mId,
+        uint8 planKey,
+        address token,
+        uint256 budget,
+        uint64 exp,
+        bool withTrial,
+        uint256 nonce
+    ) internal view returns (bytes memory) {
+        bytes32 digest = subsC.subscribeIntentDigest(
+            mId, planKey, token, subscriber_, budget, exp, withTrial, nonce
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    /// @dev Wrap an inner signature in an ERC-6492 envelope for a counterfactual wallet (the same
+    ///      factory the grant uses), so the predeploy-aware validator deploys + verifies it.
+    function _wrap6492(bytes memory innerSig) internal view returns (bytes memory) {
+        bytes32 magic = 0x6492649264926492649264926492649264926492649264926492649264926492;
+        return abi.encodePacked(
+            abi.encode(
+                address(factory), abi.encodeCall(WalletFactory.deploy, (subscriber)), innerSig
+            ),
+            magic
+        );
+    }
+
     /*//////////////////////////////////////////////////////////////
                              CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -477,10 +509,13 @@ contract Access0x1SubscriptionsTest is Test, ProxyDeployer {
 
     function test_subscribeFor_eoaRelayed_success() public {
         bytes memory sig = _grantSig(subscriber, subscriberPk, BUDGET, expiry, 0);
+        bytes memory intent = _intentSig(
+            subscriber, subscriberPk, merchantId, PLAN_KEY, address(usdc), BUDGET, expiry, false, 0
+        );
 
         vm.prank(keeper); // permissionless relayer
         uint256 subId = subsC.subscribeFor(
-            merchantId, PLAN_KEY, address(usdc), subscriber, BUDGET, expiry, false, sig
+            merchantId, PLAN_KEY, address(usdc), subscriber, BUDGET, expiry, false, sig, intent
         );
 
         IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
@@ -498,20 +533,20 @@ contract Access0x1SubscriptionsTest is Test, ProxyDeployer {
         // Fund + approve from the wallet address (it will exist after the 6492 prepare).
         usdc.mint(w, 1_000e6);
 
-        bytes memory innerSig = _grantSig(w, subscriberPk, BUDGET, expiry, 0);
-        bytes32 magic = 0x6492649264926492649264926492649264926492649264926492649264926492;
-        bytes memory wrapped = abi.encodePacked(
-            abi.encode(
-                address(factory), abi.encodeCall(WalletFactory.deploy, (subscriber)), innerSig
-            ),
-            magic
+        bytes memory wrapped = _wrap6492(_grantSig(w, subscriberPk, BUDGET, expiry, 0));
+        // The intent is ALSO 6492-wrapped: it is verified BEFORE the session opens (CEI), while the
+        // wallet is still counterfactual, so its predeploy-aware check must be able to deploy + verify.
+        bytes memory wrappedIntent = _wrap6492(
+            _intentSig(
+                w, subscriberPk, merchantId, PLAN_KEY, address(usdc), BUDGET, expiry, true, 0
+            )
         );
 
         // The wallet must approve the subscriptions contract; since it's counterfactual we subscribe
         // WITH a trial (no period-1 charge) so no pull is needed at subscribe time.
         vm.prank(keeper);
         uint256 subId = subsC.subscribeFor(
-            merchantId, PLAN_KEY, address(usdc), w, BUDGET, expiry, true, wrapped
+            merchantId, PLAN_KEY, address(usdc), w, BUDGET, expiry, true, wrapped, wrappedIntent
         );
 
         assertGt(w.code.length, 0, "6492 prepare deployed the wallet");
@@ -521,18 +556,24 @@ contract Access0x1SubscriptionsTest is Test, ProxyDeployer {
     }
 
     function test_subscribeFor_revertZeroSubscriber() public {
+        // Zero subscriber reverts up front, before any signature is looked at.
         vm.expectRevert(IAccess0x1Subscriptions.Access0x1Subs__ZeroAddress.selector);
         subsC.subscribeFor(
-            merchantId, PLAN_KEY, address(usdc), address(0), BUDGET, expiry, false, hex"00"
+            merchantId, PLAN_KEY, address(usdc), address(0), BUDGET, expiry, false, hex"00", hex"00"
         );
     }
 
     function test_subscribeFor_revertBadSignature() public {
+        // A VALID intent (so we get past the target-binding check) but a grant signed by the WRONG key
+        // ⇒ the failure surfaces from the SessionGrant open, not the intent gate.
         (, uint256 wrongPk) = makeAddrAndKey("wrong");
         bytes memory sig = _grantSig(subscriber, wrongPk, BUDGET, expiry, 0);
+        bytes memory intent = _intentSig(
+            subscriber, subscriberPk, merchantId, PLAN_KEY, address(usdc), BUDGET, expiry, false, 0
+        );
         vm.expectRevert(ISessionGrant.SessionGrant__BadSignature.selector);
         subsC.subscribeFor(
-            merchantId, PLAN_KEY, address(usdc), subscriber, BUDGET, expiry, false, sig
+            merchantId, PLAN_KEY, address(usdc), subscriber, BUDGET, expiry, false, sig, intent
         );
     }
 
@@ -863,9 +904,12 @@ contract Access0x1SubscriptionsTest is Test, ProxyDeployer {
     ///      verified owner, so `subscriber == ownerOf(session)` holds and the bind passes.
     function test_subscribeFor_correctOwner_stillSucceeds() public {
         bytes memory sig = _grantSig(subscriber, subscriberPk, BUDGET, expiry, 0);
+        bytes memory intent = _intentSig(
+            subscriber, subscriberPk, merchantId, PLAN_KEY, address(usdc), BUDGET, expiry, false, 0
+        );
         vm.prank(keeper); // permissionless relayer
         uint256 subId = subsC.subscribeFor(
-            merchantId, PLAN_KEY, address(usdc), subscriber, BUDGET, expiry, false, sig
+            merchantId, PLAN_KEY, address(usdc), subscriber, BUDGET, expiry, false, sig, intent
         );
         IAccess0x1Subscriptions.Subscription memory s = subsC.subs(subId);
         assertEq(uint8(s.status), uint8(IAccess0x1Subscriptions.SubStatus.ACTIVE));
