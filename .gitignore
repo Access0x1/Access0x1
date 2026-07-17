@@ -1,5 +1,4 @@
-# Access0x1 — repo .gitignore (staged in the war room; copied to ./.gitignore
-# at GO as commit #3, replacing forge-init's Foundry-only default).
+# Access0x1 — repo .gitignore.
 # PUBLIC repo + real money: nothing sensitive, ever.
 
 # ── Secrets — NOTHING sensitive, ever ──
@@ -94,7 +93,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# ── War-room guard — these live OUTSIDE the repo; block any accidental copy ──
+# ── Guard — local-only dirs that live OUTSIDE the repo; block any accidental copy ──
 ethglobal2026/
 
 # Local build tooling + notes — not part of the published product
