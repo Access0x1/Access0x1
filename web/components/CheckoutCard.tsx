@@ -5,7 +5,7 @@ import { keccak256, toHex, type Address, type Hash } from 'viem'
 import { useAccount, useWalletClient } from 'wagmi'
 import { getRouterAddress, getUsdcAddress, isGasFree, tokenDecimalsFor } from '@/lib/chains'
 import { payToken, type Merchant, type PaymentReceivedEvent } from '@/lib/contracts'
-import { fetchQuote, parseUsdAmount8 } from '@/lib/quote'
+import { amount8ToUsd, fetchQuote, parseUsdAmount8 } from '@/lib/quote'
 import { getPublicClient } from '@/lib/wallet'
 import { BrandMark } from './BrandMark'
 import { BuyerConnectButton } from './BuyerConnectButton'
@@ -409,7 +409,12 @@ export function CheckoutCard({
       </div>
 
       <div className="rounded-xl border border-border p-5">
-        <p className="text-4xl font-semibold text-ink">${usdAmount}</p>
+        {/* Display the NORMALIZED amount derived from the same parsed 8-decimal
+            integer the pay path charges (usdAmount8, non-null past the guard
+            above) — never the raw `?amount=` string, so a crafted amount can't
+            show one figure while the charge is another, and every price renders
+            as proper 2-decimal currency. */}
+        <p className="text-4xl font-semibold text-ink">${amount8ToUsd(usdAmount8)}</p>
         <p className="mt-1 text-sm text-neutral-500">
           {loadingQuote
             ? 'Fetching live quote…'
