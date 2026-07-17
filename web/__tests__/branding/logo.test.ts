@@ -73,6 +73,28 @@ describe('sanitizeSvg — strips all executable / fetching content', () => {
     }).not.toThrow()
   })
 
+  it('removes on* handlers wedged behind a NUL / C0-control byte (separator bypass)', () => {
+    // `\s` (the scrub + guard attribute boundary) covers \t\n\v\f\r+space but
+    // NOT \x00-\x08 / \x0e-\x1f, so a control byte between a closing quote and a
+    // handler used to smuggle the handler past BOTH the scrub and assertIsSvg.
+    const attacks = [
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect x="0"\x00onload="alert(1)"/></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:x"\x01onerror=alert(2)/></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect x="0"\x1fonmouseover="alert(3)"/></svg>',
+    ]
+    for (const svg of attacks) {
+      const clean = sanitizeSvg(svg)
+      expect(clean).not.toMatch(/onerror|onmouseover|onload/i)
+      // The control byte itself must be gone (no covert separator left behind).
+      expect(clean).not.toMatch(/[\x00-\x08\x0e-\x1f]/)
+      // And the belt-and-suspenders guard must accept the cleaned output.
+      expect(() => sanitizeSvgLogo(clean)).not.toThrow()
+    }
+    // Legit whitespace controls (\t\n\r) are NOT stripped — they are valid
+    // markup separators and the scrub already handles handlers behind them.
+    expect(sanitizeSvg('<svg xmlns="http://www.w3.org/2000/svg">\n\t<rect/>\n</svg>')).toContain('\n')
+  })
+
   it('removes javascript: URIs', () => {
     const clean = sanitizeSvg('<svg><a href="javascript:alert(1)">x</a></svg>')
     expect(clean).not.toMatch(/javascript:/i)
