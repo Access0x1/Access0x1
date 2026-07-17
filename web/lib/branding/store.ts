@@ -384,6 +384,24 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
     slug = ensureUniqueSlug(slugify(displayName) || 'shop', s, tenantId);
   }
 
+  // Mirror the slug guard for the on-chain `merchantId` anchor. `byMerchant` is a GLOBAL
+  // index (merchantId -> tenantId) surfaced by the public, CORS-open
+  // /api/branding/by-merchant/[id] that the MetaMask Snap reads for its "who am I paying"
+  // insight. merchant ids are public on-chain and this route only proves the caller owns
+  // THEIR OWN tenant row — so without a uniqueness check a verified attacker could bind a
+  // merchantId they do NOT own to their row, overwriting the index to spoof another
+  // merchant's name/logo (anti-phishing bypass) and deny that merchant's branding. Reject a
+  // merchantId already held by a DIFFERENT tenant. Checked BEFORE any write (like the slug
+  // guard) so a rejection never leaves a partial mutation.
+  const effectiveMerchantId =
+    input.merchantId !== undefined ? input.merchantId : (existing?.merchantId ?? null);
+  if (effectiveMerchantId) {
+    const merchantOwner = s.byMerchant.get(effectiveMerchantId);
+    if (merchantOwner && merchantOwner !== tenantId) {
+      throw new BrandingError('That merchant id is already claimed.', 'MERCHANT_TAKEN');
+    }
+  }
+
   const brandColor = normalizeBrandColor(input.brandColor ?? existing?.brandColor ?? DEFAULT_BRAND_COLOR);
   const description = sanitizeDescription(
     input.description ?? existing?.description ?? '',

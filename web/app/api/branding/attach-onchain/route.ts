@@ -67,12 +67,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     row = attachOnChain(tenantId, { merchantId: rawMerchantId })
   } catch (err) {
     // attachOnChain → upsertBranding re-validates the row and can throw a
-    // BrandingError (e.g. CASINO_NEEDS_OPERATOR for an unverified casino tenant).
-    // Surface it as a 400 with its machine code so the UI branches honestly,
-    // rather than letting it escape as a bodyless 500 (law #4 — never claim
-    // payments are on when the bind never happened).
+    // BrandingError (e.g. CASINO_NEEDS_OPERATOR for an unverified casino tenant, or
+    // MERCHANT_TAKEN when the merchantId is already claimed by another tenant).
+    // Surface it with its machine code so the UI branches honestly, rather than letting
+    // it escape as a bodyless 500 (law #4 — never claim payments are on when the bind
+    // never happened). A CONFLICT (merchant id already claimed) is a 409, not a 400.
     if (err instanceof BrandingError) {
-      return NextResponse.json({ error: err.message, code: err.code }, { status: 400 })
+      const status = err.code === 'MERCHANT_TAKEN' ? 409 : 400
+      return NextResponse.json({ error: err.message, code: err.code }, { status })
     }
     return NextResponse.json({ error: 'attach_failed' }, { status: 500 })
   }

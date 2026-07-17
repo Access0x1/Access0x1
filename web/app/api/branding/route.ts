@@ -155,8 +155,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ branding: toClientBranding(row) }, { status: 200 })
   } catch (err) {
     if (err instanceof BrandingError) {
-      // 409 for a slug collision, 400 for shape errors.
-      const status = err.code === 'SLUG_TAKEN' ? 409 : 400
+      // 409 for a slug / merchant-id collision, 400 for shape errors.
+      const status = err.code === 'SLUG_TAKEN' || err.code === 'MERCHANT_TAKEN' ? 409 : 400
       return NextResponse.json({ error: err.message, code: err.code }, { status })
     }
     return NextResponse.json({ error: 'save_failed' }, { status: 500 })

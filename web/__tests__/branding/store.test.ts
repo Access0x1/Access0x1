@@ -131,6 +131,32 @@ describe('upsertBranding — create', () => {
     }
   })
 
+  it('a merchantId already claimed by ANOTHER tenant throws MERCHANT_TAKEN (anti-hijack)', () => {
+    // TENANT_A owns on-chain merchant "42"; the byMerchant index resolves to A.
+    upsertBranding({ tenantId: TENANT_A, displayName: 'Acme' })
+    attachOnChain(TENANT_A, { merchantId: '42' })
+    expect(getByMerchantId('42')?.tenantId).toBe(TENANT_A)
+
+    // A DIFFERENT (verified) tenant cannot bind "42" to spoof A's Snap identity.
+    upsertBranding({ tenantId: TENANT_B, displayName: 'Evil' })
+    try {
+      attachOnChain(TENANT_B, { merchantId: '42' })
+      throw new Error('should have thrown')
+    } catch (err) {
+      expect(err).toBeInstanceOf(BrandingError)
+      expect((err as BrandingError).code).toBe('MERCHANT_TAKEN')
+    }
+    // The index is untouched — merchant 42 still resolves to its real owner.
+    expect(getByMerchantId('42')?.tenantId).toBe(TENANT_A)
+  })
+
+  it('the SAME tenant re-attaching its own merchantId is idempotent (no false conflict)', () => {
+    upsertBranding({ tenantId: TENANT_A, displayName: 'Acme' })
+    attachOnChain(TENANT_A, { merchantId: '42' })
+    expect(() => attachOnChain(TENANT_A, { merchantId: '42' })).not.toThrow()
+    expect(getByMerchantId('42')?.tenantId).toBe(TENANT_A)
+  })
+
   it('re-validates a junk brand color to the safe default', () => {
     const row = upsertBranding({
       tenantId: TENANT_A,
