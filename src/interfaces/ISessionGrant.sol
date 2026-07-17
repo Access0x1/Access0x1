@@ -114,6 +114,18 @@ interface ISessionGrant {
     /// @return The next nonce.
     function nonces(address owner) external view returns (uint256);
 
+    /// @notice Validate `signature` over `hash` for `signer`, accepting EOA, ERC-1271, and ERC-6492.
+    /// @dev    NON-VIEW: an ERC-6492-wrapped signature makes ONE external factory-prepare call (which may
+    ///         deploy a counterfactual signer). Exposed so integrators (e.g. the subscription intent
+    ///         binding) can reuse the EXACT predeploy-aware validator Access0x1 uses to open sessions.
+    /// @param signer    The claimed signer (EOA / 7702-EOA / smart account, possibly counterfactual).
+    /// @param hash      The 32-byte digest that was signed.
+    /// @param signature The signature (raw ECDSA, ERC-1271, or ERC-6492-wrapped).
+    /// @return valid    True iff the signature is valid for `signer` over `hash`.
+    function isValidSignatureNow(address signer, bytes32 hash, bytes calldata signature)
+        external
+        returns (bool valid);
+
     /// @notice Read a session by id.
     /// @param sessionId The session id.
     /// @return The full {Session} record (zeroed if it never existed).

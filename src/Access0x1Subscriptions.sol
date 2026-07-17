@@ -9,6 +9,9 @@ import {
     Ownable2StepUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {
+    EIP712Upgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
+import {
     ReentrancyGuardTransient
 } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
@@ -63,9 +66,21 @@ contract Access0x1Subscriptions is
     Initializable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
+    EIP712Upgradeable,
     ReentrancyGuardTransient
 {
     using SafeERC20 for IERC20;
+
+    /// @notice EIP-712 typehash for the relayed-subscribe intent. The SessionGrant authorizes only a
+    ///         BUDGET to this delegate; this intent binds WHICH (merchantId, planKey, token) that budget
+    ///         may be spent on — pinned to the grant's nonce — so a relayer/front-runner holding the
+    ///         grant cannot redirect the subscriber's funds to a merchant they control. `subscriber` +
+    ///         `budgetCap` + `expiry` are included so the intent is inseparable from the exact grant.
+    /// @dev    keccak256("SubscribeIntent(uint256 merchantId,uint8 planKey,address token,address
+    ///         subscriber,uint256 budgetCap,uint64 expiry,bool withTrial,uint256 nonce)").
+    bytes32 public constant SUBSCRIBE_INTENT_TYPEHASH = keccak256(
+        "SubscribeIntent(uint256 merchantId,uint8 planKey,address token,address subscriber,uint256 budgetCap,uint64 expiry,bool withTrial,uint256 nonce)"
+    );
 
     /// @notice The Access0x1Router this contract routes every renewal pull through (the money spine). Set
     ///         once in {initialize}; not `immutable` because an upgradeable contract reads state from the
@@ -148,6 +163,10 @@ contract Access0x1Subscriptions is
     ) external initializer {
         __Ownable_init(initialOwner);
         __Ownable2Step_init();
+        // EIP-712 domain for the relayed-subscribe intent signature. Adds NO linear storage
+        // (EIP712Upgradeable uses ERC-7201 namespaced storage), so it is proxy-layout-safe. This runs
+        // on a FRESH deploy; the CREATE3 mirror redeploys fresh, so the domain is always initialized.
+        __EIP712_init("Access0x1 Subscriptions", "1");
         if (address(router_) == address(0) || address(sessionGrant_) == address(0)) {
             revert Access0x1Subs__ZeroAddress();
         }
@@ -166,6 +185,34 @@ contract Access0x1Subscriptions is
     /// @inheritdoc IAccess0x1Subscriptions
     function plans(uint256 merchantId, uint8 planKey) external view returns (Plan memory) {
         return _plans[merchantId][planKey];
+    }
+
+    /// @inheritdoc IAccess0x1Subscriptions
+    function subscribeIntentDigest(
+        uint256 merchantId,
+        uint8 planKey,
+        address token,
+        address subscriber,
+        uint256 budgetCap,
+        uint64 expiry,
+        bool withTrial,
+        uint256 nonce
+    ) public view returns (bytes32) {
+        return _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    SUBSCRIBE_INTENT_TYPEHASH,
+                    merchantId,
+                    planKey,
+                    token,
+                    subscriber,
+                    budgetCap,
+                    expiry,
+                    withTrial,
+                    nonce
+                )
+            )
+        );
     }
 
     /// @inheritdoc IAccess0x1Subscriptions
@@ -248,12 +295,28 @@ contract Access0x1Subscriptions is
         uint256 budgetCap,
         uint64 expiry,
         bool withTrial,
-        bytes calldata grantSig
+        bytes calldata grantSig,
+        bytes calldata intentSig
     ) external nonReentrant returns (uint256 subId) {
         if (subscriber == address(0)) revert Access0x1Subs__ZeroAddress();
-        // Open the session with THIS contract as the delegate; SessionGrant validates the signature
-        // (EOA / ERC-1271 / ERC-6492) against `subscriber` and consumes its nonce. A relayer cannot
-        // alter any grant field — the digest pins delegate=this, budgetCap, and expiry.
+        // TARGET BINDING (redirect guard). The SessionGrant pins delegate=this, budgetCap, expiry, and
+        // the nonce — but NOT the merchant/plan/token, which arrive here as relayer-chosen params. Left
+        // unbound, a relayer (or a mempool front-runner who copies the grant from a pending tx) could
+        // point the subscriber's authorized budget at a merchant THEY control and charge period 1 to
+        // their own payout. Require the subscriber to have ALSO signed a {SubscribeIntent} over the exact
+        // target, pinned to the grant's CURRENT nonce (read before {openSessionFor} consumes it) so the
+        // intent is single-use and inseparable from this grant. Validated with the SAME ERC-6492-aware
+        // validator SessionGrant uses, so a counterfactual wallet's grant + intent both verify (and the
+        // grant's own predeploy, fired next, is idempotent). Checked BEFORE opening the session (CEI).
+        uint256 nonce = sessionGrant.nonces(subscriber);
+        bytes32 intentDigest = subscribeIntentDigest(
+            merchantId, planKey, token, subscriber, budgetCap, expiry, withTrial, nonce
+        );
+        if (!sessionGrant.isValidSignatureNow(subscriber, intentDigest, intentSig)) {
+            revert Access0x1Subs__BadSubscribeIntent(subscriber);
+        }
+        // Open the session with THIS contract as the delegate; SessionGrant validates the grant signature
+        // (EOA / ERC-1271 / ERC-6492) against `subscriber` and consumes the nonce just bound above.
         bytes32 sessionId =
             sessionGrant.openSessionFor(subscriber, address(this), budgetCap, expiry, grantSig);
         return _subscribe(merchantId, planKey, token, sessionId, subscriber, withTrial);
