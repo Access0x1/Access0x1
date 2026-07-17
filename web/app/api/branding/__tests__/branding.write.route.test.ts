@@ -53,6 +53,30 @@ describe('POST /api/branding (Save)', () => {
     expect(res.status).toBe(401)
   })
 
+  it('rejects an UNVERIFIED write with 401 when verified writes are required (prod fail-closed)', async () => {
+    // No Dynamic issuer is configured in the test env, so resolveVerifiedTenant
+    // returns verified:false (the booth-gated fallback). With the policy flag on
+    // — the production posture — that unverified write must be rejected, so an
+    // attacker can't overwrite an arbitrary tenant's branding by shape alone.
+    process.env.BRANDING_REQUIRE_VERIFIED_WRITES = 'true'
+    try {
+      const res = await postJson(saveRoute, { tenantId: TENANT_A, displayName: 'Acme' })
+      expect(res.status).toBe(401)
+      // And nothing was persisted for that tenant.
+      expect(store.getByTenant(TENANT_A)).toBeNull()
+    } finally {
+      delete process.env.BRANDING_REQUIRE_VERIFIED_WRITES
+    }
+  })
+
+  it('still accepts the booth-gated fallback write when verification is NOT required (dev/demo)', async () => {
+    // Default test posture (flag unset, non-production): the fallback stands so
+    // the onboarding flow works before Dynamic is wired.
+    delete process.env.BRANDING_REQUIRE_VERIFIED_WRITES
+    const res = await postJson(saveRoute, { tenantId: TENANT_A, displayName: 'Acme' })
+    expect(res.status).toBe(200)
+  })
+
   it('saves with an auto-monogram when no logo is supplied (skip-logo default)', async () => {
     const res = await postJson(saveRoute, { tenantId: TENANT_A, displayName: "Joe's Barbershop" })
     expect(res.status).toBe(200)
