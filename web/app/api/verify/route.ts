@@ -33,6 +33,7 @@ import { claimNullifier } from '@/lib/worldid/nullifierStore'
 import { worldAction } from '@/lib/worldid/config'
 import { resolveENS, EnsResolutionError } from '@/lib/ens'
 import { requireVerifiedWrites, resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'
+import { requireCallerOwnsUser } from '@/lib/verification/callerBinding'
 import { verifyOidcToken } from '@/lib/oidc/verify'
 import { oidcIssuer } from '@/lib/oidc/config'
 import { claimSubject } from '@/lib/oidc/subjectStore'
@@ -116,10 +117,11 @@ async function verifyMethod(
   // them at dispatch, BEFORE the real check runs, so an unauthorized caller can't
   // even consume a World nullifier / OIDC subject on another wallet's behalf.
   // `ens` (name resolves to `user`) and `dynamic` (session IS `user`) bind
-  // themselves. Same fail-closed production policy as `verifyDynamicMethod`.
+  // themselves. Shared with the dedicated /api/oidc/verify route so the `oidc`
+  // binding can't be bypassed by using that route instead (lib/verification/callerBinding).
   if (method === 'world-id' || method === 'oidc' || method === 'onchain') {
-    const bindErr = await requireCallerOwnsUser(request, user, body)
-    if (bindErr) return bindErr
+    const binding = await requireCallerOwnsUser(request, user, body.user)
+    if (!binding.ok) return { ok: false, code: binding.code, status: binding.status }
   }
   switch (method) {
     case 'world-id':
@@ -132,35 +134,6 @@ async function verifyMethod(
       return verifyOidcMethod(body)
     case 'onchain':
       return verifyOnchainMethod(user)
-  }
-}
-
-/**
- * Require the CALLER to own `user` for the methods that don't bind it themselves.
- * In production (`requireVerifiedWrites`) a verified Dynamic session whose wallet
- * IS `user` is mandatory — mirroring the branding write policy and the `dynamic`
- * method's fail-closed check — so a trust badge only ever lands on the caller's
- * OWN wallet. Dev/booth (Dynamic unset) keeps the open demo flow. Returns a
- * `Verdict` to short-circuit, or `null` when the caller is allowed to proceed.
- */
-async function requireCallerOwnsUser(
-  request: Request,
-  user: string,
-  body: Record<string, unknown>,
-): Promise<Verdict | null> {
-  if (!requireVerifiedWrites()) return null
-  try {
-    const { tenantId, verified } = await resolveVerifiedTenant(request, { tenantId: body.user })
-    if (tenantId.toLowerCase() !== user.toLowerCase()) {
-      return { ok: false, code: 'caller_mismatch', status: 401 }
-    }
-    if (!verified) {
-      return { ok: false, code: 'unverified_caller', status: 401 }
-    }
-    return null
-  } catch (err) {
-    if (err instanceof TenantAuthError) return { ok: false, code: 'unverified_caller', status: 401 }
-    return { ok: false, code: 'caller_check_failed', status: 500 }
   }
 }
 
