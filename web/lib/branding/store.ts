@@ -267,22 +267,27 @@ export function isValidSlug(slug: string): boolean {
 }
 
 /**
- * Invisible / bidi-control characters that have no legitimate place in a plain
- * merchant name or description but enable visual spoofing:
- *   - bidi embeddings/overrides/isolates (U+202A–202E, U+2066–2069) — the
- *     "Trojan Source" class: reorder how text renders vs. how it's stored,
- *     so a name can DISPLAY as one brand while its logical text is another;
- *   - directional marks (U+200E/200F) and deprecated format controls (U+206A–206F);
- *   - zero-width chars (U+200B–200D, U+2060–2064, U+FEFF) — split a word
- *     invisibly, and can slice a `<scr​ipt>` tag to slip past the markup strip;
- *   - soft hyphen (U+00AD).
- * Stripped FIRST (before the tag strip) so they can never break up the `<…>`
- * pattern the markup passes depend on. Homoglyph/confusable letters (e.g.
- * Cyrillic 'а' vs Latin 'a') are NOT normalized here — that is a heavier,
- * separate concern, mitigated at checkout by the unspoofable ENSIP-19 identity.
+ * Invisible / bidi-control / blank-rendering characters that have no legitimate
+ * place in a plain merchant name or description but enable visual spoofing.
+ *
+ * Matched by the whole Unicode FORMAT category `\p{Cf}` (self-maintaining, so a
+ * hand-rolled range list can't miss one) — this covers the "Trojan Source" bidi
+ * class (embeddings/overrides/isolates U+202A-202E / U+2066-2069, directional
+ * marks U+200E/200F, and crucially the Arabic Letter Mark U+061C that a range
+ * list misses), zero-width chars (U+200B-200D, U+2060-2064, U+FEFF), the Arabic/
+ * Kashmiri number-sign controls, deprecated formats, interlinear-annotation
+ * anchors (U+FFF9-FFFB), soft hyphen (U+00AD), and the Plane-14 TAG chars
+ * (U+E0000-E007F) that can smuggle hidden text — PLUS the blank-rendering
+ * fillers that are NOT `Cf` but display as nothing (Hangul fillers U+115F/1160/
+ * 3164/FFA0, Braille blank U+2800).
+ *
+ * Stripped FIRST (before the tag strip) so they can never break up the `<...>`
+ * pattern the markup passes depend on. Ordinary accented letters, CJK, and
+ * emoji (incl. VS-16 U+FE0F, a combining mark, not `Cf`) are preserved.
+ * Homoglyph/confusable LETTERS (Cyrillic 'a' vs Latin 'a') are a separate,
+ * heavier concern, mitigated at checkout by the unspoofable ENSIP-19 identity.
  */
-const INVISIBLE_CHARS =
-  /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/g;
+const INVISIBLE_CHARS = /[\p{Cf}\u115F\u1160\u3164\uFFA0\u2800]/gu;
 
 /**
  * Sanitize a one-line description to plain text: strip invisible/bidi controls

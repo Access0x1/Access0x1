@@ -77,6 +77,23 @@ describe('normalization helpers', () => {
     // Ordinary accented letters + emoji are untouched.
     expect(sanitizeDisplayName('Caf\u00E9 \u2615 Shop')).toBe('Caf\u00E9 \u2615 Shop')
   })
+
+  it('strips format/blank chars a hand-rolled range list misses (Cf category + fillers)', () => {
+    // U+061C ARABIC LETTER MARK is a real bidi control (Cf) the old range list
+    // missed — the \\p{Cf} category catches it.
+    expect(sanitizeDisplayName('Acme\u061CShop')).toBe('AcmeShop')
+    // Plane-14 TAG char (U+E0001) — can smuggle hidden text; Cf, now stripped.
+    expect(sanitizeDisplayName('Acme\u{E0001}Shop')).toBe('AcmeShop')
+    // Mongolian vowel separator (U+180E) + interlinear anchor (U+FFF9) — Cf.
+    expect(sanitizeDisplayName('A\u180Ecme\uFFF9')).toBe('Acme')
+    // Blank-rendering fillers that are NOT Cf but display as nothing.
+    expect(sanitizeDisplayName('Ac\u115Fme\u3164 Shop')).toBe('Acme Shop')
+    expect(sanitizeDisplayName('Acme\u2800\uFFA0Shop')).toBe('AcmeShop')
+    // CJK + accent + a VS-16 emoji (U+FE0F is a combining mark, NOT Cf) survive.
+    expect(sanitizeDisplayName('\u65E5\u672C \u2764\uFE0F Caf\u00E9')).toBe(
+      '\u65E5\u672C \u2764\uFE0F Caf\u00E9',
+    )
+  })
 })
 
 describe('upsertBranding — create', () => {
