@@ -160,15 +160,47 @@ export async function durableReserveWithinCap(
   delta: number,
   cap: number,
 ): Promise<number | null | undefined> {
+  // The reserve/decrement pair is an ALL-OR-NOTHING capability: a backend that
+  // implements only one would reserve fail-soft (in-memory) while refunding durably,
+  // the exact asymmetry that corrupts the shared counter. Require BOTH, else treat the
+  // backend as having no atomic path (consistent fail-soft).
   const backend = getDurableKv(namespace)
-  if (!backend || typeof backend.reserveWithinCap !== 'function') return undefined
+  if (!backend || !hasAtomicCounter(backend)) return undefined
   try {
-    return await backend.reserveWithinCap(key, delta, cap)
+    return await backend.reserveWithinCap!(key, delta, cap)
   } catch (err) {
+    // MONEY-SAFETY DEGRADATION: the authoritative cross-instance cap just fell back to
+    // the per-instance ceiling because the durable reserve errored. Emit a DISTINCT,
+    // greppable signal (console.error, not a generic warn) so an operator can alert on a
+    // DB outage silently downgrading the global cap. Still fail-soft (never fail-closed —
+    // a DB blip must not brick the agent), but no longer invisible.
     // eslint-disable-next-line no-console
-    console.warn(`[storage/durableKv] reserveWithinCap failed for ${namespace}/${key}:`, err)
+    console.error(
+      `[MONEY-SAFETY][cap-degraded] durable reserveWithinCap failed for ${namespace}/${key} — ` +
+        `cross-instance cap downgraded to the per-instance ceiling:`,
+      err,
+    )
     return undefined
   }
+}
+
+/** True when a backend implements BOTH atomic counter ops (they must ship as a pair). */
+function hasAtomicCounter(backend: DurableKvStore): boolean {
+  return (
+    typeof backend.reserveWithinCap === 'function' &&
+    typeof backend.decrementClamped === 'function'
+  )
+}
+
+/**
+ * Does the configured backend for `namespace` own its rows through the ATOMIC counter
+ * pair? A counter store (the agent meter) MUST NOT also last-write-wins `durableSet` such
+ * a row — a stale write-through would clobber the authoritative atomic total and erase
+ * concurrent instances' reservations. Callers gate their write-through on this being false.
+ */
+export function durableHasAtomicCounter(namespace: string): boolean {
+  const backend = getDurableKv(namespace)
+  return backend !== null && hasAtomicCounter(backend)
 }
 
 /**
@@ -182,10 +214,13 @@ export async function durableDecrementClamped(
   delta: number,
 ): Promise<number | undefined> {
   const backend = getDurableKv(namespace)
-  if (!backend || typeof backend.decrementClamped !== 'function') return undefined
+  if (!backend || !hasAtomicCounter(backend)) return undefined
   try {
-    return await backend.decrementClamped(key, delta)
+    return await backend.decrementClamped!(key, delta)
   } catch (err) {
+    // Fail-soft: a failed durable refund leaves the shared row slightly HIGH (an
+    // over-count — the agent stops earlier, never overspends), the safe direction, so a
+    // plain warn suffices here (unlike the reserve path above).
     // eslint-disable-next-line no-console
     console.warn(`[storage/durableKv] decrementClamped failed for ${namespace}/${key}:`, err)
     return undefined
