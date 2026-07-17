@@ -41,6 +41,29 @@ export interface DurableKvStore {
   delete(key: string): Promise<void>
   /** Every `(key, value)` in this namespace — used to hydrate the in-memory cache. */
   entries(): Promise<Array<[string, unknown]>>
+  /**
+   * OPTIONAL atomic numeric-counter ops — used ONLY by the agent spend meter, whose
+   * cap is a MONEY-SAFETY invariant that a per-process (`globalThis`) counter cannot
+   * hold across Cloud Run instances (each instance's in-memory ledger is empty, so a
+   * plain last-write-wins `set` lets N instances each spend up to the full cap). A
+   * backend that implements these enforces the cap in the DB in ONE statement, so the
+   * ceiling is global. Backends that omit them signal callers to use the non-atomic
+   * in-memory fallback (unchanged, per-instance) — hence optional.
+   */
+
+  /**
+   * Atomically add `delta` to the counter at `key` ONLY IF the resulting total stays
+   * `<= cap`, and return the NEW total; return `null` when the reservation would breach
+   * the cap (nothing written). A fresh key starts at 0. Single-statement so concurrent
+   * instances serialize on the row — the whole point.
+   */
+  reserveWithinCap?(key: string, delta: number, cap: number): Promise<number | null>
+  /**
+   * Atomically subtract `delta` from the counter at `key`, clamped at 0 (a refund can
+   * never drive the ledger negative — law #5), and return the new total. A missing key
+   * is treated as 0 (returns 0).
+   */
+  decrementClamped?(key: string, delta: number): Promise<number>
 }
 
 /**
@@ -120,6 +143,53 @@ export function durableSet(namespace: string, key: string, value: unknown): void
     // eslint-disable-next-line no-console
     console.warn(`[storage/durableKv] set failed for ${namespace}/${key}:`, err)
   })
+}
+
+/**
+ * Atomic durable spend-reservation (the agent meter's cross-instance cap). Returns:
+ *   - `undefined` — NO durable atomic path (no DB, or a backend without the op, or a
+ *     DB error): the caller must fall back to its in-memory per-instance ceiling. A DB
+ *     error is logged and treated as "no durable path" (fail-soft — a transient DB
+ *     hiccup must not brick the agent; the in-memory ceiling still bounds each instance);
+ *   - `null` — durable path present and the reservation BREACHED the cap (reject);
+ *   - `number` — accepted; the new authoritative cross-instance total.
+ */
+export async function durableReserveWithinCap(
+  namespace: string,
+  key: string,
+  delta: number,
+  cap: number,
+): Promise<number | null | undefined> {
+  const backend = getDurableKv(namespace)
+  if (!backend || typeof backend.reserveWithinCap !== 'function') return undefined
+  try {
+    return await backend.reserveWithinCap(key, delta, cap)
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(`[storage/durableKv] reserveWithinCap failed for ${namespace}/${key}:`, err)
+    return undefined
+  }
+}
+
+/**
+ * Atomic durable refund (clamped at 0). Returns the new authoritative total, or
+ * `undefined` when there is no durable atomic path (no DB / unsupported / DB error) so
+ * the caller keeps its in-memory clamp. Fail-soft — a refund is never blocked (law #5).
+ */
+export async function durableDecrementClamped(
+  namespace: string,
+  key: string,
+  delta: number,
+): Promise<number | undefined> {
+  const backend = getDurableKv(namespace)
+  if (!backend || typeof backend.decrementClamped !== 'function') return undefined
+  try {
+    return await backend.decrementClamped(key, delta)
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(`[storage/durableKv] decrementClamped failed for ${namespace}/${key}:`, err)
+    return undefined
+  }
 }
 
 /** Mirror a removal to the durable backend (best-effort, fail-soft). */

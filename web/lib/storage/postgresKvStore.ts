@@ -44,10 +44,12 @@ CREATE TABLE IF NOT EXISTS ax1_kv_store (
  * The slice of the `pg` Pool API this adapter uses. Declared locally so the module
  * typechecks without `@types/pg` installed (the dependency is optional + lazy).
  */
-interface PgRow {
-  key: string
-  value: unknown
-}
+/**
+ * A returned row. An open column map because the adapter runs queries with different
+ * projections: `SELECT key, value` (KV reads) and `RETURNING … AS spent` (the atomic
+ * counter ops). Callers read the columns they expect with a local cast.
+ */
+type PgRow = Record<string, unknown>
 interface PgQueryResult {
   rowCount: number | null
   rows: PgRow[]
@@ -147,6 +149,57 @@ export function createPostgresKvStore(
         namespace,
       ])
       return res.rows.map((r) => [r.key, r.value] as [string, unknown])
+    },
+
+    /**
+     * Atomic reserve-within-cap in ONE statement. The `INSERT … SELECT … WHERE
+     * $3 <= $4` gates the FRESH-row case (a single charge above the cap inserts
+     * nothing); the `ON CONFLICT DO UPDATE … WHERE current + $3 <= $4` gates the
+     * EXISTING-row case (a charge that would breach the running cap updates
+     * nothing). Either rejection yields zero returned rows, so `rowCount === 0`
+     * means "rejected". Because it is one statement against a `UNIQUE(namespace,
+     * key)` row, concurrent instances serialize on it — no lost-update window.
+     */
+    async reserveWithinCap(key: string, delta: number, cap: number): Promise<number | null> {
+      await ensureSchema()
+      const p = await pool()
+      const res = await p.query(
+        '/* reserveWithinCap */ ' +
+          'INSERT INTO ax1_kv_store (namespace, key, value) ' +
+          "SELECT $1, $2, jsonb_build_object('dayKey', $2::text, 'spent', $3::numeric) " +
+          'WHERE $3::numeric <= $4::numeric ' +
+          'ON CONFLICT (namespace, key) DO UPDATE SET ' +
+          "  value = jsonb_set(ax1_kv_store.value, '{spent}', " +
+          "    to_jsonb(COALESCE((ax1_kv_store.value->>'spent')::numeric, 0) + $3::numeric)), " +
+          '  updated_at = now() ' +
+          "WHERE COALESCE((ax1_kv_store.value->>'spent')::numeric, 0) + $3::numeric <= $4::numeric " +
+          "RETURNING (value->>'spent')::numeric::float8 AS spent",
+        [namespace, key, delta, cap],
+      )
+      const row = res.rows[0] as { spent?: unknown } | undefined
+      if (!row) return null
+      return Number(row.spent)
+    },
+
+    /**
+     * Atomic refund: subtract `delta`, clamped at 0 (a refund never drives the ledger
+     * negative — law #5), returning the new total. A missing row returns 0.
+     */
+    async decrementClamped(key: string, delta: number): Promise<number> {
+      await ensureSchema()
+      const p = await pool()
+      const res = await p.query(
+        '/* decrementClamped */ ' +
+          'UPDATE ax1_kv_store SET ' +
+          "  value = jsonb_set(value, '{spent}', " +
+          "    to_jsonb(GREATEST(0, COALESCE((value->>'spent')::numeric, 0) - $3::numeric))), " +
+          '  updated_at = now() ' +
+          'WHERE namespace = $1 AND key = $2 ' +
+          "RETURNING (value->>'spent')::numeric::float8 AS spent",
+        [namespace, key, delta],
+      )
+      const row = res.rows[0] as { spent?: unknown } | undefined
+      return row ? Number(row.spent) : 0
     },
   }
 }
