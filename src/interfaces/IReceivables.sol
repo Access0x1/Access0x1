@@ -142,6 +142,11 @@ interface IReceivables is IERC4906 {
     /// @notice The referenced receivable does not exist (never minted) or is no longer `OPEN`.
     error Receivables__NotOpen(uint256 tokenId, Status status);
 
+    /// @notice `cancel` was called on a receivable that has been FACTORED (transferred to a
+    ///         secondary holder). Once sold, the claim is firm — the issuer can no longer void it, or
+    ///         it would burn a third party's purchased receivable with no refund.
+    error Receivables__AlreadyFactored(uint256 tokenId);
+
     /// @notice The receivable is locked to a specific debtor and `msg.sender` is not that debtor.
     error Receivables__NotAuthorizedDebtor(uint256 tokenId, address expected, address caller);
 
@@ -181,6 +186,13 @@ interface IReceivables is IERC4906 {
     /// @param tokenId The receivable / token id.
     /// @return True iff the receivable is `OPEN`.
     function isPayable(uint256 tokenId) external view returns (bool);
+
+    /// @notice Whether `tokenId` has been FACTORED — moved holder→holder on the secondary market. A
+    ///         factored receivable is a firm claim: {cancel} reverts, so a factor can rely on it. The
+    ///         flag is sticky (set on the first secondary transfer, never cleared).
+    /// @param tokenId The receivable queried.
+    /// @return factored True once the receivable has been transferred between two real holders.
+    function isFactored(uint256 tokenId) external view returns (bool factored);
 
     /// @notice The next token id {mint} will assign (the head of the monotonic id counter).
     /// @return The next receivable id (≥ 1).

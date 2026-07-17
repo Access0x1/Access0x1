@@ -154,6 +154,7 @@ contract ReceivablesHandler is Test {
         (uint256 id, bool ok) = _pick(idSeed);
         if (!ok) return;
         if (!recv.isPayable(id)) return; // not OPEN ⇒ skip (a SETTLED/CANCELLED cancel would revert)
+        if (recv.isFactored(id)) return; // FACTORED ⇒ the claim is firm, cancel now reverts by design
         recv.cancel(id);
     }
 
