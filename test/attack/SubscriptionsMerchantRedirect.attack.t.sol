@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import { Access0x1SubscriptionsTest } from "../unit/Access0x1Subscriptions.t.sol";
 import { IAccess0x1Subscriptions } from "../../src/interfaces/IAccess0x1Subscriptions.sol";
+import { WalletFactory } from "../mocks/SmartWallet1271.sol";
 
 /// @title  SubscriptionsMerchantRedirectAttackTest
 /// @author Access0x1
@@ -101,6 +102,77 @@ contract SubscriptionsMerchantRedirectAttackTest is Access0x1SubscriptionsTest {
             false,
             grantSig,
             forgedIntent
+        );
+    }
+
+    /// @notice An intent signed at the WRONG nonce is rejected. The on-chain digest is computed at the
+    ///         subscriber's CURRENT nonce, so a signature over a different nonce cannot recover ⇒ the
+    ///         intent is inseparable from the exact grant it pairs with (single-use, no cross-grant reuse).
+    function test_attack_intentAtWrongNonceRejected() public {
+        bytes memory grantSig = _grantSig(subscriber, subscriberPk, BUDGET, expiry, 0);
+        // Signed at nonce 1, but the live nonce is 0 — the contract recomputes the digest at 0.
+        bytes memory intentWrongNonce = _intentSig(
+            subscriber, subscriberPk, merchantId, PLAN_KEY, address(usdc), BUDGET, expiry, false, 1
+        );
+        vm.prank(keeper);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Subscriptions.Access0x1Subs__BadSubscribeIntent.selector, subscriber
+            )
+        );
+        subsC.subscribeFor(
+            merchantId,
+            PLAN_KEY,
+            address(usdc),
+            subscriber,
+            BUDGET,
+            expiry,
+            false,
+            grantSig,
+            intentWrongNonce
+        );
+    }
+
+    /// @notice ERC-6492 factory SUBSTITUTION cannot forge the intent. A relayer wraps the victim's inner
+    ///         intent signature with a DIFFERENT (attacker) factory. Because the counterfactual address
+    ///         folds the factory into its CREATE2 preimage, that factory can only deploy at a DIFFERENT
+    ///         address — never at `subscriber` — so the 1271 check on `subscriber` finds no code and falls
+    ///         to ECDSA, which recovers the owner EOA (not the smart-account address) ⇒ BadSubscribeIntent.
+    function test_attack_maliciousFactoryInIntentWrapperCannotForge() public {
+        address w = factory.addressOf(subscriber); // the LEGIT counterfactual smart-account address
+        WalletFactory evilFactory = new WalletFactory(); // different factory ⇒ different CREATE2 base
+        usdc.mint(w, 1_000e6);
+
+        bytes memory grantSig = _wrap6492(_grantSig(w, subscriberPk, BUDGET, expiry, 0));
+        // The victim's inner intent sig (binds subscriber=w), re-wrapped with the ATTACKER's factory.
+        bytes32 magic = 0x6492649264926492649264926492649264926492649264926492649264926492;
+        bytes memory evilWrappedIntent = abi.encodePacked(
+            abi.encode(
+                address(evilFactory),
+                abi.encodeCall(WalletFactory.deploy, (subscriber)),
+                _intentSig(
+                    w, subscriberPk, merchantId, PLAN_KEY, address(usdc), BUDGET, expiry, true, 0
+                )
+            ),
+            magic
+        );
+
+        vm.prank(keeper);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1Subscriptions.Access0x1Subs__BadSubscribeIntent.selector, w
+            )
+        );
+        subsC.subscribeFor(
+            merchantId,
+            PLAN_KEY,
+            address(usdc),
+            w,
+            BUDGET,
+            expiry,
+            true,
+            grantSig,
+            evilWrappedIntent
         );
     }
 
