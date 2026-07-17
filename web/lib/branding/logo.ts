@@ -54,6 +54,15 @@ export class LogoError extends Error {
   }
 }
 
+/**
+ * The linear pass budget for {@link sanitizeSvg}'s repeat-until-stable scrub. A legitimate
+ * SVG's forbidden constructs are all removed in the first pass (the second confirms
+ * convergence), so a handful of passes is ample; a string still changing past this bound is
+ * an adversarial NESTED reconstruction and is rejected. Bounding the passes keeps the scrub
+ * O(n) instead of O(n^2) — the latter is a public event-loop-blocking DoS vector.
+ */
+const MAX_SANITIZE_PASSES = 8;
+
 /** UTF-8 byte length of a string (no Buffer dependency — works in any runtime). */
 function byteLength(s: string): number {
   return new TextEncoder().encode(s).length;
@@ -94,8 +103,19 @@ export function sanitizeSvg(svg: string): string {
   // renderer, a rasterizer). Done once, before the loop, since it is idempotent.
   let out = svg.replace(/[\x00-\x08\x0e-\x1f\x7f-\x9f]/g, '');
   let prev: string;
+  // The scrub repeats so a NESTED reconstruction (`<sc` + `<script>` + `ript>`) cannot
+  // survive — but a naive repeat-until-stable is O(n^2): a crafted payload where every
+  // pass fuses exactly one new construct at the removal seam runs O(n) passes over an
+  // O(n) string, so ~64 KB of `<sc`×N + `<script>` + `ript>`×N burns ~1.5s of SYNCHRONOUS
+  // CPU and blocks the single Node event loop (a public unauthenticated DoS on the SVG
+  // routes). Bound the passes to a small constant instead: a legitimate SVG converges in
+  // 1-2 passes; anything still changing after MAX_SANITIZE_PASSES is a deliberate nested
+  // reconstruction and is REJECTED below (never returned under-scrubbed). Cost is now
+  // O(MAX_SANITIZE_PASSES * n) = linear.
+  let passes = 0;
   do {
     prev = out;
+    passes += 1;
     out = out
       // <script> in any form
       .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
@@ -128,7 +148,12 @@ export function sanitizeSvg(svg: string): string {
       // remote href / xlink:href (keep data: refs; drop http(s)/// network refs)
       .replace(/\s(?:xlink:)?href\s*=\s*"(?!data:)[^"]*"/gi, '')
       .replace(/\s(?:xlink:)?href\s*=\s*'(?!data:)[^']*'/gi, '');
-  } while (out !== prev);
+  } while (out !== prev && passes < MAX_SANITIZE_PASSES);
+  // Not converged within the linear pass budget ⇒ a deliberate nested reconstruction (the
+  // DoS vector). Reject rather than loop unboundedly or return an under-scrubbed string.
+  if (out !== prev) {
+    throw new LogoError('Logo SVG has too many nested constructs to sanitize.');
+  }
   return out.trim();
 }
 

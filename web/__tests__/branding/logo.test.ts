@@ -131,6 +131,26 @@ describe('sanitizeSvg — strips all executable / fetching content', () => {
     expect(clean).not.toMatch(/<script/i)
   })
 
+  it('REJECTS a deep nested-reconstruction payload (bounds the O(n^2) scrub — DoS)', () => {
+    // Each pass fuses one new <script> at the removal seam, so this needs ~N passes to
+    // converge — the quadratic that let a public, unauthenticated ~64 KB POST block the
+    // event loop for seconds. The pass cap makes the scrub linear and rejects the payload
+    // instead of looping, so it returns quickly rather than hanging.
+    const N = 50 // > MAX_SANITIZE_PASSES (8), so it can never converge within budget
+    const payload = '<svg>' + '<sc'.repeat(N) + '<script>' + 'ript>'.repeat(N) + '</svg>'
+    expect(() => sanitizeSvg(payload)).toThrow(LogoError)
+  })
+
+  it('still sanitizes a legit SVG carrying several forbidden bits (all removed in one pass)', () => {
+    // Many forbidden constructs, but NOT nested — converges in one pass, well within budget.
+    const dirty =
+      '<svg onload="a()"><script>x</script><style>@import url(http://e/x)</style>' +
+      '<a href="javascript:b()">t</a><rect style="fill:url(http://e/y)"/></svg>'
+    const clean = sanitizeSvg(dirty)
+    expect(clean).not.toMatch(/<script|onload|<style|javascript:|http:/i)
+    expect(clean).toContain('<rect')
+  })
+
   it('removes <style> blocks carrying a CSS url() / @font-face beacon (R-4)', () => {
     const dirty =
       '<svg><style>@font-face{font-family:x;src:url(https://attacker.example/beacon.woff)}' +
