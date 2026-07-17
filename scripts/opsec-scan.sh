@@ -57,6 +57,9 @@ while IFS= read -r -d '' line; do
   mode="${line%% *}"
   path="${line#*$'\t'}"
   [[ "$mode" == "160000" ]] && continue   # submodule gitlink
+  [[ "$mode" == "120000" ]] && continue   # symlink — grep would follow it (e.g. to a
+                                          # directory) and error out; the real target's
+                                          # tracked files are scanned via their own paths
   is_excluded "$path" && continue
   FILES+=("$path")
 done < <(git ls-files -s -z)
