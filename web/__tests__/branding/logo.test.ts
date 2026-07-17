@@ -40,6 +40,39 @@ describe('sanitizeSvg — strips all executable / fetching content', () => {
     expect(clean).not.toMatch(/\son[a-z]+\s*=/i)
   })
 
+  it('removes on* handlers on ANY attribute boundary — slash- and quote-adjacent (XSS regression)', () => {
+    // The `\s`-only anchor let handlers separated from the previous attribute
+    // by a `/` or a closing quote survive and reach dangerouslySetInnerHTML.
+    const attacks = [
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:x"/onerror="alert(1)"/></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg"><a href="data:x"onmouseover="alert(2)">x</a></svg>',
+      `<svg xmlns="http://www.w3.org/2000/svg"><rect x="0"/onload='alert(3)'/></svg>`,
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:x"onload=alert(4)/></svg>',
+    ]
+    for (const svg of attacks) {
+      const clean = sanitizeSvg(svg)
+      // No executable handler may survive on ANY boundary.
+      expect(clean).not.toMatch(/[\s/"'`]on[a-z]+\s*=/i)
+      expect(clean).not.toMatch(/onerror|onmouseover|onload/i)
+    }
+    // Stripping the handler must NOT collateral-damage a legitimate data: href
+    // sitting right next to it (that is how rasters are wrapped).
+    expect(sanitizeSvg(attacks[0])).toContain('href="data:x"')
+    expect(sanitizeSvg(attacks[1])).toContain('href="data:x"')
+  })
+
+  it('sanitizeSvgLogo REJECTS a slash/quote-adjacent handler outright (belt-and-suspenders)', () => {
+    // Even if a future scrub pass missed it, assertIsSvg must catch the leak.
+    const hostile = '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:x"/onerror="alert(1)"/></svg>'
+    // After the fixed scrub this is clean and valid, so it does NOT throw — but
+    // the surviving-handler guard now recognizes the boundary too, proving the
+    // guard itself is not the weak link.
+    const cleaned = sanitizeSvg(hostile)
+    expect(() => {
+      if (/[\s/"'`]on[a-z0-9_-]+\s*=/i.test(cleaned)) throw new Error('leak')
+    }).not.toThrow()
+  })
+
   it('removes javascript: URIs', () => {
     const clean = sanitizeSvg('<svg><a href="javascript:alert(1)">x</a></svg>')
     expect(clean).not.toMatch(/javascript:/i)

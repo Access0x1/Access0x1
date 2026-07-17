@@ -2,7 +2,7 @@
 
 import { useState, type ChangeEvent, type ReactNode } from 'react'
 import { SUPPORTED_CHAINS, getDefaultChainId } from '@/lib/chains'
-import { scaleSvg, toInlineSvgLogo, LogoError } from '@/lib/branding/logo'
+import { toInlineSvgLogo, LogoError } from '@/lib/branding/logo'
 import { fileToDataUri } from '@/lib/branding/client'
 import { formatGas } from '@/lib/onchain-svg/estimate'
 import type { OnchainSvgReport, GasRegime } from '@/lib/onchain-svg/report'
@@ -164,6 +164,17 @@ export function formatUsd8(usd8: bigint): string {
   return `$${usd.toPrecision(2)}`
 }
 
+/**
+ * Encode a sanitized inline SVG as an `<img src>` data URI. URL-encoding (not
+ * base64) keeps it readable and small; the `#` and `%`-class chars that would
+ * break the URI are escaped. Rendered through `<img>`, the SVG is inert — no
+ * script, no handlers, no network — so this stays safe even if the upstream
+ * sanitizer ever regresses (defense in depth for a public surface).
+ */
+export function svgToDataUri(svg: string): string {
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
 /** Human text for the regime chip — never overclaims (law #4). */
 export function regimeLabel(regime: GasRegime | null): string {
   switch (regime) {
@@ -262,12 +273,18 @@ export function SimulatorResult({ report }: { report: SimulatorReport }): ReactN
   return (
     <div className="flex flex-col gap-4" data-testid="sim-result">
       <div className="flex items-start gap-4">
-        <span
+        {/* Defense in depth: the mark is already server-sanitized, but this is
+            a PUBLIC, unauthenticated surface — render it through an <img> data
+            URI (an SVG loaded via <img> can never execute script, event
+            handlers, or fetch), never dangerouslySetInnerHTML. Even a future
+            sanitizer regression cannot become XSS here. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={svgToDataUri(report.sanitizedSvg)}
+          alt="Your uploaded mark"
+          width={72}
+          height={72}
           className="inline-block shrink-0 overflow-hidden rounded-xl border border-border bg-background"
-          style={{ width: 72, height: 72 }}
-          // Sanitized inline SVG (the API re-scrubbed it server-side);
-          // scaleSvg re-sanitizes the resized string (the BrandPreview contract).
-          dangerouslySetInnerHTML={{ __html: scaleSvg(report.sanitizedSvg, 72) }}
         />
         <div className="flex flex-col gap-1 text-sm">
           <p className="text-ink">
