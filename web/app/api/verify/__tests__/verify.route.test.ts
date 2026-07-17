@@ -60,6 +60,7 @@ vi.mock('@/lib/branding/tenant', async () => {
 
 const { GET, POST } = await import('../route.js')
 const store = await import('@/lib/verification/store')
+const tenant = await import('@/lib/branding/tenant')
 
 const USER = '0x' + '1'.repeat(40)
 
@@ -235,6 +236,54 @@ describe('POST onchain', () => {
     const res = await POST(post({ user: USER, method: 'onchain' }))
     expect(res.status).toBe(401)
     expect((await res.json()).error).toBe('wallet_empty')
+  })
+})
+
+describe('POST caller-binding (anti-farm) — world-id / oidc / onchain', () => {
+  // These three methods prove a human / an account / a funded address, but NOT
+  // that the CALLER controls `user`. Left open, a caller could farm those badges
+  // onto an arbitrary wallet (the trust tier gates trial pay + checkout modes).
+  // In production they are gated at dispatch under the same fail-closed policy as
+  // `dynamic`: require a verified Dynamic session whose wallet IS `user`. `ens`
+  // (resolve==user) and `dynamic` (session==user) bind themselves and are exempt.
+  beforeEach(() => {
+    process.env.BRANDING_REQUIRE_VERIFIED_WRITES = 'true'
+  })
+  afterEach(() => {
+    delete process.env.BRANDING_REQUIRE_VERIFIED_WRITES
+  })
+
+  it('401 world-id for an unverified caller — proof never consulted, not recorded', async () => {
+    verifyWorldProof.mockResolvedValue({ ok: true, nullifier: 'farm', action: 'ax1-buyer' })
+    const res = await POST(post({ user: USER, method: 'world-id', proof: { merkle_root: '0x' } }))
+    expect(res.status).toBe(401)
+    // The gate runs BEFORE the portal call, so no nullifier is consumed on behalf
+    // of an unauthorized caller and nothing is recorded.
+    expect(verifyWorldProof).not.toHaveBeenCalled()
+    expect(store.getProfile(USER).methods).toEqual([])
+  })
+
+  it('401 onchain for an unverified caller — chain never read, not recorded', async () => {
+    getBalance.mockResolvedValue(10n ** 18n)
+    getTransactionCount.mockResolvedValue(5)
+    const res = await POST(post({ user: USER, method: 'onchain' }))
+    expect(res.status).toBe(401)
+    expect(getBalance).not.toHaveBeenCalled()
+    expect(store.getProfile(USER).methods).toEqual([])
+  })
+
+  it('401 oidc for an unverified caller — token never verified, not recorded', async () => {
+    const res = await POST(post({ user: USER, method: 'oidc', token: 'x.y.z' }))
+    expect(res.status).toBe(401)
+    expect(store.getProfile(USER).methods).toEqual([])
+  })
+
+  it('records world-id when the caller holds a verified session for `user`', async () => {
+    vi.mocked(tenant.resolveVerifiedTenant).mockResolvedValueOnce({ tenantId: USER, verified: true })
+    verifyWorldProof.mockResolvedValue({ ok: true, nullifier: 'ok', action: 'ax1-buyer' })
+    const res = await POST(post({ user: USER, method: 'world-id', proof: { merkle_root: '0x' } }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).methods).toEqual(['world-id'])
   })
 })
 
