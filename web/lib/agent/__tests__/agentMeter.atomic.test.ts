@@ -123,15 +123,28 @@ describe('(2) durable refund restores the shared total (law #5)', () => {
     const rows = new Map<string, unknown>()
     getDurableKv('agent:meter', atomicBackend(rows))
 
-    await reserveDailySpend(4)
-    await refundDailySpend(3)
+    const r = await reserveDailySpend(4)
+    expect(r.durable).toBe(true)
+    await refundDailySpend(3, r)
     expect(spentOf(rows, today())).toBe(1)
     expect(meterSpent()).toBe(1)
 
     // Over-refund can never drive the shared ledger negative.
-    await refundDailySpend(10)
+    await refundDailySpend(10, r)
     expect(spentOf(rows, today())).toBe(0)
     expect(meterSpent()).toBe(0)
+  })
+
+  it('a FAIL-SOFT reservation refund does NOT touch the shared durable row', async () => {
+    // Reviewer Finding 2: if a reserve fail-softs (durable row NOT incremented) but the
+    // refund decrements durably, it erases OTHER instances' budget from the shared row.
+    const rows = new Map<string, unknown>()
+    getDurableKv('agent:meter', atomicBackend(rows))
+    rows.set(today(), { dayKey: today(), spent: 5 }) // 5 reserved by OTHER instances
+
+    // A refund carrying a non-durable receipt must leave the shared row alone.
+    await refundDailySpend(4, { durable: false })
+    expect(spentOf(rows, today())).toBe(5) // untouched — no cross-instance budget erased
   })
 })
 
@@ -140,7 +153,8 @@ describe('(3) fail-soft: no atomic backend falls back to the in-memory reserve',
     const rows = new Map<string, unknown>()
     getDurableKv('agent:meter', plainBackend(rows)) // no reserveWithinCap/decrementClamped
 
-    await reserveDailySpend(2)
+    const r = await reserveDailySpend(2)
+    expect(r.durable).toBe(false)
     expect(meterSpent()).toBe(2)
     // The non-atomic path still write-throughs the running total for hydration.
     expect(spentOf(rows, today())).toBe(2)
@@ -148,5 +162,40 @@ describe('(3) fail-soft: no atomic backend falls back to the in-memory reserve',
     // The per-instance ceiling still rejects an over-cap charge.
     await expect(reserveDailySpend(4)).rejects.toBeInstanceOf(BudgetExceeded)
     expect(meterSpent()).toBe(2)
+  })
+
+  it('a backend with only ONE atomic op is treated as having none (both-or-neither)', async () => {
+    // Reviewer Finding 3: the reserve/decrement pair must ship together; a half-atomic
+    // backend must NOT reserve fail-soft while refunding durably.
+    const rows = new Map<string, unknown>()
+    const halfAtomic = {
+      ...plainBackend(rows),
+      // decrementClamped present, reserveWithinCap absent → the pair is incomplete.
+      async decrementClamped(key: string, delta: number) {
+        const spent = Math.max(0, spentOf(rows, key) - delta)
+        rows.set(key, { dayKey: key, spent })
+        return spent
+      },
+    } as DurableKvStore
+    getDurableKv('agent:meter', halfAtomic)
+
+    const r = await reserveDailySpend(2)
+    expect(r.durable).toBe(false) // fell back to in-memory, NOT the half-present atomic op
+  })
+})
+
+describe('(4) fail-soft concurrency: the per-instance ceiling stays atomic across the await', () => {
+  it('rejects the second of two concurrent over-cap reserves (no per-instance overspend)', async () => {
+    // Reviewer Finding 1: the `await` on the durable step yields the event loop, so the
+    // pre-await check is stale. With NO durable backend (fail-soft), two concurrent $4
+    // charges against a $5 cap must NOT both land ($8) — the post-await re-check catches
+    // the race, so exactly one succeeds.
+    const results = await Promise.allSettled([reserveDailySpend(4), reserveDailySpend(4)])
+    const fulfilled = results.filter((r) => r.status === 'fulfilled')
+    const rejected = results.filter((r) => r.status === 'rejected')
+    expect(fulfilled).toHaveLength(1)
+    expect(rejected).toHaveLength(1)
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(BudgetExceeded)
+    expect(meterSpent()).toBe(4) // 4, never 8
   })
 })

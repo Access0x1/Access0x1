@@ -113,8 +113,9 @@ export async function agentPay(args: {
   const { url, maxValueUsd, headers } = args;
 
   // 1. CHECK — reserve budget first (DURABLE, cross-instance atomic). Throws
-  //    BudgetExceeded with zero network effect.
-  await reserveDailySpend(maxValueUsd);
+  //    BudgetExceeded with zero network effect. The receipt records whether the
+  //    reservation hit the durable row, so the refund below decrements it symmetrically.
+  const reservation = await reserveDailySpend(maxValueUsd);
 
   // 2. INTERACTION — pay-and-fetch via the x402 wrapper.
   const account = await buildAgentX402Account();
@@ -125,13 +126,13 @@ export async function agentPay(args: {
     res = await paidFetch(url, headers ? { headers } : undefined);
   } catch (err) {
     // Network-level failure before any settlement: refund the reservation (law #5).
-    await refundDailySpend(maxValueUsd);
+    await refundDailySpend(maxValueUsd, reservation);
     throw err;
   }
 
   if (res.status === 402) {
     // Payment never resolved — nothing settled, restore the budget (law #5).
-    await refundDailySpend(maxValueUsd);
+    await refundDailySpend(maxValueUsd, reservation);
     throw new PaymentRequiredUnresolved(url);
   }
   if (!res.ok) {
