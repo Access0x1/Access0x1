@@ -1,0 +1,39 @@
+{
+  "projectId": "4705f76f-6ce9-4297-b563-c64e5beb21fb",
+  "pkg": "@access0x1/web",
+  "globalName": "Access0x1Web",
+  "shape": "package",
+  "tsconfig": "tsconfig.json",
+  "srcDir": ".design-sync/.cache/components-filtered",
+  "buildCmd": "sh .design-sync/build-inputs.sh",
+  "cssEntry": ".design-sync/.cache/compiled.css",
+  "extraFonts": [
+    "node_modules/@fontsource-variable/inter/wght.css",
+    "node_modules/@fontsource-variable/space-grotesk/wght.css"
+  ],
+  "extraEntries": [
+    ".design-sync/process-shim.js",
+    ".design-sync/preview-chassis.tsx"
+  ],
+  "provider": {
+    "component": "PreviewChassis"
+  },
+  "guidelinesGlob": ".design-sync/guidelines-src/*.md",
+  "readmeHeader": ".design-sync/conventions.md",
+  "dtsPropsFor": {
+    "Badge": "/** Visual variant — default (cyan fill) | secondary | destructive | outline | success (green chip) | level (L0-L3 rung) | super (gold shimmer, L4 only). */\n  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'level' | 'super';\n  className?: string;\n  children?: React.ReactNode;",
+    "Button": "/** Visual variant. */\n  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';\n  /** Height/padding scale. */\n  size?: 'sm' | 'default' | 'lg' | 'icon';\n  /** Render as the single child element (e.g. an <a>) instead of a <button>. */\n  asChild?: boolean;\n  disabled?: boolean;\n  className?: string;\n  children?: React.ReactNode;",
+    "Progress": "/** 0-100 fill value. */\n  value?: number;\n  /** Extra classes for the filled indicator (e.g. its color, per level). */\n  indicatorClassName?: string;\n  className?: string;"
+  },
+  "overrides": {
+    "AskAssistant": { "cardMode": "single", "primaryStory": "Answered" },
+    "Tooltip": { "cardMode": "single", "primaryStory": "Open" },
+    "TooltipContent": { "cardMode": "single", "primaryStory": "Long" },
+    "TooltipProvider": { "cardMode": "single", "primaryStory": "MethodRow" },
+    "TooltipTrigger": { "cardMode": "single", "primaryStory": "BadgeChild" },
+    "OnChainSvgSimulator": { "cardMode": "column" },
+    "OnChainSvgSimulatorView": { "cardMode": "column" },
+    "TxHashLink": { "cardMode": "column" },
+    "LandingCTA": { "cardMode": "column" }
+  }
+}
