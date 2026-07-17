@@ -7,6 +7,14 @@ import { buildReport, classifyRegime, LogoError } from '@/lib/onchain-svg/report
 export const dynamic = 'force-dynamic'
 
 /**
+ * The public simulator's own upload ceiling — deliberately far below the
+ * branding sanitizer's 256 KB cap. This route is unauthenticated and the
+ * scrub is super-linear on hostile nested input, so a small cap bounds the
+ * CPU any anonymous POST can spend. Real SVG logos are a few KB.
+ */
+const SIM_MAX_SVG_BYTES = 64 * 1024
+
+/**
  * POST /api/onchain-estimate  { chainId: number, svg: string }
  *
  * The "as if it just ran" simulator endpoint. NOTHING is broadcast — the
@@ -41,10 +49,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (typeof svg !== 'string' || svg.trim().length === 0) {
     return NextResponse.json({ error: 'svg must be a non-empty string' }, { status: 400 })
   }
-  // Hard byte ceiling BEFORE any parsing — the sanitizer enforces its own caps
-  // (256 KB SVG / 512 KB raster); this just refuses obviously abusive bodies.
-  if (svg.length > 800_000) {
-    return NextResponse.json({ error: 'Upload exceeds the simulator size limit' }, { status: 413 })
+  // Hard byte ceiling BEFORE the sanitizer runs. This endpoint is PUBLIC and
+  // UNAUTHENTICATED, and the sanitizer's repeat-until-stable scrub is
+  // super-linear on pathological nested input — so we refuse anything larger
+  // than a real logo well BELOW the branding sanitizer's own 256 KB cap,
+  // bounding the worst-case CPU an anonymous POST can spend. A hand-drawn SVG
+  // logo is a few KB; 64 KB is already generous.
+  if (svg.length > SIM_MAX_SVG_BYTES) {
+    return NextResponse.json(
+      { error: `Upload exceeds the ${SIM_MAX_SVG_BYTES / 1024} KB simulator limit — SVG logos are only a few KB.` },
+      { status: 413 },
+    )
   }
 
   // The pure math — always answered. Sanitizer rejections are honest 400s.
