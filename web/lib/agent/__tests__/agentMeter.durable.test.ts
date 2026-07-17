@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   __resetMeterForTests,
   hydrateMeterFromDurable,
-  meterSpendOrThrow,
+  reserveDailySpend,
   meterSpent,
 } from '../agentMeter.js'
 import {
@@ -55,9 +55,9 @@ afterEach(() => {
 })
 
 describe('(a) in-memory path works with no durable backend', () => {
-  it('accumulates spend within the day', () => {
-    meterSpendOrThrow(1)
-    meterSpendOrThrow(2)
+  it('accumulates spend within the day', async () => {
+    await reserveDailySpend(1)
+    await reserveDailySpend(2)
     expect(meterSpent()).toBe(3)
   })
 })
@@ -67,9 +67,8 @@ describe("(b) durable write-through resumes the day's cap after a restart", () =
     const rows = new Map<string, unknown>()
     getDurableKv('agent:meter', fakeBackend(rows))
 
-    meterSpendOrThrow(3)
-    await Promise.resolve()
-    // today's row holds the running total
+    await reserveDailySpend(3)
+    // today's row holds the running total (write-through on the non-atomic backend)
     expect(rows.get(today())).toMatchObject({ spent: 3 })
 
     // --- restart mid-day: in-memory ledger wiped, durable row persists ---
@@ -89,7 +88,7 @@ describe("(b) durable write-through resumes the day's cap after a restart", () =
     getDurableKv('agent:meter', fakeBackend(rows))
 
     // But this process already advanced to 4 in memory.
-    meterSpendOrThrow(4)
+    await reserveDailySpend(4)
     await hydrateMeterFromDurable()
     expect(meterSpent()).toBe(4) // max(4, 1) — not pulled down to 1
   })
