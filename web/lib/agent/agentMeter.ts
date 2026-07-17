@@ -2,10 +2,12 @@
  * @file agentMeter.ts — never-negative daily USD budget for the autonomous agent.
  *
  * Mirrors a standard in-process spend-ledger pattern (`ai_spend_daily`), keyed
- * by UTC day. The meter is the CEI **check**: {@link meterSpendOrThrow} runs before any
+ * by UTC day. The meter is the CEI **check**: {@link reserveDailySpend} runs before any
  * network effect in {@link "./payPerCall".agentPay}, so an over-cap request short-circuits
- * with zero Circle Gateway calls. Refunds (the money-safety invariant) never throw and never push the day
- * below zero.
+ * with zero Circle Gateway calls. It reserves against the DURABLE atomic row so the cap
+ * holds ACROSS instances (a per-process ledger would let each instance spend the full cap),
+ * falling back to the in-memory ledger with no DB. Refunds ({@link refundDailySpend}, the
+ * money-safety invariant) never throw and never push the day below zero.
  *
  * Server-only (doctrine guardrail #4 / #7): the cap is read from a server env var and is
  * never exposed to the browser. This module imports clean — it has no Dynamic/x402 deps —
@@ -121,36 +123,6 @@ function persist(): void {
 }
 
 /**
- * Reserve `usd` against the current UTC day's budget (IN-MEMORY only), or throw if it
- * would exceed the cap.
- *
- * ⚠️ NOT THE PRODUCTION SPEND PATH. This is the synchronous in-memory reference primitive
- * (kept for the unit/fuzz suites that pin the ledger math). It does NOT reserve against
- * the durable atomic row, so with a durable backend configured it BYPASSES the
- * cross-instance cap — N instances could each spend the full cap. Production code MUST
- * use {@link reserveDailySpend} (async, durable, cross-instance atomic). See TECH-DEBT:
- * migrate the sync tests to the async API and delete this pair.
- *
- * @param usd The non-negative USD amount to reserve.
- * @returns void
- * @throws {RangeError} if `usd` is negative or not finite.
- * @throws {BudgetExceeded} if the charge would push the day's total over the cap.
- */
-export function meterSpendOrThrow(usd: number): void {
-  if (!Number.isFinite(usd) || usd < 0) {
-    throw new RangeError(`meterSpendOrThrow: usd must be a non-negative finite number, got ${usd}`);
-  }
-  rollToToday();
-  const ledger = ledgerStore();
-  const cap = dailyCapUsd();
-  if (ledger.spent + usd > cap) {
-    throw new BudgetExceeded(ledger.spent, cap);
-  }
-  ledger.spent += usd;
-  persist();
-}
-
-/**
  * A reservation receipt. `durable` records whether the reservation hit the DURABLE
  * atomic row (vs. the in-memory fail-soft path). A refund MUST carry it back so the
  * durable decrement is applied ONLY when the matching reserve incremented the durable
@@ -251,28 +223,6 @@ export async function refundDailySpend(
     }
   }
   persist(); // no durable path (or fail-soft reserve): mirror the clamped in-memory total
-}
-
-/**
- * Restore `usd` to the current UTC day's budget (IN-MEMORY only) after a charge that did
- * not result in a delivered, paid call (law #5 — refunds are never blocked). Clamps at
- * zero so a refund can never make the meter negative, and never throws.
- *
- * ⚠️ NOT THE PRODUCTION REFUND PATH — the synchronous in-memory sibling of
- * {@link meterSpendOrThrow}; production uses {@link refundDailySpend}. See that function's
- * note and TECH-DEBT for the planned deletion of this pair.
- *
- * @param usd The USD amount to restore. Negative / non-finite values are ignored.
- * @returns void
- */
-export function meterRefund(usd: number): void {
-  if (!Number.isFinite(usd) || usd <= 0) {
-    return;
-  }
-  rollToToday();
-  const ledger = ledgerStore();
-  ledger.spent = Math.max(0, ledger.spent - usd);
-  persist();
 }
 
 /**
