@@ -12,15 +12,22 @@
  * Flow: the agent operator proves personhood once (the agent action) via
  * `/api/world/verify`; that route, on success, calls {@link unlockAgentTrial}.
  * The agent pay route then calls {@link assertAgentTrialAllowed} at the TOP of
- * the handler — a verified agent gets `AGENT_TRIAL_CALLS` free calls before the
- * meter/x402 charging kicks in; an unverified agent is blocked when the gate is
- * required.
+ * the handler — when the gate is required, an agent NOT backed by a verified human
+ * is blocked; a verified one proceeds.
+ *
+ * SCOPE (honest — this is a personhood ACCESS gate, not a free-usage meter): the
+ * only thing enforced here is "is this agent human-backed?". It is DEFENSE-IN-DEPTH
+ * behind the real boundary — the fail-closed `x-internal-secret` on the pay route —
+ * and the never-negative, durable `agentMeter` owns the ACTUAL spend budget. The
+ * `AGENT_TRIAL_CALLS` free-usage allowance ({@link agentTrialCalls}) is RESERVED
+ * config for a future free-tier; it is NOT yet enforced (wiring a real free tier
+ * means skipping the money charge for the first N calls — a money-path change), so
+ * this module does not pretend to count it.
  *
  * Enforcement is OPT-IN via `AGENT_REQUIRE_HUMAN` so existing deployments and
  * tests are unaffected by default (fail-soft — like the buyer gate, World ID is
- * never wedged onto a path that didn't ask for it). It is a pure trial GATE: it
- * never signs, holds, or moves money; the never-negative `agentMeter` still owns
- * the actual budget.
+ * never wedged onto a path that didn't ask for it). It never signs, holds, or
+ * moves money.
  */
 
 import { assertServerOnly } from '../agent/serverOnly.js'
@@ -35,20 +42,24 @@ export class HumanGateRequired extends Error {
   }
 }
 
-/** Process-lifetime trial state (mirrors agentMeter's in-process ledger). */
+/** Process-lifetime gate state: whether this agent has been proven human-backed. */
 interface AgentTrialState {
   unlocked: boolean
-  trialCallsUsed: number
 }
 
-const state: AgentTrialState = { unlocked: false, trialCallsUsed: 0 }
+const state: AgentTrialState = { unlocked: false }
 
 /** Whether the human gate is enforced (opt-in; off by default → fail-soft). */
 export function isAgentHumanGateRequired(): boolean {
   return (process.env.AGENT_REQUIRE_HUMAN ?? '').trim().toLowerCase() === 'true'
 }
 
-/** The number of free trial calls a verified-human-backed agent gets. */
+/**
+ * The configured free-tier allowance (`AGENT_TRIAL_CALLS`, default 3). RESERVED: a
+ * future free tier will grant a verified human-backed agent this many un-metered calls.
+ * NOT yet enforced by {@link assertAgentTrialAllowed} (that needs a money-path change to
+ * skip the charge) — exposed so the config reads cleanly and the future wiring has it.
+ */
 export function agentTrialCalls(): number {
   const raw = process.env.AGENT_TRIAL_CALLS
   const n = raw === undefined ? 3 : Number(raw)
@@ -69,22 +80,20 @@ export function isAgentTrialUnlocked(): boolean {
 }
 
 /**
- * The CHECK the agent pay handler runs before any network effect. When the gate
- * is required and the agent is NOT verified, throw — the route maps it to a 402
- * `HumanGateRequired`. When verified, count the call against the trial allowance
- * (informational; the never-negative meter still owns the real budget). When the
- * gate is not required, this is a no-op (existing behavior preserved).
+ * The CHECK the agent pay handler runs before any network effect. When the gate is
+ * required and the agent is NOT human-verified, throw — the route maps it to a 402
+ * `HumanGateRequired`. When verified (or when the gate is not required), it is a no-op
+ * and the request proceeds to the meter. Nothing here counts or caps calls (the meter
+ * owns the budget); it is purely the personhood admission check.
  *
- * @throws {HumanGateRequired} when required and the agent is not verified.
+ * @throws {HumanGateRequired} when required and the agent is not human-verified.
  */
 export function assertAgentTrialAllowed(): void {
   if (!isAgentHumanGateRequired()) return
   if (!state.unlocked) throw new HumanGateRequired()
-  state.trialCallsUsed += 1
 }
 
-/** Test-only: reset the trial state. NOT used in production paths. */
+/** Test-only: reset the gate state. NOT used in production paths. */
 export function __resetAgentTrialForTests(): void {
   state.unlocked = false
-  state.trialCallsUsed = 0
 }
