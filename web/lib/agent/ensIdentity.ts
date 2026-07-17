@@ -30,7 +30,7 @@
 import { getAddress, type Hex } from 'viem'
 import { normalize } from 'viem/ens'
 import { mainnetClient, resolveENS } from '../ens'
-import type { AgentIdentity } from './identity'
+import { computeAgentId, type AgentIdentity } from './identity'
 
 /** ERC-7930 version tag for the current interoperable-address format (2 bytes). */
 const ERC7930_VERSION = '0001'
@@ -215,16 +215,40 @@ export async function verifyAgentBinding(params: {
   settlementChainId: number
   rpcUrl?: string
 }): Promise<AgentBindingResult> {
+  // The identity must be internally consistent: `agentId` MUST be the keccak of
+  // (owner, delegate). Leg 1 pins the addr to `delegate` and leg 2 pins the
+  // attestation to `agentId`, independently — so a SPLICED identity
+  // `{ agentId: G, delegate: D, owner: X }` where G is not derived from D could
+  // otherwise pass both legs against mismatched halves, and "this name speaks
+  // for THIS agent" would rest on an assumption the verifier never checked.
+  // Re-derive and compare; an inconsistent identity is not a real binding.
+  // Wrapped so a malformed owner/delegate degrades to `false`, never throws
+  // (the documented no-throw contract).
+  let consistent = false
+  try {
+    consistent = computeAgentId(params.identity.owner, params.identity.delegate) === params.identity.agentId
+  } catch {
+    consistent = false
+  }
+  if (!consistent) {
+    return { addressMatches: false, registrationAttested: false, bound: false }
+  }
+
   const [addressMatches, registrationAttested] = await Promise.all([
     resolveENS(params.name, params.settlementChainId, params.rpcUrl)
       .then((addr) => getAddress(addr) === getAddress(params.identity.delegate))
       .catch(() => false),
+    // SYMMETRIC catch: the attestation read must degrade to false on any failure
+    // (an RPC/getEnsText error, or a malformed registry address that makes
+    // agentRegistrationKey throw), NOT reject out of verifyAgentBinding — the
+    // resolution leg is already caught, and the doc promises "reported, not
+    // thrown, so a partial binding is observable rather than a crash".
     verifyAgentRegistration({
       name: params.name,
       registry: params.registry,
       agentId: params.identity.agentId,
       rpcUrl: params.rpcUrl,
-    }),
+    }).catch(() => false),
   ])
   return { addressMatches, registrationAttested, bound: addressMatches && registrationAttested }
 }

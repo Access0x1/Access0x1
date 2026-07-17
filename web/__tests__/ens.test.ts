@@ -70,6 +70,17 @@ describe('toCoinType (ENSIP-11, derived not hard-coded)', () => {
     expect(toCoinType(5042002)).toBe((0x80000000 | 5042002) >>> 0);
     expect(toCoinType(5042002)).toBeGreaterThan(0);
   });
+
+  it('THROWS on an out-of-range chainId rather than mis-encoding (money-path safety)', () => {
+    // chainId >= 2^31 would wrap under the int32 `|` and collide with another
+    // chain's coinType — routing funds to the wrong address. Refuse instead.
+    expect(() => toCoinType(0x80000000)).toThrow(/out of ENSIP-11 range/);
+    expect(() => toCoinType(0x100000000)).toThrow(); // 2^32
+    expect(() => toCoinType(-1)).toThrow();
+    expect(() => toCoinType(1.5)).toThrow();
+    // The largest valid 31-bit chain id still encodes.
+    expect(toCoinType(0x7fffffff)).toBe(0xffffffff);
+  });
 });
 
 describe('ensNode', () => {

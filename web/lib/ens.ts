@@ -71,11 +71,18 @@ export class EnsResolutionError extends Error {
  * @returns The ENSIP-11 coinType for that chain.
  */
 export function toCoinType(chainId: number): number {
-  // `>>> 0` coerces the bitwise-OR result back to an UNSIGNED 32-bit integer.
-  // Plain `0x80000000 | chainId` overflows into a NEGATIVE int32 in JS (the
-  // sign bit is set), which would feed a wrong coinType into getEnsAddress and
-  // route real USDC to the wrong address. The unsigned cast is the money-path
-  // fix — ENSIP-11 coinTypes are unsigned.
+  // ENSIP-11 coinType = `0x80000000 | chainId` requires a 31-bit chain id. The
+  // bitwise `|` runs `ToInt32(chainId)` first, so a chainId >= 2^31 WRAPS and
+  // silently collides with `(chainId mod 2^31)`'s coinType — routing real USDC
+  // to a DIFFERENT chain's address. Refuse to mis-encode: an out-of-range /
+  // negative / non-integer chain id throws rather than producing a wrong
+  // coinType (money-path safety; the cosmetic reverse path catches this to null).
+  if (!Number.isInteger(chainId) || chainId < 0 || chainId >= 0x80000000) {
+    throw new Error(`toCoinType: chainId out of ENSIP-11 range (0..2^31-1): ${chainId}`);
+  }
+  // `>>> 0` coerces the bitwise-OR result back to an UNSIGNED 32-bit integer
+  // (the sign bit is set, so a plain `|` reads NEGATIVE in JS). ENSIP-11
+  // coinTypes are unsigned.
   return (0x80000000 | chainId) >>> 0;
 }
 
@@ -319,11 +326,13 @@ export async function verifiedPrimaryName(
   const resolver = universalResolverAddress();
   if (!resolver) return null; // unconfigured / invalid resolver ⇒ fail soft.
 
-  // ENSIP-11 coinType: 60 for mainnet (chain id 1), else the derived L2 value.
-  const coinType =
-    chainId === MAINNET_CHAIN_ID ? 60n : BigInt(toCoinType(chainId));
-
   try {
+    // ENSIP-11 coinType: 60 for mainnet (chain id 1), else the derived L2 value.
+    // Inside the try so an out-of-range chainId (toCoinType throws) degrades to
+    // null — the reverse/cosmetic path NEVER throws (it only ever shows or hides
+    // a name), unlike the forward money path which fails loud.
+    const coinType = chainId === MAINNET_CHAIN_ID ? 60n : BigInt(toCoinType(chainId));
+
     const client = mainnetClient(rpcUrl);
     const [name, resolvedAddress] = await client.readContract({
       address: resolver,

@@ -173,4 +173,31 @@ describe('verifyAgentBinding — the bidirectional check', () => {
     })
     expect(r).toEqual({ addressMatches: false, registrationAttested: true, bound: false })
   })
+
+  it('does NOT throw when the attestation read fails — registrationAttested degrades to false (F3)', async () => {
+    // The attestation leg (getEnsText) rejecting must not reject out of
+    // verifyAgentBinding — its documented contract is report-not-throw.
+    ;(resolveENS as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(DELEGATE)
+    ;(mainnetClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      getEnsText: vi.fn().mockRejectedValue(new Error('rpc down')),
+    })
+    const r = await verifyAgentBinding({
+      name: 'agent.access0x1.eth', identity, registry: ERC8004_MAINNET_REGISTRY, settlementChainId: 8453,
+    })
+    expect(r).toEqual({ addressMatches: true, registrationAttested: false, bound: false })
+  })
+
+  it('bound=false for a spliced identity whose agentId is not derived from (owner, delegate) (F2)', async () => {
+    // A consistent identity would pass; forge the agentId to a value not derived
+    // from the delegate. Even if the name resolves to the delegate AND attests
+    // that forged agentId, the binding is not real — the identity is internally
+    // inconsistent, so bound must be false without any network trust.
+    const spliced = { ...identity, agentId: ('0x' + 'ab'.repeat(32)) as `0x${string}` }
+    ;(resolveENS as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(DELEGATE)
+    mockGetEnsText('1')
+    const r = await verifyAgentBinding({
+      name: 'agent.access0x1.eth', identity: spliced, registry: ERC8004_MAINNET_REGISTRY, settlementChainId: 8453,
+    })
+    expect(r).toEqual({ addressMatches: false, registrationAttested: false, bound: false })
+  })
 })
