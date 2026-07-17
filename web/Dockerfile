@@ -3,8 +3,8 @@
 # =============================================================================
 # Access0x1 web app — production image for Google Cloud Run.
 #
-# The PUBLIC rail runs on GCP (Cloud Run), fully decoupled from the AWS private
-# fleet. This builds the standalone Next.js bundle (`output: 'standalone'` in
+# The PUBLIC rail runs on GCP (Cloud Run), fully self-contained. This builds the
+# standalone Next.js bundle (`output: 'standalone'` in
 # next.config.ts) and runs `node server.js`, which listens on $PORT — the port
 # Cloud Run injects at runtime (do NOT hardcode 3000).
 #

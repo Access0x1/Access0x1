@@ -52,7 +52,7 @@ const LABEL_ID_HEX_CHARS = 16
  *
  * Why a prefix and not the full hash: an ENS label caps at 63 chars and `agent-` +
  * 64 hex chars is 70. 16 hex chars (64 bits) keeps the label short and readable while
- * making an accidental collision unrealistic at any plausible fleet size; the FULL
+ * making an accidental collision unrealistic at any plausible number of agents; the FULL
  * agentId is still on the name twice over — in the `com.access0x1.agentId` record and
  * inside the ENSIP-25 key — so the label is a handle, never the identity itself.
  *

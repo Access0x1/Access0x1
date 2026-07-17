@@ -11,7 +11,7 @@ dataSources:
     # Base Sepolia is a Graph-supported network; Arc (5042002) is not indexed by
     # The Graph today, so the open analytics layer targets the Base Sepolia router.
     # Retargeted 2026-07-11 from the pre-mirror router 0xec89…8e57 to the CREATE3
-    # MIRROR router — the same address on every chain, and the one the fleet now
+    # MIRROR router — the same address on every chain, and the one Access0x1 now
     # registers merchants + settles payments on (live since 2026-07-08).
     network: base-sepolia
     source:

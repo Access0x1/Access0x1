@@ -98,9 +98,22 @@ run_grep() {
 findings=0
 
 # --- Internal/private brands that must never appear in this public repo. -------
-# "Rensley" and "Access0x1" are the allowed public identities and are NOT scanned.
+# "Access0x1" is the allowed public identity and is NOT scanned. `nfteria` is
+# named explicitly by the project doctrine as a brand that never enters this
+# repo, so it leads the list; the rest are sibling internal apps. This scanner
+# (and the opsec workflow) hold the denylist itself and are dropped from the
+# scan set via SELF_EXCLUDE above, so listing the words here never self-matches.
 run_grep "internal-brand" \
-  '(githat|sebastn|clickreserv|quantl|colmado)' \
+  '(nfteria|githat|sebastn|clickreserv|quantl|colmado|rebato|palindrone|hemiai|realsley|allfans)' \
+  && findings=$((findings + 1))
+
+# --- Internal-operation vocabulary. The private multi-app operation behind this
+# public repo is "the fleet"; strategy scratch lives in "the war room". Neither
+# word belongs in public content — they reveal that a larger private operation
+# exists. Scanned as the loaded phrases (not bare "fleet", which is generic
+# English) so a legitimate "fleet of nodes" never false-positives.
+run_grep "internal-op" \
+  '(the fleet|private[ -]fleet|war[ _-]?room)' \
   && findings=$((findings + 1))
 
 # --- Hardcoded secret literals. -----------------------------------------------
