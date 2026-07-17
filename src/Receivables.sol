@@ -111,11 +111,18 @@ contract Receivables is
     /// @notice The collection-level metadata URI (EIP-7572 `contractURI`). Set by the upgrade admin.
     string private _contractURI;
 
+    /// @notice tokenId ⇒ whether the receivable has been FACTORED (moved holder→holder on the secondary
+    ///         market). Set by the {_update} hook; checked by {cancel}. Once a receivable is sold, the
+    ///         claim is firm and the issuer can no longer void it — otherwise `cancel` would burn a
+    ///         third party's purchased claim with no refund. Sticky: never cleared once set.
+    mapping(uint256 tokenId => bool) private _factored;
+
     /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
     ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
     ///      one slot from the head of this gap; shrink `__gap` by exactly the number of slots added so
     ///      the total stays 50. NEVER reorder or insert a variable above this gap — only append.
-    uint256[50] private __gap;
+    ///      (`_factored` consumed one slot → 49.)
+    uint256[49] private __gap;
 
     /// @dev The implementation is the logic half of a UUPS pair; its OWN storage is never used in
     ///      production (the proxy holds state). `_disableInitializers()` burns the implementation's
@@ -391,6 +398,11 @@ contract Receivables is
         if (msg.sender != merchantOwner) {
             revert Receivables__NotMerchantOwner(r.merchantId, msg.sender);
         }
+        // A FACTORED receivable (sold to a secondary holder) is a firm claim: the issuer can no longer
+        // void it, or this burn would destroy the factor's purchased NFT with zero refund while the
+        // issuer keeps the sale proceeds and re-collects the debt. Mirrors the pay()/payNative() conduit
+        // re-check's "grief, never STEAL" principle — the issuer may void ONLY what it has not sold.
+        if (_factored[tokenId]) revert Receivables__AlreadyFactored(tokenId);
 
         r.status = Status.CANCELLED;
         _burn(tokenId);
@@ -471,6 +483,11 @@ contract Receivables is
     }
 
     /// @inheritdoc IReceivables
+    function isFactored(uint256 tokenId) external view returns (bool) {
+        return _factored[tokenId];
+    }
+
+    /// @inheritdoc IReceivables
     function nextTokenId() external view returns (uint256) {
         return _nextTokenId;
     }
@@ -492,6 +509,28 @@ contract Receivables is
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+    /// @notice ERC-721 transfer hook — flags a receivable as FACTORED the moment it moves between two
+    ///         real holders (a secondary-market sale), which locks {cancel} out (a sold claim is firm).
+    /// @dev    `from == address(0)` is the mint and `to == address(0)` is the burn (cancel/settle);
+    ///         neither is a factoring transfer, so ONLY a holder→holder move sets the flag. The flag is
+    ///         sticky (never cleared), so a receivable that round-trips back to its initial creditor
+    ///         still cannot be voided — conservative by design: any secondary movement makes it firm.
+    /// @param  to      The recipient (zero on burn).
+    /// @param  tokenId The receivable moving.
+    /// @param  auth    The address the ERC-721 base authorizes the move against.
+    /// @return from    The previous holder (zero on mint), per the ERC-721 base.
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721Upgradeable)
+        returns (address)
+    {
+        address from = super._update(to, tokenId, auth);
+        if (from != address(0) && to != address(0)) {
+            _factored[tokenId] = true;
+        }
+        return from;
     }
 
     /*//////////////////////////////////////////////////////////////
