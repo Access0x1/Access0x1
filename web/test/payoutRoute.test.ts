@@ -105,6 +105,44 @@ describe("POST /api/payout (handlePayout)", () => {
     expect(deps.shieldAndWithdraw).not.toHaveBeenCalled();
   });
 
+  it("403 when a verified NON-OWNER session tries to redirect the merchant payout (drain)", async () => {
+    // The payout account owner is configured via env; the funds are the MERCHANT's.
+    // A different verified session (any signed-in buyer) must not move them — even
+    // though it is authenticated — or it could withdraw to its own address.
+    process.env.UNLINK_PAYOUT_USER_ID = USER_ID; // the merchant owns the payout account
+    try {
+      const { deps } = makeDeps({
+        // A totally different verified user — an ordinary buyer, not the merchant.
+        resolveVerifiedUserId: vi.fn(async () => ({ userId: "dyn|sub-RANDOM-BUYER", verified: true })),
+      });
+      const res = await handlePayout(
+        req({ amountUsd: 4.2, depositAmountUsd: 50, destination: VALID_DEST }),
+        deps,
+      );
+      expect(res.status).toBe(403);
+      // No funds path was entered.
+      expect(deps.ensureRegistered).not.toHaveBeenCalled();
+      expect(deps.shieldAndWithdraw).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.UNLINK_PAYOUT_USER_ID;
+    }
+  });
+
+  it("200 when the verified OWNER (userId == the configured payout id) withdraws", async () => {
+    process.env.UNLINK_PAYOUT_USER_ID = USER_ID;
+    try {
+      const { deps } = makeDeps();
+      const res = await handlePayout(
+        req({ amountUsd: 4.2, depositAmountUsd: 50, destination: VALID_DEST, userId: USER_ID }),
+        deps,
+      );
+      expect(res.status).toBe(200);
+      expect(deps.shieldAndWithdraw).toHaveBeenCalled();
+    } finally {
+      delete process.env.UNLINK_PAYOUT_USER_ID;
+    }
+  });
+
   it("401 when identity resolution fails (no/invalid token)", async () => {
     const { deps } = makeDeps({
       resolveVerifiedUserId: vi.fn(async () => {
