@@ -39,6 +39,7 @@ import {
   FEATURED_DESCRIPTION_ENV,
   FEATURED_BRAND_COLOR_ENV,
   FEATURED_MERCHANT_ID_ENV,
+  FEATURED_MERCHANT_CHAIN_ID_ENV,
   FEATURED_CHECKOUT_MODE_ENV,
 } from '../seed.js'
 import {
@@ -141,6 +142,36 @@ describe('readFeaturedMerchantInput — env gating (pure)', () => {
       [FEATURED_MERCHANT_ID_ENV]: '-5',
     })
     expect(input!.merchantId).toBeNull()
+  })
+
+  it('sets merchantChainId when FEATURED_MERCHANT_CHAIN_ID is a settlement chain', () => {
+    // 84532 (Base Sepolia) is a supported, mirror-routed settlement chain — so a
+    // featured merchant on it settles on 84532, not the app default (wave-4 parity).
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_MERCHANT_ID_ENV]: '1',
+      [FEATURED_MERCHANT_CHAIN_ID_ENV]: '84532',
+    })
+    expect(input!.merchantChainId).toBe(84532)
+  })
+
+  it('leaves merchantChainId null when FEATURED_MERCHANT_CHAIN_ID is absent (default fallback)', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_MERCHANT_ID_ENV]: '1',
+    })
+    expect(input!.merchantChainId).toBeNull()
+  })
+
+  it('leaves merchantChainId null when FEATURED_MERCHANT_CHAIN_ID is not a settlement chain', () => {
+    const input = readFeaturedMerchantInput({
+      [FEATURED_SLUG_ENV]: SLUG,
+      [FEATURED_NAME_ENV]: NAME,
+      [FEATURED_MERCHANT_CHAIN_ID_ENV]: '999999', // unsupported ⇒ never pinned to a bad chain
+    })
+    expect(input!.merchantChainId).toBeNull()
   })
 
   it('sets checkoutMode from FEATURED_MERCHANT_CHECKOUT_MODE when valid', () => {

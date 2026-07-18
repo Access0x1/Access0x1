@@ -29,6 +29,7 @@
 import { monogramSvg, normalizeBrandColor, DEFAULT_BRAND_COLOR } from './logo.js';
 import type { BrandingInput, TenantBranding } from './store.js';
 import { asCheckoutMode } from './store.js';
+import { isSettlementChain } from '../chains.js';
 
 /**
  * The minimal env shape the seed reads — a plain string map. Wider than (and
@@ -52,6 +53,16 @@ export const FEATURED_BRAND_COLOR_ENV = 'FEATURED_MERCHANT_BRAND_COLOR';
  * absent or not a positive integer.
  */
 export const FEATURED_MERCHANT_ID_ENV = 'FEATURED_MERCHANT_MERCHANT_ID';
+/**
+ * Optional chain id the featured merchant registered `merchantId` on. When set to
+ * a valid settlement chain, the seeded row carries it as `merchantChainId` so the
+ * branded slug settles on the merchant's REAL chain — NOT the app's build-time
+ * default. Without this, a featured merchant registered off the default chain
+ * would resolve a same-id merchant on the default chain (the wave-4 slug-redirect
+ * class); parity with the interactive attach-on-chain path. Ignored when absent or
+ * not a settlement chain (⇒ merchantChainId null ⇒ default fallback).
+ */
+export const FEATURED_MERCHANT_CHAIN_ID_ENV = 'FEATURED_MERCHANT_CHAIN_ID';
 /**
  * Optional checkout-mode env var (one of 'standard' | 'verified-human' |
  * 'private'). Defaults to 'standard' when unset or unrecognised — which is
@@ -94,6 +105,14 @@ export function readFeaturedMerchantInput(
       ? String(parsedMerchantId)
       : null;
 
+  // Parse FEATURED_MERCHANT_CHAIN_ID: the chain the featured merchant registered
+  // on. Kept ONLY when it is a real settlement chain (else null ⇒ default fallback),
+  // so the seed can never pin the slug to a bad/unroutable chain. This is what lets
+  // a featured merchant on a NON-default chain settle correctly (wave-4 parity).
+  const rawChainId = (env[FEATURED_MERCHANT_CHAIN_ID_ENV] ?? '').trim();
+  const parsedChainId = rawChainId ? Number(rawChainId) : NaN;
+  const merchantChainId: number | null = isSettlementChain(parsedChainId) ? parsedChainId : null;
+
   // Parse FEATURED_MERCHANT_CHECKOUT_MODE; asCheckoutMode defaults to 'standard'.
   const checkoutMode = asCheckoutMode(env[FEATURED_CHECKOUT_MODE_ENV]);
 
@@ -104,6 +123,7 @@ export function readFeaturedMerchantInput(
     checkoutSlug: slug,
     brandColor,
     merchantId,
+    merchantChainId,
     checkoutMode,
     // The skip-logo default: a monogram from the name on the brand color. The
     // Snap/checkout always have something to render — no asset upload needed.
