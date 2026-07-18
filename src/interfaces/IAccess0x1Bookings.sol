@@ -210,10 +210,13 @@ interface IAccess0x1Bookings {
     /// @return The full {Reservation} record (zeroed if it never existed).
     function reservationOf(uint256 id) external view returns (Reservation memory);
 
-    /// @notice Whether `slotKey` is free to reserve right now.
+    /// @notice Whether `slotKey` is free to reserve right now FOR A GIVEN MERCHANT. Occupancy is
+    ///         namespaced by merchant (tenancy isolation), so the same `slotKey` may be free for one
+    ///         merchant and taken for another.
+    /// @param merchantId The router merchant whose calendar to check.
     /// @param slotKey The opaque slot key.
-    /// @return True if no occupying (HELD/CONFIRMED) reservation holds the slot.
-    function isSlotFree(bytes32 slotKey) external view returns (bool);
+    /// @return True if no occupying (HELD/CONFIRMED) reservation holds that merchant's slot.
+    function isSlotFree(uint256 merchantId, bytes32 slotKey) external view returns (bool);
 
     /// @notice The token amount currently escrowed across all live reservations for `token`. Equals the
     ///         contract's backing balance of `token` (the conservation invariant).

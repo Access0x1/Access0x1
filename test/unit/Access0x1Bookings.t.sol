@@ -199,8 +199,8 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         assertEq(escrow, expectedEscrow);
         assertEq(usdc.balanceOf(address(bookings)), escrow);
         assertEq(bookings.escrowedOf(address(usdc)), escrow);
-        assertEq(bookings.occupant(SLOT_KEY), id);
-        assertFalse(bookings.isSlotFree(SLOT_KEY));
+        assertEq(bookings.occupant(merchantId, SLOT_KEY), id);
+        assertFalse(bookings.isSlotFree(merchantId, SLOT_KEY));
 
         IAccess0x1Bookings.Reservation memory r = bookings.reservationOf(id);
         assertEq(uint8(r.status), uint8(IAccess0x1Bookings.RStatus.HELD));
@@ -409,7 +409,7 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.CONFIRMED)
         );
         // CONFIRMED still occupies the slot.
-        assertEq(bookings.occupant(SLOT_KEY), id);
+        assertEq(bookings.occupant(merchantId, SLOT_KEY), id);
     }
 
     function test_confirmOnlyMerchantOwner() public {
@@ -461,7 +461,7 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.COMPLETED)
         );
-        assertTrue(bookings.isSlotFree(SLOT_KEY)); // slot freed for reuse
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY)); // slot freed for reuse
     }
 
     function test_completeRefundsSurplusWhenTokenAppreciates() public {
@@ -514,7 +514,7 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.EXPIRED)
         );
-        assertTrue(bookings.isSlotFree(SLOT_KEY));
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY));
     }
 
     function test_expireHoldRevertsBeforeDeadline() public {
@@ -549,7 +549,7 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.EXPIRED)
         );
-        assertTrue(bookings.isSlotFree(SLOT_KEY));
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY));
     }
 
     /// @notice O-2: a third party (not the payer, not the merchant owner) CANNOT expire a hold, even
@@ -569,7 +569,7 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
 
         // The slot is still HELD — the griefer could not cycle it.
         assertEq(uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.HELD));
-        assertFalse(bookings.isSlotFree(SLOT_KEY));
+        assertFalse(bookings.isSlotFree(merchantId, SLOT_KEY));
     }
 
     function test_expireRefundToBlocklistedPayerGoesToRescue() public {
@@ -644,7 +644,7 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.CANCELLED)
         );
-        assertTrue(bookings.isSlotFree(SLOT_KEY));
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY));
     }
 
     function test_cancelLateTakesFeeThroughSplit() public {
@@ -720,7 +720,7 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.CANCELLED)
         );
-        assertTrue(bookings.isSlotFree(SLOT_KEY));
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -749,7 +749,7 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.NO_SHOW)
         );
-        assertTrue(bookings.isSlotFree(SLOT_KEY));
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY));
     }
 
     function test_noShowOnlyMerchantOwner() public {
@@ -925,12 +925,12 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         (uint256 id1,) = _reserve(SLOT_KEY, keccak256("n1"));
         vm.prank(payer);
         bookings.cancel(id1, IAccess0x1Bookings.ActorType.PAYER);
-        assertTrue(bookings.isSlotFree(SLOT_KEY));
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY));
 
         // Re-reserve the same slot — must succeed now.
         (uint256 id2,) = _reserve(SLOT_KEY, keccak256("n2"));
         assertEq(id2, 2);
-        assertEq(bookings.occupant(SLOT_KEY), id2);
+        assertEq(bookings.occupant(merchantId, SLOT_KEY), id2);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1093,7 +1093,7 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         assertEq(address(bookings.router()), address(router));
         assertEq(address(bookings.sessionGrant()), address(sessionGrant));
         assertEq(bookings.escrowedOf(address(usdc)), escrow);
-        assertEq(bookings.occupant(SLOT_KEY), id);
+        assertEq(bookings.occupant(merchantId, SLOT_KEY), id);
         assertEq(uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.HELD));
         assertEq(bookings.reservationOf(id).escrowAmount, escrow);
         assertEq(bookings.owner(), admin); // upgrade admin unchanged

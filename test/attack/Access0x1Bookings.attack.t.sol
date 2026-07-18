@@ -267,7 +267,7 @@ contract Access0x1BookingsAttackTest is Test, ProxyDeployer {
             HOLD_SECS,
             keccak256("n3")
         );
-        assertEq(bookings.occupant(SLOT_KEY), id2);
+        assertEq(bookings.occupant(merchantId, SLOT_KEY), id2);
     }
 
     /// @dev Push the feed > 1h stale so the in-tx re-quote on a resolution leg reverts inside the
@@ -343,6 +343,49 @@ contract Access0x1BookingsAttackTest is Test, ProxyDeployer {
         assertEq(usdc.balanceOf(address(bookings)), 0);
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.COMPLETED)
+        );
+    }
+
+    /// @notice ATTACK: CROSS-MERCHANT slot squatting. `occupant` must be namespaced by merchant, so an
+    ///         attacker who registers their OWN merchant CANNOT block a victim merchant's slot by
+    ///         reserving the same public `slotKey`. Before the fix `occupant` was a single global map
+    ///         keyed by `slotKey` alone: a ~free reserve under the attacker's merchant set
+    ///         occupant[victimSlotKey] and the victim merchant's real customers reverted SlotTaken with
+    ///         no on-chain recourse (a permanent cross-tenant DoS). Post-fix the two merchants' calendars
+    ///         are independent — both reservations succeed and neither collides.
+    function test_attack_crossMerchantSlotSquatBlocked() public {
+        address attacker = makeAddr("attacker");
+        // The attacker registers their OWN router merchant — permissionless, ~free (just gas).
+        vm.prank(attacker);
+        uint256 attackerMerchant = router.registerMerchant(attacker, attacker, 0, keccak256("atk"));
+        usdc.mint(attacker, 1_000e6);
+        vm.prank(attacker);
+        usdc.approve(address(bookings), type(uint256).max);
+
+        // The attacker reserves the VICTIM merchant's public slotKey UNDER THE ATTACKER'S merchant, with
+        // a ~10-year hold for a $1 dust deposit. This is legal (it's the attacker's own calendar) but
+        // MUST NOT touch the victim merchant's occupancy namespace.
+        vm.prank(attacker);
+        uint256 squatId = bookings.reserve(
+            attackerMerchant,
+            SLOT_KEY, // the victim merchant's slot identity
+            SLOT_TS,
+            address(usdc),
+            1e8, // $1 dust
+            0,
+            _policy(),
+            3650 days, // ~10y — un-freeable by anyone but the attacker
+            keccak256("squat")
+        );
+        assertGt(squatId, 0);
+
+        // The victim merchant's genuine customer can STILL book the SAME slotKey under the victim
+        // merchant — occupancy is per-merchant, so there is no collision and no DoS.
+        uint256 legitId = _reserve(keccak256("legit"));
+        assertGt(legitId, 0);
+        assertTrue(legitId != squatId);
+        assertEq(
+            uint8(bookings.reservationOf(legitId).status), uint8(IAccess0x1Bookings.RStatus.HELD)
         );
     }
 }

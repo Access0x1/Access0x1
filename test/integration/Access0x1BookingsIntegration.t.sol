@@ -256,7 +256,7 @@ contract Access0x1BookingsIntegrationTest is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.COMPLETED)
         );
-        assertTrue(bookings.isSlotFree(SLOT_KEY), "slot not freed for reuse");
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY), "slot not freed for reuse");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -301,7 +301,7 @@ contract Access0x1BookingsIntegrationTest is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.CANCELLED)
         );
-        assertTrue(bookings.isSlotFree(SLOT_KEY), "slot not freed after stale cancel");
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY), "slot not freed after stale cancel");
     }
 
     /// @notice Law #5 on the no-show leg through the wired stack: a CONFIRMED booking is marked a no-show
@@ -371,6 +371,6 @@ contract Access0x1BookingsIntegrationTest is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.CANCELLED)
         );
-        assertTrue(bookings.isSlotFree(SLOT_KEY), "slot not freed after session cancel");
+        assertTrue(bookings.isSlotFree(merchantId, SLOT_KEY), "slot not freed after session cancel");
     }
 }
