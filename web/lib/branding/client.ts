@@ -73,6 +73,12 @@ export async function saveCheckoutMode(input: {
 export async function attachOnChain(input: {
   tenantId: string
   merchantId: string
+  /**
+   * The chain the merchant registered `merchantId` on (the wallet's live chain at
+   * registration). SECURITY: the branded slug settles on THIS chain, so passing it
+   * is what binds the slug to the merchant's real chain instead of the app default.
+   */
+  chainId: number
 }): Promise<{ ok: true; branding: ClientBranding } | { ok: false; error: string; code?: string }> {
   try {
     const res = await fetch('/api/branding/attach-onchain', {
