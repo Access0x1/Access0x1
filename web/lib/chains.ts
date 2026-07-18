@@ -352,6 +352,43 @@ export function getRouterAddress(chainId: number): Address {
 }
 
 /**
+ * Resolve the checkout settlement chain from an (optional, UNTRUSTED) `?chainId=`
+ * link param, falling back to {@link getDefaultChainId}.
+ *
+ * The hosted checkout is otherwise pinned to the ONE build-time default chain
+ * ({@link getDefaultChainId}), so a merchant registered on a NON-default mirror
+ * chain (e.g. the live `active` merchant #1 on Base Sepolia 84532, while the
+ * default is Arc) is unreachable by URL. A payment link may carry the chain —
+ * `/m/1?chainId=84532` — and this resolves it. The `/api/quote` route is already
+ * chain-parameterized, so this only closes the gap on the page side.
+ *
+ * SECURITY: the param is attacker-controllable, so it is VALIDATED, never trusted.
+ * It is honored ONLY when it names a SUPPORTED chain that resolves a router
+ * (`getRouterAddress` succeeds — a mirror or env address). Anything else
+ * (non-numeric, unsupported, or router-less) silently falls back to the default:
+ * it never throws to the UI and never points the checkout at a wrong/unconfigured
+ * chain (law #4).
+ *
+ * @param param the raw `?chainId=` query value (string | null | undefined)
+ * @returns a checkout-usable chain id — the validated param, else the default
+ */
+export function resolveCheckoutChainId(param: string | null | undefined): number {
+  const fallback = getDefaultChainId()
+  if (param == null || param.trim() === '') return fallback
+  const id = Number(param)
+  if (!Number.isInteger(id) || id <= 0) return fallback
+  // Must be a chain the app knows AND one that resolves a router (mirror or env);
+  // otherwise there is nothing to pay against — fall back, never a wrong chain.
+  if (!SUPPORTED_CHAINS.some((c) => c.id === id)) return fallback
+  try {
+    getRouterAddress(id)
+  } catch {
+    return fallback
+  }
+  return id
+}
+
+/**
  * Resolve the allowlisted USDC address for a chain from
  * `NEXT_PUBLIC_USDC_ADDRESS_<chainId>`. Throws on a missing config.
  *
