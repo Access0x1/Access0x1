@@ -201,6 +201,11 @@
     "name": "isSlotFree",
     "inputs": [
       {
+        "name": "merchantId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "slotKey",
         "type": "bytes32",
         "internalType": "bytes32"
@@ -264,6 +269,11 @@
     "type": "function",
     "name": "occupant",
     "inputs": [
+      {
+        "name": "merchantId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "slotKey",
         "type": "bytes32",
