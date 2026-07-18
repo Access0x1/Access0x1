@@ -100,17 +100,26 @@ contract GaslessPayIn is
     ///         an `immutable` lives in the implementation bytecode. Effectively immutable per proxy.
     Access0x1Router public routerContract;
 
-    /// @notice PERMIT-rail single-use order ledger: `orderId ⇒ settled`. The ONLY new persistent state in
-    ///         this contract, and it exists solely to defeat the residual-allowance re-pull on the 2612 /
-    ///         7597 rails. A permit sets a plain token ALLOWANCE of `value`; after a pull of `gross < value`
-    ///         the `value − gross` residual still satisfies `safeTransferFrom`, so — even with the
-    ///         {PayInIntent} co-signature — a relayer could otherwise replay the SAME bound intent to drain
-    ///         the residual to the (correct) merchant repeatedly. Marking `orderId` used BEFORE routing
-    ///         (CEI) makes each bound order settle at most once, so no residual re-pull has an unused
-    ///         intent. The 3009 rail needs no entry here — its structured, token-single-use nonce already
-    ///         binds and one-shots the pull. Appended below `routerContract`; consumes exactly one slot
-    ///         from `__gap` (50 → 49). {EIP712Upgradeable} adds NO linear storage (ERC-7201 namespaced).
-    mapping(bytes32 orderId => bool settled) private _orderUsed;
+    /// @notice PERMIT-rail single-use order ledger, keyed by `keccak256(merchantId, orderId)` ⇒ settled.
+    ///         The ONLY new persistent state in this contract; it exists solely to defeat the
+    ///         residual-allowance re-pull on the 2612 / 7597 rails. A permit sets a plain token ALLOWANCE
+    ///         of `value`; after a pull of `gross < value` the `value − gross` residual still satisfies
+    ///         `safeTransferFrom`, so — even with the {PayInIntent} co-signature — a relayer could
+    ///         otherwise replay the SAME bound intent to drain the residual to the (correct) merchant
+    ///         repeatedly. Marking the order used BEFORE routing (CEI) makes each bound order settle at
+    ///         most once, so no residual re-pull has an unused intent.
+    ///
+    ///         TENANCY ISOLATION (security): the key is NAMESPACED BY MERCHANT (via {_orderKey}), like the
+    ///         sibling {Refunds}. `orderId` is a public, buyer-supplied 32-byte value with NO global
+    ///         uniqueness enforced by the router, so a GLOBAL `orderId ⇒ bool` map would let any party —
+    ///         who can register their own merchant for gas and settle a ~1-wei self pay-in — pre-consume
+    ///         an `orderId` and brick EVERY other merchant's permit-rail pay-in bearing the same id
+    ///         (a cross-tenant griefing DoS; two honest merchants could also collide). Keying by
+    ///         (merchantId, orderId) keeps each merchant's order ledger independent while still one-shotting
+    ///         a given merchant's order. The 3009 rail needs no entry here — its structured, token-single-use
+    ///         nonce already binds and one-shots the pull. Appended below `routerContract`; consumes exactly
+    ///         one slot from `__gap` (50 → 49). {EIP712Upgradeable} adds NO linear storage (ERC-7201 namespaced).
+    mapping(bytes32 orderKey => bool settled) private _orderUsed;
 
     /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
     ///      above (UUPS storage-collision safety). Each new variable added in a later version consumes
@@ -398,8 +407,18 @@ contract GaslessPayIn is
             revert GaslessPayIn__IntentSignatureInvalid();
         }
 
-        if (_orderUsed[orderId]) revert GaslessPayIn__OrderReplay(orderId);
-        _orderUsed[orderId] = true;
+        // Namespaced by merchant (tenancy isolation): this one-shots THIS merchant's order, and never
+        // lets another merchant's identical orderId collide or be pre-consumed. See {_orderUsed}/{_orderKey}.
+        bytes32 orderKey = _orderKey(merchantId, orderId);
+        if (_orderUsed[orderKey]) revert GaslessPayIn__OrderReplay(orderId);
+        _orderUsed[orderKey] = true;
+    }
+
+    /// @dev The order ledger key: `keccak256(merchantId, orderId)`. Namespaces the single-use order flag by
+    ///      merchant so a public, buyer-supplied `orderId` can never collide or be squatted across tenants
+    ///      (mirrors {Refunds}._refundKey — the same business-meaning addressing, not a global counter).
+    function _orderKey(uint256 merchantId, bytes32 orderId) private pure returns (bytes32) {
+        return keccak256(abi.encode(merchantId, orderId));
     }
 
     /// @dev EIP-712 digest of a {PayInIntent} over this contract's domain. Shared by the external
