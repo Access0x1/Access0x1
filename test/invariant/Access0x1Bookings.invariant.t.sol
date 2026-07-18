@@ -130,8 +130,8 @@ contract Access0x1BookingsInvariant is StdInvariant, Test, ProxyDeployer {
     /// @notice Invariant 6 — tenant/slot isolation: the canary keeps its slot for its whole life (no
     ///         other reservation's transition ever freed or stole it), and its escrow is untouched.
     function invariant_canarySlotIsolation() public view {
-        assertEq(bookings.occupant(handler.CANARY_SLOT()), handler.canaryId());
-        assertFalse(bookings.isSlotFree(handler.CANARY_SLOT()));
+        assertEq(bookings.occupant(merchantId, handler.CANARY_SLOT()), handler.canaryId());
+        assertFalse(bookings.isSlotFree(merchantId, handler.CANARY_SLOT()));
     }
 
     /// @notice Invariant 3 (soundness) — the escrow ledger never overcounts the real backing: the

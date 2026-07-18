@@ -158,7 +158,9 @@ contract Access0x1BookingsFuzz is Test, ProxyDeployer {
         assertEq(payerBefore - usdc.balanceOf(payer), expected, "payer not debited exactly escrow");
 
         // Slot + nonce consumed; the booking is HELD and occupies its slot.
-        assertEq(bookings.occupant(slotSeed), id, "slot not occupied by this reservation");
+        assertEq(
+            bookings.occupant(merchantId, slotSeed), id, "slot not occupied by this reservation"
+        );
         assertTrue(
             bookings.nonceUsed(keccak256(abi.encode("nonce", depositSeed, slotSeed))),
             "nonce not consumed"
@@ -215,7 +217,9 @@ contract Access0x1BookingsFuzz is Test, ProxyDeployer {
         assertEq(
             uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.EXPIRED)
         );
-        assertTrue(bookings.isSlotFree(keccak256("expire-slot")), "slot not freed after expiry");
+        assertTrue(
+            bookings.isSlotFree(merchantId, keccak256("expire-slot")), "slot not freed after expiry"
+        );
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -177,7 +177,8 @@ contract SalonBookingScenarioTest is Test, ProxyDeployer {
         assertEq(bookings.escrowedOf(address(usdc)), 0, "escrow ledger drained to zero");
         assertEq(usdc.balanceOf(address(bookings)), 0, "contract holds no leftover escrow");
         assertTrue(
-            bookings.isSlotFree(keccak256("chair-1@friday-2pm")), "slot freed for re-booking"
+            bookings.isSlotFree(merchantId, keccak256("chair-1@friday-2pm")),
+            "slot freed for re-booking"
         );
 
         IAccess0x1Bookings.Reservation memory r = bookings.reservationOf(id);

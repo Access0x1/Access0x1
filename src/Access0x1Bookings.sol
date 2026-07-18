@@ -102,10 +102,20 @@ contract Access0x1Bookings is
     ///         only carries the id) can free the slot. Immutable after {reserve}.
     mapping(uint256 id => bytes32 slotKey) private _slotKeyOf;
 
-    /// @notice slotKey ⇒ the reservation id occupying it. A slot is "occupied" only while its
-    ///         reservation is HELD or CONFIRMED; a terminal transition clears it back to 0 so the slot
-    ///         is reusable. 0 is the free sentinel (reservation ids start at 1).
-    mapping(bytes32 slotKey => uint256 reservationId) public occupant;
+    /// @notice (merchantId, slotKey) ⇒ the reservation id occupying that merchant's slot. A slot is
+    ///         "occupied" only while its reservation is HELD or CONFIRMED; a terminal transition clears
+    ///         it back to 0 so the slot is reusable. 0 is the free sentinel (reservation ids start at 1).
+    ///
+    ///         TENANCY ISOLATION (security): occupancy is namespaced BY MERCHANT. `slotKey` is a public,
+    ///         deterministic, caller-supplied slot identity, so a GLOBAL `slotKey ⇒ id` map would let an
+    ///         attacker — who can register their OWN merchant for gas (permissionless registry) and
+    ///         reserve permissionlessly — pin `occupant[victimSlotKey]` under their own merchant with a
+    ///         ~free, near-unbounded hold, permanently DoSing the VICTIM merchant's slot (whose real
+    ///         customers would then revert `SlotTaken` with no on-chain recourse). Keying by
+    ///         (merchantId, slotKey) keeps each merchant's calendar independent — two merchants may hold
+    ///         the same `slotKey` at once, and neither can touch the other's occupancy.
+    mapping(uint256 merchantId => mapping(bytes32 slotKey => uint256 reservationId)) public
+        occupant;
 
     /// @notice token ⇒ the total token amount escrowed across all live reservations. The conservation
     ///         anchor: it equals the contract's ERC-20 balance of `token` and the sum of live
@@ -185,8 +195,8 @@ contract Access0x1Bookings is
     }
 
     /// @inheritdoc IAccess0x1Bookings
-    function isSlotFree(bytes32 slotKey) external view returns (bool) {
-        return occupant[slotKey] == 0;
+    function isSlotFree(uint256 merchantId, bytes32 slotKey) external view returns (bool) {
+        return occupant[merchantId][slotKey] == 0;
     }
 
     /// @inheritdoc IAccess0x1Bookings
@@ -244,7 +254,9 @@ contract Access0x1Bookings is
         }
         _requireMerchantExists(merchantId);
         if (nonceUsed[clientNonce]) revert Access0x1Bookings__NonceUsed(clientNonce);
-        uint256 occupiedBy = occupant[slotKey];
+        // Occupancy is namespaced by merchant (tenancy isolation): this only blocks a double-book of
+        // THIS merchant's slot, never another merchant's identical slotKey.
+        uint256 occupiedBy = occupant[merchantId][slotKey];
         if (occupiedBy != 0) revert Access0x1Bookings__SlotTaken(slotKey, occupiedBy);
 
         // Price the deposit USD→token IN-TX (allowlist + feed + staleness all enforced by quote).
@@ -268,7 +280,7 @@ contract Access0x1Bookings is
             status: RStatus.HELD
         });
         _slotKeyOf[id] = slotKey;
-        occupant[slotKey] = id;
+        occupant[merchantId][slotKey] = id;
         nonceUsed[clientNonce] = true;
         _escrowedOf[token] += escrowAmount;
 
@@ -638,12 +650,14 @@ contract Access0x1Bookings is
     }
 
     /// @dev Free the slot a terminal reservation occupied, so the slotKey can be reused. Reads the
-    ///      stored slotKey by id and clears the occupant map. Idempotent for a never-occupied id.
+    ///      stored (merchantId, slotKey) by id and clears that merchant's occupant entry. Idempotent for
+    ///      a never-occupied id.
     function _vacate(uint256 id) private {
+        uint256 merchantId = _reservations[id].merchantId;
         bytes32 slotKey = _slotKeyOf[id];
         // Only clear if this reservation still owns the slot (it always does at a terminal transition,
         // but the guard makes the write safe against any future re-entrancy on slot reuse).
-        if (occupant[slotKey] == id) occupant[slotKey] = 0;
+        if (occupant[merchantId][slotKey] == id) occupant[merchantId][slotKey] = 0;
     }
 
     /// @dev Push `amount` of `token` to `to`, or queue it to the pull-map on failure. A refund/surplus
