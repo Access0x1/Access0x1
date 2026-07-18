@@ -597,6 +597,61 @@ contract GaslessPayInTest is Test, ProxyDeployer {
         );
     }
 
+    /// @dev Settle one 2612-permit pay-in for `merchantId_` under `orderId` (reads the buyer's current
+    ///      permit nonce so sequential settlements from the same buyer don't collide). Reverts bubble up.
+    function _settlePermit(uint256 merchantId_, bytes32 orderId) private {
+        uint256 gross = router.quote(merchantId_, address(usdc), USD_AMOUNT);
+        usdc.mint(buyer, gross);
+        uint256 deadline = block.timestamp + 1 hours;
+        uint256 nonce = usdc.nonces(buyer);
+        bytes32 digest = _permitDigest(address(usdc), buyer, address(payIn), gross, nonce, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(buyerPk, digest);
+        bytes memory intentSig = _signIntent(
+            buyerPk, merchantId_, address(usdc), USD_AMOUNT, gross, orderId, buyer, deadline
+        );
+        vm.prank(relayer);
+        payIn.payInWithPermit(
+            merchantId_,
+            address(usdc),
+            USD_AMOUNT,
+            buyer,
+            IGaslessPayIn.Permit({ value: gross, deadline: deadline }),
+            v,
+            r,
+            s,
+            orderId,
+            gross,
+            deadline,
+            intentSig
+        );
+    }
+
+    function test_orderLedger_isNamespacedByMerchant_noCrossTenantBurn() public {
+        // Wave-4 regression: the single-use order ledger is keyed by (merchantId, orderId), so settling an
+        // orderId under ONE merchant must NOT brick the SAME orderId under ANOTHER. A GLOBAL orderId map
+        // would let any party — who registers their own merchant for gas and settles a self pay-in — burn a
+        // victim merchant's orderId (cross-tenant griefing DoS). Two honest merchants could also collide.
+        bytes32 sharedOrder = keccak256("shared-order-id");
+
+        // A second, independent merchant (registerMerchant is permissionless — e.g. an attacker's own).
+        address otherOwner = makeAddr("otherOwner");
+        address otherPayout = makeAddr("otherPayout");
+        vm.prank(otherOwner);
+        uint256 otherMerchant =
+            router.registerMerchant(otherPayout, otherPayout, MERCHANT_FEE_BPS, NAME_HASH);
+
+        // The "attacker" settles `sharedOrder` under THEIR merchant first (the pre-consume attempt).
+        _settlePermit(otherMerchant, sharedOrder);
+
+        // The victim merchant can STILL settle the SAME orderId — its ledger key is independent. THIS is
+        // the regression: with the old GLOBAL `orderId ⇒ bool` map this second settle would revert
+        // OrderReplay (bricked by the attacker). The namespaced (merchantId, orderId) key lets it through.
+        _settlePermit(merchantId, sharedOrder);
+
+        // (The one-shot-per-(merchant, orderId) replay guard is proven by
+        // test_payInWithPermit_replayRevertsViaOrderGate — not re-asserted here.)
+    }
+
     /*//////////////////////////////////////////////////////////////
                         ERC-7597 PERMIT RAIL
     //////////////////////////////////////////////////////////////*/
