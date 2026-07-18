@@ -36,8 +36,12 @@ vi.mock('wagmi', () => ({
 
 const { ensureChain, isTestnetChain, resolveLiveChain, useLiveChain, writableChains } =
   await import('../lib/live-chain')
-const { ARC_TESTNET_USDC_ADDRESS, MIRROR_ROUTER_ADDRESS, SUPPORTED_CHAINS } =
-  await import('../lib/chains')
+const {
+  ARC_TESTNET_USDC_ADDRESS,
+  BASE_SEPOLIA_USDC_ADDRESS,
+  MIRROR_ROUTER_ADDRESS,
+  SUPPORTED_CHAINS,
+} = await import('../lib/chains')
 
 // ── resolveLiveChain — per-chain resolution + fail-soft nulls ───────────────
 
@@ -51,13 +55,16 @@ describe('resolveLiveChain — supported chains', () => {
     expect(live.usdcAddress).toBe(ARC_TESTNET_USDC_ADDRESS)
   })
 
-  it('Base Sepolia: mirror router resolves; unset USDC fail-softs to null (not a throw)', () => {
+  it('Base Sepolia: mirror router + canonical USDC both resolve zero-config', () => {
     const live = resolveLiveChain(84532)
     expect(live.isSupported).toBe(true)
     expect(live.routerAddress).toBe(MIRROR_ROUTER_ADDRESS)
-    // No NEXT_PUBLIC_USDC_ADDRESS_84532 in the test env — the display layer
-    // gets null, never a guessed or wrong-chain address.
-    expect(live.usdcAddress).toBeNull()
+    // No NEXT_PUBLIC_USDC_ADDRESS_84532 in the test env — Base Sepolia now
+    // resolves Circle's canonical testnet USDC as its zero-config default (a
+    // public chain fact, verified allowlisted + quotable on the live mirror
+    // router), the same carve-out as Arc. Still never a guessed/wrong-chain
+    // address — an env value overrides, and non-defaulted chains stay null.
+    expect(live.usdcAddress).toBe(BASE_SEPOLIA_USDC_ADDRESS)
   })
 
   it('a supported checkout chain with NO router (zkSync Sepolia, not mirrored, no env) is not writable', () => {

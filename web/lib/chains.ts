@@ -272,6 +272,23 @@ export const ARC_TESTNET_USDC_ADDRESS =
   '0x3600000000000000000000000000000000000000' as const
 
 /**
+ * Base Sepolia USDC — Circle's CANONICAL testnet USDC (`0x036C…F7e`). Like the
+ * Arc system USDC and the {@link MIRROR_ROUTER_ADDRESS}, this is a public,
+ * documented chain fact rather than a per-deploy value, so it may live as a
+ * literal and serve as the zero-config default for chain 84532.
+ *
+ * This is NOT a guessed address (doctrine #4): it was verified on-chain against
+ * the live mirror router — `tokenAllowed(0x036C…F7e) == true` AND `quote()`
+ * returns a real amount through the Chainlink USDC/USD feed. Base Sepolia is the
+ * chain that carries the live, `active` merchant #1, so without this default the
+ * hosted checkout there fails CLIENT-SIDE on a fresh clone (the computed env key
+ * is never inlined into the browser) even though the on-chain path is ready.
+ * A `NEXT_PUBLIC_USDC_ADDRESS_84532` env value still overrides it.
+ */
+export const BASE_SEPOLIA_USDC_ADDRESS =
+  '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as const
+
+/**
  * Chains where the mirror router is DEPLOYED + broadcast-verified (README
  * Deployments / MIRROR-STATUS, 2026-07). The mirror is the default router on these;
  * a chain NOT listed has no mirror, so `getRouterAddress` fails loud rather than claim
@@ -352,7 +369,13 @@ export function getUsdcAddress(chainId: number): Address {
     // CREATE3 mirror default in getRouterAddress; env above still overrides.
     // Without this, the default-chain checkout quote fails CLIENT-SIDE on a
     // fresh clone (the computed env key is never inlined into the browser).
-    (chainId === ARC_TESTNET_ID ? ARC_TESTNET_USDC_ADDRESS : undefined)
+    (chainId === ARC_TESTNET_ID ? ARC_TESTNET_USDC_ADDRESS : undefined) ??
+    // Zero-config default for Base Sepolia — Circle's canonical testnet USDC
+    // (see {@link BASE_SEPOLIA_USDC_ADDRESS}), verified allowlisted + quotable on
+    // the live mirror router. This is the chain with the live `active` merchant
+    // #1, so this default is what makes an out-of-the-box hosted checkout settle
+    // there with no env; same public-fact carve-out as Arc, env above overrides.
+    (chainId === baseSepolia.id ? BASE_SEPOLIA_USDC_ADDRESS : undefined)
   if (!addr) throw new Error(`No USDC address configured for chain ${chainId}`)
   return addr as Address
 }

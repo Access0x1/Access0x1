@@ -1,7 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest'
+import { baseSepolia } from 'viem/chains'
 import {
   ARC_TESTNET_ID,
   ARC_TESTNET_USDC_ADDRESS,
+  BASE_SEPOLIA_USDC_ADDRESS,
   getRouterAddress,
   getUsdcAddress,
   MIRROR_ROUTER_ADDRESS,
@@ -53,5 +55,45 @@ describe('Arc USDC zero-config default', () => {
 
   it('still fails loud for a non-Arc, unconfigured chain (never a guessed USDC)', () => {
     expect(() => getUsdcAddress(9_999_999)).toThrow()
+  })
+})
+
+/**
+ * Zero-config USDC on Base Sepolia — the chain that carries the live, `active`
+ * merchant #1 on the mirror router. Circle's canonical testnet USDC is a public,
+ * documented chain fact (verified allowlisted + quotable on-chain), so the
+ * hosted checkout there settles with NO env — the same carve-out as Arc, and
+ * the counterpart to the mirror-router default already resolved for 84532. An
+ * env value still overrides; a BLANK env never shadows the default.
+ */
+describe('Base Sepolia USDC zero-config default', () => {
+  afterEach(() => {
+    delete process.env[`NEXT_PUBLIC_USDC_ADDRESS_${baseSepolia.id}`]
+  })
+
+  it('resolves the canonical Base Sepolia USDC with no env at all', () => {
+    delete process.env[`NEXT_PUBLIC_USDC_ADDRESS_${baseSepolia.id}`]
+    expect(getUsdcAddress(baseSepolia.id)).toBe(BASE_SEPOLIA_USDC_ADDRESS)
+  })
+
+  it('pins the default to Circle’s canonical Base Sepolia USDC (verified on-chain)', () => {
+    expect(BASE_SEPOLIA_USDC_ADDRESS).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e')
+  })
+
+  it('pairs with the mirror router default so the whole checkout is zero-config on 84532', () => {
+    delete process.env[`NEXT_PUBLIC_USDC_ADDRESS_${baseSepolia.id}`]
+    expect(getRouterAddress(baseSepolia.id)).toBe(MIRROR_ROUTER_ADDRESS)
+    expect(getUsdcAddress(baseSepolia.id)).toBe(BASE_SEPOLIA_USDC_ADDRESS)
+  })
+
+  it('lets a per-chain env override win over the default', () => {
+    const override = '0x00000000000000000000000000000000000000dd'
+    process.env[`NEXT_PUBLIC_USDC_ADDRESS_${baseSepolia.id}`] = override
+    expect(getUsdcAddress(baseSepolia.id)).toBe(override)
+  })
+
+  it('a BLANK env value falls back to the default, never an empty address', () => {
+    process.env[`NEXT_PUBLIC_USDC_ADDRESS_${baseSepolia.id}`] = ''
+    expect(getUsdcAddress(baseSepolia.id)).toBe(BASE_SEPOLIA_USDC_ADDRESS)
   })
 })
