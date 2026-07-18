@@ -400,16 +400,32 @@ export function resolveCheckoutChainId(param: string | null | undefined): number
   const fallback = getDefaultChainId()
   if (param == null || param.trim() === '') return fallback
   const id = Number(param)
-  if (!Number.isInteger(id) || id <= 0) return fallback
-  // Must be a chain the app knows AND one that resolves a router (mirror or env);
-  // otherwise there is nothing to pay against — fall back, never a wrong chain.
-  if (!SUPPORTED_CHAINS.some((c) => c.id === id)) return fallback
+  return isSettlementChain(id) ? id : fallback
+}
+
+/**
+ * Is `chainId` a checkout-usable settlement chain — a SUPPORTED chain that also
+ * resolves a router (a mirror or env address)? This is the single predicate for
+ * "a payment can actually settle here": {@link resolveCheckoutChainId} uses it to
+ * validate an untrusted `?chainId=` link param, and the branding attach-on-chain
+ * route uses it to validate the merchant's persisted registration chain before it
+ * becomes the server-authoritative slug settlement chain.
+ *
+ * A non-integer, non-positive, unsupported, or router-less value returns false —
+ * so a bad value is never trusted as a settlement target (law #4).
+ *
+ * @param chainId the candidate chain id
+ * @returns true iff a checkout can settle on `chainId`
+ */
+export function isSettlementChain(chainId: number): boolean {
+  if (!Number.isInteger(chainId) || chainId <= 0) return false
+  if (!SUPPORTED_CHAINS.some((c) => c.id === chainId)) return false
   try {
-    getRouterAddress(id)
+    getRouterAddress(chainId)
+    return true
   } catch {
-    return fallback
+    return false
   }
-  return id
 }
 
 /**

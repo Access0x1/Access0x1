@@ -136,6 +136,17 @@ export interface TenantBranding {
   checkoutSlug: string;
   /** On-chain merchant id, or null until they register on the Router. */
   merchantId: string | null;
+  /**
+   * The chain the merchant actually registered {@link merchantId} on (from the
+   * wallet's live chain at registration), or null until attached / for a legacy
+   * row. SECURITY: the branded slug checkout settles on THIS chain, not the app's
+   * build-time default — the CREATE3 mirror shares one router address across all
+   * chains and merchant ids are per-chain + permissionless, so the same id is a
+   * different payout on each chain. Binding the slug to the merchant's real
+   * registration chain is what stops a same-id impostor on the default chain from
+   * receiving the buyer's funds. A null falls back to the default (legacy rows).
+   */
+  merchantChainId: number | null;
   /** keccak256(normalized display_name) we wrote / will write on-chain. */
   nameHash: `0x${string}`;
   /** Walrus blob id for the durable logo copy, or null until published. */
@@ -184,6 +195,8 @@ export interface BrandingInput {
   checkoutSlug?: string;
   /** Optional on-chain anchors (attached later by the Snap/Walrus seams). */
   merchantId?: string | null;
+  /** The chain the merchant registered `merchantId` on (validated caller-usable chain). */
+  merchantChainId?: number | null;
   logoBlobId?: string | null;
   /** The D0 checkout choice (World ID ADR D0). Omit to keep the existing/default. */
   checkoutMode?: CheckoutMode;
@@ -468,6 +481,10 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
     checkoutSlug: slug,
     merchantId:
       input.merchantId !== undefined ? input.merchantId : (existing?.merchantId ?? null),
+    merchantChainId:
+      input.merchantChainId !== undefined
+        ? input.merchantChainId
+        : (existing?.merchantChainId ?? null),
     nameHash: nameHashOf(displayName),
     logoBlobId:
       input.logoBlobId !== undefined ? input.logoBlobId : (existing?.logoBlobId ?? null),
@@ -593,7 +610,11 @@ export function getByMerchantId(merchantId: string): TenantBranding | null {
  */
 export function attachOnChain(
   tenantId: string,
-  anchors: { merchantId?: string | null; logoBlobId?: string | null },
+  anchors: {
+    merchantId?: string | null;
+    merchantChainId?: number | null;
+    logoBlobId?: string | null;
+  },
 ): TenantBranding | null {
   const existing = getByTenant(tenantId);
   if (!existing) return null;
@@ -606,6 +627,10 @@ export function attachOnChain(
     brandColor: existing.brandColor,
     checkoutSlug: existing.checkoutSlug,
     merchantId: anchors.merchantId !== undefined ? anchors.merchantId : existing.merchantId,
+    merchantChainId:
+      anchors.merchantChainId !== undefined
+        ? anchors.merchantChainId
+        : existing.merchantChainId,
     logoBlobId: anchors.logoBlobId !== undefined ? anchors.logoBlobId : existing.logoBlobId,
   });
 }

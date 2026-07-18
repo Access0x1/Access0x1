@@ -1,7 +1,34 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { baseSepolia, sepolia, zksyncSepoliaTestnet } from 'viem/chains'
 import { ARC_TESTNET_ID, resolveCheckoutChainId } from '../lib/chains.js'
-import { slugSettlementChainId } from '../lib/branding/response.js'
+import { slugSettlementChainId, toPublicBranding } from '../lib/branding/response.js'
+import type { TenantBranding } from '../lib/branding/store.js'
+
+/** A minimal on-chain-registered branding row; override only what a test cares about. */
+function brandingRow(overrides: Partial<TenantBranding>): TenantBranding {
+  return {
+    tenantId: '0x' + 'a'.repeat(40),
+    displayName: 'Acme',
+    description: '',
+    logoUrl: null,
+    logoSvgInline: '',
+    brandColor: '#000000',
+    checkoutSlug: 'acme',
+    merchantId: '7',
+    merchantChainId: null,
+    nameHash: ('0x' + '0'.repeat(64)) as `0x${string}`,
+    logoBlobId: null,
+    checkoutMode: 'standard',
+    humanVerifier: 'offchain',
+    requiredTier: 'standard',
+    vertical: 'standard',
+    verifiedOperator: false,
+    operatorNullifier: null,
+    createdAt: 0,
+    updatedAt: 0,
+    ...overrides,
+  }
+}
 
 /**
  * The hosted checkout reads its settlement chain from an optional, UNTRUSTED
@@ -84,5 +111,38 @@ describe('slugSettlementChainId — branded slug settles server-authoritatively'
     // …but a slug pinned to Arc settles on Arc regardless of any URL input. The
     // slug's chain is a pure function of the server payload — the URL cannot reach it.
     expect(slugSettlementChainId({ chainId: ARC_TESTNET_ID })).toBe(ARC_TESTNET_ID)
+  })
+})
+
+/**
+ * The settlement chain in the public payload is the merchant's REAL registration
+ * chain (persisted at attach-on-chain), NOT the app's build-time default. Since the
+ * mirror shares one router address across chains and merchant ids are per-chain +
+ * permissionless, a global default would route a plain `/c/<slug>` (no query params)
+ * to a same-id impostor on the default chain. Binding to the registration chain
+ * closes that; a legacy row (no chain recorded) still falls back to the default.
+ */
+describe('toPublicBranding — settlement chain binds to the merchant registration chain', () => {
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID
+  })
+
+  it('returns the merchant registration chain, so the slug settles there', () => {
+    const pub = toPublicBranding(brandingRow({ merchantChainId: baseSepolia.id }))
+    expect(pub.chainId).toBe(baseSepolia.id)
+    expect(slugSettlementChainId(pub)).toBe(baseSepolia.id)
+  })
+
+  it('a merchant on a non-default chain is NOT settled on the default (the redirect gap)', () => {
+    process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID = String(ARC_TESTNET_ID) // default = Arc
+    const pub = toPublicBranding(brandingRow({ merchantChainId: sepolia.id }))
+    expect(pub.chainId).toBe(sepolia.id) // the merchant's chain, not Arc
+    expect(pub.chainId).not.toBe(ARC_TESTNET_ID)
+  })
+
+  it('falls back to the default chain for a legacy row (no merchantChainId)', () => {
+    process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID = String(baseSepolia.id)
+    const pub = toPublicBranding(brandingRow({ merchantChainId: null }))
+    expect(pub.chainId).toBe(baseSepolia.id)
   })
 })

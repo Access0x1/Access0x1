@@ -106,7 +106,14 @@ export const PUBLIC_BRANDING_CORS: Readonly<Record<string, string>> = {
  * @returns the public, payout-free payload.
  */
 export function toPublicBranding(row: TenantBranding): PublicBranding {
-  const chainId = getDefaultChainId();
+  // SERVER-AUTHORITATIVE settlement chain: the chain the merchant actually
+  // registered on (persisted at attach-on-chain), NOT the app's build-time
+  // default. The mirror shares one router address across chains and ids are
+  // per-chain + permissionless, so a global default would let a same-id impostor
+  // on the default chain receive the buyer's funds; binding to the real
+  // registration chain closes that. A legacy row (no merchantChainId) falls back
+  // to the default — unchanged from before this field existed.
+  const chainId = row.merchantChainId ?? getDefaultChainId();
   let router: string | null = null;
   try {
     router = getRouterAddress(chainId);

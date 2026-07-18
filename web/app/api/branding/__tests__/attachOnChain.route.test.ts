@@ -19,6 +19,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/chains', () => ({
   getDefaultChainId: () => 5042002,
   getRouterAddress: () => '0xRouter0000000000000000000000000000000099',
+  // Only 84532 (Base Sepolia) is a settlement chain in this test; everything else
+  // is rejected — mirrors the real supported ∩ router-resolvable predicate.
+  isSettlementChain: (id: number) => id === 84532,
 }))
 
 const { POST } = await import('../attach-onchain/route.js')
@@ -58,6 +61,28 @@ describe('POST /api/branding/attach-onchain', () => {
     const res = await POST(post({ tenantId: TENANT_B, merchantId: '42' }))
     expect(res.status).toBe(400)
     expect((await res.json()).error).toBe('no_branding')
+  })
+
+  it('persists the merchant registration chain so the slug settles on it (not the default)', async () => {
+    const res = await POST(post({ tenantId: TENANT_A, merchantId: '42', chainId: 84532 }))
+    expect(res.status).toBe(200)
+    // The row records the REAL registration chain — the slug settlement chain is
+    // now the merchant's chain, not getDefaultChainId() (5042002).
+    expect(store.getByTenant(TENANT_A)?.merchantChainId).toBe(84532)
+  })
+
+  it('400 invalid_chain when chainId is not a settlement chain (never trusted as a payout target)', async () => {
+    const res = await POST(post({ tenantId: TENANT_A, merchantId: '42', chainId: 999999 }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('invalid_chain')
+    // The bad attach did NOT bind the merchant id.
+    expect(store.getByTenant(TENANT_A)?.merchantId).toBeNull()
+  })
+
+  it('a legacy attach with no chainId still works, leaving merchantChainId null (default fallback)', async () => {
+    const res = await POST(post({ tenantId: TENANT_A, merchantId: '42' }))
+    expect(res.status).toBe(200)
+    expect(store.getByTenant(TENANT_A)?.merchantChainId).toBeNull()
   })
 
   it('400 invalid_merchant_id on a blank merchantId', async () => {

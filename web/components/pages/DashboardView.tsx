@@ -156,8 +156,11 @@ export function DashboardView(): ReactNode {
 
       setAttaching(true)
       try {
-        // Make the slug PAYABLE: bind the merchantId to the branding row.
-        const attached = await attachOnChain({ tenantId, merchantId: id })
+        // Make the slug PAYABLE: bind the merchantId AND the chain it was
+        // registered on (result.chainId — the wallet's live chain) to the branding
+        // row, so the branded slug settles on the merchant's REAL chain, not the
+        // app default (closes the same-id-impostor redirect on the default chain).
+        const attached = await attachOnChain({ tenantId, merchantId: id, chainId: result.chainId })
         if (!canShowPaymentsOn(attached)) {
           // attached is the failure variant here.
           const failure = attached as { ok: false; error: string; code?: string }

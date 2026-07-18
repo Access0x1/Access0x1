@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { resolveVerifiedTenantForWrite, TenantAuthError } from '@/lib/branding/tenant'
 import { attachOnChain, BrandingError, getByTenant } from '@/lib/branding/store'
+import { isSettlementChain } from '@/lib/chains'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,11 +21,13 @@ export const dynamic = 'force-dynamic'
  * the shape-checked body `tenantId` — NEVER a free-form client-supplied tenant a
  * caller could spoof). A wallet can therefore only attach to its OWN row.
  *
- * Body: `{ tenantId, merchantId }`.
+ * Body: `{ tenantId, merchantId, chainId }` (chainId = the chain the merchant
+ * registered on; it becomes the server-authoritative slug settlement chain).
  *
  *   200 { branding }              attached — the slug is now payable
  *   400 { error: 'no_branding' }  no row yet — set name/logo first
  *   400 { error: 'invalid_merchant_id' }  empty/blank merchantId
+ *   400 { error: 'invalid_chain' }  chainId is not a checkout-settlement chain
  *   400 { error: 'invalid_json' }
  *   401 { error }                 no valid tenant (auth seam)
  */
@@ -56,6 +59,22 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'invalid_merchant_id' }, { status: 400 })
   }
 
+  // The chain the merchant registered on (the wallet's live chain). This becomes
+  // the SERVER-AUTHORITATIVE slug settlement chain, so it is validated here — a
+  // non-settlement chain is rejected, never trusted as a payout target (law #4).
+  // Absent for legacy clients ⇒ null ⇒ toPublicBranding falls back to the default,
+  // preserving the pre-field behavior.
+  const rawChainId = typeof b.chainId === 'number' ? b.chainId : Number(b.chainId)
+  const merchantChainId =
+    b.chainId === undefined || b.chainId === null
+      ? null
+      : isSettlementChain(rawChainId)
+        ? rawChainId
+        : undefined
+  if (merchantChainId === undefined) {
+    return NextResponse.json({ error: 'invalid_chain' }, { status: 400 })
+  }
+
   // The mode/anchor rides on the branding row; the merchant sets name/logo first.
   // Mirror the no_branding pattern the checkout-mode route uses.
   if (!getByTenant(tenantId)) {
@@ -64,7 +83,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let row
   try {
-    row = attachOnChain(tenantId, { merchantId: rawMerchantId })
+    row = attachOnChain(tenantId, { merchantId: rawMerchantId, merchantChainId })
   } catch (err) {
     // attachOnChain → upsertBranding re-validates the row and can throw a
     // BrandingError (e.g. CASINO_NEEDS_OPERATOR for an unverified casino tenant, or
