@@ -80,7 +80,7 @@ contract BookingTokenTest is Test, ProxyDeployer {
         // $50 at $1/USDC = 50e6 (6 decimals)
         assertEq(booking.escrowedOf(address(usdc)), 50e6);
         assertEq(usdc.balanceOf(address(booking)), 50e6);
-        assertFalse(booking.isSlotFree(keccak256("slot-1")));
+        assertFalse(booking.isSlotFree(merchantId, keccak256("slot-1")));
     }
 
     function test_mint_revertsUnknownMerchant() public {
@@ -194,7 +194,7 @@ contract BookingTokenTest is Test, ProxyDeployer {
         booking.cancel(id);
         assertEq(usdc.balanceOf(buyer), balBefore + 50e6);
         assertEq(booking.escrowedOf(address(usdc)), 0);
-        assertTrue(booking.isSlotFree(keccak256("slot-1")));
+        assertTrue(booking.isSlotFree(merchantId, keccak256("slot-1")));
     }
 
     function test_cancel_onlyHolder() public {
@@ -343,5 +343,40 @@ contract BookingTokenTest is Test, ProxyDeployer {
         }
         assertEq(booking.escrowedOf(address(usdc)), 0);
         assertEq(usdc.balanceOf(address(booking)), 0); // zero custody
+    }
+
+    /// @notice ATTACK: CROSS-MERCHANT slot squatting. `occupant` is namespaced by merchant, so an
+    ///         attacker (registering their OWN merchant; mintBooking is permissionless) CANNOT block a
+    ///         victim merchant's public slotKey. Before the fix the global occupant map let a ~free mint
+    ///         pin the victim's slot with no recourse; post-fix the two merchants' calendars are
+    ///         independent.
+    function test_attack_crossMerchantSlotSquatBlocked() public {
+        address attacker = makeAddr("attacker");
+        vm.prank(attacker);
+        uint256 attackerMerchant =
+            router.registerMerchant(attacker, address(0), 0, keccak256("atk"));
+        usdc.mint(attacker, 1_000e6);
+        vm.prank(attacker);
+        usdc.approve(address(booking), type(uint256).max);
+
+        bytes32 victimSlot = keccak256("slot-1");
+        // The attacker mints the VICTIM merchant's public slotKey UNDER THE ATTACKER'S own merchant.
+        vm.prank(attacker);
+        uint256 squatId = booking.mintBooking(
+            attacker,
+            attackerMerchant,
+            victimSlot,
+            DEPOSIT_USD8,
+            address(usdc),
+            HOLD,
+            keccak256("sq")
+        );
+        assertGt(squatId, 0);
+
+        // The victim merchant's slot is STILL free, and its genuine customer can still mint it.
+        assertTrue(booking.isSlotFree(merchantId, victimSlot));
+        uint256 legitId = _mint(victimSlot, keccak256("legit"));
+        assertGt(legitId, 0);
+        assertTrue(legitId != squatId);
     }
 }

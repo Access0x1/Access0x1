@@ -85,8 +85,16 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     /// @notice tokenId ⇒ the opaque slotKey it occupies. Immutable after mint.
     mapping(uint256 tokenId => bytes32 slotKey) private _slotKeyOf;
 
-    /// @notice slotKey ⇒ the tokenId occupying it (0 = free). Cleared on any terminal transition.
-    mapping(bytes32 slotKey => uint256 tokenId) public occupant;
+    /// @notice (merchantId, slotKey) ⇒ the tokenId occupying that merchant's slot (0 = free). Cleared on
+    ///         any terminal transition.
+    ///
+    ///         TENANCY ISOLATION (security): occupancy is namespaced BY MERCHANT. `slotKey` is a public,
+    ///         deterministic, caller-supplied slot identity and {mintBooking} is permissionless, so a
+    ///         GLOBAL `slotKey ⇒ tokenId` map would let an attacker pin `occupant[victimSlotKey]` (under
+    ///         any merchant) with a ~free, near-unbounded hold and permanently DoS a victim merchant's
+    ///         slot (real customers revert `SlotTaken`, no recourse). Keying by (merchantId, slotKey)
+    ///         keeps each merchant's calendar independent.
+    mapping(uint256 merchantId => mapping(bytes32 slotKey => uint256 tokenId)) public occupant;
 
     /// @notice token ⇒ total escrowed across live bookings (the conservation anchor = contract balance).
     mapping(address token => uint256 amount) private _escrowedOf;
@@ -196,7 +204,9 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
             revert BookingToken__MerchantNotFound(merchantId);
         }
         if (nonceUsed[clientNonce]) revert BookingToken__NonceUsed(clientNonce);
-        uint256 occupiedBy = occupant[slotKey];
+        // Occupancy is namespaced by merchant (tenancy isolation): only blocks a double-book of THIS
+        // merchant's slot, never another merchant's identical slotKey.
+        uint256 occupiedBy = occupant[merchantId][slotKey];
         if (occupiedBy != 0) revert BookingToken__SlotTaken(slotKey, occupiedBy);
 
         // Price the deposit USD→token in-tx (allowlist + feed + staleness enforced by quote).
@@ -214,7 +224,7 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
             status: BStatus.HELD
         });
         _slotKeyOf[tokenId] = slotKey;
-        occupant[slotKey] = tokenId;
+        occupant[merchantId][slotKey] = tokenId;
         nonceUsed[clientNonce] = true;
         _escrowedOf[token] += deposit;
 
@@ -338,9 +348,11 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
         return _bookings[tokenId];
     }
 
-    /// @notice Whether `slotKey` is currently free (no live booking occupies it).
-    function isSlotFree(bytes32 slotKey) external view returns (bool) {
-        return occupant[slotKey] == 0;
+    /// @notice Whether `slotKey` is currently free for `merchantId` (no live booking occupies that
+    ///         merchant's slot). Occupancy is per-merchant, so the same slotKey may be free for one
+    ///         merchant and taken for another.
+    function isSlotFree(uint256 merchantId, bytes32 slotKey) external view returns (bool) {
+        return occupant[merchantId][slotKey] == 0;
     }
 
     /// @notice Total token escrowed across live bookings (equals the contract's balance of `token`).
@@ -431,10 +443,12 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
         _escrowedOf[token] -= amount;
     }
 
-    /// @dev Free the slot a terminal reservation occupied so the slotKey can be reused. Idempotent.
+    /// @dev Free the slot a terminal reservation occupied so the slotKey can be reused for that merchant.
+    ///      Idempotent.
     function _vacate(uint256 id) private {
+        uint256 merchantId = _bookings[id].merchantId;
         bytes32 slotKey = _slotKeyOf[id];
-        if (occupant[slotKey] == id) occupant[slotKey] = 0;
+        if (occupant[merchantId][slotKey] == id) occupant[merchantId][slotKey] = 0;
     }
 
     /// @dev Push `amount` of `token` to `to`, or queue it to the pull-map on failure. LENGTH-SAFE like
