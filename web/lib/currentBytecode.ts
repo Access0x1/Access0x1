@@ -15,27 +15,27 @@ export interface ContractBytecode {
  *  on-chain hash (computed the SAME way) against these. */
 export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
   "Access0x1Bookings": {
-    "codeHash": "0x6ad5ad46524701e01afd5989d1a37ab815239340f16e20ad5689c17ce161607c",
+    "codeHash": "0x6456d1e10a37863a5ba5c5be7bbb7027cbafe179213e73623d53171a6e1e116b",
     "immutableRanges": [
       [
-        5128,
+        5158,
         32
       ],
       [
-        5331,
+        5361,
         32
       ]
     ]
   },
   "Access0x1Bookings.impl": {
-    "codeHash": "0x6ad5ad46524701e01afd5989d1a37ab815239340f16e20ad5689c17ce161607c",
+    "codeHash": "0x6456d1e10a37863a5ba5c5be7bbb7027cbafe179213e73623d53171a6e1e116b",
     "immutableRanges": [
       [
-        5128,
+        5158,
         32
       ],
       [
-        5331,
+        5361,
         32
       ]
     ]
