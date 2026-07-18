@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { baseSepolia, zksyncSepoliaTestnet } from 'viem/chains'
+import { baseSepolia, sepolia, zksyncSepoliaTestnet } from 'viem/chains'
 import { ARC_TESTNET_ID, resolveCheckoutChainId } from '../lib/chains.js'
 
 /**
@@ -25,6 +25,10 @@ describe('resolveCheckoutChainId', () => {
   it('honors a supported, mirror-routed chain (Base Sepolia 84532 — the live merchant chain)', () => {
     expect(resolveCheckoutChainId(String(baseSepolia.id))).toBe(baseSepolia.id)
     expect(resolveCheckoutChainId(' 84532 ')).toBe(baseSepolia.id) // trimmed
+  })
+
+  it('honors Ethereum Sepolia (11155111 — mirror deployed + now a supported chain)', () => {
+    expect(resolveCheckoutChainId(String(sepolia.id))).toBe(sepolia.id)
   })
 
   it('rejects a non-numeric / non-integer / non-positive param → default', () => {
