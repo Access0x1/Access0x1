@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { getDefaultChainId, getRouterAddress } from '@/lib/chains'
+import { resolveCheckoutChainId, getRouterAddress } from '@/lib/chains'
 import { getMerchant, type Merchant } from '@/lib/contracts'
 import { getPublicClient } from '@/lib/wallet'
 import { CheckoutCard } from '@/components/CheckoutCard'
@@ -29,7 +29,10 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
  */
 export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): ReactNode {
   const searchParams = useSearchParams()
-  const chainId = getDefaultChainId()
+  // Settlement chain from an optional, validated `?chainId=` link param (falls
+  // back to the app default) — so a link can reach a merchant registered on a
+  // non-default mirror chain, e.g. `/m/1?chainId=84532`.
+  const chainId = resolveCheckoutChainId(searchParams.get('chainId'))
 
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
