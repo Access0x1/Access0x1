@@ -16,6 +16,30 @@ import { getDefaultChainId, getRouterAddress } from '../chains.js';
 import type { CheckoutMode, HumanVerifier, MerchantVertical, TenantBranding } from './store.js';
 import type { TrustTier } from '../verification/tiers.js';
 
+/**
+ * The chain a BRANDED slug checkout (`/c/<slug>`) settles on — SERVER-AUTHORITATIVE.
+ *
+ * A slug binds to exactly ONE merchant on ONE chain: {@link PublicBranding.chainId}
+ * is set server-side from the merchant's record, keyed by the immutable slug. The
+ * branded checkout MUST take payment on that chain and NEVER on a chain chosen by
+ * the URL.
+ *
+ * Why this is a security boundary, not a convenience: `Access0x1Router.registerMerchant`
+ * is permissionless and ids are sequential (`nextMerchantId++`), so an attacker can
+ * register the SAME merchant id on another mirror chain with THEIR OWN payout. If the
+ * slug checkout honored a `?chainId=` param, `/c/<acme>?chainId=<attacker-chain>` would
+ * keep Acme's real, unspoofable branding (name/logo/color are server-keyed by slug)
+ * while loading the impostor merchant record — settling the buyer's funds to the
+ * attacker. So the slug's settlement chain comes ONLY from the payload.
+ *
+ * This is the opposite of the `/m/[merchantId]` checkout, where merchantId AND name are
+ * already URL-supplied, the on-chain `MerchantIdentity` is the trust anchor, and a
+ * per-link `?chainId=` is a legitimate multichain feature (see `resolveCheckoutChainId`).
+ */
+export function slugSettlementChainId(branding: Pick<PublicBranding, 'chainId'>): number {
+  return branding.chainId;
+}
+
 /** The exact public branding payload (ADR D4): no payout address, ever. */
 export interface PublicBranding {
   /** The readable business name the customer sees. */

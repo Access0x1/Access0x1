@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { baseSepolia, sepolia, zksyncSepoliaTestnet } from 'viem/chains'
 import { ARC_TESTNET_ID, resolveCheckoutChainId } from '../lib/chains.js'
+import { slugSettlementChainId } from '../lib/branding/response.js'
 
 /**
  * The hosted checkout reads its settlement chain from an optional, UNTRUSTED
@@ -52,5 +53,36 @@ describe('resolveCheckoutChainId', () => {
   it('the fallback tracks NEXT_PUBLIC_DEFAULT_CHAIN_ID when it is set', () => {
     process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID = String(baseSepolia.id)
     expect(resolveCheckoutChainId('abc')).toBe(baseSepolia.id) // invalid param → the (now Base) default
+  })
+})
+
+/**
+ * The two checkout views resolve their settlement chain DIFFERENTLY, on purpose —
+ * this pins the security boundary between them.
+ *
+ * `/m/[merchantId]` is fully URL-driven (merchantId + name come from the link, the
+ * on-chain MerchantIdentity is the trust anchor), so a per-link `?chainId=` is a
+ * legitimate multichain feature → resolveCheckoutChainId honors it.
+ *
+ * `/c/<slug>` is SERVER-AUTHORITATIVE: the slug maps to one merchant on one chain,
+ * and the branding (name/logo/color) is unspoofable. Honoring `?chainId=` there
+ * would let /c/<slug>?chainId=<attacker-chain> keep the real branding while paying
+ * an impostor merchant (registerMerchant is permissionless + ids are sequential),
+ * so the slug settles ONLY on the payload's chain → slugSettlementChainId ignores
+ * any URL input entirely.
+ */
+describe('slugSettlementChainId — branded slug settles server-authoritatively', () => {
+  it('returns the payload chainId (the slug binding), not a URL param', () => {
+    expect(slugSettlementChainId({ chainId: baseSepolia.id })).toBe(baseSepolia.id)
+    expect(slugSettlementChainId({ chainId: ARC_TESTNET_ID })).toBe(ARC_TESTNET_ID)
+    expect(slugSettlementChainId({ chainId: sepolia.id })).toBe(sepolia.id)
+  })
+
+  it('regression: a ?chainId= that the /m/ resolver WOULD honor must NOT move a slug payout', () => {
+    // The /m/ view would settle on the attacker's chain if given ?chainId=84532…
+    expect(resolveCheckoutChainId(String(baseSepolia.id))).toBe(baseSepolia.id)
+    // …but a slug pinned to Arc settles on Arc regardless of any URL input. The
+    // slug's chain is a pure function of the server payload — the URL cannot reach it.
+    expect(slugSettlementChainId({ chainId: ARC_TESTNET_ID })).toBe(ARC_TESTNET_ID)
   })
 })

@@ -2,10 +2,10 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { resolveCheckoutChainId, getRouterAddress } from '@/lib/chains'
+import { getRouterAddress } from '@/lib/chains'
 import { getMerchant, type Merchant } from '@/lib/contracts'
 import { getPublicClient } from '@/lib/wallet'
-import type { PublicBranding } from '@/lib/branding/response'
+import { slugSettlementChainId, type PublicBranding } from '@/lib/branding/response'
 import { resolveGate } from '@/lib/worldid/gateConfig'
 import { BrandMark } from '@/components/BrandMark'
 import { CheckoutCard } from '@/components/CheckoutCard'
@@ -33,10 +33,6 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
  */
 export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
   const searchParams = useSearchParams()
-  // Settlement chain from an optional, validated `?chainId=` link param (falls
-  // back to the app default) — so a branded link can reach a merchant registered
-  // on a non-default mirror chain, e.g. `/c/acme?chainId=84532`.
-  const chainId = resolveCheckoutChainId(searchParams.get('chainId'))
 
   const [branding, setBranding] = useState<PublicBranding | null>(null)
   const [merchant, setMerchant] = useState<Merchant | null>(null)
@@ -61,8 +57,14 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
         // If they are on-chain, load the merchant record so we can take payment.
         if (b.merchantId) {
           try {
-            const routerAddress = getRouterAddress(chainId)
-            const client = getPublicClient(chainId)
+            // SERVER-AUTHORITATIVE settlement chain: the slug binds to one merchant
+            // on one chain, so the payout record is read from the branding payload's
+            // chain — NEVER a `?chainId=` URL param, which could point this real-
+            // branded, slug-locked checkout at an impostor merchant (same id,
+            // attacker payout) on another mirror chain. See slugSettlementChainId.
+            const settleChain = slugSettlementChainId(b)
+            const routerAddress = getRouterAddress(settleChain)
+            const client = getPublicClient(settleChain)
             const m = await getMerchant(client, routerAddress, BigInt(b.merchantId))
             if (!cancelled && m.owner !== ZERO_ADDRESS) setMerchant(m)
           } catch {
@@ -78,7 +80,7 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
     return () => {
       cancelled = true
     }
-  }, [slug, chainId])
+  }, [slug])
 
   const amount = searchParams.get('amount') ?? '29.00'
   const orderParam = searchParams.get('order') ?? undefined
@@ -130,7 +132,7 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
 
           {branding.merchantId && merchant ? (
             <CheckoutCard
-              chainId={chainId}
+              chainId={slugSettlementChainId(branding)}
               merchantId={BigInt(branding.merchantId)}
               merchant={merchant}
               merchantName={branding.name}
