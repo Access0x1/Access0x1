@@ -1,9 +1,10 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { baseSepolia } from 'viem/chains'
+import { baseSepolia, sepolia } from 'viem/chains'
 import {
   ARC_TESTNET_ID,
   ARC_TESTNET_USDC_ADDRESS,
   BASE_SEPOLIA_USDC_ADDRESS,
+  ETH_SEPOLIA_USDC_ADDRESS,
   getRouterAddress,
   getUsdcAddress,
   MIRROR_ROUTER_ADDRESS,
@@ -95,5 +96,44 @@ describe('Base Sepolia USDC zero-config default', () => {
   it('a BLANK env value falls back to the default, never an empty address', () => {
     process.env[`NEXT_PUBLIC_USDC_ADDRESS_${baseSepolia.id}`] = ''
     expect(getUsdcAddress(baseSepolia.id)).toBe(BASE_SEPOLIA_USDC_ADDRESS)
+  })
+})
+
+/**
+ * Zero-config USDC on Ethereum Sepolia — the L1 testnet where the CREATE3 mirror
+ * is deployed + source-verified. Circle's canonical testnet USDC is a public,
+ * documented chain fact (verified allowlisted + quotable on-chain), so the hosted
+ * checkout settles there with NO env — the same carve-out as Arc and Base Sepolia,
+ * and the counterpart to the mirror-router default already resolved for 11155111.
+ */
+describe('Ethereum Sepolia USDC zero-config default', () => {
+  afterEach(() => {
+    delete process.env[`NEXT_PUBLIC_USDC_ADDRESS_${sepolia.id}`]
+  })
+
+  it('resolves the canonical Ethereum Sepolia USDC with no env at all', () => {
+    delete process.env[`NEXT_PUBLIC_USDC_ADDRESS_${sepolia.id}`]
+    expect(getUsdcAddress(sepolia.id)).toBe(ETH_SEPOLIA_USDC_ADDRESS)
+  })
+
+  it('pins the default to Circle’s canonical Ethereum Sepolia USDC (verified on-chain)', () => {
+    expect(ETH_SEPOLIA_USDC_ADDRESS).toBe('0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238')
+  })
+
+  it('pairs with the mirror router default so the whole checkout is zero-config on 11155111', () => {
+    delete process.env[`NEXT_PUBLIC_USDC_ADDRESS_${sepolia.id}`]
+    expect(getRouterAddress(sepolia.id)).toBe(MIRROR_ROUTER_ADDRESS)
+    expect(getUsdcAddress(sepolia.id)).toBe(ETH_SEPOLIA_USDC_ADDRESS)
+  })
+
+  it('lets a per-chain env override win over the default', () => {
+    const override = '0x00000000000000000000000000000000000000ee'
+    process.env[`NEXT_PUBLIC_USDC_ADDRESS_${sepolia.id}`] = override
+    expect(getUsdcAddress(sepolia.id)).toBe(override)
+  })
+
+  it('a BLANK env value falls back to the default, never an empty address', () => {
+    process.env[`NEXT_PUBLIC_USDC_ADDRESS_${sepolia.id}`] = ''
+    expect(getUsdcAddress(sepolia.id)).toBe(ETH_SEPOLIA_USDC_ADDRESS)
   })
 })

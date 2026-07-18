@@ -39,6 +39,7 @@ const { ensureChain, isTestnetChain, resolveLiveChain, useLiveChain, writableCha
 const {
   ARC_TESTNET_USDC_ADDRESS,
   BASE_SEPOLIA_USDC_ADDRESS,
+  ETH_SEPOLIA_USDC_ADDRESS,
   MIRROR_ROUTER_ADDRESS,
   SUPPORTED_CHAINS,
 } = await import('../lib/chains')
@@ -67,6 +68,17 @@ describe('resolveLiveChain — supported chains', () => {
     expect(live.usdcAddress).toBe(BASE_SEPOLIA_USDC_ADDRESS)
   })
 
+  it('Ethereum Sepolia: mirror router + canonical USDC both resolve zero-config', () => {
+    const live = resolveLiveChain(11155111)
+    expect(live.isSupported).toBe(true)
+    expect(live.routerAddress).toBe(MIRROR_ROUTER_ADDRESS)
+    // The L1 testnet now resolves Circle's canonical Sepolia USDC zero-config
+    // (verified allowlisted + quotable on the live mirror), same carve-out as Arc
+    // and Base Sepolia. A merchant registration (owner tx) is what's left to make
+    // it a live payable checkout — the wiring is ready.
+    expect(live.usdcAddress).toBe(ETH_SEPOLIA_USDC_ADDRESS)
+  })
+
   it('a supported checkout chain with NO router (zkSync Sepolia, not mirrored, no env) is not writable', () => {
     const live = resolveLiveChain(300)
     expect(live.chain).not.toBeNull() // we know the chain…
@@ -77,10 +89,11 @@ describe('resolveLiveChain — supported chains', () => {
 
 describe('resolveLiveChain — fail-soft on everything else', () => {
   it('a mirror-deployed chain OUTSIDE SUPPORTED_CHAINS still resolves null (never wrong-chain)', () => {
-    // Ethereum Sepolia (11155111) is in MIRROR_SUPPORTED_CHAIN_IDS but is NOT
+    // Optimism Sepolia (11155420) is in MIRROR_SUPPORTED_CHAIN_IDS but is NOT
     // one of the app's supported chains — the resolver must not hand out the
-    // mirror address for a chain the app can't otherwise handle.
-    const live = resolveLiveChain(11155111)
+    // mirror address for a chain the app can't otherwise handle. (Ethereum
+    // Sepolia used to be this example; it is now a supported checkout chain.)
+    const live = resolveLiveChain(11155420)
     expect(live.chain).toBeNull()
     expect(live.isSupported).toBe(false)
     expect(live.routerAddress).toBeNull()
@@ -124,9 +137,10 @@ describe('isTestnetChain + writableChains', () => {
     const ids = writableChains().map((c) => c.id)
     expect(ids).toContain(5042002) // Arc
     expect(ids).toContain(84532) // Base Sepolia
+    expect(ids).toContain(11155111) // Ethereum Sepolia — now supported + mirror-routed
     expect(ids).toContain(43113) // Avalanche Fuji
-    expect(ids).not.toContain(300) // zkSync Sepolia — no router in this env
-    expect(ids).not.toContain(11155111) // not a supported app chain at all
+    expect(ids).not.toContain(300) // zkSync Sepolia — supported but no router in this env
+    expect(ids).not.toContain(11155420) // Optimism Sepolia — mirror-deployed but not a supported app chain
   })
 })
 

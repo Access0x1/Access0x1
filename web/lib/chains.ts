@@ -1,5 +1,6 @@
 import { defineChain, type Address, type Chain } from 'viem'
 import {
+  sepolia,
   baseSepolia,
   zksyncSepoliaTestnet,
   polygonAmoy,
@@ -89,6 +90,11 @@ export const arcTestnet = defineChain({
 export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [
   arcTestnet,
   baseSepolia,
+  // Ethereum Sepolia (11155111): the CREATE3 mirror is deployed + source-verified
+  // here (MIRROR_SUPPORTED_CHAIN_IDS), and Circle's canonical testnet USDC is
+  // allowlisted + quotable on it — verified on-chain. Added so the hosted checkout
+  // can settle on the L1 testnet, not just the L2s.
+  sepolia,
   zksyncSepoliaTestnet,
   polygonAmoy,
   avalancheFuji,
@@ -156,6 +162,8 @@ const USDC_DECIMALS_BY_CHAIN: Readonly<Record<number, number>> = {
   [ARC_TESTNET_ID]: arcTestnet.nativeCurrency.decimals,
   // Bridged USDC on the L2 testnets is the canonical 6-dec ERC-20.
   [baseSepolia.id]: 6,
+  // Circle's canonical Ethereum Sepolia USDC is the 6-dec ERC-20.
+  [sepolia.id]: 6,
   [zksyncSepoliaTestnet.id]: 6,
   // The additional EVM testnets all settle in the canonical 6-dec bridged USDC
   // (native gas is ETH / POL / AVAX / tBNB / MNT — NOT USDC — so none are gas-free).
@@ -289,6 +297,20 @@ export const BASE_SEPOLIA_USDC_ADDRESS =
   '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as const
 
 /**
+ * Ethereum Sepolia USDC — Circle's CANONICAL testnet USDC (`0x1c7D…7238`). Same
+ * public-chain-fact carve-out as the Arc system USDC, the Base Sepolia USDC, and
+ * the {@link MIRROR_ROUTER_ADDRESS}: a documented, verifiable address, not a
+ * per-deploy value, so it serves as the zero-config default for chain 11155111.
+ *
+ * NOT a guessed address (doctrine #4): verified on-chain against the live mirror
+ * router — `tokenAllowed(0x1c7D…7238) == true` AND `quote($1.00)` returns a real
+ * amount through the Chainlink USDC/USD feed. A `NEXT_PUBLIC_USDC_ADDRESS_11155111`
+ * env value still overrides it.
+ */
+export const ETH_SEPOLIA_USDC_ADDRESS =
+  '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as const
+
+/**
  * Chains where the mirror router is DEPLOYED + broadcast-verified (README
  * Deployments / MIRROR-STATUS, 2026-07). The mirror is the default router on these;
  * a chain NOT listed has no mirror, so `getRouterAddress` fails loud rather than claim
@@ -314,12 +336,14 @@ export const MIRROR_SUPPORTED_CHAIN_IDS: readonly number[] = [
 const ROUTER_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
   [ARC_TESTNET_ID]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_5042002 || undefined,
   [baseSepolia.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_84532 || undefined,
+  [sepolia.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_11155111 || undefined,
   [zksyncSepoliaTestnet.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_300 || undefined,
 }
 
 const USDC_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
   [ARC_TESTNET_ID]: process.env.NEXT_PUBLIC_USDC_ADDRESS_5042002 || undefined,
   [baseSepolia.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_84532 || undefined,
+  [sepolia.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_11155111 || undefined,
   [zksyncSepoliaTestnet.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_300 || undefined,
 }
 
@@ -412,7 +436,12 @@ export function getUsdcAddress(chainId: number): Address {
     // the live mirror router. This is the chain with the live `active` merchant
     // #1, so this default is what makes an out-of-the-box hosted checkout settle
     // there with no env; same public-fact carve-out as Arc, env above overrides.
-    (chainId === baseSepolia.id ? BASE_SEPOLIA_USDC_ADDRESS : undefined)
+    (chainId === baseSepolia.id ? BASE_SEPOLIA_USDC_ADDRESS : undefined) ??
+    // Zero-config default for Ethereum Sepolia — Circle's canonical testnet USDC
+    // (see {@link ETH_SEPOLIA_USDC_ADDRESS}), verified allowlisted + quotable on
+    // the live mirror router. Lets the L1-testnet checkout settle with no env;
+    // same public-fact carve-out, env above overrides.
+    (chainId === sepolia.id ? ETH_SEPOLIA_USDC_ADDRESS : undefined)
   if (!addr) throw new Error(`No USDC address configured for chain ${chainId}`)
   return addr as Address
 }
@@ -441,6 +470,8 @@ export function getRpcUrl(chainId: number): string {
  */
 const EXPLORER_BASE_URLS: Readonly<Record<number, string>> = {
   [baseSepolia.id]: 'https://sepolia.basescan.org',
+  // Ethereum Sepolia — Etherscan (matches viem's canonical def), no trailing slash.
+  [sepolia.id]: sepolia.blockExplorers.default.url.replace(/\/$/, ''),
   [zksyncSepoliaTestnet.id]: 'https://sepolia.explorer.zksync.io',
   [polygonAmoy.id]: polygonAmoy.blockExplorers.default.url,
   [avalancheFuji.id]: avalancheFuji.blockExplorers.default.url,
