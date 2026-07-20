@@ -2,8 +2,8 @@
  * agentGate.ts — the Track-A "human-backed agent" trial gate (World ID ADR D6 /
  * unit 7), server-only.
  *
- * AgentKit's mechanic (docs §10): give an autonomous agent a free initial-usage
- * allowance ONLY when it's backed by a verified real human — distinguishing
+ * AgentKit's mechanic (docs §10): give an autonomous agent an unmetered initial-
+ * usage allowance ONLY when it's backed by a verified real human — distinguishing
  * human-backed agents from bot swarms. We implement the verifiable-human half
  * with the SAME `web/lib/worldid/*` seam used for buyer checkout, but a DISTINCT
  * action string (`worldAgentAction()`), so unlocking the agent trial never
@@ -15,14 +15,14 @@
  * the handler — when the gate is required, an agent NOT backed by a verified human
  * is blocked; a verified one proceeds.
  *
- * SCOPE (honest — this is a personhood ACCESS gate, not a free-usage meter): the
- * only thing enforced here is "is this agent human-backed?". It is DEFENSE-IN-DEPTH
- * behind the real boundary — the fail-closed `x-internal-secret` on the pay route —
- * and the never-negative, durable `agentMeter` owns the ACTUAL spend budget. The
- * `AGENT_TRIAL_CALLS` free-usage allowance ({@link agentTrialCalls}) is RESERVED
- * config for a future free-tier; it is NOT yet enforced (wiring a real free tier
- * means skipping the money charge for the first N calls — a money-path change), so
- * this module does not pretend to count it.
+ * SCOPE (honest — this is a personhood ACCESS gate, not a trial-allowance meter):
+ * the only thing enforced here is "is this agent human-backed?". It is DEFENSE-IN-
+ * DEPTH behind the real boundary — the fail-closed `x-internal-secret` on the pay
+ * route — and the never-negative, durable `agentMeter` owns the ACTUAL spend
+ * budget. The `AGENT_TRIAL_CALLS` unmetered-call allowance ({@link agentTrialCalls})
+ * is RESERVED config for a future trial tier; it is NOT yet enforced (wiring a real
+ * trial tier means skipping the money charge for the first N calls — a money-path
+ * change), so this module does not pretend to count it.
  *
  * Enforcement is OPT-IN via `AGENT_REQUIRE_HUMAN` so existing deployments and
  * tests are unaffected by default (fail-soft — like the buyer gate, World ID is
@@ -55,8 +55,8 @@ export function isAgentHumanGateRequired(): boolean {
 }
 
 /**
- * The configured free-tier allowance (`AGENT_TRIAL_CALLS`, default 3). RESERVED: a
- * future free tier will grant a verified human-backed agent this many un-metered calls.
+ * The configured trial-tier allowance (`AGENT_TRIAL_CALLS`, default 3). RESERVED: a
+ * future trial tier will grant a verified human-backed agent this many unmetered calls.
  * NOT yet enforced by {@link assertAgentTrialAllowed} (that needs a money-path change to
  * skip the charge) — exposed so the config reads cleanly and the future wiring has it.
  */

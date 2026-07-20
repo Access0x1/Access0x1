@@ -26,8 +26,8 @@ export interface PrimaryEnsName {
 }
 
 /**
- * Fetch the verified primary name for an address from the server seam. Pure and
- * effect-free so it is unit-testable in the node env (no DOM): a missing/blank
+ * Fetch the verified primary name for an address from the server seam. Pure with
+ * no side effects, so it is unit-testable in the node env (no DOM): a missing/blank
  * address short-circuits to null WITHOUT a network call; otherwise it GETs
  * `/api/ens/primary` and reads `{ name }`. NEVER throws — a non-2xx or a network
  * error resolves to null (the caller falls back to the address).

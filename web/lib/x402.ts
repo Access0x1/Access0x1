@@ -2,14 +2,16 @@
  * The x402 / Circle Nanopayments seller spine.
  *
  * Builds HTTP-402 payment requirements and wraps a route handler so it runs IFF
- * Circle settles the payer's EIP-3009 authorization. This is the gas-free
- * micro-payment HOT PATH — the handoff to `Access0x1Router.payToken` (Chainlink
- * pricing + fee split + Unlink private withdraw) lives on the WITHDRAW leg, in a
- * separate unit, NOT here.
+ * Circle settles the payer's EIP-3009 authorization. This is the gasless-for-the-
+ * payer micro-payment HOT PATH (the facilitator batches and pays gas, not the
+ * payer) — the handoff to `Access0x1Router.payToken` (Chainlink pricing + fee
+ * split + Unlink private withdraw) lives on the WITHDRAW leg, in a separate unit,
+ * NOT here.
  *
  * Doctrine:
  *  - law #4 (truth in copy): never return HTTP 200 unless settle succeeded; a
- *    `$0` / non-numeric price is rejected (no free paid endpoints).
+ *    `$0` / non-numeric price is rejected (a priced endpoint must always charge
+ *    more than zero).
  *  - law #5 (money paths never swallow): verify-fail and settle-fail surface as
  *    402 (retryable); a malformed payload surfaces as 500 (never a silent 200).
  *  - off-CEI: strict verify → settle → handler ordering; the handler never runs
@@ -74,8 +76,8 @@ function resolveSellerAddress(): string {
  * Convert a price string like "$0.001" into 6-decimal atomic USDC.
  *
  * Uses `Math.round(price * 1_000_000)` for float-safety (e.g. $0.07 → 70000, not
- * 69999). Rejects non-positive / non-numeric prices — there are no free paid
- * endpoints (law #4).
+ * 69999). Rejects non-positive / non-numeric prices — a priced endpoint must
+ * always charge more than zero (law #4).
  *
  * @param price - dollar price, with or without a leading "$", e.g. "$0.03"
  * @returns the atomic USDC amount as a decimal string, e.g. "30000"
@@ -89,7 +91,7 @@ function priceToAtomicUsdc(price: string): string {
   }
   if (dollars <= 0) {
     throw new Error(
-      `Invalid price "${price}": must be greater than zero (no free paid endpoints — law #4).`,
+      `Invalid price "${price}": must be greater than zero (a priced endpoint always charges more than zero — law #4).`,
     );
   }
   return String(Math.round(dollars * 1_000_000));
@@ -195,7 +197,8 @@ function challenge(requirements: PaymentRequirements): Response {
 }
 
 /**
- * Wrap a route handler with x402 / Circle Nanopayments gas-free settlement.
+ * Wrap a route handler with x402 / Circle Nanopayments gasless-for-the-payer
+ * settlement.
  *
  * Flow (strict off-CEI ordering):
  *   1. No `payment-signature` header        → 402 + base64 PAYMENT-REQUIRED.

@@ -1,5 +1,5 @@
 /**
- * Arc Testnet constants for Circle Nanopayments gas-free settlement.
+ * Arc Testnet constants for Circle Nanopayments settlement.
  *
  * Doctrine guardrail #6 — NEVER hardcode Arc addresses at call sites. Every value
  * here is copied VERBATIM from the live `circlefin/arc-nanopayments` repo at the
@@ -7,7 +7,7 @@
  * fail. Each value carries a "confirm at booth" note; re-verify before the demo.
  *
  * On Arc, USDC IS the native gas token (system contract `0x3600…0000`), so the
- * Nanopayments batch layer already makes the payer gas-free — no Paymaster.
+ * Nanopayments batch layer settles without a separate Paymaster.
  *
  * The Arc chain id and RPC URL are NOT re-literalized here: they come from the
  * canonical chain registry in `chains.ts` so they can never drift. Only the

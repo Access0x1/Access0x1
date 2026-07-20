@@ -56,7 +56,7 @@ function priceToAtomic(price: string): bigint {
   const cleaned = price.trim().replace(/^\$/, "");
   const dollars = Number(cleaned);
   if (!Number.isFinite(dollars) || dollars <= 0) {
-    // Mirror x402.ts: no free paid endpoints (law #4). Surfaced as a config throw.
+    // Mirror x402.ts: a priced endpoint always charges more than zero (law #4). Surfaced as a config throw.
     throw new Error(`withAiGateway: invalid price "${price}"`);
   }
   return BigInt(Math.round(dollars * 1_000_000));

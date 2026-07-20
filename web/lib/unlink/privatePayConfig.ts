@@ -48,7 +48,7 @@ const EARNINGS_PRIVACY_FLAG = "NEXT_PUBLIC_EARNINGS_PRIVACY" as const;
 /**
  * The chain the Unlink shielded set settles on. Resolves from
  * `NEXT_PUBLIC_UNLINK_CHAIN_ID` at call time, defaulting to Arc Testnet
- * ({@link ARC_TESTNET_ID}) — the documented lead chain. A blank or non-numeric value
+ * ({@link ARC_TESTNET_ID}) — the app's configured default chain. A blank or non-numeric value
  * falls back to the Arc default rather than guessing a chain for a money flow (law #4).
  *
  * @returns the EVM chain id the Unlink rail uses (Arc Testnet when unset).

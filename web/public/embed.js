@@ -478,7 +478,7 @@
       });
       placeInDom(btn, scriptEl, cfg.container);
 
-      // The single, gas-free quote read. Only runs when a merchant id is known
+      // The single, read-only quote call (an eth_call — no gas, no signature). Only runs when a merchant id is known
       // (a slug-only tag has no merchant id yet → no eth_call, USD-only price).
       if (cfg.merchantId) {
         quote(chain, cfg.merchantId, cfg.usdAmount8)

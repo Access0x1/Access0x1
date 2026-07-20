@@ -6,7 +6,7 @@
  * price a product (subscription plan) → bill a customer (invoice) → reward a
  * customer (gift card) → share the checkout link → put the brand mark
  * on-chain (simulated). Steps unlock STRICTLY in order — the guided journey
- * IS the ordering; the free-form /contracts console exists for everything
+ * IS the ordering; the unstructured /contracts console exists for everything
  * else.
  *
  * This module owns only the derivation (facts in → step statuses out) and the

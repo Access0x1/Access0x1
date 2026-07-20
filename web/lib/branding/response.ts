@@ -103,7 +103,7 @@ export const PUBLIC_BRANDING_CORS: Readonly<Record<string, string>> = {
  * — never throws, the embed degrades gracefully to USD-only).
  *
  * @param row - the stored branding row.
- * @returns the public, payout-free payload.
+ * @returns the public payload, with no payout address included.
  */
 export function toPublicBranding(row: TenantBranding): PublicBranding {
   // SERVER-AUTHORITATIVE settlement chain: the chain the merchant actually

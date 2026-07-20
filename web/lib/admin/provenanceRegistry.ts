@@ -82,9 +82,10 @@ export const ARC_TESTNET_ID = 5042002
 const DEFAULT_ARC_RPC_URL = 'https://rpc.testnet.arc.network'
 
 /**
- * Arc Testnet — the lead settlement chain. Native USDC is the 18-decimal gas
- * token. RPC reads from `NEXT_PUBLIC_ARC_RPC_URL` so a deployed build never
- * hardcodes it. Its explorer is `https://testnet.arcscan.app` (booth-confirmed).
+ * Arc Testnet — one of the supported settlement chains. Native USDC is the
+ * 18-decimal gas token. RPC reads from `NEXT_PUBLIC_ARC_RPC_URL` so a deployed
+ * build never hardcodes it. Its explorer is `https://testnet.arcscan.app`
+ * (booth-confirmed).
  */
 export const arcTestnet: Chain = defineChain({
   id: ARC_TESTNET_ID,
