@@ -28,7 +28,7 @@
       },
       {
         "uri": "https://x402.org/extensions/ap2-x402/v1",
-        "description": "x402 / EIP-3009 stablecoin settlement rail (the same rail AP2's x402 extension uses). Gas-free at the Circle Nanopayments batch layer on Arc Testnet; real USDC, zero custody.",
+        "description": "x402 / EIP-3009 stablecoin settlement rail (the same rail AP2's x402 extension uses). Gasless for the payer at the Circle Nanopayments batch layer on Arc Testnet; real USDC, zero custody.",
         "required": false,
         "params": {
           "scheme": "exact",

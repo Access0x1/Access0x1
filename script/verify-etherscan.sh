@@ -6,7 +6,7 @@
 #   • Etherscan V2 (default): ONE ETHERSCAN_API_KEY covers every Etherscan-family chain
 #     (Ethereum / Base / Optimism / Arbitrum / Polygon / …) — keyed by `--chain <id>`. The legacy
 #     per-explorer keys (Basescan/Arbiscan/Polygonscan/…) were deprecated 2025-08-15; there is no
-#     per-chain key to get, and the rate limit is per ACCOUNT (free tier = 3 calls/sec — raise it with
+#     per-chain key to get, and the rate limit is per ACCOUNT (no-cost tier = 3 calls/sec — raise it with
 #     a paid Etherscan tier, not more keys).
 #   • Custom Etherscan-compatible (e.g. Routescan / Snowtrace for Avalanche): pass a verifier URL as
 #     $3 and an (often placeholder) key as $4. Routescan needs no real key — use `verifyContract`.
@@ -14,7 +14,7 @@
 # Deploy-path-INDEPENDENT: reads the RECORDED broadcast, needs NO keystore, sends NO transaction.
 # Constructor args recovered via --guess-constructor-args. Idempotent (already-verified ⇒ no-op).
 # Rate-limit-aware: forge backs off via --retries/--delay, and a throttle gap sits between contracts so
-# the 3-calls/sec free tier is respected.
+# the 3-calls/sec no-cost tier is respected.
 #
 # The V2 key is read from the ENV (ETHERSCAN_API_KEY) so it never lands in argv/logs — the Makefile
 # passes it via an env assignment with `@` (echo suppressed). A custom-verifier placeholder key is not
@@ -38,7 +38,7 @@ API_KEY="${4:-${ETHERSCAN_API_KEY:-}}"
 # Which deploy script's broadcast to read. Defaults to the consolidated DeployAll.s.sol; override with
 # BROADCAST_SCRIPT to verify a standalone deploy (e.g. DeployUsdMockFeed.s.sol) or an external project.
 BCAST="broadcast/${BROADCAST_SCRIPT:-DeployAll.s.sol}/${CHAIN_ID}/run-latest.json"
-THROTTLE="${VERIFY_THROTTLE:-2}"   # seconds between contracts — stay under the 3-calls/sec free tier
+THROTTLE="${VERIFY_THROTTLE:-2}"   # seconds between contracts — stay under the 3-calls/sec no-cost tier
 
 # Record a chain-level SKIP to the results file (so a chain that can't even start STILL shows in the
 # one-paste digest, instead of silently vanishing) and exit non-zero.
