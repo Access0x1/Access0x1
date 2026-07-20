@@ -33,9 +33,11 @@ Pick the path that matches your stack:
 > **Step 0 — get a `merchantId` (shared by every path).** Onboarding is a single
 > permissionless `registerMerchant(payout, feeRecipient, feeBps, nameHash)` call on the router
 > → it returns your `merchantId`; the caller becomes the merchant owner (see the README
-> "Contract surface"). The easiest way is the **hosted onboarding wizard** at `/onboard` on the
-> Access0x1 app — connect a wallet, set your payout address + optional surcharge, and it makes
-> the call and shows your `merchantId` (and an optional checkout `slug`). You can also call
+> "Contract surface"). The easiest way is the **hosted onboarding wizard**: start at `/onboard`
+> on the Access0x1 app to connect a wallet and set your brand (name, description, optional
+> checkout `slug`) — then finish from `/dashboard`'s "Switch on payments" card, which sets your
+> payout address + optional surcharge and makes the on-chain call, showing your `merchantId`
+> when it lands. Two screens, one wallet signature, still zero code. You can also call
 > `registerMerchant` directly with `cast` / viem if you prefer. You only do this **once per
 > business**, on whichever chain(s) you want to settle on.
 
@@ -304,9 +306,10 @@ What you get, with those five vars and nothing else:
 Honest notes (what each extra var actually buys you):
 
 - **The pay card goes live when your `merchantId` is real.** `FEATURED_MERCHANT_MERCHANT_ID` must be
-  a merchant that exists **on-chain** on your default chain — register once at your own `/onboard`
-  (one wallet signature, permissionless) and set the id it gives you. Until then the checkout page
-  renders your brand and says payments aren't switched on yet (we never fake a checkout).
+  a merchant that exists **on-chain** on your default chain — set your brand at your own `/onboard`,
+  then finish on `/dashboard` ("Switch on payments", one wallet signature, permissionless) and set
+  the id it gives you. Until then the checkout page renders your brand and says payments aren't
+  switched on yet (we never fake a checkout).
 - **Wallet connect UI needs `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`** (free at dynamic.xyz). Without it
   the app still builds and serves; connecting a wallet is what needs it.
 - **Data durability needs `DATABASE_URL`** (any Postgres). Without it the app runs fully in-memory
