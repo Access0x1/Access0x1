@@ -17,6 +17,7 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node", "vitest/globals"],
     "plugins": [{ "name": "next" }],
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
