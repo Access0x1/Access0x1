@@ -93,7 +93,7 @@ COPY . .
 # SKIPPING gen-deployments. `--ignore-scripts` on the next call is implicit:
 # we bypass the npm `build` lifecycle by invoking the steps directly.
 RUN node scripts/replace-embed-addrs.js \
-    && node ./node_modules/next/dist/bin/next build
+    && node ./node_modules/next/dist/bin/next build --webpack
 
 # --- Stage 3: runner ---------------------------------------------------------
 FROM node:${NODE_VERSION} AS runner

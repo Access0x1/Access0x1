@@ -99,7 +99,6 @@ let warned = false
 function warnInMemoryOnce(): void {
   if (warned) return
   warned = true
-  // eslint-disable-next-line no-console
   console.warn(
     '[storage/durableKv] No durable store configured (set NULLIFIER_STORE_URL or ' +
       'DATABASE_URL) — branding / verification / API-key / meter data lives ONLY in ' +
@@ -149,7 +148,6 @@ export function durableSet(namespace: string, key: string, value: unknown): void
   const backend = getDurableKv(namespace)
   if (!backend) return
   backend.set(key, value).catch((err) => {
-    // eslint-disable-next-line no-console
     console.warn(`[storage/durableKv] set failed for ${namespace}/${key}:`, err)
   })
 }
@@ -185,7 +183,6 @@ export async function durableReserveWithinCap(
     // a DB blip must not brick the agent), but no longer invisible. Log only the error
     // MESSAGE, never the raw error object (which could carry the connection string /
     // query context) — no secret in logs (law #5).
-    // eslint-disable-next-line no-console
     console.error(
       `[MONEY-SAFETY][cap-degraded] durable reserveWithinCap failed for ${namespace}/${key} — ` +
         `cross-instance cap downgraded to the per-instance ceiling: ${errMessage(err)}`,
@@ -231,7 +228,6 @@ export async function durableDecrementClamped(
     // Fail-soft: a failed durable refund leaves the shared row slightly HIGH (an
     // over-count — the agent stops earlier, never overspends), the safe direction, so a
     // plain warn suffices here (unlike the reserve path above). Message only — no secret.
-    // eslint-disable-next-line no-console
     console.warn(`[storage/durableKv] decrementClamped failed for ${namespace}/${key}: ${errMessage(err)}`)
     return undefined
   }
@@ -242,7 +238,6 @@ export function durableDelete(namespace: string, key: string): void {
   const backend = getDurableKv(namespace)
   if (!backend) return
   backend.delete(key).catch((err) => {
-    // eslint-disable-next-line no-console
     console.warn(`[storage/durableKv] delete failed for ${namespace}/${key}:`, err)
   })
 }
@@ -275,7 +270,6 @@ export async function hydrate(
     }
     return rows.length
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.warn(`[storage/durableKv] hydrate failed for ${namespace}:`, err)
     return 0
   }

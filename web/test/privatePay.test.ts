@@ -40,7 +40,6 @@ function makeDeps(
     }),
     getClient: vi.fn(async () => {
       calls.push("getClient");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return {} as any;
     }),
     shieldAndWithdraw: vi.fn(async (params) => {

@@ -32,7 +32,6 @@ function makeClient(calls: string[], opts?: { withdrawFails?: boolean; depositFa
       calls.push("transfer");
       return { txHash: "0xtransfer" as `0x${string}` };
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 

@@ -19,6 +19,13 @@ import type { NextConfig } from 'next'
  *   `../../lib/agent/payPerCall.js`) resolve to their `.ts`/`.tsx` sources.
  *   tsc (moduleResolution: bundler) and vitest (config alias) already do this;
  *   this aligns webpack so `next build` agrees with the typecheck and tests.
+ * - Next 16 makes Turbopack the default bundler and refuses to build/dev when a
+ *   `webpack()` config is present without an explicit bundler choice (Turbopack
+ *   never executes this function at all, so switching silently would drop the
+ *   `@unlink-xyz/sdk` / `@swype-org/deposit` externals below and hard-fail the
+ *   build on those booth-only packages). `package.json`'s `dev`/`build` scripts
+ *   pass `--webpack` to keep this config load-bearing; porting it to Turbopack's
+ *   native `resolveAlias`/externals config is a real follow-up, not a same-day fix.
  * - `headers()` applies a baseline of HTTP security headers to EVERY response
  *   (see {@link SECURITY_HEADERS}): a CSP that denies framing + plugins while
  *   still letting the app, the wallet SDKs, and the RPC/auth backends run;
