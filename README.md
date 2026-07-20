@@ -109,15 +109,15 @@ stays at ~0 — and prices every payment in **USD on-chain, inside the settlemen
 never from an off-chain quote you have to trust. The buyer pays exactly the USD amount the contract priced,
 and no intermediary ever holds the funds.
 
-- **Gas-free USDC checkout on Arc — by default.** The app's checkout connects to **Arc Testnet**
-  out of the box (the app's default chain), where **Circle USDC is the native gas token**. A buyer
-  pays in USDC and settles in USDC: there is **no separate gas coin to top up and no Paymaster to
-  run** — the Arc + Circle stack does that work, so checkout is gas-free with zero extra contract
-  code on our side. The same `payToken(USDC)` path also runs on Base Sepolia (live); zkSync Sepolia is
-  one-command ready as a bridge target, not yet broadcast.
-  > Note: this gas-free experience is Arc-specific because USDC is Arc's native gas token. On other
-  > chains (Base Sepolia, zkSync, etc.), buyers pay gas in that chain's native token. An optional
-  > ERC-7677 paymaster can sponsor gas on other chains if configured.
+- **USDC is Arc's native gas token.** Arc Testnet is one of the supported chains, and on it
+  **Circle USDC is the native gas token**. A buyer paying in USDC there is also paying gas in
+  USDC: there is **no separate gas coin to top up and no Paymaster to run** for that leg — it's a
+  property of Arc's own gas model, with zero extra contract code on our side. The same
+  `payToken(USDC)` path also runs on Base Sepolia (live); zkSync Sepolia is one-command ready as a
+  bridge target, not yet broadcast.
+  > Note: USDC-as-gas is Arc-specific because it's Arc's native gas token, not something we built.
+  > On other chains (Base Sepolia, zkSync, etc.), buyers pay gas in that chain's native token. An
+  > optional ERC-7677 paymaster can sponsor gas on other chains if configured.
 - **Zero custody.** Settlement is atomic: pull → split → push, all in one tx. The router's
   steady-state balance is zero; the only native it can hold is value owed back through `claimRescue`
   when a payee contract rejects a push (the receipt still stands — funds are never stuck).
@@ -541,7 +541,7 @@ forge script script/DeployAll.s.sol --zksync \
 **Or just `make`** (keystore + per-chain RPC read from `.env`):
 
 ```sh
-make deploy-arc              # Arc Testnet — gas-free USDC, the lead chain
+make deploy-arc               # Arc Testnet — USDC is the native gas token
 make deploy-base-sepolia             # Base Sepolia
 make deploy-zksync-sepolia           # zkSync Sepolia (adds --zksync)
 make deploy-ethereum-sepolia          # Ethereum Sepolia
@@ -828,7 +828,7 @@ no-op, never a blocked payment). The detail for each — file paths and exact be
 
 | Partner | What they provided | Why it mattered |
 | --- | --- | --- |
-| **Circle + Arc** | USDC as the native gas token (Arc) + the Gateway / x402 settlement seam | Gas-free checkout with **zero Paymaster code** — the payer pays gas in USDC, so we wrote a chain config and a pay button |
+| **Circle + Arc** | USDC as the native gas token (Arc) + the Gateway / x402 settlement seam | No separate gas step for the payer, with **zero Paymaster code** — gas is paid in USDC on Arc, so we wrote a chain config and a pay button |
 | **Chainlink** | `<token>/USD` Data Feeds read in-transaction (+ CRE for the audit consumer) | The settled price is trusted **on-chain**, not a frontend guess — one in-tx call gave us USD→USDC pricing |
 | **Dynamic** | Email sign-in backed by an embedded wallet | A buyer who has never held a wallet completes a USDC checkout — no seed phrase, no extension |
 | **Unlink** | Confidential-withdrawal seam (`@unlink-xyz/sdk`) | A merchant can shield a settled-USDC payout off the public ledger; absent the SDK it degrades to a standard payout |
@@ -845,19 +845,18 @@ Access0x1 is a thin layer of our own code on top of partner infrastructure that 
 Each integration below is real and lives in this repo — this is an honest account of what each
 integration let us *not* build, not a marketing wall.
 
-- **Circle + Arc — gas-free USDC settlement, and the easiest win of the build.** On
-  [Arc](web/lib/chains.ts), **USDC is the native gas token** (the `0x3600…0000` system contract in
-  [`web/lib/arc-constants.ts`](web/lib/arc-constants.ts)). Because the buyer pays in USDC *and* pays
-  gas in USDC, our gas-free checkout needed **zero Paymaster code** — Arc's Circle Nanopayments layer
-  already makes the payer gas-free, so we just defaulted the app to Arc and called `payToken(USDC)`.
-  The Circle Gateway / x402 seam ([`web/app/api/gateway/*`](web/app/api/gateway)) lets a seller read
-  and withdraw their settled USDC balance. The Arc + Circle stack did the hard part; we wrote a chain
-  config and a pay button.
+- **Circle + Arc — USDC as the native gas token.** On [Arc](web/lib/chains.ts), **USDC is the
+  native gas token** (the `0x3600…0000` system contract in
+  [`web/lib/arc-constants.ts`](web/lib/arc-constants.ts)). Because the buyer pays in USDC *and*
+  pays gas in USDC on that chain, that leg needed **zero Paymaster code** on our side — it's a
+  property of Arc's own gas model; we wrote a chain config and called `payToken(USDC)`. The Circle
+  Gateway / x402 seam ([`web/app/api/gateway/*`](web/app/api/gateway)) lets a seller read and
+  withdraw their settled USDC balance.
 - **Chainlink — USD pricing in one in-tx call.** `quote()` reads a Chainlink `<token>/USD` Data Feed
   *inside the settlement transaction* (through [`OracleLib`](src/libraries/OracleLib.sol)'s staleness
   guard), so the price that settles is the price on-chain, not a frontend guess. One call gave us
-  trustworthy USD→USDC pricing for free. (Chainlink CRE also backs the off-money-path audit consumer,
-  [`Access0x1Receiver`](src/Access0x1Receiver.sol).)
+  trustworthy USD→USDC pricing at no extra integration cost. (Chainlink CRE also backs the
+  off-money-path audit consumer, [`Access0x1Receiver`](src/Access0x1Receiver.sol).)
 - **Dynamic — an email login became an invisible wallet.** [`web/lib/dynamic.ts`](web/lib/dynamic.ts)
   and the [providers](web/app/providers.tsx) turn a normal email sign-in into an embedded wallet, so a
   buyer who has never held a wallet can still complete a USDC checkout — no seed phrase, no extension.
