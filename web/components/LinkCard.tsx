@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import QRCode from 'qrcode'
 import type { RegisterResult } from './RegisterForm'
 import { TxHashLink } from './TxHashLink'
+import { buildMerchantPaymentLink } from '@/lib/checkout/paymentLink'
 
 /** A copy-to-clipboard button that shows transient "Copied" feedback. */
 function CopyButton({ value }: { value: string }): ReactNode {
@@ -38,7 +39,7 @@ export function LinkCard({ result }: { result: RegisterResult }): ReactNode {
     setOrigin(window.location.origin)
   }, [])
 
-  const link = origin ? `${origin}/m/${result.merchantId.toString()}` : ''
+  const link = buildMerchantPaymentLink(origin, result.merchantId, result.priceUsd)
   const snippet = origin
     ? `<script src="${origin}/embed.js" data-merchant="${result.merchantId.toString()}" data-amount-usd="${result.priceUsd}"></script>`
     : ''
