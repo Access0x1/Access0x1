@@ -13,7 +13,7 @@ const OnChainSvgSimulator = dynamic(
 )
 
 /**
- * /simulate — the "as if it ran on-chain" studio. Deliberately wallet-free:
+ * /simulate — the "as if it ran on-chain" studio. Deliberately requires no wallet:
  * anyone can upload a mark and get the provable estimate; the connected
  * business meets the same panel again as the last step of /journey.
  */

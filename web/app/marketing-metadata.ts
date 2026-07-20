@@ -378,7 +378,7 @@ export const routeMetadata = {
 
 /**
  * The `SoftwareApplication` JSON-LD blob (seo.md §3.1) — the primary entity,
- * modelling Access0x1 as a free developer tool. Copied VERBATIM from seo.md. Per
+ * modelling Access0x1 as a no-cost developer tool. Copied VERBATIM from seo.md. Per
  * that section: NO fabricated `aggregateRating` / `review` (invented rating markup
  * is a manual-action risk) — add those only when a real review corpus exists.
  *

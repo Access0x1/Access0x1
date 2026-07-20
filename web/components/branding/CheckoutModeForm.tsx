@@ -11,7 +11,7 @@ import { CasinoVerifiedBadge } from '@/components/CasinoVerifiedBadge'
 
 /**
  * CheckoutModeForm — the plain-English "Who can pay you?" card (World ID ADR D0
- * / unit 3). Three picture-free, jargon-free options + the honest "opposite
+ * / unit 3). Three options with no pictures and no jargon + the honest "opposite
  * poles" line. Sensible default (Anyone / standard). Shown as one optional step
  * at sign-up (after name/logo) and in Settings → Checkout.
  *
@@ -66,7 +66,7 @@ const OPTIONS: Option[] = [
     value: 'verified-human',
     label: 'Only verified real people (World ID)',
     helper:
-      'Before someone can pay, they tap once to prove they’re a real, unique person — great for limited drops, free trials, and giveaways. Verified people only blocks bots and one-account-per-person. You never see their name or face — only a yes.',
+      'Before someone can pay, they tap once to prove they’re a real, unique person — great for limited drops, no-cost trials, and giveaways. Verified people only blocks bots and one-account-per-person. You never see their name or face — only a yes.',
   },
   {
     value: 'private',

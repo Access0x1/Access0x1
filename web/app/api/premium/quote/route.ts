@@ -2,7 +2,7 @@
  * GET /api/premium/quote — a $0.001 x402-priced endpoint.
  *
  * Served IFF Circle settles the payer's EIP-3009 micro-authorization. Real
- * (sub-cent) USDC on Arc Testnet; gas-free at the batch layer.
+ * (sub-cent) USDC on Arc Testnet; no separate gas step at the batch layer.
  */
 import { withGateway } from "@/lib/x402.js";
 

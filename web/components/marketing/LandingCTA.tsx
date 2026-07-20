@@ -34,7 +34,7 @@ export function LandingCTA({ className }: LandingCTAProps): ReactNode {
     >
       {/* Primary: get your branded checkout link — straight into onboarding. */}
       <Button asChild size="lg" className="w-full sm:w-auto">
-        <a href="/onboard">Get started — it&rsquo;s free</a>
+        <a href="/onboard">Get started — no cost to join</a>
       </Button>
 
       {/* Secondary: a low-commitment "learn more" into the Q&A assistant. */}

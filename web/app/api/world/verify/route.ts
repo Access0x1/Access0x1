@@ -71,7 +71,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // C-2: the action is the nullifier-store key AND what the portal verifies the
   // proof against — so it MUST come only from trusted server config, never from
   // the request body. The body may only SELECT which configured gate to use (an
-  // enum, not a free-form string): the default buyer gate or the agent gate.
+  // enum, not an arbitrary string): the default buyer gate or the agent gate.
   // A body that injects its own `action` cannot present a proof generated for
   // action A under action B — we derive the action server-side and OVERRIDE it
   // in the payload forwarded to the portal so the verified action and the claimed
