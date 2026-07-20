@@ -51,8 +51,10 @@ plain injected, …) stays entirely the host app's concern.
 
 ### Install
 
-Access0x1 is **not published to any npm registry** — you consume `@access0x1/react` straight from
-GitHub as a git dependency. Add it to your app's `package.json`:
+We chose **not to publish an npm package yet** — a deliberate hackathon-scope call, not a
+limitation. What you install is exactly what's in this repo, and this is real, working code; a
+registry release can come later without changing your integration. Consume `@access0x1/react`
+straight from GitHub as a git dependency — add it to your app's `package.json`:
 
 ```jsonc
 {

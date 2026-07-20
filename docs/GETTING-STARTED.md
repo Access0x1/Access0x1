@@ -46,8 +46,10 @@ It is viem/wagmi-native and ships a single drop-in component, `<PayButton>`.
 
 ### 1. Install
 
-The SDK is distributed **from GitHub, not any npm registry** — you consume it as a
-git dependency. The starter template (Path 3) wires it for you automatically; to
+The SDK is distributed **from GitHub — we chose not to publish an npm package yet**
+(a hackathon-scope call, not a limitation; this is real code and a registry release
+can come later without changing your integration). You consume it as a git
+dependency. The starter template (Path 3) wires it for you automatically; to
 add it to an existing app, reference the repo in your `package.json`:
 
 ```jsonc

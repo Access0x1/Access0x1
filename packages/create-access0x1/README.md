@@ -73,9 +73,11 @@ Without `--yes` (and on a TTY), the CLI prompts interactively for the directory,
 - **No-deploy default.** The generated app runs against a router you configure in `.env.local`, so
   it boots out of the box once you paste a router address you trust. Deploying your own is optional.
 
-## Distribution (no npm publish)
+## Distribution (no npm publish — yet)
 
-Access0x1 is **not published to any npm registry — on purpose.** Everything ships from GitHub:
+We chose **not to publish an npm package yet** — a deliberate hackathon-scope call, not a
+limitation. This is real, working code; a registry release can come later without changing
+anything below. Everything ships from GitHub:
 
 - **Scaffold a new app:** `npx degit Access0x1/Access0x1/templates/starter my-checkout` (copies the
   template straight from the repo — no registry), or run this CLI from a checkout

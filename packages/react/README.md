@@ -6,8 +6,10 @@ Every payment is a single on-chain transaction: **buyer → router → merchant 
 
 ## Install
 
-Access0x1 is **git-distributed — not published to any npm registry.** Consume `@access0x1/react`
-as a git dependency in your app's `package.json`:
+Access0x1 is **git-distributed — we chose not to publish an npm package yet.** A deliberate
+hackathon-scope call, not a limitation: this is real, working code, and a registry release can
+come later without changing your integration. Consume `@access0x1/react` as a git dependency in
+your app's `package.json`:
 
 ```jsonc
 "dependencies": {
