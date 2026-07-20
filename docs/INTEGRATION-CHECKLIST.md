@@ -122,6 +122,7 @@ same guarantees. Point each at your `merchantId` and the **router address from
 | The 60-second model + three copy-paste paths | [GETTING-STARTED.md](./GETTING-STARTED.md) |
 | SDK / embed / hosted checkout details | [QUICKSTART.md](./QUICKSTART.md) |
 | Subscriptions, bookings, invoices, gift cards | [RECIPES.md](./RECIPES.md) |
+| Turn on an optional seam (World ID, Unlink, swap, on-ramp, …) | [OPTIONAL-SEAMS.md](./OPTIONAL-SEAMS.md) |
 | Common questions & objections | [FAQ.md](./FAQ.md) |
 | Deploy your own stack to a testnet | [DEPLOY-TESTNETS.md](./DEPLOY-TESTNETS.md) |
 | A term you don't recognize | [GLOSSARY.md](./GLOSSARY.md) |
