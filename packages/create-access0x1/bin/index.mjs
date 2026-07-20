@@ -62,7 +62,7 @@ const yellow = c('33');
 const red = c('31');
 
 // ── the supported chains (public chain IDs are facts — not invented addresses) ─
-// Mirrors web/lib/chains.ts: arc-testnet (the gasless-USDC lead), base-sepolia, zksync-sepolia.
+// Mirrors web/lib/chains.ts: arc-testnet (native-gas USDC), base-sepolia, zksync-sepolia.
 const CHAINS = {
   arc: {
     key: 'arc',
@@ -70,7 +70,7 @@ const CHAINS = {
     chainId: 5042002,
     // Env-var suffix used for NEXT_PUBLIC_ROUTER_ADDRESS_<chainId> wiring.
     routerEnv: 'NEXT_PUBLIC_ROUTER_ADDRESS_5042002',
-    note: 'Arc — USDC IS the native gas token (so "no gas fee" copy is truthful here).',
+    note: 'Arc — USDC IS the native gas token (verify the "no separate gas" claim end-to-end before shipping that copy).',
   },
   base: {
     key: 'base',

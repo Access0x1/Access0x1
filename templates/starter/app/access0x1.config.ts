@@ -18,7 +18,7 @@
  * This file works out of the box after `degit` AND after the create-access0x1 CLI.
  *
  * - After `npx degit`: CHAIN_KEY defaults to '{{CHAIN}}' (unsubstituted); the CHAIN_DEFAULTS
- *   lookup table falls back to Arc Testnet (the lead chain). Edit CHAIN_KEY to 'base' or 'zksync'
+ *   lookup table falls back to Arc Testnet. Edit CHAIN_KEY to 'base' or 'zksync'
  *   to target a different chain — the lookup table fills the rest automatically.
  *
  * - After the create-access0x1 CLI (`node packages/create-access0x1/bin/index.mjs … --chain base`,
@@ -32,7 +32,7 @@ import type { Hex } from '@access0x1/react';
 /**
  * Public chain metadata. All values are facts (chain IDs), never invented addresses.
  *
- * The `arc` / `base` / `zksync` keys are the deployed/lead targets. The keys below them (0G, Monad,
+ * The `arc` / `base` / `zksync` keys are the deployed targets. The keys below them (0G, Monad,
  * Berachain, Sei, MegaETH) are KNOWN-but-deploy-PENDING — pick one only after the owner runs the
  * CREATE3 mirror deploy on that chain and sets its NEXT_PUBLIC_ROUTER_ADDRESS_<id>. Until then the
  * router env is unset and checkout fails loudly (it never invents a router — LAW #4).

@@ -64,7 +64,7 @@ function getInjected(): Eip1193Provider | undefined {
  *
  * The SDK is auth-agnostic — it consumes a viem wallet client. So for a NON-injected provider
  * (`dynamic` | `privy` | `wagmi`) you pass the viem wallet client that provider gives you as
- * `externalWalletClient`; this file stays free of any provider SDK and the checkout component never
+ * `externalWalletClient`; this file stays clear of any provider SDK and the checkout component never
  * changes. Until that client exists (provider not connected yet), the client is read-only (quotes work,
  * writes reject with the SDK's typed NO_WALLET error).
  *
