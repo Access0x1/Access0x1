@@ -1,6 +1,7 @@
 {
   "name": "@access0x1/react",
   "version": "0.1.0",
+  "private": true,
   "description": "viem/wagmi-native React SDK for Access0x1 — a zero-custody, USD-priced crypto payment button you can drop into any React app in under five minutes.",
   "license": "MIT",
   "author": "Access0x1",
