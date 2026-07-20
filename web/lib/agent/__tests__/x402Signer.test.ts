@@ -12,6 +12,9 @@ import {
   type TypedData,
 } from "../dynamicAgentWallet.js";
 
+type SignTypedData = DynamicEvmWalletClient["signTypedData"];
+type SignMessage = DynamicEvmWalletClient["signMessage"];
+
 const ACCT: AgentAccount = {
   accountAddress: "0xAGENT0000000000000000000000000000000abc",
   publicKeyHex: "0xpub",
@@ -20,12 +23,12 @@ const ACCT: AgentAccount = {
 
 const SECRET = "super-secret-wallet-password";
 
-let signTypedData: ReturnType<typeof vi.fn>;
-let signMessage: ReturnType<typeof vi.fn>;
+let signTypedData: ReturnType<typeof vi.fn<SignTypedData>>;
+let signMessage: ReturnType<typeof vi.fn<SignMessage>>;
 
 function installMockClient(): void {
-  signTypedData = vi.fn().mockResolvedValue("0xtypedsig");
-  signMessage = vi.fn().mockResolvedValue("0xmsgsig");
+  signTypedData = vi.fn<SignTypedData>().mockResolvedValue("0xtypedsig");
+  signMessage = vi.fn<SignMessage>().mockResolvedValue("0xmsgsig");
   const client: DynamicEvmWalletClient = {
     authenticateApiToken: vi.fn().mockResolvedValue(undefined),
     createWalletAccount: vi.fn().mockResolvedValue(ACCT),
