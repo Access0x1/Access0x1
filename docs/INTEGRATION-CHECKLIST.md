@@ -103,8 +103,8 @@ same guarantees. Point each at your `merchantId` and the **router address from
 
 ## 6. Operate
 
-- [ ] **Refunds always work** — the refund legs are oracle-free, so a stale feed
-      can never block a refund ([FAQ → Chainlink down](./FAQ.md#what-if-the-chainlink-price-feed-goes-down-or-returns-a-stale-price)).
+- [ ] **Refunds always work** — the refund legs have no oracle dependency, so a
+      stale feed can never block a refund ([FAQ → Chainlink down](./FAQ.md#what-if-the-chainlink-price-feed-goes-down-or-returns-a-stale-price)).
 - [ ] **Pause** is a platform-owner control, not a merchant one; to stop taking
       payments yourself, set your merchant `active = false`.
 - [ ] **Standing up your own router on a new testnet?** Follow

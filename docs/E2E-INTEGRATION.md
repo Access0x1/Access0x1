@@ -303,7 +303,7 @@ construction — assert it if you want a belt-and-suspenders check:
 
 **Error handling at this stage** is the revert-derived branch of `Access0x1Error`.
 A reverted settlement surfaces as a stable `code` so your UI can branch without
-parsing free text:
+parsing unstructured text:
 
 | Code | Meaning |
 | --- | --- |

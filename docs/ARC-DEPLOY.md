@@ -1,6 +1,6 @@
 # Arc Testnet Deploy Runbook
 
-Arc testnet (chainId 5042002) is the lead settlement chain. USDC is the **native gas token** on Arc,
+Arc testnet (chainId 5042002) is one of the supported settlement chains. USDC is the **native gas token** on Arc,
 so there is no published Chainlink USDC/USD oracle — the peg is enforced by the chain design. This
 runbook shows how to deploy a $1.00 price-feed stand-in before the main `make deploy-arc` broadcast.
 
