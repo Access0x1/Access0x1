@@ -44,8 +44,8 @@ interface IAccess0x1Bookings {
     /// @notice The cancellation policy, SNAPSHOTTED once at `reserve` and immutable thereafter — an
     ///         operator can never retroactively raise the fees on a live booking.
     /// @param cancelWindowSecs Seconds before `slotTimestamp` inside which a cancel is "late". A cancel
-    ///                         at `now < slotTimestamp - cancelWindowSecs` is free; at/after it the late
-    ///                         policy applies.
+    ///                         at `now < slotTimestamp - cancelWindowSecs` carries no fee; at/after it the
+    ///                         late policy applies.
     /// @param lateFeeUsd8      The USD (8-dp) late-cancellation fee. `0` means a late cancel is BLOCKED
     ///                         (reverts `CancellationWindowActive`) — the "no late cancellations" policy.
     /// @param noShowFeeUsd8    The USD (8-dp) no-show fee the operator keeps when a payer never shows.
@@ -127,7 +127,7 @@ interface IAccess0x1Bookings {
     /// @param id        The reservation id.
     /// @param actorType Who initiated the cancel (audit label only).
     /// @param refund    The token amount refunded to the payer.
-    /// @param fee       The token late-fee routed to the operator (0 on a free cancel).
+    /// @param fee       The token late-fee routed to the operator (0 on a no-fee cancel).
     event Cancelled(uint256 indexed id, ActorType actorType, uint256 refund, uint256 fee);
 
     /// @notice A reservation was marked a no-show: the no-show fee was kept (routed to the operator)
@@ -188,7 +188,7 @@ interface IAccess0x1Bookings {
 
     /// @notice `slotTimestamp` is not in the future (`<= now`). A past/zero slot moment floors the
     ///         cancel window at the epoch, forcing EVERY cancel into the late branch — a late fee on a
-    ///         free-cancel booking, or (with `lateFeeUsd8 == 0`) a permanently BLOCKED cancel that traps
+    ///         no-charge-cancel booking, or (with `lateFeeUsd8 == 0`) a permanently BLOCKED cancel that traps
     ///         a CONFIRMED escrow. A zero `slotTimestamp` is rejected so the window math is well-formed.
     error Access0x1Bookings__ZeroSlotTimestamp();
 
@@ -210,8 +210,8 @@ interface IAccess0x1Bookings {
     /// @return The full {Reservation} record (zeroed if it never existed).
     function reservationOf(uint256 id) external view returns (Reservation memory);
 
-    /// @notice Whether `slotKey` is free to reserve right now FOR A GIVEN MERCHANT. Occupancy is
-    ///         namespaced by merchant (tenancy isolation), so the same `slotKey` may be free for one
+    /// @notice Whether `slotKey` is available to reserve right now FOR A GIVEN MERCHANT. Occupancy is
+    ///         namespaced by merchant (tenancy isolation), so the same `slotKey` may be available for one
     ///         merchant and taken for another.
     /// @param merchantId The router merchant whose calendar to check.
     /// @param slotKey The opaque slot key.

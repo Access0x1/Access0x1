@@ -242,7 +242,7 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
         // guard on top of the token's single-use nonce).
         inv.status = IStatus.PAID;
 
-        // Interaction: direct allowance-free 3009 pull of exactly `gross` from the payer into this
+        // Interaction: direct 3009 pull, with no separate allowance step, of exactly `gross` from the payer into this
         // contract, verified by the balance delta (rejects fee-on-transfer / rebasing). NOT wrapped —
         // a 3009 pull IS the settlement, so its failure MUST revert.
         uint256 balBefore = IERC20(token).balanceOf(address(this));

@@ -170,7 +170,7 @@ interface IPaymentLanes {
     function claimLaneUpTo(uint256 id, address asset, uint256 maxAmount) external;
 
     /// @notice Derive the deterministic lane id for a (chainId, asset, recipient) triple.
-    /// @dev    Pure — no storage read. Callers can compute lane ids off-chain for free.
+    /// @dev    Pure — no storage read. Callers can compute lane ids off-chain at no on-chain cost.
     /// @param chainId_  The chain id leg (block.chainid at credit time).
     /// @param asset     The ERC-20 leg.
     /// @param recipient The recipient leg.

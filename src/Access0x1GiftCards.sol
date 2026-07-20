@@ -332,7 +332,7 @@ contract Access0x1GiftCards is
     /// @inheritdoc IAccess0x1GiftCards
     /// @dev Permissionless READ. Performs the SAME active/expired/cap qualification as {applyCoupon} and
     ///      returns the clamped discount WITHOUT incrementing `redemptionsCount` — a storefront preview
-    ///      any party may call for free. Because it never consumes the cap it cannot grief a finite-cap
+    ///      any party may call at no cost. Because it never consumes the cap it cannot grief a finite-cap
     ///      promotion (the L-4 split: read is public, consume is owner-gated). A disqualifying state
     ///      (inactive, expired, cap reached) reverts so a preview matches what a consume would do.
     function quoteCoupon(uint256 merchantId, bytes32 couponId, uint256 amountUsd8)
@@ -359,7 +359,7 @@ contract Access0x1GiftCards is
     ///      increments `redemptionsCount` toward `maxRedemptions`, so a permissionless caller could
     ///      burn a finite-cap promotion to exhaustion (the L-4 griefing/DoS) — gating it to the owner
     ///      (mirroring {setCoupon}/{releaseCoupon}) closes that, while {quoteCoupon} gives storefronts a
-    ///      free, non-consuming preview. The cap is checked and the count incremented in the SAME state
+    ///      no-cost, non-consuming preview. The cap is checked and the count incremented in the SAME state
     ///      transition, so `redemptionsCount` can never exceed `maxRedemptions` even under concurrent
     ///      sales (each is its own tx; the EVM serializes them). A disqualifying state (inactive,
     ///      expired, cap reached) reverts; the discount math itself NEVER throws — an unknown discount
@@ -451,7 +451,7 @@ contract Access0x1GiftCards is
     /// @dev The deterministic card key. `keccak256(abi.encode(merchantId, code))` over the full
     ///      uint256/bytes32 pair — `abi.encode` (not `encodePacked`) so each leg sits in its own
     ///      32-byte word and no two distinct pairs can collide via boundary aliasing. Pure — no SLOAD
-    ///      — so off-chain callers recompute card ids for free.
+    ///      — so off-chain callers recompute card ids at no on-chain cost.
     /// @param merchantId The merchant leg.
     /// @param code       The code leg.
     /// @return The card id.

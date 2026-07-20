@@ -252,7 +252,7 @@ interface IAccess0x1GiftCards {
     /// @notice Atomically consume a coupon and return the clamped discount for `amountUsd8`. Only the
     ///         merchant owner may call (per the Router registry) — consuming increments the cap, so a
     ///         permissionless caller could grief a finite-cap promotion to exhaustion; use {quoteCoupon}
-    ///         for a free, non-consuming storefront preview. Reverts only on a hard-disqualifying state
+    ///         for a no-cost, non-consuming storefront preview. Reverts only on a hard-disqualifying state
     ///         (inactive, expired, cap reached); the discount math never throws (an unknown type yields
     ///         a zero discount).
     /// @param merchantId The merchant the coupon belongs to.
