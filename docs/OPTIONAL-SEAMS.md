@@ -28,7 +28,7 @@ you set · where the value comes from · how to confirm it's live · what "off" 
 | **Circle x402** | gas-free USDC micro-payments | `SELLER_ADDRESS` (+ `NEXT_PUBLIC_X402_*` off-Arc) | your payout EOA (a decision, not a signup) |
 | **World ID** | proof-of-human gate before pay | `NEXT_PUBLIC_WORLD_APP_ID`, `WORLD_SIGNING_KEY` | developer.worldcoin.org |
 | **OIDC** (Sign in with Google) | ID-token verification method | `NEXT_PUBLIC_OIDC_CLIENT_ID` (+ optional `OIDC_*`) | Google Cloud → OAuth client |
-| **Unlink** | confidential merchant payouts | `UNLINK_API_KEY`, `PRIVATE_PAY_FLAG=true`, `NEXT_PUBLIC_UNLINK_*` | dashboard.unlink.xyz |
+| **Unlink** | confidential merchant payouts | `UNLINK_API_KEY` + `UNLINK_PRIVATE_PAY=true` (or `NEXT_PUBLIC_EARNINGS_PRIVACY=true`) + `NEXT_PUBLIC_UNLINK_USDC_<chainId>` | dashboard.unlink.xyz |
 | **ENS subnames** | gasless `merchant-x.you.eth` | `NAMESTONE_API_KEY`, `ENS_SUBNAME_PARENT` | namestone.com |
 | **Uniswap swap** | receive-in-any-coin payout | `UNISWAP_TRADING_API_URL` (+ `UNISWAP_TRADING_API_KEY`) | developer.uniswap.org |
 | **Blink** | one-tap buyer deposit | `BLINK_ENABLED=true`, `NEXT_PUBLIC_BLINK_APP_ID` | the deposit provider |
@@ -77,10 +77,17 @@ flag **and** its credential, so a half-set seam stays safely dormant. Set both.
 ### Unlink — confidential payouts
 - **Does:** shields a settled-USDC payout off the public ledger
   ([`web/lib/unlink`](../web/lib/unlink)); off the money path.
-- **Set:** `UNLINK_API_KEY` (server), `PRIVATE_PAY_FLAG=true`, and the per-chain
-  `NEXT_PUBLIC_UNLINK_CHAIN_ID` / shielded-USDC token.
+- **Set:** `UNLINK_API_KEY` (server) + **one** privacy flag — `UNLINK_PRIVATE_PAY=true`
+  (the agent rail) **or** `NEXT_PUBLIC_EARNINGS_PRIVACY=true` (the merchant-facing knob);
+  both route the same shield+withdraw — plus the per-chain shielded token
+  `NEXT_PUBLIC_UNLINK_USDC_<chainId>` (Arc falls back to `ARC_TESTNET_USDC`) and, off Arc,
+  `NEXT_PUBLIC_UNLINK_CHAIN_ID`. The route also needs `UNLINK_PAYOUT_PRIVATE_KEY`.
 - **Get:** **dashboard.unlink.xyz** → org → project → API Keys (shown once).
-- **Off:** degrades to a standard USDC payout.
+- **Verify:** `privatePayStatus()` returns **`"on"`** — not `flag_off` (a flag typo reads
+  exactly like OFF) and not `not_configured` (key/token missing). Confirm the status, never
+  just that the key is set.
+- **Off:** degrades to a standard **public** USDC payout — funds still move, but the payout
+  is visible on-chain, so a mis-set flag silently leaves earnings public.
 
 ### ENS subnames — gasless `merchant-x.you.eth`
 - **Does:** issues offchain merchant subnames via Namestone
