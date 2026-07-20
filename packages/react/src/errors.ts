@@ -6,7 +6,7 @@
  * the sequencer guards `OracleLib__SequencerDown` / `OracleLib__SequencerGracePeriodNotOver`).
  * viem decodes a custom-error revert into a `ContractFunctionRevertedError` whose `.data.errorName`
  * carries the name. This module normalizes any thrown value into a clean `Access0x1Error` with a
- * stable `code`, so the host app's UI can branch on a known set without parsing free-text.
+ * stable `code`, so the host app's UI can branch on a known set without parsing unstructured text.
  */
 
 /** The set of error codes the SDK recognizes and surfaces to the host app. */
