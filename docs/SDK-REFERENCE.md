@@ -53,7 +53,9 @@ settlement chain's `Access0x1Router` in as a prop.
 
 ## Install
 
-Access0x1 is **not published to any npm registry** — consume `@access0x1/react` as a git dependency:
+We chose **not to publish an npm package yet** (a hackathon-scope call — this is real, working
+code, and a registry release can come later without changing your integration). Consume
+`@access0x1/react` as a git dependency:
 
 ```jsonc
 // package.json
