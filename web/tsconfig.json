@@ -12,7 +12,7 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["node", "vitest/globals"],
@@ -29,7 +29,8 @@
     "**/*.ts",
     "**/*.tsx",
     "**/*.mts",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules", ".next", "public/embed.js", "e2e", "playwright.config.ts"]
 }
