@@ -17,7 +17,6 @@ export function buildDynamicSettings(): DynamicContextProps['settings'] {
   const environmentId = process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID
   if (!environmentId) {
     // Surface loudly in dev/build logs rather than silently mounting an unauthed provider.
-    // eslint-disable-next-line no-console
     console.warn(
       'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID is not set — wallet connection will not work.',
     )

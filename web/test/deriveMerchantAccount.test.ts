@@ -28,7 +28,6 @@ function makeSigner(sig: `0x${string}`) {
   return {
     account: { address: SIGNER_ADDR },
     signMessage: vi.fn(async () => sig),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 

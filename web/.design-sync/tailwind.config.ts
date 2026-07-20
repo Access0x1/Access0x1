@@ -11,7 +11,9 @@
 // unfilled instead of green.
 import base from '../tailwind.config'
 
-export default {
+const config = {
   ...base,
   content: [...base.content, '.design-sync/previews/**/*.tsx'],
 }
+
+export default config

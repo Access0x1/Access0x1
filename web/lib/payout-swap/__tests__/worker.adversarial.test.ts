@@ -138,7 +138,7 @@ describe('runPayoutSwap — adversarial / law #5', () => {
   it('a non-Error thrown value is still isolated (no leak, never rejects)', async () => {
     const c = client('uniswap-trading-api', {
       quote: async () => {
-        throw 'string failure' // eslint-disable-line no-throw-literal
+        throw 'string failure'
       },
     })
     const res = await runPayoutSwap(req(), c)

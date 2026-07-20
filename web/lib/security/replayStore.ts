@@ -132,7 +132,6 @@ let warned = false
 function warnInMemoryOnce(): void {
   if (warned) return
   warned = true
-  // eslint-disable-next-line no-console
   console.warn(
     '[security/replayStore] Using the IN-MEMORY replay store (dev only). Claimed World ID ' +
       'nullifiers / OIDC subjects are LOST on restart — replay is possible. Set ' +

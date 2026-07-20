@@ -30,7 +30,6 @@ function configureOn(): void {
 function makeDeps(opts?: { shieldThrows?: unknown }): PrivatePayDeps {
   return {
     ensureRegistered: vi.fn(async () => undefined),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getClient: vi.fn(async () => ({}) as any),
     shieldAndWithdraw: vi.fn(async () => {
       if (opts?.shieldThrows) throw opts.shieldThrows;
