@@ -3,12 +3,12 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  // Transform JSX/TSX with the automatic runtime (matches Next.js: components
-  // don't import React). Without this, esbuild defaults to the classic runtime
-  // and SSR-rendering a .tsx component throws "React is not defined".
-  esbuild: {
-    jsx: 'automatic',
-  },
+  // vitest 4 transforms with oxc by default, which is `esbuild`'s replacement —
+  // `esbuild` config is deprecated (silently ignored, confirmed by a runtime
+  // warning) and oxc's own default JSX runtime is already 'automatic' (matches
+  // Next.js: components don't import React), so no explicit jsx config is
+  // needed here anymore. Kept as a note in case that default ever changes and
+  // SSR-rendering a .tsx component starts throwing "React is not defined".
   resolve: {
     alias: [
       // Mirror the tsconfig `@/*` → `./*` path mapping. Route files import
