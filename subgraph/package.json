@@ -10,8 +10,8 @@
     "deploy": "graph deploy access0x1 --node https://api.studio.thegraph.com/deploy/"
   },
   "dependencies": {
-    "@graphprotocol/graph-cli": "0.97.1",
-    "@graphprotocol/graph-ts": "0.38.0"
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@graphprotocol/graph-ts": "0.38.2"
   },
   "devDependencies": {
     "matchstick-as": "^0.6.0"
