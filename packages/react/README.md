@@ -140,11 +140,11 @@ The receipt watch is also raced against a **120-second ceiling**: if `PaymentRec
 
 ## Errors
 
-Reverts surface as a typed `Access0x1Error` with a stable `code` (`UNDERPAID`, `FEE_ON_TRANSFER_TOKEN`, `MERCHANT_INACTIVE`, `MERCHANT_NOT_FOUND`, `TOKEN_NOT_ALLOWED`, `STALE_PRICE`, `INVALID_PRICE`, `ZERO_AMOUNT`, `USER_REJECTED`, `NO_WALLET`, `UNKNOWN`) so your UI can branch without parsing free text. The oracle's L2 sequencer guards (`OracleLib__SequencerDown` / `…GracePeriodNotOver`) also normalize to `STALE_PRICE`.
+Reverts surface as a typed `Access0x1Error` with a stable `code` (`UNDERPAID`, `FEE_ON_TRANSFER_TOKEN`, `MERCHANT_INACTIVE`, `MERCHANT_NOT_FOUND`, `TOKEN_NOT_ALLOWED`, `STALE_PRICE`, `INVALID_PRICE`, `ZERO_AMOUNT`, `USER_REJECTED`, `NO_WALLET`, `UNKNOWN`) so your UI can branch without parsing unstructured text. The oracle's L2 sequencer guards (`OracleLib__SequencerDown` / `…GracePeriodNotOver`) also normalize to `STALE_PRICE`.
 
 ## Truth in copy
 
-The default label is **"Pay with Crypto"** — it makes no "instant" or "free" claim. Only on a chain where USDC is the native gas token and a paymaster covers gas (Arc) is a "no gas fee" label truthful; do not claim it elsewhere.
+The default label is **"Pay with Crypto"** — it makes no "instant" or no-cost claim. A "no separate gas step" label is only truthful on a chain where the settlement token IS the native gas token, and only when that path is actually working end-to-end on that chain right now — verify per chain and per deploy before making the claim; never assume it from the chain's name alone.
 
 ## License
 

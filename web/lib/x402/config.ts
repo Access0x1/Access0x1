@@ -27,7 +27,7 @@
  * bundle ONLY when the key is a literal string at the call site. The x402 seller
  * spine runs SERVER-SIDE (route handlers), so the computed-key reads below are
  * fine — they resolve at request time on the server. The static literal map for
- * Arc (the one chain we ship a default for) keeps the lead chain working even in
+ * Arc (the one chain we ship a default for) keeps that default working even in
  * a browser-evaluated path.
  */
 
@@ -56,7 +56,7 @@ export interface X402ChainConfig {
 /**
  * The booth-confirmed Arc Testnet defaults (chain 5042002). These are the SAME
  * constants the seller spine used before per-chain config existed, re-exposed
- * here as the documented fallback for the lead chain so Arc behavior is unchanged.
+ * here as the documented fallback for Arc so its behavior is unchanged.
  */
 const ARC_DEFAULTS: X402ChainConfig = {
   chainId: ARC_TESTNET_ID,

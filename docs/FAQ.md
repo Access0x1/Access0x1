@@ -66,7 +66,7 @@ feed through [`OracleLib`](../src/libraries/OracleLib.sol), which:
 
 A reverted payment takes no funds — the buyer simply retries once the feed is
 healthy. The **refund** legs (e.g. [Bookings `claimRefund`](../src/Access0x1Bookings.sol))
-are deliberately oracle-free, so a stale feed can never block a refund. See the
+deliberately have no oracle dependency, so a stale feed can never block a refund. See the
 [oracle staleness guard](./GLOSSARY.md#oracle-staleness-guard) glossary entry.
 
 ## Where do I get the router address? Can I trust the one in a tutorial?
@@ -118,7 +118,7 @@ and the full fee disclosure in [PLATFORM-FEE.md](./PLATFORM-FEE.md).
 
 Not necessarily. The web layer integrates an embedded-wallet sign-in so a buyer
 who has never held crypto can complete a checkout, and the app defaults to a
-gas-free USDC path on Arc (where USDC is the native gas token). Both are
+USDC payment path on Arc (where USDC is the native gas token). Both are
 **off the money path** — the on-chain settlement is the same `payNative` /
 `payToken` call either way. See the [Built on](../README.md#built-on) section for
 the exact integrations and their fail-soft behavior.

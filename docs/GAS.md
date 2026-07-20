@@ -42,7 +42,7 @@ mint a lane receipt); with no lanes configured (the default) token settlement is
 | `claim` | 26,628 | 57,235 | 67,911 | Merchant burns its own lane and pulls the underlying. |
 | `claimLane` | 27,216 | 32,137 | 62,503 | Burn an explicit (e.g. transferred) lane id. |
 | `transfer` | 22,187 | 52,429 | 52,489 | Move a lane receipt (pure bookkeeping, no external call). |
-| `laneId` | 573 | 573 | 573 | `pure` — recompute a lane id off-chain for free. |
+| `laneId` | 573 | 573 | 573 | `pure` — recompute a lane id off-chain at zero on-chain cost. |
 
 Deployment: ~768k gas.
 

@@ -436,7 +436,7 @@ export function CheckoutCard({
         {/* ERC-7677 sponsored-gas badge (env-gated, fail-soft).
             Shown ONLY when a paymaster is configured AND it covers this chain
             (`isPaymasterActiveForChain`). A paymaster for chain A never shows on
-            chain B — no false "free gas" claim (law #4 / truth-in-copy). When
+            chain B — no false "gas costs $0" claim (law #4 / truth-in-copy). When
             NEXT_PUBLIC_PAYMASTER_URL or NEXT_PUBLIC_PAYMASTER_CHAIN_ID are unset
             this is false and the badge is absent; the pay flow is unchanged. */}
         {gasSponsored ? (
@@ -505,7 +505,7 @@ export function CheckoutCard({
         // pay. Off-chain verifier (default) posts the proof to /api/world/verify.
         // ON-CHAIN SEAM (ADR D3 / unit 5): when humanVerifier === 'onchain', a
         // future build calls Access0x1HumanGate.isCleared(merchantId, buyer)
-        // (a free eth_call) here instead of the off-chain proof, gating on the
+        // (a no-cost eth_call) here instead of the off-chain proof, gating on the
         // on-chain nullifier mapping. That gate is OFF the money path by
         // construction (Access0x1Receiver precedent) — never imported by the
         // Router. We build only the off-chain path here; the contract is a

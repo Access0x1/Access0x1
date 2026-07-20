@@ -7,7 +7,7 @@ algorithms reproduce **byte-for-byte identically** in a second, independent comp
 - **`NameDie.vy`** — the ENS-name → **die** twin: the SAME keccak brand color (so a name's die and
   identicon always match, the background nudge included), with **rarity by name length** as die sides —
   3 (legendary, ≤3 chars), 6 (rare, 4), 9 (standard, 5+) — mirroring ENS's own inverse-length pricing.
-  Pure: the VRF "roll" and the off-chain normalized char-length live in the router, so it stays oracle-free.
+  Pure: the VRF "roll" and the off-chain normalized char-length live in the router, so it has no oracle dependency.
 
 This is **additive and isolated**, not a production replacement:
 

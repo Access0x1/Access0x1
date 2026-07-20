@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
  *
  * The tenant id is derived the SAME way as the sibling branding writes
  * (`resolveVerifiedTenant`: a server-verified Dynamic JWT when configured, else
- * the shape-checked body `tenantId` — NEVER a free-form client-supplied tenant a
+ * the shape-checked body `tenantId` — NEVER an arbitrary client-supplied tenant a
  * caller could spoof). A wallet can therefore only attach to its OWN row.
  *
  * Body: `{ tenantId, merchantId, chainId }` (chainId = the chain the merchant

@@ -38,7 +38,7 @@ import { IAccess0x1Bookings } from "./interfaces/IAccess0x1Bookings.sol";
 ///         ZERO CUSTODY. The deposit lives as a fully-backed escrow ledger: the contract's ERC-20
 ///         balance of a token always equals {escrowedOf}, which equals the sum of every HELD/CONFIRMED
 ///         reservation's `escrowAmount` in that token (conservation — nothing leaks, the contract holds
-///         no free-floating balance). A finished booking leaves ~zero escrow. This is the escrow-ledger
+///         no unattributed balance). A finished booking leaves ~zero escrow. This is the escrow-ledger
 ///         form of the zero-custody law (the ADR permits a PaymentLanes lane OR a balance ledger); it
 ///         is the sibling shape of {PaymentLanes}, kept internal so a per-reservation release from a
 ///         shared per-token pool is a single, reentrancy-safe debit.
@@ -99,18 +99,18 @@ contract Access0x1Bookings is
     mapping(uint256 id => Reservation reservation) private _reservations;
 
     /// @notice reservationId ⇒ the opaque slotKey it occupies. Stored so a terminal transition (which
-    ///         only carries the id) can free the slot. Immutable after {reserve}.
+    ///         only carries the id) can vacate the slot. Immutable after {reserve}.
     mapping(uint256 id => bytes32 slotKey) private _slotKeyOf;
 
     /// @notice (merchantId, slotKey) ⇒ the reservation id occupying that merchant's slot. A slot is
     ///         "occupied" only while its reservation is HELD or CONFIRMED; a terminal transition clears
-    ///         it back to 0 so the slot is reusable. 0 is the free sentinel (reservation ids start at 1).
+    ///         it back to 0 so the slot is reusable. 0 is the vacant sentinel (reservation ids start at 1).
     ///
     ///         TENANCY ISOLATION (security): occupancy is namespaced BY MERCHANT. `slotKey` is a public,
     ///         deterministic, caller-supplied slot identity, so a GLOBAL `slotKey ⇒ id` map would let an
     ///         attacker — who can register their OWN merchant for gas (permissionless registry) and
     ///         reserve permissionlessly — pin `occupant[victimSlotKey]` under their own merchant with a
-    ///         ~free, near-unbounded hold, permanently DoSing the VICTIM merchant's slot (whose real
+    ///         near-zero-cost, near-unbounded hold, permanently DoSing the VICTIM merchant's slot (whose real
     ///         customers would then revert `SlotTaken` with no on-chain recourse). Keying by
     ///         (merchantId, slotKey) keeps each merchant's calendar independent — two merchants may hold
     ///         the same `slotKey` at once, and neither can touch the other's occupancy.
@@ -137,7 +137,7 @@ contract Access0x1Bookings is
     /// @notice clientNonce ⇒ consumed. The on-chain idempotency guard: a replayed {reserve} reverts.
     mapping(bytes32 clientNonce => bool used) public nonceUsed;
 
-    /// @notice The id assigned to the next {reserve}. Starts at 1, so 0 is the unset/free sentinel.
+    /// @notice The id assigned to the next {reserve}. Starts at 1, so 0 is the unset/vacant sentinel.
     uint256 public nextReservationId;
 
     /// @dev Reserved storage slots so future versions can APPEND new state without shifting the layout
@@ -222,7 +222,7 @@ contract Access0x1Bookings is
 
     /// @inheritdoc IAccess0x1Bookings
     /// @dev CEI + `nonReentrant`. Checks (token set, non-zero deposit, hold long enough, slot moment in
-    ///      the future, merchant exists, nonce fresh, slot free) → effects (write the immutable record +
+    ///      the future, merchant exists, nonce fresh, slot vacant) → effects (write the immutable record +
     ///      snapshot, occupy the slot, consume the nonce, bump the escrow ledger) → interaction (pull the
     ///      deposit in, verifying the balance delta to reject fee-on-transfer / rebasing tokens). The
     ///      deposit token amount is quoted from USD via the Router IN-TX (OracleLib staleness guard), so a
@@ -246,7 +246,7 @@ contract Access0x1Bookings is
             revert Access0x1Bookings__HoldTooShort(holdSecs, MIN_HOLD_SECS);
         }
         // `slotTimestamp` is opaque, but a ZERO value floors `_windowStart` at the epoch, forcing EVERY
-        // cancel into the late branch (a late fee on a free-cancel booking, or — with `lateFeeUsd8 == 0`
+        // cancel into the late branch (a late fee on a no-charge-cancel booking, or — with `lateFeeUsd8 == 0`
         // — a permanently BLOCKED cancel trapping a CONFIRMED escrow). Rejecting zero keeps the
         // cancel-window math well-formed; a non-zero past slot is left to the merchant's chosen policy.
         if (slotTimestamp == 0) {
@@ -334,7 +334,7 @@ contract Access0x1Bookings is
         r.status = RStatus.COMPLETED;
         _vacate(id);
 
-        // Free the full escrow from the ledger first (CEI: ledger written before any external call).
+        // Release the full escrow from the ledger first (CEI: ledger written before any external call).
         _release(r.token, escrow);
 
         // Route the deposit through the fee-split, clamped to the escrow; `settled` is what the Router
@@ -496,8 +496,8 @@ contract Access0x1Bookings is
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 
     /// @dev Shared cancel body (used by {cancel} and {cancelWithSession}). The status must be HELD or
-    ///      CONFIRMED — both hold escrow. Free policy outside the window; clamped late fee inside it;
-    ///      blocked when `lateFeeUsd8 == 0` inside the window.
+    ///      CONFIRMED — both hold escrow. No cancellation fee outside the window; clamped late fee
+    ///      inside it; blocked when `lateFeeUsd8 == 0` inside the window.
     function _cancel(uint256 id, Reservation storage r, ActorType actorType) private {
         RStatus status = r.status;
         if (status != RStatus.HELD && status != RStatus.CONFIRMED) {
@@ -507,7 +507,7 @@ contract Access0x1Bookings is
 
         uint256 escrow = r.escrowAmount;
         uint256 feeTarget;
-        // Cancel window: free before `slotTimestamp - cancelWindowSecs`, late at/after it.
+        // Cancel window: no fee before `slotTimestamp - cancelWindowSecs`; late fee at/after it.
         if (block.timestamp >= _windowStart(r.slotTimestamp, r.policy.cancelWindowSecs)) {
             if (r.policy.lateFeeUsd8 == 0) {
                 revert Access0x1Bookings__CancellationWindowActive(id);
@@ -649,7 +649,7 @@ contract Access0x1Bookings is
         _escrowedOf[token] -= amount;
     }
 
-    /// @dev Free the slot a terminal reservation occupied, so the slotKey can be reused. Reads the
+    /// @dev Vacate the slot a terminal reservation occupied, so the slotKey can be reused. Reads the
     ///      stored (merchantId, slotKey) by id and clears that merchant's occupant entry. Idempotent for
     ///      a never-occupied id.
     function _vacate(uint256 id) private {

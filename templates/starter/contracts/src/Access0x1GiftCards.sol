@@ -331,7 +331,7 @@ contract Access0x1GiftCards is IAccess0x1GiftCards, Ownable2Step, ReentrancyGuar
     /// @dev The deterministic card key. `keccak256(abi.encode(merchantId, code))` over the full
     ///      uint256/bytes32 pair — `abi.encode` (not `encodePacked`) so each leg sits in its own
     ///      32-byte word and no two distinct pairs can collide via boundary aliasing. Pure — no SLOAD
-    ///      — so off-chain callers recompute card ids for free.
+    ///      — so off-chain callers recompute card ids at no on-chain cost.
     /// @param merchantId The merchant leg.
     /// @param code       The code leg.
     /// @return The card id.

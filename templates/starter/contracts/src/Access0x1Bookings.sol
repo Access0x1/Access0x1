@@ -31,7 +31,7 @@ import { IAccess0x1Bookings } from "./interfaces/IAccess0x1Bookings.sol";
 ///         ZERO CUSTODY. The deposit lives as a fully-backed escrow ledger: the contract's ERC-20
 ///         balance of a token always equals {escrowedOf}, which equals the sum of every HELD/CONFIRMED
 ///         reservation's `escrowAmount` in that token (conservation — nothing leaks, the contract holds
-///         no free-floating balance). A finished booking leaves ~zero escrow. This is the escrow-ledger
+///         no unattributed balance). A finished booking leaves ~zero escrow. This is the escrow-ledger
 ///         form of the zero-custody law (the ADR permits a PaymentLanes lane OR a balance ledger); it
 ///         is the sibling shape of {PaymentLanes}, kept internal so a per-reservation release from a
 ///         shared per-token pool is a single, reentrancy-safe debit.
@@ -59,12 +59,12 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     mapping(uint256 id => Reservation reservation) private _reservations;
 
     /// @notice reservationId ⇒ the opaque slotKey it occupies. Stored so a terminal transition (which
-    ///         only carries the id) can free the slot. Immutable after {reserve}.
+    ///         only carries the id) can vacate the slot. Immutable after {reserve}.
     mapping(uint256 id => bytes32 slotKey) private _slotKeyOf;
 
     /// @notice slotKey ⇒ the reservation id occupying it. A slot is "occupied" only while its
     ///         reservation is HELD or CONFIRMED; a terminal transition clears it back to 0 so the slot
-    ///         is reusable. 0 is the free sentinel (reservation ids start at 1).
+    ///         is reusable. 0 is the vacant sentinel (reservation ids start at 1).
     mapping(bytes32 slotKey => uint256 reservationId) public occupant;
 
     /// @notice token ⇒ the total token amount escrowed across all live reservations. The conservation
@@ -79,7 +79,7 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     /// @notice clientNonce ⇒ consumed. The on-chain idempotency guard: a replayed {reserve} reverts.
     mapping(bytes32 clientNonce => bool used) public nonceUsed;
 
-    /// @notice The id assigned to the next {reserve}. Starts at 1, so 0 is the unset/free sentinel.
+    /// @notice The id assigned to the next {reserve}. Starts at 1, so 0 is the unset/vacant sentinel.
     uint256 public nextReservationId;
 
     /// @param initialOwner  The admin (Ownable2Step) — burner at the event, multisig in prod. Holds NO
@@ -135,7 +135,7 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
 
     /// @inheritdoc IAccess0x1Bookings
     /// @dev CEI + `nonReentrant`. Checks (token set, non-zero deposit, merchant exists, nonce fresh,
-    ///      slot free) → effects (write the immutable record + snapshot, occupy the slot, consume the
+    ///      slot vacant) → effects (write the immutable record + snapshot, occupy the slot, consume the
     ///      nonce, bump the escrow ledger) → interaction (pull the deposit in, verifying the balance
     ///      delta to reject fee-on-transfer / rebasing tokens). The deposit token amount is quoted from
     ///      USD via the Router IN-TX (OracleLib staleness guard), so a stale feed reverts the reserve
@@ -233,7 +233,7 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
         r.status = RStatus.COMPLETED;
         _vacate(id);
 
-        // Free the full escrow from the ledger first (CEI: ledger written before any external call).
+        // Release the full escrow from the ledger first (CEI: ledger written before any external call).
         _release(r.token, escrow);
 
         // Route the deposit through the fee-split, clamped to the escrow; `settled` is what the Router
@@ -359,8 +359,8 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Shared cancel body (used by {cancel} and {cancelWithSession}). The status must be HELD or
-    ///      CONFIRMED — both hold escrow. Free policy outside the window; clamped late fee inside it;
-    ///      blocked when `lateFeeUsd8 == 0` inside the window.
+    ///      CONFIRMED — both hold escrow. No cancellation fee outside the window; clamped late fee
+    ///      inside it; blocked when `lateFeeUsd8 == 0` inside the window.
     function _cancel(uint256 id, Reservation storage r, ActorType actorType) private {
         RStatus status = r.status;
         if (status != RStatus.HELD && status != RStatus.CONFIRMED) {
@@ -370,7 +370,7 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
 
         uint256 escrow = r.escrowAmount;
         uint256 feeTarget;
-        // Cancel window: free before `slotTimestamp - cancelWindowSecs`, late at/after it.
+        // Cancel window: no fee before `slotTimestamp - cancelWindowSecs`; late fee at/after it.
         if (block.timestamp >= _windowStart(r.slotTimestamp, r.policy.cancelWindowSecs)) {
             if (r.policy.lateFeeUsd8 == 0) {
                 revert Access0x1Bookings__CancellationWindowActive(id);
@@ -512,7 +512,7 @@ contract Access0x1Bookings is IAccess0x1Bookings, Ownable2Step, ReentrancyGuard 
         _escrowedOf[token] -= amount;
     }
 
-    /// @dev Free the slot a terminal reservation occupied, so the slotKey can be reused. Reads the
+    /// @dev Vacate the slot a terminal reservation occupied, so the slotKey can be reused. Reads the
     ///      stored slotKey by id and clears the occupant map. Idempotent for a never-occupied id.
     function _vacate(uint256 id) private {
         bytes32 slotKey = _slotKeyOf[id];

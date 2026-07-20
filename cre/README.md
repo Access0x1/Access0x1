@@ -18,13 +18,13 @@ Access0x1Router.PaymentReceived (EVM-log trigger)
 ## ⚠️ Status: BUILD + SIMULATE — this is NOT a live deploy
 
 CRE **deploy is Chainlink Early-Access** (approval-gated; a `cre whoami` shows
-`Deploy Access: Not enabled`). The free path that works at the event — and the honest claim for the
-submission — is **build + simulate**:
+`Deploy Access: Not enabled`). The path that works at the event without that access — and the honest
+claim for the submission — is **build + simulate**:
 
 ```bash
 cd cre
 npm install                          # pulls @chainlink/cre-sdk (+ viem); build-session step, not CI
-cre login                            # free
+cre login                            # no cost to sign in
 cre workflow build                   # compiles workflow.ts → WASM (Javy/QuickJS)
 cre workflow simulate                # runs the workflow against real public-EVM + real HTTP calls
 cre workflow simulate --broadcast    # also sends the on-chain audit write to the sim MockForwarder

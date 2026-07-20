@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
  * The PUBLIC, read-only branding lookup the MetaMask Snap's `onTransaction`
  * fetches by on-chain merchant id (ADR unit 4 / D4 c, path 2). The Snap fetch
  * carries `Origin: null`, so the same permissive CORS as the slug route applies.
- * Returns the payout-free public payload; 404 when no tenant has that merchant
+ * Returns the public payload with payout details omitted; 404 when no tenant has that merchant
  * id (the Snap then falls back to the on-chain nameHash / "Merchant #id").
  *
  * `id` is validated as a non-negative integer string before the lookup — a junk

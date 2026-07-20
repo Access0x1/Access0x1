@@ -542,7 +542,7 @@ function indexRow(row: TenantBranding): void {
   if (row.merchantId) s.byMerchant.set(row.merchantId, row.tenantId);
 }
 
-/** Find a unique slug, appending `-2`, `-3`, … until free (ADR collision UX). */
+/** Find a unique slug, appending `-2`, `-3`, … until unclaimed (ADR collision UX). */
 function ensureUniqueSlug(base: string, s: BrandingStore, tenantId: string): string {
   let candidate = base.slice(0, MAX_SLUG_LEN).replace(/-+$/g, '');
   if (candidate.length < MIN_SLUG_LEN) candidate = `${candidate}-shop`.slice(0, MAX_SLUG_LEN);
@@ -557,7 +557,7 @@ function ensureUniqueSlug(base: string, s: BrandingStore, tenantId: string): str
 }
 
 /**
- * Is a slug available (free, or already owned by this tenant)? Powers the live
+ * Is a slug available (unclaimed, or already owned by this tenant)? Powers the live
  * green-check / red-X availability under the name field (ADR D2 step 1).
  *
  * @param slug - the candidate slug.
@@ -570,7 +570,7 @@ export function isSlugAvailable(slug: string, tenantId?: string): boolean {
   return !owner || owner === tenantId;
 }
 
-/** Suggest free slug alternatives for a taken base (e.g. joes-barbershop-2). */
+/** Suggest available slug alternatives for a taken base (e.g. joes-barbershop-2). */
 export function suggestSlugs(base: string, tenantId?: string, count = 3): string[] {
   const root = slugify(base) || 'shop';
   const out: string[] = [];

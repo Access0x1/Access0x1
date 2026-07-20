@@ -87,7 +87,7 @@ plain EOA — the protocol holds zero custody.
 | [`POST /api/agent/pay`](#post-apiagentpay) | internal secret | Autonomous agent pays one or many x402 endpoints. |
 | [`POST /api/ap2/mandate`](#post-apiap2mandate) | optional internal secret | Derive an AP2 mandate chain from a SessionGrant view. |
 | [`GET /api/quote`](#get-apiquote) | none | USD→token quote via `router.quote()`. |
-| [`GET /api/branding/{slug}`](#get-apibrandingslug) | none (public) | Public, payout-free branding by checkout slug. |
+| [`GET /api/branding/{slug}`](#get-apibrandingslug) | none (public) | Public branding by checkout slug — never includes a payout address. |
 | [`GET /api/branding/by-merchant/{id}`](#get-apibrandingby-merchantid) | none (public) | Public branding by on-chain merchant id. |
 | [`GET /api/branding`](#get-apibranding-post-apibranding) | Dynamic JWT (read), `tenantId` query | Tenant's own branding row (verification fields gated). |
 | [`POST /api/branding`](#get-apibranding-post-apibranding) | Dynamic JWT | Save branding + get a checkout slug. |
@@ -106,7 +106,7 @@ plain EOA — the protocol holds zero custody.
 | [`POST /api/payout-swap`](#post-apipayout-swap) | internal secret | Off-CEI "receive in any coin" same-chain swap. |
 | [`POST /api/onramp/session`](#post-apionrampsession-post-apiofframpsession) | none | Build a hosted fiat on-ramp checkout URL. |
 | [`POST /api/offramp/session`](#post-apionrampsession-post-apiofframpsession) | none | Build a hosted fiat off-ramp ("cash out") URL. |
-| [`GET /api/premium/quote`](#priced-example-endpoints) · [`GET /api/premium/dataset`](#priced-example-endpoints) · [`POST /api/premium/compute`](#priced-example-endpoints) | x402 | Priced example endpoints proving the gas-free settle path. |
+| [`GET /api/premium/quote`](#priced-example-endpoints) · [`GET /api/premium/dataset`](#priced-example-endpoints) · [`POST /api/premium/compute`](#priced-example-endpoints) | x402 | Priced example endpoints proving the x402 settle path (payer signs off-chain, Circle submits the tx). |
 
 ---
 
@@ -689,7 +689,8 @@ Source: [`web/app/api/premium/quote/route.ts`](../web/app/api/premium/quote/rout
 [`compute`](../web/app/api/premium/compute/route.ts).
 
 Three endpoints behind the [x402 challenge](#the-x402-payment-challenge), proving the
-gas-free settle path end-to-end. Each is served **only** if Circle settles.
+x402 settle path end-to-end — the payer signs off-chain and Circle submits the
+transaction. Each is served **only** if Circle settles.
 
 | Endpoint | Price | `200` body |
 |----------|-------|-----------|

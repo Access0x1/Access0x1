@@ -223,7 +223,7 @@ export function JourneyView(): ReactNode {
         renderBody={(step) => (step.status === 'ready' ? bodyFor(step) : doneFor(step))}
       />
       <p className="text-xs text-muted-foreground">
-        Prefer free-form? Every module is also drivable directly from the{' '}
+        Prefer unstructured control? Every module is also drivable directly from the{' '}
         <Link href="/contracts" className="text-rail hover:underline">rail console</Link>.
       </p>
     </main>

@@ -70,7 +70,7 @@ over `src/`).
 | `Access0x1Escrow.sol` | Conditional-settlement: a deposit HELD until resolution, then RELEASED through the router fee-split or REFUNDED in full; CEI + `nonReentrant` + never-blockable pull-on-failure payout; conservation `balance == Σ open + Σ withdrawable`. |
 | `Receivables.sol` | Tokenized, factorable invoices (ERC-721 the holder gets paid on); settles through the router. |
 | `Refunds.sol` | Pull-pattern refund ledger — a refund is credited and claimed, never pushed into a hostile recipient. |
-| `GaslessPayIn.sol` | Gas-free USDC pay-in (EIP-3009 / x402-style) settled through the router. |
+| `GaslessPayIn.sol` | USDC pay-in with no separate gas step for the payer (EIP-3009 / x402-style) settled through the router. |
 | `PriceOracleAdapter.sol` | Adapter around the Chainlink read (the `OracleLib` staleness guard), so the price source is swappable without touching the spine. |
 | `AutomationGateway.sol` | Keeper/automation entrypoint for the recurring legs (subscriptions). |
 | `Access0x1ProvenanceRegistry.sol` | Append-only on-chain provenance/audit record. Off the money path. |

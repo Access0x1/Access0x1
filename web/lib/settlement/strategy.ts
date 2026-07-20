@@ -13,8 +13,8 @@
  * strategy only DECIDES the SHAPE of a settlement (one pay, or one netted pay for
  * many charges) and hands that plan to the existing money path. Default: direct.
  *
- * Pure + dependency-free on purpose, so the resolution logic is unit-testable and
- * safe to import from anywhere (no viem, no wallet, no network).
+ * Pure with no added dependency, on purpose, so the resolution logic is
+ * unit-testable and safe to import from anywhere (no viem, no wallet, no network).
  */
 
 /** A single charge to settle: who it credits, how much (USD 8-dec), and its ref. */

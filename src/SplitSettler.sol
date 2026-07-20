@@ -90,7 +90,7 @@ contract SplitSettler is
 
     /// @notice Hard ceiling on payee legs per split — the unbounded-loop guard. The fan-out and the
     ///         create-time validation both iterate the payee set, so capping it keeps every value path's
-    ///         gas bounded and DoS-free. 64 is generous for real splits (seller + platform + affiliate +
+    ///         gas bounded and resistant to a DoS. 64 is generous for real splits (seller + platform + affiliate +
     ///         creator + tax is five) while staying well inside the block gas limit.
     uint256 public constant MAX_PAYEES = 64;
 
@@ -503,7 +503,7 @@ contract SplitSettler is
                 leg = Math.mulDiv(net, p.shareBps, TOTAL_BPS);
                 running += leg;
             }
-            if (leg == 0) continue; // skip a zero-share or dust-free leg (no event, no state write)
+            if (leg == 0) continue; // skip a zero-share leg, or one that rounds down to zero (no event, no state write)
             // Effect: credit the leg to the pull-map (the payout lane). The payee claims via {withdraw};
             // a share is never pushed inline, so a reverting/blocklisted payee can never block the split.
             _withdrawable[p.account][asset] += leg;

@@ -9,7 +9,8 @@
  * THE FLOW (all enforced by `withAiGateway`, see `lib/ai/aiGateway.ts`):
  *   Authorization: Bearer ak_…   →  resolves to a SessionGrant session + price
  *   reserve price on the session  →  402 SessionBudgetExceeded if over budget
- *   x402 challenge + Circle settle →  the agent's wallet pays per call, gas-free
+ *   x402 challenge + Circle settle →  the agent's wallet pays per call in USDC,
+ *                                     Arc's native gas token
  *   settle succeeded              →  THIS handler runs the upstream completion
  *
  * So a developer "connects their AI API" by: (1) opening a SessionGrant budget,

@@ -2,7 +2,7 @@
   "name": "@access0x1/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Access0x1 hosted web app (Next.js 15): hosted checkout + PayButton + dashboard (checkout-web), the One-Tag Checkout embed (public/embed.js), the x402 nanopayment seller routes (arc-gasfree), the server-side Dynamic AI payment agent (dynamic-agent), ENS resolve + name-math (ens-resolve), and the Unlink private payout leg (unlink-private). Zero custody.",
+  "description": "Access0x1 hosted web app (Next.js 15): hosted checkout + PayButton + dashboard (checkout-web), the One-Tag Checkout embed (public/embed.js), the x402 nanopayment seller routes (arc-x402), the server-side Dynamic AI payment agent (dynamic-agent), ENS resolve + name-math (ens-resolve), and the Unlink private payout leg (unlink-private). Zero custody.",
   "license": "MIT",
   "scripts": {
     "dev": "next dev",

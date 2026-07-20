@@ -36,8 +36,8 @@ import {
 ///           • EIP-2612 `permit` (split `v,r,s`) — the EOA gasless-approve standard;
 ///           • ERC-7597 `permit` (a single `bytes` signature) — USDC's Last-Call/draft variant that lets
 ///             an ERC-1271 SMART ACCOUNT authorize, not only an EOA;
-///           • EIP-3009 `transferWithAuthorization` (USDC-native, the x402 rail) — a direct, allowance-
-///             free pull keyed on a random single-use nonce.
+///           • EIP-3009 `transferWithAuthorization` (USDC-native, the x402 rail) — a direct pull, with
+///             no separate allowance step, keyed on a random single-use nonce.
 ///         In every rail the buyer's signed `value` IS the gross routed (a relayer cannot inflate it) and
 ///         the signed `spender`/`to` IS this contract (the pull can only land here). Signature validity
 ///         is enforced by the TOKEN itself (EOA via ECDSA, smart account via ERC-1271 / EIP-712), so this
@@ -345,7 +345,7 @@ contract GaslessPayIn is
             revert GaslessPayIn__AuthorizationValueMismatch(auth.value, gross);
         }
 
-        // Direct allowance-free pull: the token moves exactly `gross` from `buyer` to this contract on
+        // Direct pull, with no separate allowance step: the token moves exactly `gross` from `buyer` to this contract on
         // the buyer's EIP-3009 signature. Verify via the balance delta (rejecting fee-on-transfer /
         // rebasing tokens) so the amount routed equals what arrived. The authorization is NOT submitted
         // in a try/catch — a 3009 pull is the settlement itself, so its failure MUST revert the pay-in.

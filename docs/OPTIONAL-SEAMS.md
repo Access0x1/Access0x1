@@ -25,7 +25,7 @@ you set · where the value comes from · how to confirm it's live · what "off" 
 
 | Seam | Turns on | Set (server unless `NEXT_PUBLIC_`) | Get it from |
 | --- | --- | --- | --- |
-| **Circle x402** | gas-free USDC micro-payments | `SELLER_ADDRESS` (+ `NEXT_PUBLIC_X402_*` off-Arc) | your payout EOA (a decision, not a signup) |
+| **Circle x402** | USDC micro-payments settled via x402 | `SELLER_ADDRESS` (+ `NEXT_PUBLIC_X402_*` off-Arc) | your payout EOA (a decision, not a signup) |
 | **World ID** | proof-of-human gate before pay | `NEXT_PUBLIC_WORLD_APP_ID`, `WORLD_SIGNING_KEY` | developer.worldcoin.org |
 | **OIDC** (Sign in with Google) | ID-token verification method | `NEXT_PUBLIC_OIDC_CLIENT_ID` (+ optional `OIDC_*`) | Google Cloud → OAuth client |
 | **Unlink** | confidential merchant payouts | `UNLINK_API_KEY` + `UNLINK_PRIVATE_PAY=true` (or `NEXT_PUBLIC_EARNINGS_PRIVACY=true`) + `NEXT_PUBLIC_UNLINK_USDC_<chainId>` | dashboard.unlink.xyz |
@@ -44,9 +44,10 @@ flag **and** its credential, so a half-set seam stays safely dormant. Set both.
 
 ## Per-seam detail
 
-### Circle x402 — gas-free micro-payments
+### Circle x402 — USDC micro-payments
 - **Does:** the HTTP-402 seller spine ([`web/lib/x402.ts`](../web/lib/x402.ts)) settles
-  gas-free USDC micro-payments through Circle's Gateway on Arc.
+  USDC micro-payments through Circle's Gateway on Arc — the payer signs off-chain and
+  Circle submits the transaction.
 - **Set:** `SELLER_ADDRESS` (your payout EOA — a money-routing choice, so it's yours to
   set). The Arc network/USDC/Gateway values are already booth-confirmed defaults; other
   chains read `NEXT_PUBLIC_X402_*_<chainId>`.

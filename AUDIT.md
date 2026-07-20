@@ -125,8 +125,8 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 - **World ID** — one-tap proof-of-personhood gate; nullifier dedup with replay protection; a Casino-Verified
   vertical that makes the gate mandatory for gaming merchants. (World ID proves a unique human only —
   not age, jurisdiction, or a gambling licence; we state that in-product.)
-- **Circle x402 / Gateway** — gas-free USDC settlement via EIP-3009. **This is x402/Gateway, NOT CCTP** —
-  there is zero burn-and-mint code in this repo.
+- **Circle x402 / Gateway** — USDC settlement via EIP-3009, gasless for the payer (the facilitator batches
+  and pays gas). **This is x402/Gateway, NOT CCTP** — there is zero burn-and-mint code in this repo.
 - **OIDC/JWT identity layer**, **MetaMask Snap** (payment insight in the signing dialog), **`@access0x1/react`
   SDK** (drop-in `<PayButton>` + the `usePayment` hook — orderId-bound receipt watch with a 120s timeout
   ceiling; Vitest-covered; git-distributed — consumed as a GitHub dependency, not published to npm by design), and the `create-access0x1` scaffolder.

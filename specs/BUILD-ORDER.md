@@ -18,7 +18,7 @@ judgeable product.
 3. **`payment-lanes`** — ERC-6909 PaymentLanes (the owned-standard differentiator;
    per-lane asset firewall; zero-custody pull-claim).
 4. **`multichain`** — Arc / Base / zkSync via the O(1) hash-map `ChainRegistry`.
-5. **`arc-gasfree`** — Circle x402 batched.
+5. **`arc-x402`** — Circle x402 batched.
 6. **`dynamic-agent`** — server-side AI payment agent (never-negative meter).
 7. **`unlink-private`** — private-payout leg.
 8. **`checkout-web`** — hosted checkout + dashboard (Next.js).

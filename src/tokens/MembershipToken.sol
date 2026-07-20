@@ -64,7 +64,7 @@ contract MembershipToken is ERC1155, AccessControl {
     /// @notice A membership tier. Immutable fields (`price`, `period`, `soulbound`) are the creator's
     ///         product config; `exists` distinguishes a created tier from an unset id.
     struct Tier {
-        uint256 price; // USD price of one period, 8 decimals (usdAmount8); 0 = free tier
+        uint256 price; // USD price of one period, 8 decimals (usdAmount8); 0 = no-charge tier
         uint64 period; // validity seconds granted per mint (must be > 0 for a created tier)
         bool soulbound; // true ⇒ non-transferable (personal membership)
         bool exists; // set true at creation; false = tier id never created
@@ -123,7 +123,7 @@ contract MembershipToken is ERC1155, AccessControl {
 
     /// @notice Deploy a fresh membership collection. `admin_` is the only configured authority. The
     ///         platform fee params are set from constructor params (`platformFeeBps_` ≤ `MAX_FEE_BPS`);
-    ///         a zero treasury is allowed at construction (a free / no-fee product) and set later.
+    ///         a zero treasury is allowed at construction (a no-fee product) and set later.
     /// @param baseUri_         The ERC-1155 base URI (per-tier URIs override it).
     /// @param admin_           The role admin (non-zero). Receives `DEFAULT_ADMIN_ROLE` only.
     /// @param platformFeeBps_  The declared platform fee in bps (≤ `MAX_FEE_BPS`).
@@ -152,7 +152,7 @@ contract MembershipToken is ERC1155, AccessControl {
     ///         must last some time). Reconfiguring an existing tier changes future mints only — it never
     ///         retroactively alters a member's already-granted `validUntil`.
     /// @param tierId    The tier id (also the ERC-1155 token id).
-    /// @param price     USD price of one period, 8 decimals (0 = free tier).
+    /// @param price     USD price of one period, 8 decimals (0 = no-charge tier).
     /// @param period    Validity seconds granted per mint (> 0).
     /// @param soulbound True ⇒ non-transferable.
     /// @param uri_       Per-tier metadata URI (empty ⇒ falls back to the base URI).

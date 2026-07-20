@@ -6,7 +6,7 @@ pragma solidity 0.8.28;
 /// @notice The ENS "name → math" brand layer: from an ENS namehash (`node`), derive a stable
 ///         brand color AND a unique identicon — ON-CHAIN, deterministically, with NO storage and
 ///         NO oracle. Just keccak. The business never picks a color or uploads an avatar; its
-///         NAME sets both, for free. (See `linkEvent/ENS.md` — the name is data + math.)
+///         NAME sets both, automatically and at no extra cost. (See `linkEvent/ENS.md` — the name is data + math.)
 /// @dev    Pure functions only: identical `node` ⇒ identical color + SVG, forever, on any chain.
 ///         Deliberately a `library` with `internal` functions so the body inlines into any caller
 ///         (router / brand layer / resolver) with NO separate deployment and NO link step — the

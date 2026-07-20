@@ -143,8 +143,8 @@ export const FACT_SECTIONS: readonly FactSection[] = [
     id: 'multi-chain',
     title: 'Multi-chain deployment',
     body:
-      'Arc (Circle) is the lead settlement chain, with Base Sepolia and zkSync Sepolia as ' +
-      'bridge targets — all testnets. script/DeployAll.s.sol is a chain-aware ' +
+      'Arc (Circle), Base Sepolia, and zkSync Sepolia are the deployed settlement ' +
+      'testnets. script/DeployAll.s.sol is a chain-aware ' +
       'one-command entrypoint: a single make deploy-arc (or deploy-base-sepolia / deploy-zksync-sepolia, ' +
       'plus Ethereum/Arbitrum/Optimism/Polygon/Avalanche/BNB/Scroll/Linea/Mantle/Blast/' +
       'Unichain testnets) deploys and wires the whole first-party surface in one ' +
@@ -156,14 +156,14 @@ export const FACT_SECTIONS: readonly FactSection[] = [
       'hardcoded address.',
   },
   {
-    id: 'arc-gas-free',
-    title: 'Gas-free USDC checkout on Arc',
+    id: 'arc-usdc-native-gas',
+    title: 'Arc\'s native gas token is USDC',
     body:
-      'The demo checkout defaults to Arc Testnet, where Circle USDC is the native gas ' +
-      'token. A buyer pays in USDC and settles in USDC, so there is no separate gas coin ' +
-      'to top up and no Paymaster to run — Arc\'s Circle Nanopayments layer makes the ' +
-      'payer gas-free, with zero extra contract code on the Access0x1 side. The same ' +
-      'payToken(USDC) path also runs on Base Sepolia and zkSync Sepolia.',
+      'Arc Testnet is one of Access0x1\'s supported settlement chains, and its native ' +
+      'gas token is USDC itself — an architectural fact about the chain, not a claim ' +
+      'about checkout uptime. A payment on Arc needs no separate gas coin and no ' +
+      'Paymaster contract. The same payToken(USDC) path also runs on Base Sepolia and ' +
+      'zkSync Sepolia.',
   },
   {
     id: 'sponsors',
@@ -172,8 +172,8 @@ export const FACT_SECTIONS: readonly FactSection[] = [
       'Access0x1 is a thin layer of its own code on top of sponsor infrastructure. ' +
       'Chainlink: quote() reads a <token>/USD Data Feed in-tx through OracleLib, and ' +
       'Chainlink CRE backs the off-money-path audit consumer Access0x1Receiver. ' +
-      'Circle + Arc: USDC-as-native-gas gives gas-free checkout with no Paymaster code, ' +
-      'and a Circle Gateway / x402 seam (web/app/api/gateway/*) lets a seller read and ' +
+      'Circle + Arc: USDC is Arc\'s native gas token, so a payment there needs no ' +
+      'Paymaster code, and a Circle Gateway / x402 seam (web/app/api/gateway/*) lets a seller read and ' +
       'withdraw their settled USDC. Dynamic (web/lib/dynamic.ts): an email sign-in ' +
       'becomes an embedded wallet so a buyer who has never held a wallet can still complete ' +
       'a USDC checkout. Unlink (web/lib/unlink): a confidential withdrawal leg lets a ' +

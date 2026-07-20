@@ -17,7 +17,7 @@
  * Design choices:
  *   - DEPENDENCY-INJECTED upsert: `store.ts` imports this module and calls
  *     `seedFeaturedMerchant(upsertBranding)` at the BOTTOM of its own module,
- *     passing its own writer in. That keeps `seed.ts` free of a back-import of
+ *     passing its own writer in. That keeps `seed.ts` clear of a back-import of
  *     `store.ts`, so there is no circular module-init hazard.
  *   - IDEMPOTENT: keyed by a stable derived `tenantId` (`featured:<slug>`), so
  *     calling it repeatedly (or after a hot-reload) re-writes the same row rather
@@ -79,7 +79,7 @@ export function featuredTenantId(slug: string): string {
  * Read the featured-merchant env into a {@link BrandingInput}, or return null
  * when the seed is not enabled (slug and/or name missing/blank).
  *
- * Pure + side-effect-free so it unit-tests offline. The logo is the existing
+ * Pure with no side effects, so it unit-tests offline. The logo is the existing
  * auto-monogram derived from the name (no file needed). The merchant payout
  * (`SELLER_ADDRESS`) is NOT part of branding (the public payload never carries a
  * payout address); it is consumed by the x402 seller path on its own.

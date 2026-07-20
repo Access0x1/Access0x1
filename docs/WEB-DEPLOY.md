@@ -164,7 +164,7 @@ Two classes:
 | `AGENT_INTERNAL_SECRET` | `/api/agent/pay` | Shared secret required as `x-internal-secret` — the route spends real USDC. **Blank ⇒ route FAILS CLOSED (503).** Set in prod. |
 | `AGENT_ALLOW_INSECURE` | `/api/agent/pay` | local-dev ONLY fail-open. **Never set in production.** |
 | `AP2_MANDATE_SECRET` | `/api/ap2/mandate` | Optional caller check; the route only derives (moves no money). |
-| `SELLER_PRIVATE_KEY` | arc-gasfree | Signs Circle Gateway withdraws (`/api/gateway/withdraw`). |
+| `SELLER_PRIVATE_KEY` | arc-x402 | Signs Circle Gateway withdraws (`/api/gateway/withdraw`). |
 | `BUYER_PRIVATE_KEY` | local scripts only | Ephemeral buyer EOA for the `fund-gateway` / `demo-loop` local scripts. Not needed for serving. |
 | `UNLINK_API_KEY` | unlink-private | `createUnlinkAdmin`; backend-only. Requires the §2 booth install to take effect. |
 | `UNLINK_PAYOUT_PRIVATE_KEY` / `UNLINK_PRIVATE_PAY_KEY` | unlink-private | Server payout keys (transfer/withdraw only — zero custody). |
@@ -195,7 +195,7 @@ Two classes:
 | `DYNAMIC_ENVIRONMENT_ID` | server | Same id the node agent SDK uses. |
 | `DYNAMIC_JWT_ISSUER` / `DYNAMIC_JWT_AUDIENCE` | server | Pin the JWT to this environment (default from the env id). Set only to override a non-standard iss/aud. |
 | `AGENT_WALLET_ID` | server | Persisted **after first boot** (`createWalletAccount`). Blank on first boot, then set it so restarts reuse the wallet. |
-| `AGENT_DAILY_USD_CAP` · `AGENT_URL_ALLOWLIST` · `AGENT_REQUIRE_HUMAN` · `AGENT_TRIAL_CALLS` | server | Spend ceiling, x402 SSRF allowlist, World-ID human gate, free-trial count. |
+| `AGENT_DAILY_USD_CAP` · `AGENT_URL_ALLOWLIST` · `AGENT_REQUIRE_HUMAN` · `AGENT_TRIAL_CALLS` | server | Spend ceiling, x402 SSRF allowlist, World-ID human gate, trial-call count. |
 
 (`DYNAMIC_AUTH_TOKEN`, `WALLET_PASSWORD` are secrets — §3.1.)
 

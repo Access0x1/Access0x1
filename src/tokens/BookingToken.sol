@@ -85,13 +85,13 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     /// @notice tokenId ⇒ the opaque slotKey it occupies. Immutable after mint.
     mapping(uint256 tokenId => bytes32 slotKey) private _slotKeyOf;
 
-    /// @notice (merchantId, slotKey) ⇒ the tokenId occupying that merchant's slot (0 = free). Cleared on
+    /// @notice (merchantId, slotKey) ⇒ the tokenId occupying that merchant's slot (0 = vacant). Cleared on
     ///         any terminal transition.
     ///
     ///         TENANCY ISOLATION (security): occupancy is namespaced BY MERCHANT. `slotKey` is a public,
     ///         deterministic, caller-supplied slot identity and {mintBooking} is permissionless, so a
     ///         GLOBAL `slotKey ⇒ tokenId` map would let an attacker pin `occupant[victimSlotKey]` (under
-    ///         any merchant) with a ~free, near-unbounded hold and permanently DoS a victim merchant's
+    ///         any merchant) with a near-zero-cost, near-unbounded hold and permanently DoS a victim merchant's
     ///         slot (real customers revert `SlotTaken`, no recourse). Keying by (merchantId, slotKey)
     ///         keeps each merchant's calendar independent.
     mapping(uint256 merchantId => mapping(bytes32 slotKey => uint256 tokenId)) public occupant;
@@ -176,13 +176,13 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     /// @notice Reserve a slot: pull a USD-priced deposit into escrow and mint the reservation NFT to
     ///         `to`. Permissionless (anyone books; the caller funds the deposit from its own balance).
     ///         CEI + `nonReentrant`: checks (token set, non-zero deposit, hold long enough, merchant
-    ///         exists, nonce fresh, slot free) → effects (write the record, occupy the slot, consume the
+    ///         exists, nonce fresh, slot vacant) → effects (write the record, occupy the slot, consume the
     ///         nonce, bump the escrow ledger, mint) → interaction (pull the deposit, delta-checked to
     ///         reject fee-on-transfer). The deposit is quoted from USD in-tx (OracleLib staleness guard),
     ///         so a stale feed reverts the mint rather than escrowing a bad amount.
     /// @param to          The buyer/holder of the reservation NFT (must accept ERC-721).
     /// @param merchantId  The router merchant the slot belongs to (must exist).
-    /// @param slotKey     Opaque slot reference (must be free).
+    /// @param slotKey     Opaque slot reference (must be vacant).
     /// @param depositUsd8 The deposit in USD, 8 decimals (> 0).
     /// @param token       The deposit token (allowlisted + priced on the router).
     /// @param holdSecs    The hold window in seconds (≥ `MIN_HOLD_SECS`).
@@ -348,8 +348,8 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
         return _bookings[tokenId];
     }
 
-    /// @notice Whether `slotKey` is currently free for `merchantId` (no live booking occupies that
-    ///         merchant's slot). Occupancy is per-merchant, so the same slotKey may be free for one
+    /// @notice Whether `slotKey` is currently available for `merchantId` (no live booking occupies that
+    ///         merchant's slot). Occupancy is per-merchant, so the same slotKey may be available for one
     ///         merchant and taken for another.
     function isSlotFree(uint256 merchantId, bytes32 slotKey) external view returns (bool) {
         return occupant[merchantId][slotKey] == 0;
@@ -443,7 +443,7 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
         _escrowedOf[token] -= amount;
     }
 
-    /// @dev Free the slot a terminal reservation occupied so the slotKey can be reused for that merchant.
+    /// @dev Vacate the slot a terminal reservation occupied so the slotKey can be reused for that merchant.
     ///      Idempotent.
     function _vacate(uint256 id) private {
         uint256 merchantId = _bookings[id].merchantId;

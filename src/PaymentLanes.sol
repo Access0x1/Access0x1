@@ -338,7 +338,7 @@ contract PaymentLanes is
     /// @dev The deterministic lane key. `keccak256(abi.encode(chainId, asset, recipient))` over the
     ///      full uint256/address/address triple — `abi.encode` (not `encodePacked`) so each leg sits
     ///      in its own 32-byte word and no two distinct triples can collide via boundary aliasing.
-    ///      Pure — no SLOAD — so off-chain callers recompute lane ids for free.
+    ///      Pure — no SLOAD — so off-chain callers recompute lane ids at no on-chain cost.
     /// @param chainId_  The chain id leg.
     /// @param asset     The ERC-20 leg.
     /// @param recipient The recipient leg.

@@ -2,8 +2,9 @@
 
 Give an AI agent (or an MCP client) **one API key** and let it call a metered
 endpoint that **pays per request** through the Access0x1 rail — budget-capped by a
-`SessionGrant` and settled gas-free over **x402** on Arc Testnet. No custom
-contract code: this feature is a thin composition of pieces the rail already ships.
+`SessionGrant` and settled over **x402** on Arc Testnet, where USDC is the native
+gas token. No custom contract code: this feature is a thin composition of pieces
+the rail already ships.
 
 > **Testnet only.** Payments settle real USDC on **Arc Testnet** via Circle's
 > batch facilitator. Nothing here touches mainnet.
@@ -17,7 +18,7 @@ AI agent ──Authorization: Bearer ak_…──▶  /api/ai/chat
                                           │
               1. API-key auth  ───────────┤  ak_… → SessionGrant session + price
               2. budget check  ───────────┤  reserve price on the session budget
-              3. x402 settle   ───────────┤  agent wallet pays per call (gas-free)
+              3. x402 settle   ───────────┤  agent wallet pays per call in USDC
               4. serve         ───────────┘  upstream AI runs IFF settle succeeded
 ```
 
@@ -26,8 +27,8 @@ AI agent ──Authorization: Bearer ak_…──▶  /api/ai/chat
   budget at `$0.001`/call affords exactly 1,000 calls, then the key is cut off.
 - **Pay-per-use.** Each call is an x402 micro-payment — the existing seller spine
   (`web/lib/x402.ts`), unchanged. The agent's wallet signs an EIP-3009 authorization
-  off-chain and Circle settles it in a batch. On Arc, USDC is the gas token, so the
-  payer is gas-free.
+  off-chain and Circle settles it in a batch. On Arc, USDC is the gas token, so
+  payment and gas settle in the same asset.
 - **Owner-revocable, time-bounded.** Because the budget is a `SessionGrant`, the
   owner can `revoke()` the session at any time and it expires on its own.
 

@@ -15,7 +15,7 @@ import type { NextConfig } from 'next'
  *   succeeds and the only consumer — the guarded `lib/unlink/loadSdk.ts` loader —
  *   fails soft (UnlinkSdkUnavailableError) at request time when it is absent.
  * - `webpack.extensionAlias` lets the NodeNext-style `.js` imports authored by
- *   the arc-gasfree and dynamic-agent routes (e.g. `@/lib/arc-constants.js`,
+ *   the arc-x402 and dynamic-agent routes (e.g. `@/lib/arc-constants.js`,
  *   `../../lib/agent/payPerCall.js`) resolve to their `.ts`/`.tsx` sources.
  *   tsc (moduleResolution: bundler) and vitest (config alias) already do this;
  *   this aligns webpack so `next build` agrees with the typecheck and tests.

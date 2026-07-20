@@ -239,8 +239,9 @@ button.
 | `data-theme` | — | `light` | `light` or `dark`. |
 | `data-container` | — | inline | CSS selector to mount the button inside, instead of right after the script tag. |
 
-> **Truth-in-copy:** the default label makes no "instant" or "free" claim. A "no gas fee" label is
-> only truthful on a chain where USDC is the native gas token (Arc) — don't claim it elsewhere.
+> **Truth-in-copy:** the default label makes no "instant" claim, and never claims the payment costs
+> nothing — no "no-gas", "zero-gas", or similar cost-erasing wording — because that promise isn't
+> reliably deliverable. Keep label copy limited to what's actually true.
 
 ---
 
@@ -298,7 +299,8 @@ npm run start        # http://localhost:3000
 What you get, with those five vars and nothing else:
 
 - `/` **redirects to `/c/yourbrand`** — your white-labeled checkout: your name, your description,
-  your brand color, an auto-generated monogram logo, on the default chain (Arc Testnet, gas-free USDC).
+  your brand color, an auto-generated monogram logo, on the default chain (Arc Testnet, where USDC
+  is the native gas token).
 - `/onboard`, `/dashboard`, `/deployments`, `/verify` all live — the full onboarding wizard,
   merchant dashboard, and the deployed-contract verification view.
 - `/api/branding/yourbrand` returns your seeded brand row, pointed at the mirror router.
@@ -310,7 +312,7 @@ Honest notes (what each extra var actually buys you):
   then finish on `/dashboard` ("Switch on payments", one wallet signature, permissionless) and set
   the id it gives you. Until then the checkout page renders your brand and says payments aren't
   switched on yet (we never fake a checkout).
-- **Wallet connect UI needs `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`** (free at dynamic.xyz). Without it
+- **Wallet connect UI needs `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`** (no-cost tier at dynamic.xyz). Without it
   the app still builds and serves; connecting a wallet is what needs it.
 - **Data durability needs `DATABASE_URL`** (any Postgres). Without it the app runs fully in-memory
   and reminds you at boot — fine for trying it out, not for production.
@@ -363,7 +365,7 @@ Chainlink feed address on every chain** (each re-verified on-chain on 2026-06-17
 
 | Chain | id | USDC pay-in | Notes |
 | --- | --- | --- | --- |
-| **Arc Testnet** | `5042002` | `0x3600…0000` (native) | USDC **is** the native gas token → "no gas fee" copy is truthful here, and only here. Source-verified. |
+| **Arc Testnet** | `5042002` | `0x3600…0000` (native) | USDC **is** the native gas token — a settlement and gas asset are the same token here. Source-verified. |
 | **Base Sepolia** | `84532` | `0x036CbD…dCF7e` | The primary EVM example chain. Source-verified. Carries the live example merchant. |
 | **zkSync Sepolia** | `300` | see [CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) | One-command deploy-ready via the EraVM path; not yet broadcast at time of writing. |
 
@@ -424,7 +426,7 @@ on-chain before relying on it. **Never invent or hand-copy an address** (law #4)
 | Type error: `merchantId` rejected | Passed a JS `number` | `merchantId` is a `bigint` — write `42n`. |
 | `clientFromViem(publicClient!, …)` is undefined | wagmi's `usePublicClient()` returned `undefined` (no chain configured / wallet not ready) | Ensure your wagmi config has the chain, and guard the render until `publicClient` is ready. |
 | Wrong network / quote reverts | Wallet is on a different chain than `routerAddress` | Prompt the buyer to switch to the settlement chain before paying. |
-| "No gas fee" label looks wrong off Arc | "Free gas" is only truthful on Arc (USDC = native gas) | Don't pass a "no gas" `label` on non-Arc chains; the buyer pays that chain's gas token. |
+| "No gas fee" label appears anywhere | The label makes an unverified cost claim | Don't pass a "no gas" `label` on any chain; state the buyer's actual gas token instead of promising a zero cost. |
 
 Still stuck? The contract surface, money-path semantics, and per-chain operator notes are documented in
 the [README](../README.md), [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md), and

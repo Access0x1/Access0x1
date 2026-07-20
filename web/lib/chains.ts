@@ -75,12 +75,12 @@ export const arcTestnet = defineChain({
 })
 
 /**
- * Every chain checkout-web supports. Arc is the lead; the others are bridge
- * targets. All the testnets below settle in the canonical 6-dec bridged USDC and
- * pay gas in their OWN native token (ETH / POL / AVAX / tBNB / MNT) — so NONE of
- * them is "gas-free" the way Arc is (see {@link isGasFree}). The viem chain
- * objects carry each chain's id, native currency, public RPC and explorer; we
- * never re-literalize an id or an explorer URL we'd otherwise invent (law #4).
+ * Every chain checkout-web supports. All the testnets below settle in the
+ * canonical 6-dec bridged USDC and pay gas in their OWN native token (ETH / POL /
+ * AVAX / tBNB / MNT) — Arc is the one exception, where native USDC is also the
+ * gas token, so it has no separate gas step (see {@link isGasFree}). The viem
+ * chain objects carry each chain's id, native currency, public RPC and explorer;
+ * we never re-literalize an id or an explorer URL we'd otherwise invent (law #4).
  *
  * The on-chain USDC + router addresses for each chain are NEVER hardcoded here —
  * they resolve from `NEXT_PUBLIC_USDC_ADDRESS_<id>` / `NEXT_PUBLIC_ROUTER_ADDRESS_<id>`
@@ -148,7 +148,7 @@ export const MAINNET_CHAINS: readonly [Chain, ...Chain[]] = [
  * THE ARC TRAP (the bug this fixes): Arc's native USDC is the gas token and is
  * 18-decimal, while bridged USDC on Base Sepolia and ZKsync Sepolia is the
  * canonical 6-decimal ERC-20. Hardcoding `6` everywhere divides an 18-dec Arc
- * amount by 10^6 — a 10^12 display error on the LEAD chain. We resolve decimals
+ * amount by 10^6 — a 10^12 display error on Arc. We resolve decimals
  * PER CHAIN here, defaulting to each chain's `nativeCurrency.decimals` where the
  * pay-in token IS the native token (Arc), and to 6 for the bridged-USDC chains.
  *
@@ -166,7 +166,8 @@ const USDC_DECIMALS_BY_CHAIN: Readonly<Record<number, number>> = {
   [sepolia.id]: 6,
   [zksyncSepoliaTestnet.id]: 6,
   // The additional EVM testnets all settle in the canonical 6-dec bridged USDC
-  // (native gas is ETH / POL / AVAX / tBNB / MNT — NOT USDC — so none are gas-free).
+  // (native gas is ETH / POL / AVAX / tBNB / MNT — NOT USDC — so each still needs
+  // a separate gas asset).
   [polygonAmoy.id]: 6,
   [avalancheFuji.id]: 6,
   [bscTestnet.id]: 6,
@@ -177,7 +178,7 @@ const USDC_DECIMALS_BY_CHAIN: Readonly<Record<number, number>> = {
   [unichainSepolia.id]: 6,
   // MAINNET display decimals (AUDIT-GATED, NOT DEPLOYED). Canonical Circle USDC is the 6-dec ERC-20 on
   // every one of these chains; native gas is the chain's OWN token (ETH / POL / AVAX / BNB / MNT), so
-  // none is gas-free. Display-only — the money path always reads decimals() on-chain.
+  // none of them skips a separate gas asset. Display-only — the money path always reads decimals() on-chain.
   [mainnet.id]: 6,
   [base.id]: 6,
   [arbitrum.id]: 6,
@@ -212,17 +213,16 @@ export function tokenDecimalsFor(chainId: number): number {
 
 /**
  * Is USDC the NATIVE gas token on this chain? True ONLY for Arc Testnet, where
- * native USDC pays gas — so a payment there is genuinely "gas-free" in the sense
- * that the buyer needs no separate gas asset. On Base Sepolia / ZKsync Sepolia
- * the native gas token is ETH, NOT USDC, so a USDC payment there still needs ETH
- * for gas — it is NOT gas-free.
+ * native USDC pays gas — so a payment there needs no separate gas asset. On Base
+ * Sepolia / ZKsync Sepolia the native gas token is ETH, NOT USDC, so a USDC
+ * payment there still needs ETH for gas — there IS a separate gas step.
  *
- * TRUTH-IN-COPY (law #4): any "gas-free" / "no separate gas" UI copy MUST gate on
- * this — we never claim gas-free on a chain where it isn't true.
+ * TRUTH-IN-COPY (law #4): any "no separate gas" UI copy MUST gate on this — we
+ * never claim there's no separate gas step on a chain where that isn't true.
  *
- * MAINNET: this stays `false` for EVERY mainnet in {@link MAINNET_CHAINS}. Gas-free
- * USDC is an Arc-only property, and Arc MAINNET is not launched (no chain id, not
- * deployed), so no mainnet here is — or claims to be — gas-free.
+ * MAINNET: this stays `false` for EVERY mainnet in {@link MAINNET_CHAINS}. Native-
+ * USDC-as-gas is an Arc-only property, and Arc MAINNET is not launched (no chain
+ * id, not deployed), so no mainnet here has — or claims to have — that property.
  *
  * @param chainId The chain to check.
  * @returns true only for Arc Testnet (5042002).
@@ -440,7 +440,7 @@ export function getUsdcAddress(chainId: number): Address {
     (typeof window === 'undefined'
       ? (process.env[`NEXT_PUBLIC_USDC_ADDRESS_${chainId}`] || undefined)
       : undefined) ??
-    // Zero-config default for the LEAD chain: Arc's USDC is the chain-spec
+    // Zero-config default for the default chain: Arc's USDC is the chain-spec
     // native/system token (see {@link ARC_TESTNET_USDC_ADDRESS}) — a public
     // chain fact, not a guessed deploy address. Same doctrine carve-out as the
     // CREATE3 mirror default in getRouterAddress; env above still overrides.

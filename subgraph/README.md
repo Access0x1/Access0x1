@@ -24,11 +24,11 @@ dependency of the dashboard.
   the only credential is a Subgraph Studio **deploy/query key**, which is
   server-side env on the consumer, never in this repo.
 
-## Cost (free tier)
+## Cost (no-cost tier)
 
-Deploying via **Subgraph Studio is free**; querying is **free up to 100,000
+Deploying via **Subgraph Studio has no cost**; querying is **at no cost up to 100,000
 queries/month**, then usage-based (~$2 / 100k on The Graph's own pricing). For the
-dashboard's traffic that is effectively free. This is The Graph's external cost, not
+dashboard's traffic that is effectively at no cost. This is The Graph's external cost, not
 an Access0x1 charge — the open protocol indexes a public event and adds nothing on top.
 
 ## Layout
@@ -54,20 +54,20 @@ owner transfer) alongside payment history. Arc (`5042002`) is not a Graph-suppor
 network today, so Arc payment history is read directly on-chain until/if The Graph
 adds Arc.
 
-## Build + deploy (free Subgraph Studio)
+## Build + deploy (no-cost Subgraph Studio)
 
 ```sh
 cd subgraph
 npm install
 npm run codegen        # generate AssemblyScript types from the ABI + schema
 npm run build          # compile the mappings to WASM (validates everything)
-# then, with a free Studio account:
+# then, with a no-cost Studio account:
 npm run auth <deploy-key>     # one-time, from https://thegraph.com/studio
 npm run deploy                # publishes to your Studio subgraph
 ```
 
-`codegen` + `build` validate the subgraph offline; `auth` + `deploy` need a free
-Studio account (owner step). No mainnet, testnet only.
+`codegen` + `build` validate the subgraph offline; `auth` + `deploy` need a
+Studio account (no-cost tier; owner step). No mainnet, testnet only.
 
 ## Example query
 

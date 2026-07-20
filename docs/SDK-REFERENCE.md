@@ -12,8 +12,9 @@
   - Addresses are NOT restated by hand. The SDK never hardcodes a router address
     (guardrail #7); examples that need one cite docs/CHAIN-ADDRESSES.md / the
     README Deployments table. (LAW #4: an address that isn't on-chain isn't claimed.)
-  - Truth-in-copy: no "instant"/"free"/"no gas" claim except where source already
-    qualifies it (Arc, where USDC is the native gas token).
+  - Truth-in-copy: no "instant" claim, and no claim that the payment costs nothing — no
+    "no-gas" / zero-gas framing anywhere, including Arc, because that promise isn't
+    reliably deliverable.
 
   New file — does not modify any existing docs/*.md content (only adds a row to
   the START-HERE doc map).
@@ -432,7 +433,7 @@ component's callbacks rather than the barrel:
 ## Errors
 
 The SDK normalizes every router revert and wallet error into one typed class, so your UI can
-branch on a stable, switchable `code` instead of parsing free-text. All exported from
+branch on a stable, switchable `code` instead of parsing unstructured text. All exported from
 [`packages/react/src/errors.ts`](../packages/react/src/errors.ts).
 
 ### `Access0x1Error`
@@ -570,9 +571,9 @@ interface ChainConfig {
 }
 ```
 
-`usdcIsNativeGas` is the one flag that governs truth-in-copy: it is `true` **only on Arc**,
-where "no gas fee" copy is truthful because USDC pays gas directly. On every other chain the
-buyer pays a separate gas token — don't claim "free" or "no gas".
+`usdcIsNativeGas` flags where the settlement token and the gas token are the same asset — it is
+`true` **only on Arc**, where USDC pays gas directly. That flag alone doesn't make a "no gas"
+claim safe to ship: on every chain, avoid copy that claims the payment costs nothing.
 
 ### `CHAINS`
 

@@ -386,7 +386,7 @@
       });
       placeInDom(btn, scriptEl, cfg.container);
 
-      // The single, gas-free quote read. On any failure → USD-only label.
+      // The single, read-only quote call (an eth_call — no gas). On any failure → USD-only label.
       quote(chain, cfg.merchantId, cfg.usdAmount8)
         .then(function (tokenAmount) {
           if (tokenAmount == null) {

@@ -36,7 +36,7 @@ cd my-checkout
 npm run setup   # installs Foundry + deps + packs @access0x1/react; see step 1 below
 ```
 
-The template ships with **Arc Testnet as the default chain** (gas-free USDC checkout). The
+The template ships with **Arc Testnet as the default chain**. The
 `{{PROJECT_NAME}}`, `{{CHAIN_NAME}}`, etc. tokens in comments and strings are display-only — the
 runtime config already contains the correct Arc values. To target Base Sepolia or zkSync Sepolia
 instead, edit `CHAIN_KEY` at the top of `app/access0x1.config.ts` (set it to `'base'` or `'zksync'`).
@@ -170,7 +170,7 @@ that verifiable mirror (a published fact, never a guess — LAW #4); USDC/RPC st
 <script src="https://your-host/embed.js" data-merchant="1" data-amount-usd="29.00"></script>
 ```
 
-It shows a live, gas-free quote (one `eth_call`) and opens your hosted checkout on click. Addresses
+It shows a live, read-only quote (one `eth_call` — no gas) and opens your hosted checkout on click. Addresses
 are `__PLACEHOLDER__` tokens replaced at build time from your `NEXT_PUBLIC_*` env — never hardcoded.
 
 ---

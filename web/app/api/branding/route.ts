@@ -166,7 +166,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 /**
  * The tenant-facing branding view: the full row, returned ONLY to a caller that
  * proved ownership via a verified Dynamic JWT (the tenant owns it). Distinct from
- * the PUBLIC payout-free payload in response.ts.
+ * the PUBLIC payload that omits payout details in response.ts.
  */
 function toClientBranding(row: TenantBranding): TenantBranding {
   return row

@@ -365,7 +365,7 @@ contract Access0x1Subscriptions is
 
         // Trial-once: only grant a trial if the subscriber has never trialed THIS plan before. A
         // re-request after a prior trial silently degrades to a paid (non-trial) start — never an
-        // error, but never a second free period (the on-chain expression of "trial used once").
+        // error, but never a second unpaid trial period (the on-chain expression of "trial used once").
         bool trialing = withTrial && !hasUsedTrial[subscriber][merchantId][planKey];
         uint40 trialExpiresAt = 0;
         uint64 periodEnd;

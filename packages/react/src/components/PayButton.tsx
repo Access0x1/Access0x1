@@ -19,8 +19,10 @@
  * payloads are defined once in `../types.js` so a host app's handlers share the SDK's exact shapes.
  *
  * Truth-in-copy (law #4 / guardrail #3): the default label is "Pay with Crypto" — it makes no
- * "instant" or "free" claim. A host app on Arc (USDC = native gas, Circle Paymaster covers it) may
- * pass a truthful `label="Pay with USDC — no gas fee"`; on other chains it must not.
+ * "instant" or no-cost claim. A host app on a chain where USDC is the native gas token (e.g. Arc,
+ * where a Circle Paymaster covers it) may only pass `label="Pay with USDC — no separate gas"` once
+ * that path is verified working end-to-end on that chain right now; on any other chain, or without
+ * that verification, it must not.
  */
 
 import { type ReactNode, useEffect, useId, useMemo, useRef } from 'react';

@@ -189,7 +189,7 @@ export function parsePublishResponse(body: unknown): PublishResult {
 }
 
 /**
- * A thin, dependency-free client over the Walrus HTTP publisher + aggregator.
+ * A thin client, with no added dependency, over the Walrus HTTP publisher + aggregator.
  *
  * Construct once (with testnet defaults or explicit URLs) and reuse:
  *

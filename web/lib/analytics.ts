@@ -457,7 +457,7 @@ function readSalt(): string {
 
 /**
  * Base64url-encode raw bytes (RFC 4648 §5: `+`→`-`, `/`→`_`, no `=` padding).
- * Used only for the {@link computeActorHash} digest, so it stays small + dep-free.
+ * Used only for the {@link computeActorHash} digest, so it stays small with no added dependency.
  *
  * @param bytes The digest bytes to encode.
  * @returns the base64url string.

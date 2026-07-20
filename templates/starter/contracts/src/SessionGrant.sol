@@ -379,7 +379,7 @@ contract SessionGrant is ISessionGrant, EIP712 {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev The deterministic session id. `abi.encode` (not packed) so the three legs each occupy a
-    ///      full word and no two distinct triples can collide. Pure — recomputable off-chain for free.
+    ///      full word and no two distinct triples can collide. Pure — recomputable off-chain at no on-chain cost.
     /// @param owner    The granting account leg.
     /// @param delegate The delegate leg.
     /// @param nonce    The owner-nonce leg.

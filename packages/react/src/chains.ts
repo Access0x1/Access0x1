@@ -32,19 +32,20 @@ export interface ChainConfig {
    */
   readonly usdc: Hex | undefined;
   /**
-   * Whether USDC is the chain's native gas token (Arc). When `true`, "no gas fee" copy is truthful
-   * because USDC pays gas directly (doctrine guardrail #3 / law #4 truth-in-copy). When `false`,
-   * the chain charges a separate gas token — `<PayButton>` must NOT claim "free" or "no gas".
+   * Whether USDC is the chain's native gas token (Arc). When `true`, a "no separate gas step" claim
+   * is truthful only once verified end-to-end on that chain right now (doctrine guardrail #3 / law #4
+   * truth-in-copy) — this flag alone is not a green light. When `false`, the chain charges a separate
+   * gas token — `<PayButton>` must NOT claim "no gas" or a no-cost label.
    */
   readonly usdcIsNativeGas: boolean;
 }
 
 /**
- * The supported settlement chains. Arc-testnet (the gasless-USDC lead), base-sepolia (the primary
- * EVM demo chain), and zksync-sepolia (a bridge target) are the deployed/lead set; the chains below
- * them (0G, Monad, Berachain, Sei, MegaETH) are KNOWN-but-not-yet-deployed targets — config-only,
- * deploy PENDING. Arc is the only chain where USDC is the native gas token, so it is the only one for
- * which "no gas fee" copy is truthful.
+ * The supported settlement chains. Arc-testnet (native-gas USDC), base-sepolia (the primary
+ * EVM demo chain), and zksync-sepolia are the deployed chains; the chains below them (0G, Monad,
+ * Berachain, Sei, MegaETH) are KNOWN-but-not-yet-deployed targets — config-only, deploy PENDING.
+ * Arc is the only chain where USDC is the native gas token — see {@link ChainConfig.usdcIsNativeGas}
+ * for what that does and does not license a UI to claim.
  *
  * DOCTRINE for the PENDING chains: their chainId + name are public facts; `usdc` is `undefined`
  * (never an invented address — law #4) and the host app supplies the router after the owner runs the

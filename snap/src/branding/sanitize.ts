@@ -43,7 +43,7 @@ const UNSAFE_SVG_PATTERNS: RegExp[] = [
 ];
 
 /**
- * Collapse whitespace and trim a free-text string, then hard-cap its length.
+ * Collapse whitespace and trim an unstructured text string, then hard-cap its length.
  * Control characters are stripped so nothing odd reaches the wallet UI.
  *
  * @param value - The untrusted string (or any value).
@@ -85,7 +85,7 @@ export function sanitizeBrandColor(value: unknown): string {
 
 /**
  * Validate an inline-SVG logo string. Returns the SVG unchanged if it is a
- * plausible, script-free `<svg>…</svg>` document within the size cap; otherwise
+ * plausible `<svg>…</svg>` document with no `<script>` tag, within the size cap; otherwise
  * returns `null` so the caller renders the no-logo fallback.
  *
  * NOTE: ADR D5 — `Image` accepts inline SVG strings ONLY (never `https://` URLs).
