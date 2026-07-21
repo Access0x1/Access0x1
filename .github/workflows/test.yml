@@ -80,6 +80,13 @@ jobs:
       - name: Deployed-contract ABIs present + current
         run: node scripts/sync-deployed-abis.mjs
 
+      # The README "Tests-<N> passing" badge + "<N> tests, all green" prose are
+      # bound to `forge test --list`: this fails CI if either drifts from the
+      # real count, so the trust signal can never go stale silently (it was a
+      # hand-typed snapshot before). Runs after build so the test list resolves.
+      - name: README test-count badge not stale
+        run: node scripts/sync-test-badge.mjs
+
       # FOUNDRY_PROFILE=ci selects [profile.ci.invariant] (runs=256, depth=128 = 32,768 calls per
       # target) instead of the default 64x64=4,096, so CI actually runs the strong invariant campaign
       # the docs (AUDIT.md, audit/FINDINGS.md) claim. The fuzz/default settings are inherited unchanged.

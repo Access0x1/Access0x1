@@ -71,7 +71,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
 
 .PHONY: help install build test test-gas test-scenario coverage coverage-lcov snapshot \
         fmt fmt-check clean sizes storage-layout \
-        gate aderyn slither analyze mutation halmos audit anvil \
+        gate aderyn slither analyze mutation halmos audit anvil sync-test-badge \
         deploy-pick mirror-manifest sync \
         deploy-dry deploy-local drive-local drive-merchant-base drive-merchant-arc drive-merchant-base-dry drive-merchant-arc-dry deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
@@ -231,10 +231,15 @@ deploy-pick: ## Interactive: pick which chains to mirror-deploy (shows gas + mir
 mirror-manifest: ## Compute every contract's CREATE3 mirror address from its salt (no deploy) -> script/mirror-manifest.json
 	@./script/mirror-manifest.sh
 
-sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status + deployed ABIs
+sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status + deployed ABIs + test-count badge
 	@node web/scripts/gen-deployments.mjs
 	@node web/scripts/sync-readme-status.mjs
 	@node scripts/sync-deployed-abis.mjs --write
+	@node scripts/sync-test-badge.mjs --write
+
+sync-test-badge: build ## Regenerate the README test-count badge from `forge test --list`, then drift-check it
+	@node scripts/sync-test-badge.mjs --write
+	@node scripts/sync-test-badge.mjs
 
 abis: build ## Regenerate abis/ (committed ABI for EVERY deployed contract) + enforce the ABI law
 	@node scripts/sync-deployed-abis.mjs --write
