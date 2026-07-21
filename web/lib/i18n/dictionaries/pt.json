@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "homeTitle": "Access0x1 — um centro completo para pôr o seu negócio on-chain",
+    "homeDescription": "O Access0x1 é a camada aberta on-chain para pagamentos, autenticação e agentes de IA. Aceite pagamentos com preço em USD, liquidados em USDC, com um único link; prove a identidade com ENS; e deixe os agentes agir dentro de permissões limitadas — sem custódia, sem código de contratos. Ativo em Arc, Base e zkSync, com tecnologia Chainlink."
+  },
+  "hero": {
+    "eyebrow": "Um link · sem código · sem contratos · sem gas — as apps constroem em cima",
+    "headline": "A infraestrutura de código aberto para identidade on-chain e pagamentos com preço em USD, em USDC",
+    "subhead": "O Access0x1 é a camada aberta sobre a qual as apps constroem — a infraestrutura on-chain partilhada para aceitar pagamentos com preço em USD, em USDC, provar a identidade e deixar os agentes de IA agir em seu nome. Registe-se uma vez, partilhe um link e receba em USDC — sem custódia, sem escrever código de contratos.",
+    "hackerPack": "Detentor verificado do ETHGlobal Hacker Pack"
+  },
+  "cta": {
+    "primary": "Começar — aderir não tem custos",
+    "secondary": "Pergunte como funciona"
+  },
+  "integrations": {
+    "heading": "Com tecnologia de, e ativo em",
+    "roles": {
+      "Chainlink": "Feeds de preço em USD + keepers de Automação",
+      "Arc": "Rede de liquidação nativa em USDC (chain id 5042002)",
+      "Base": "Liquidação L2 de baixo custo",
+      "zkSync": "Liquidação em ZK-rollup"
+    }
+  },
+  "features": {
+    "heading": "Um só centro, toda a stack de comércio",
+    "sub": "Um conjunto completo de contratos de código aberto por trás de um único link. Ative apenas o que precisa — cada peça partilha a mesma espinha de liquidação sem custódia.",
+    "items": {
+      "payments": {
+        "title": "Pagamentos",
+        "description": "Receba em USDC com um único link. Um feed de preço com interface Chainlink cota o preço em USD dentro da transação de pagamento; os fundos são liquidados do comerciante para o recebedor, sem custódia."
+      },
+      "subscriptions": {
+        "title": "Subscrições",
+        "description": "Faturação recorrente on-chain que se renova sozinha — um keeper de Chainlink Automation, sem permissões, cobra os planos devidos, sem nunca guardar saldo."
+      },
+      "bookings": {
+        "title": "Reservas",
+        "description": "Aceite reservas e marcações pagas on-chain, com o depósito recolhido pelo mesmo percurso de liquidação sem custódia."
+      },
+      "invoices": {
+        "title": "Faturas",
+        "description": "Emita e liquide faturas em USDC — acompanhe os valores a receber on-chain e deixe o cliente pagar um pedido com um único link."
+      },
+      "giftCards": {
+        "title": "Cartões-presente",
+        "description": "Crie, resgate e recarregue cartões-presente de valor armazenado como saldos on-chain que os seus clientes podem gastar em toda a sua loja."
+      },
+      "agents": {
+        "title": "Agentes · SessionGrant",
+        "description": "Delegue gastos limitados e com tempo definido a um agente de IA ou a uma chave de sessão — uma autorização assinada permite que o software pague em seu nome dentro dos limites que definir."
+      },
+      "ens": {
+        "title": "Identidade ENS",
+        "description": "Pague a um nome legível e verificado em vez de um endereço hexadecimal. O checkout resolve e prova o nome ENS do comerciante antes de mover um cêntimo."
+      }
+    }
+  },
+  "landing": {
+    "closingHeading": "Fique on-chain em menos de dois minutos",
+    "closingBody": "Sem código, sem contratos para publicar, sem gas para gerir. Defina o seu nome, partilhe o seu link e receba em USDC.",
+    "footer": {
+      "vision": "A visão →",
+      "journey": "O percurso do negócio →",
+      "simulator": "Simulador de custos on-chain →",
+      "contracts": "Explore os contratos →",
+      "tagline": "Código aberto · sem custódia · apenas redes de teste"
+    }
+  },
+  "switcher": {
+    "label": "Idioma"
+  }
+}

@@ -30,6 +30,14 @@ vi.mock('next/navigation', () => ({
   redirect: (url: string) => redirect(url),
 }))
 
+// Home() now resolves the locale (next/headers) on the no-redirect path; stub
+// it to the default-locale signals (no cookie, no Accept-Language) so the
+// landing renders without a live request context.
+vi.mock('next/headers', () => ({
+  cookies: async () => ({ get: () => undefined }),
+  headers: async () => ({ get: () => null }),
+}))
+
 import {
   featuredTenantId,
   readFeaturedMerchantInput,
@@ -287,7 +295,7 @@ describe('root page redirect target', () => {
     const { default: Home } = await import('@/app/page')
     // The root IS the public marketing landing by default now — it only
     // redirects when FEATURED_MERCHANT_SLUG is set (asserted below).
-    const out = Home()
+    const out = await Home()
     expect(out).toBeTruthy()
     expect(redirect).not.toHaveBeenCalled()
   })
@@ -295,7 +303,8 @@ describe('root page redirect target', () => {
   it('targets the branded checkout /c/<slug> when a featured slug is set', async () => {
     process.env.FEATURED_MERCHANT_SLUG = SLUG
     const { default: Home } = await import('@/app/page')
-    expect(() => Home()).toThrow('REDIRECT')
+    // Home is async now, so the redirect() throw surfaces as a rejected promise.
+    await expect(Home()).rejects.toThrow('REDIRECT')
     expect(redirect).toHaveBeenCalledWith(`/c/${SLUG}`)
   })
 })

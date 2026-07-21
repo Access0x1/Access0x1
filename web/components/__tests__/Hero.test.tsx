@@ -20,21 +20,30 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { Hero } from '../marketing/Hero'
+import { getDictionary } from '../../lib/i18n/get-dictionary'
 
-const render = (): string => renderToStaticMarkup(createElement(Hero))
+// Hero copy is now locale-driven; render it with each shipped dictionary so the
+// truth-in-copy invariant is enforced in EVERY language, not just English.
+const en = getDictionary('en')
+const pt = getDictionary('pt')
+const render = (dict: typeof en): string =>
+  renderToStaticMarkup(createElement(Hero, { hero: dict.hero, cta: dict.cta }))
 
 describe('Hero credibility badge — truth-in-copy (law #4)', () => {
-  it('states the substantiated ETHGlobal Hacker Pack credential', () => {
-    const out = render()
-    expect(out).toContain('ETHGlobal Hacker Pack holder')
+  it('states the substantiated ETHGlobal Hacker Pack credential (every locale)', () => {
+    expect(render(en)).toContain('ETHGlobal Hacker Pack holder')
+    // The credential is named in every locale (pt: "…do ETHGlobal Hacker Pack").
+    expect(render(pt)).toContain('ETHGlobal Hacker Pack')
   })
 
-  it('makes no unsubstantiated prize/award claim', () => {
-    const lower = render().toLowerCase()
-    // The repo backs the Hacker Pack (an on-chain token) and nothing else.
-    // Any "prize"/"winner"/"award" boast would be an over-claim on a public page.
-    expect(lower).not.toContain('prize')
-    expect(lower).not.toContain('winner')
-    expect(lower).not.toContain('award')
+  it('makes no unsubstantiated prize/award claim in any locale', () => {
+    for (const dict of [en, pt]) {
+      const lower = render(dict).toLowerCase()
+      // The repo backs the Hacker Pack (an on-chain token) and nothing else.
+      // Any "prize"/"winner"/"award" boast would be an over-claim — in any language.
+      expect(lower).not.toContain('prize')
+      expect(lower).not.toContain('winner')
+      expect(lower).not.toContain('award')
+    }
   })
 })

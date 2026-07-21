@@ -3,6 +3,9 @@ import { Inter, Space_Grotesk } from 'next/font/google'
 import type { ReactNode } from 'react'
 import './globals.css'
 import { Providers } from './providers'
+import { getLocale } from '@/lib/i18n/locale'
+import { localeMeta } from '@/lib/i18n/config'
+import { ogLocaleForLocale, ogLocaleAlternates } from '@/lib/i18n/og-locale'
 
 /*
  * Brand typography (BRAND.md): Inter for UI/body, a tight geometric sans
@@ -36,32 +39,43 @@ const DESCRIPTION =
   'Onboard once, share a link, get paid in USDC. Zero custody — every payment settles ' +
   'merchant to payout in a single transaction. Powered by the open-source Access0x1 router.'
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: TITLE,
-  description: DESCRIPTION,
-  applicationName: 'Access0x1',
-  openGraph: {
-    type: 'website',
-    siteName: 'Access0x1',
-    url: SITE_URL,
+/**
+ * Root metadata is now per-request (i18n): og:locale reflects the visitor's
+ * resolved locale (pt_PT, en_US, …) with og:locale:alternate for the others,
+ * instead of the old locale-blind static block. Child routes still override
+ * title/description with their own (localized) generateMetadata.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale()
+  return {
+    metadataBase: new URL(SITE_URL),
     title: TITLE,
     description: DESCRIPTION,
-    images: [
-      {
-        url: '/og.png',
-        width: 1200,
-        height: 630,
-        alt: 'Access0x1 — the access-plug mark on night-water, with the wordmark and tagline.',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: TITLE,
-    description: DESCRIPTION,
-    images: ['/og.png'],
-  },
+    applicationName: 'Access0x1',
+    openGraph: {
+      type: 'website',
+      siteName: 'Access0x1',
+      url: SITE_URL,
+      title: TITLE,
+      description: DESCRIPTION,
+      locale: ogLocaleForLocale(locale),
+      alternateLocale: ogLocaleAlternates(locale),
+      images: [
+        {
+          url: '/og.png',
+          width: 1200,
+          height: 630,
+          alt: 'Access0x1 — the access-plug mark on night-water, with the wordmark and tagline.',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: TITLE,
+      description: DESCRIPTION,
+      images: ['/og.png'],
+    },
+  }
 }
 
 /*
@@ -72,9 +86,17 @@ export const viewport: Viewport = {
   themeColor: '#0B1020',
 }
 
-export default function RootLayout({ children }: { children: ReactNode }): ReactNode {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode
+}): Promise<ReactNode> {
+  // Resolve the locale once for <html lang>/dir; server components below call
+  // getLocale() again (cheap — the cookie/header read is cached per request).
+  const locale = await getLocale()
+  const { dir } = localeMeta(locale)
   return (
-    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
+    <html lang={locale} dir={dir} className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body className="min-h-screen font-sans">
         <Providers>{children}</Providers>
       </body>
