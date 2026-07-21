@@ -1,0 +1,42 @@
+[
+  {
+    "label": "router",
+    "slot": "0",
+    "offset": 0,
+    "type": "contract Access0x1Router",
+    "bytes": "20",
+    "sig": "contract Access0x1Router:20"
+  },
+  {
+    "label": "_refunds",
+    "slot": "1",
+    "offset": 0,
+    "type": "mapping(bytes32 => struct IRefunds.Refund)",
+    "bytes": "32",
+    "sig": "mapping(bytes32:32=>struct{merchantId#0.0=uint256:32;buyer#1.0=address:20;asset#2.0=address:20;amount#3.0=uint256:32;deadline#4.0=uint64:8;state#4.8=enum IRefunds.RefundState:1})"
+  },
+  {
+    "label": "_balanceOf",
+    "slot": "2",
+    "offset": 0,
+    "type": "mapping(address => mapping(uint256 => uint256))",
+    "bytes": "32",
+    "sig": "mapping(address:20=>mapping(uint256:32=>uint256:32))"
+  },
+  {
+    "label": "_withdrawable",
+    "slot": "3",
+    "offset": 0,
+    "type": "mapping(address => mapping(address => uint256))",
+    "bytes": "32",
+    "sig": "mapping(address:20=>mapping(address:20=>uint256:32))"
+  },
+  {
+    "label": "__gap",
+    "slot": "4",
+    "offset": 0,
+    "type": "uint256[50]",
+    "bytes": "1600",
+    "sig": "array[1600](uint256:32)"
+  }
+]

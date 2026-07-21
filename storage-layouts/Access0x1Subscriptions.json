@@ -1,0 +1,74 @@
+[
+  {
+    "label": "router",
+    "slot": "0",
+    "offset": 0,
+    "type": "contract IAccess0x1Router",
+    "bytes": "20",
+    "sig": "contract IAccess0x1Router:20"
+  },
+  {
+    "label": "sessionGrant",
+    "slot": "1",
+    "offset": 0,
+    "type": "contract ISessionGrant",
+    "bytes": "20",
+    "sig": "contract ISessionGrant:20"
+  },
+  {
+    "label": "_plans",
+    "slot": "2",
+    "offset": 0,
+    "type": "mapping(uint256 => mapping(uint8 => struct IAccess0x1Subscriptions.Plan))",
+    "bytes": "32",
+    "sig": "mapping(uint256:32=>mapping(uint8:1=>struct{priceUsd8#0.0=uint256:32;periodSecs#1.0=uint32:4;active#1.4=bool:1}))"
+  },
+  {
+    "label": "_subs",
+    "slot": "3",
+    "offset": 0,
+    "type": "mapping(uint256 => struct IAccess0x1Subscriptions.Subscription)",
+    "bytes": "32",
+    "sig": "mapping(uint256:32=>struct{merchantId#0.0=uint256:32;subscriber#1.0=address:20;sessionId#2.0=bytes32:32;token#3.0=address:20;planKey#3.20=uint8:1;periodEnd#3.21=uint64:8;trialExpiresAt#4.0=uint40:5;failCount#4.5=uint16:2;status#4.7=enum IAccess0x1Subscriptions.SubStatus:1;hasUsedTrial#4.8=bool:1})"
+  },
+  {
+    "label": "_lastDunBucket",
+    "slot": "4",
+    "offset": 0,
+    "type": "mapping(uint256 => uint256)",
+    "bytes": "32",
+    "sig": "mapping(uint256:32=>uint256:32)"
+  },
+  {
+    "label": "hasUsedTrial",
+    "slot": "5",
+    "offset": 0,
+    "type": "mapping(address => mapping(uint256 => mapping(uint8 => bool)))",
+    "bytes": "32",
+    "sig": "mapping(address:20=>mapping(uint256:32=>mapping(uint8:1=>bool:1)))"
+  },
+  {
+    "label": "nextSubId",
+    "slot": "6",
+    "offset": 0,
+    "type": "uint256",
+    "bytes": "32",
+    "sig": "uint256:32"
+  },
+  {
+    "label": "graceFailThreshold",
+    "slot": "7",
+    "offset": 0,
+    "type": "uint16",
+    "bytes": "2",
+    "sig": "uint16:2"
+  },
+  {
+    "label": "__gap",
+    "slot": "8",
+    "offset": 0,
+    "type": "uint256[50]",
+    "bytes": "1600",
+    "sig": "array[1600](uint256:32)"
+  }
+]

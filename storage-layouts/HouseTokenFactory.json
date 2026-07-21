@@ -1,0 +1,50 @@
+[
+  {
+    "label": "deployedCount",
+    "slot": "0",
+    "offset": 0,
+    "type": "uint256",
+    "bytes": "32",
+    "sig": "uint256:32"
+  },
+  {
+    "label": "_isHouseToken",
+    "slot": "1",
+    "offset": 0,
+    "type": "mapping(address => bool)",
+    "bytes": "32",
+    "sig": "mapping(address:20=>bool:1)"
+  },
+  {
+    "label": "_tokensOf",
+    "slot": "2",
+    "offset": 0,
+    "type": "mapping(address => address[])",
+    "bytes": "32",
+    "sig": "mapping(address:20=>array[32](address:20))"
+  },
+  {
+    "label": "_allTokens",
+    "slot": "3",
+    "offset": 0,
+    "type": "address[]",
+    "bytes": "32",
+    "sig": "array[32](address:20)"
+  },
+  {
+    "label": "_records",
+    "slot": "4",
+    "offset": 0,
+    "type": "mapping(address => struct IHouseTokenFactory.TokenRecord)",
+    "bytes": "32",
+    "sig": "mapping(address:20=>struct{owner#0.0=address:20;deployedAt#0.20=uint64:8;chainId#1.0=uint64:8})"
+  },
+  {
+    "label": "__gap",
+    "slot": "5",
+    "offset": 0,
+    "type": "uint256[47]",
+    "bytes": "1504",
+    "sig": "array[1504](uint256:32)"
+  }
+]

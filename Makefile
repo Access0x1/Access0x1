@@ -82,7 +82,9 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
         vyper-build vyper-test \
-        cre-build cre-sim zksync-build all
+        cre-build cre-sim zksync-build \
+        upgrade-snapshot upgrade-guard upgrade-dry upgrade-base-sepolia upgrade-ethereum-sepolia upgrade-arbitrum-sepolia upgrade-optimism-sepolia upgrade-avalanche-fuji upgrade-arc upgrade-celo-sepolia upgrade-robinhood-testnet upgrade-zksync-sepolia \
+        all
 
 help: ## Show every command
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
@@ -645,3 +647,87 @@ deploy-arc-mainnet: ## ⛔ AUDIT-GATED + NOT LAUNCHED: deploy to Arc mainnet (se
 		exit 1; \
 	fi
 	forge script script/DeployAll.s.sol --rpc-url $(ARC_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_MAINNET_VERIFIER_URL)) -vvvv
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════
+# UUPS UPGRADES — storage-safe, keystore-signed, ONE module per chain. Full runbook: docs/UPGRADING.md.
+# Parameterized by MODULE (e.g. MODULE=Access0x1Escrow). PROXY is resolved from the mirror manifest via
+# script/proxy-of.mjs; override with PROXY=0x... (REQUIRED for ChainRegistry — it is per-chain-distinct
+# and NOT in the mirror manifest). Signing is keystore-only, identical to the deploy targets.
+# The impl is a plain `new` deploy (a top-level CREATE), so the inline verify clause auto-verifies it.
+# Every broadcast target runs the MODULE-scoped storage-layout guard first (fail-closed on a brick risk).
+# ═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+# Resolve the proxy: honor an explicit PROXY, else look it up from the mirror manifest by MODULE.
+_resolve_proxy = P="$${PROXY:-$$(node script/proxy-of.mjs $(MODULE))}"; \
+	test -n "$(MODULE)" || { echo "set MODULE=<Contract> (e.g. MODULE=Access0x1Escrow)"; exit 1; }; \
+	test -n "$$P" || { echo "could not resolve PROXY for MODULE=$(MODULE); pass PROXY=0x..."; exit 1; }
+
+upgrade-snapshot: build ## (Re)generate storage-layouts/<Module>.json (set MODULE=<C> to scope) — review + commit the diff
+	@MODULE=$(MODULE) node scripts/sync-storage-layouts.mjs --write
+
+upgrade-guard: build ## STORAGE-LAYOUT GATE (set MODULE=<C> to scope; else all 20) — blocks any layout that would brick a proxy
+	@MODULE=$(MODULE) node scripts/sync-storage-layouts.mjs
+
+upgrade-dry: upgrade-guard ## Simulate the impl swap against a live chain (no keys): make upgrade-dry MODULE=Access0x1Escrow RPC=<url>
+	@test -n "$(DEPLOYER)" || { echo "set DEPLOYER=0x... so the simulated --sender is the module owner"; exit 1; }
+	@$(_resolve_proxy); \
+	echo "==> DRY-RUN upgrade $(MODULE) proxy=$$P on $(or $(RPC),$(BASE_SEPOLIA_RPC_URL))"; \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(or $(RPC),$(BASE_SEPOLIA_RPC_URL)) --sender $(DEPLOYER) -vvvv
+
+upgrade-base-sepolia: upgrade-guard ## Upgrade MODULE on Base Sepolia (keystore `deployer`, verified)
+	@$(_resolve_proxy); \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(BASE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
+		--broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+upgrade-ethereum-sepolia: upgrade-guard ## Upgrade MODULE on Ethereum Sepolia (etherscan verify)
+	@$(_resolve_proxy); \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
+		--broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+upgrade-arbitrum-sepolia: upgrade-guard ## Upgrade MODULE on Arbitrum Sepolia (arbiscan verify)
+	@$(_resolve_proxy); \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(ARBITRUM_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
+		--broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+upgrade-optimism-sepolia: upgrade-guard ## Upgrade MODULE on Optimism Sepolia (etherscan verify)
+	@$(_resolve_proxy); \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(OPTIMISM_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
+		--broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+upgrade-avalanche-fuji: upgrade-guard ## Upgrade MODULE on Avalanche Fuji
+	@$(_resolve_proxy); \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(AVALANCHE_FUJI_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
+		--broadcast $(RESUME_FLAG) -vvvv
+
+upgrade-arc: upgrade-guard ## Upgrade MODULE on Arc testnet (Blockscout verify)
+	@$(_resolve_proxy); \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
+		--broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
+
+upgrade-celo-sepolia: upgrade-guard ## Upgrade MODULE on Celo Sepolia (11142220; celoscan/etherscan-v2 verify)
+	@$(_resolve_proxy); \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(CELO_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
+		--broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+upgrade-robinhood-testnet: upgrade-guard ## Upgrade MODULE on Robinhood Chain testnet (46630; Blockscout verify)
+	@$(_resolve_proxy); \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(ROBINHOOD_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
+		--broadcast $(RESUME_FLAG) $(call bs_verify,$(ROBINHOOD_TESTNET_VERIFIER_URL)) -vvvv
+
+# zkSync Era Sepolia — PLAIN EVM path, NO --zksync (mirrors deploy-zksync-sepolia). The mirror proxies
+# run under Era's EVM interpreter; a zksolc/EraVM-compiled impl would break delegatecall/bytecode
+# semantics and can HARD-BRICK the proxy. Always upgrade zkSync with the plain path.
+upgrade-zksync-sepolia: upgrade-guard ## Upgrade MODULE on zkSync Era Sepolia (300) — PLAIN EVM, NO --zksync
+	@$(_resolve_proxy); \
+	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
+		--rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
+		--broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
