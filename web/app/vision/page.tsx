@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 
 import { BrandMark } from '@/components/BrandMark'
 import { LandingCTA } from '@/components/marketing/LandingCTA'
+import { getLocale } from '@/lib/i18n/locale'
+import { getDictionary } from '@/lib/i18n/get-dictionary'
 
 /**
  * /vision — what gets built on the rail.
@@ -117,7 +119,10 @@ const RECIPE_ITEMS: readonly string[] = [
   'Receipts and documents anchored on public networks — provable forever.',
 ]
 
-export default function VisionPage(): ReactNode {
+export default async function VisionPage(): Promise<ReactNode> {
+  // Full /vision localization is the next PR; here we only feed the shared CTA
+  // its localized copy so the button matches the rest of the site.
+  const dict = getDictionary(await getLocale())
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 pb-24 pt-16">
       {/* Brand lockup + eyebrow, same chassis as the landing. */}
@@ -189,7 +194,7 @@ export default function VisionPage(): ReactNode {
           The rail these are built on is open source and live on test networks
           today.
         </p>
-        <LandingCTA className="mt-6" />
+        <LandingCTA cta={dict.cta} className="mt-6" />
       </section>
     </main>
   )

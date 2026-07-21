@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "homeTitle": "Access0x1 — a do-it-all center to get you and your business onchain",
+    "homeDescription": "Access0x1 is the open, on-chain layer for payments, auth, and agents. Accept USD-priced payments in USDC with one link, prove identity with ENS, and let agents act within scoped grants — zero custody, no contract code. Live on Arc, Base, and zkSync, powered by Chainlink."
+  },
+  "hero": {
+    "eyebrow": "One link · no code · no contract · no gas — apps build on it",
+    "headline": "The open-source rail for onchain identity + USD-priced payments in USDC",
+    "subhead": "Access0x1 is the open umbrella layer apps build on — the shared, on-chain rail for accepting USD-priced payments in USDC, proving identity, and letting agents act on your behalf. Onboard once, share a link, get paid in USDC — zero custody, no smart-contract code to write.",
+    "hackerPack": "Verified ETHGlobal Hacker Pack holder"
+  },
+  "cta": {
+    "primary": "Get started — no cost to join",
+    "secondary": "Ask how it works"
+  },
+  "integrations": {
+    "heading": "Powered by, and live on",
+    "roles": {
+      "Chainlink": "USD price feeds + Automation keepers",
+      "Arc": "USDC-native settlement chain (chain id 5042002)",
+      "Base": "Low-cost L2 settlement",
+      "zkSync": "ZK-rollup settlement"
+    }
+  },
+  "features": {
+    "heading": "One center, the whole commerce stack",
+    "sub": "A full suite of open-source contracts behind a single link. Turn on only what you need — every piece shares the same no-custody settlement spine.",
+    "items": {
+      "payments": {
+        "title": "Payments",
+        "description": "Get paid in USDC with one link. A Chainlink-interface price feed quotes the USD price inside the pay transaction; funds settle merchant-to-payout with zero custody."
+      },
+      "subscriptions": {
+        "title": "Subscriptions",
+        "description": "Recurring on-chain billing that renews itself — a permissionless Chainlink Automation keeper charges due plans, never holding a balance."
+      },
+      "bookings": {
+        "title": "Bookings",
+        "description": "Take reservations and paid appointments on-chain, with the deposit collected through the same no-custody settlement path."
+      },
+      "invoices": {
+        "title": "Invoices",
+        "description": "Issue and settle invoices in USDC — track receivables on-chain and let a customer pay a request with a single link."
+      },
+      "giftCards": {
+        "title": "Gift cards",
+        "description": "Mint, redeem, and reload stored-value gift cards as on-chain balances your customers can spend across your storefront."
+      },
+      "agents": {
+        "title": "Agents · SessionGrant",
+        "description": "Delegate scoped, time-boxed spending to an agent or session key — a signed grant lets software pay on your behalf within limits you set."
+      },
+      "ens": {
+        "title": "ENS identity",
+        "description": "Pay a verified human-readable name instead of a hex address. Checkout resolves and proves the merchant’s ENS name before a cent moves."
+      }
+    }
+  },
+  "landing": {
+    "closingHeading": "Get onchain in under two minutes",
+    "closingBody": "No code, no contract to deploy, no gas to manage. Set your name, share your link, get paid in USDC.",
+    "footer": {
+      "vision": "The vision →",
+      "journey": "The business journey →",
+      "simulator": "On-chain cost simulator →",
+      "contracts": "Explore the contracts →",
+      "tagline": "Open source · zero custody · testnet-only"
+    }
+  },
+  "switcher": {
+    "label": "Language"
+  }
+}

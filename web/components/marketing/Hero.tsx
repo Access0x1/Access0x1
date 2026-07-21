@@ -2,26 +2,26 @@
  * Hero.tsx — the top fold of the public marketing landing page.
  *
  * Pure presentational, server-renderable: no hooks, no client JS. It states the
- * product one-liner ("The open-source rail for onchain identity + USD-priced
- * onchain payments") and frames the value prop, then hands the visitor straight
- * to the primary CTA (rendered separately by LandingCTA so the call-to-action
- * lives in one place).
+ * product one-liner and frames the value prop, then hands the visitor straight
+ * to the primary CTA (rendered by LandingCTA so the call-to-action lives in one
+ * place).
  *
- * Styling rides the existing brand chassis (globals.css / tailwind.config.ts):
- * the night-water `background`, `foreground` text, cyan `primary` accent, and
- * the `font-display` wordmark face — no new tokens introduced. The BrandMark
- * lockup is reused verbatim from components/BrandMark.tsx.
+ * All copy comes from the active locale dictionary (`hero` + `cta` slices),
+ * passed down from the server-rendered page. Styling rides the existing brand
+ * chassis — no new tokens introduced.
  */
 import type { ReactNode } from 'react'
 
 import { BrandMark } from '@/components/BrandMark'
 import { LandingCTA } from '@/components/marketing/LandingCTA'
+import type { Dictionary } from '@/lib/i18n/get-dictionary'
 
-/** The product one-liner — the single sentence the page is built around. */
-const ONE_LINER =
-  'The open-source rail for onchain identity + USD-priced payments in USDC'
+export interface HeroProps {
+  hero: Dictionary['hero']
+  cta: Dictionary['cta']
+}
 
-export function Hero(): ReactNode {
+export function Hero({ hero, cta }: HeroProps): ReactNode {
   return (
     <section className="relative isolate overflow-hidden">
       {/*
@@ -40,32 +40,31 @@ export function Hero(): ReactNode {
 
         {/* Eyebrow: positions the product before the headline lands. */}
         <span className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          One link · no code · no contract · no gas — apps build on it
+          {hero.eyebrow}
         </span>
 
         {/* The headline IS the one-liner. font-display for the brand voice. */}
         <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-6xl">
-          {ONE_LINER}
+          {hero.headline}
         </h1>
 
         {/* Sub-headline: what it means in plain terms. */}
         <p className="max-w-xl text-balance text-lg text-muted-foreground">
-          Access0x1 is the open umbrella layer apps build on — the shared,
-          on-chain rail for accepting USD-priced payments in USDC, proving identity, and
-          letting agents act on your behalf. Onboard once, share a link, get paid
-          in USDC — zero custody, no smart-contract code to write.
+          {hero.subhead}
         </p>
 
         {/*
          * Credibility line: the ETHGlobal Hacker Pack is an on-chain credential
          * (EG-HACKER, balance 1 on Optimism). Understated — no dollar figures.
+         * The 🏆 glyph is decorative and stays literal; the copy is localized.
          */}
         <span className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          🏆 Verified ETHGlobal Hacker Pack holder
+          <span aria-hidden="true">🏆 </span>
+          {hero.hackerPack}
         </span>
 
         {/* Primary call-to-action: deep-links to /onboard. */}
-        <LandingCTA />
+        <LandingCTA cta={cta} />
       </div>
     </section>
   )
