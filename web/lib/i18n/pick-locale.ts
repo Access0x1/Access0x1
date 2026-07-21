@@ -47,18 +47,66 @@ export function pickFromAcceptLanguage(
   return null;
 }
 
+// Countries where European Portuguese (pt-PT) is the right default: the lusophone
+// world EXCEPT Brazil, which uses a distinct pt-BR we do not ship. ISO 3166-1 alpha-2.
+const PT_COUNTRIES = new Set(["PT", "AO", "MZ", "CV", "GW", "ST", "TL"]);
+
 /**
- * Combine an explicit cookie choice with the Accept-Language signal. The cookie
- * (an explicit switcher choice) always wins; otherwise negotiate the header;
- * otherwise DEFAULT_LOCALE. Kept pure so both getLocale() and any middleware
- * share ONE decision.
+ * Map an edge country code (e.g. `CloudFront-Viewer-Country: PT`) to a supported
+ * locale, or null. Geo is a WEAK signal by design — resolveLocale only lets it
+ * fill a gap when the visitor stated no language; it never overrides Accept-Language.
+ */
+export function pickFromCountry(
+  country: string | null | undefined,
+): LocaleCode | null {
+  if (!country) return null;
+  return PT_COUNTRIES.has(country.trim().toUpperCase()) ? "pt" : null;
+}
+
+/**
+ * Combine an explicit cookie choice, the Accept-Language signal, and an optional
+ * edge country hint into ONE locale. Precedence:
+ *   1. a valid cookie (explicit switcher choice) — always wins;
+ *   2. an explicit NON-default browser language (a `pt` browser gets pt);
+ *   3. geo, ONLY when the browser stated no supported language (in Portugal with
+ *      no preference -> Portuguese) — explicit English is a real choice, so it is
+ *      kept and the ask-prompt (see localeOffer) handles that case instead;
+ *   4. DEFAULT_LOCALE.
+ * Kept pure so getLocale() and any middleware share one decision. `country` is
+ * optional, so existing two-arg callers are unaffected.
  */
 export function resolveLocale(
   cookieValue: string | null | undefined,
   accept: string | null | undefined,
+  country?: string | null | undefined,
 ): LocaleCode {
   if (cookieValue && (LOCALES as readonly string[]).includes(cookieValue)) {
     return cookieValue as LocaleCode;
   }
-  return pickFromAcceptLanguage(accept) ?? DEFAULT_LOCALE;
+  const fromLang = pickFromAcceptLanguage(accept);
+  if (fromLang && fromLang !== DEFAULT_LOCALE) return fromLang;
+  if (fromLang === null) {
+    const fromGeo = pickFromCountry(country);
+    if (fromGeo) return fromGeo;
+  }
+  return fromLang ?? DEFAULT_LOCALE;
+}
+
+/**
+ * Which locale to OFFER via the client switch-prompt, or null. Fires only for the
+ * "you're in Portugal but the page is English" case: geo names a locale the visitor
+ * is NOT seeing AND they made no explicit choice (no cookie). We render their
+ * explicit English and ASK — never force. Null on every other path (already
+ * matching / explicit choice / no geo) so the prompt never nags.
+ */
+export function localeOffer(
+  resolved: LocaleCode,
+  cookieValue: string | null | undefined,
+  country: string | null | undefined,
+): LocaleCode | null {
+  if (cookieValue && (LOCALES as readonly string[]).includes(cookieValue)) {
+    return null;
+  }
+  const fromGeo = pickFromCountry(country);
+  return fromGeo && fromGeo !== resolved ? fromGeo : null;
 }

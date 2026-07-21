@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { pickFromAcceptLanguage, resolveLocale } from "../pick-locale";
+import {
+  localeOffer,
+  pickFromAcceptLanguage,
+  pickFromCountry,
+  resolveLocale,
+} from "../pick-locale";
 import { bcp47ForLocale, ogLocaleForLocale, ogLocaleAlternates } from "../og-locale";
 
 describe("pickFromAcceptLanguage", () => {
@@ -30,6 +35,52 @@ describe("resolveLocale (cookie wins, else negotiate, else default)", () => {
     expect(resolveLocale(null, "pt-PT,pt;q=0.9")).toBe("pt");
     expect(resolveLocale(undefined, "de")).toBe("en");
     expect(resolveLocale("garbage", null)).toBe("en");
+  });
+});
+
+describe("pickFromCountry (geo -> locale; PT-speaking, not Brazil)", () => {
+  it("maps Portuguese-speaking countries to pt (case-insensitive)", () => {
+    expect(pickFromCountry("PT")).toBe("pt");
+    expect(pickFromCountry("pt")).toBe("pt");
+    expect(pickFromCountry("AO")).toBe("pt"); // Angola
+  });
+  it("returns null for Brazil (distinct pt-BR) and non-lusophone / absent", () => {
+    expect(pickFromCountry("BR")).toBeNull();
+    expect(pickFromCountry("US")).toBeNull();
+    expect(pickFromCountry(null)).toBeNull();
+    expect(pickFromCountry("")).toBeNull();
+  });
+});
+
+describe("resolveLocale with geo (geo fills a gap, never overrides a stated language)", () => {
+  it("uses geo only when NO supported language was stated", () => {
+    expect(resolveLocale(null, null, "PT")).toBe("pt");
+    expect(resolveLocale(null, "de,ja;q=0.8", "PT")).toBe("pt");
+  });
+  it("keeps an explicit English even from Portugal (the ask-prompt handles it)", () => {
+    expect(resolveLocale(null, "en-US,en;q=0.9", "PT")).toBe("en");
+  });
+  it("lets an explicit pt browser win regardless of geo", () => {
+    expect(resolveLocale(null, "pt-PT", "US")).toBe("pt");
+  });
+  it("still lets the cookie win over geo", () => {
+    expect(resolveLocale("en", null, "PT")).toBe("en");
+  });
+});
+
+describe("localeOffer (the 'in Portugal but seeing English' ask)", () => {
+  it("offers pt when geo=PT, the page is English, and no explicit choice", () => {
+    expect(localeOffer("en", null, "PT")).toBe("pt");
+  });
+  it("does NOT offer when already showing the geo locale", () => {
+    expect(localeOffer("pt", null, "PT")).toBeNull();
+  });
+  it("does NOT offer once the visitor has chosen (cookie set)", () => {
+    expect(localeOffer("en", "en", "PT")).toBeNull();
+  });
+  it("does NOT offer without a geo signal", () => {
+    expect(localeOffer("en", null, "US")).toBeNull();
+    expect(localeOffer("en", null, null)).toBeNull();
   });
 });
 

@@ -1,10 +1,12 @@
 /**
  * i18n config — the single source of truth for the interface's locale set.
  *
- * Pattern: cookie + Accept-Language negotiation, per-locale JSON dictionaries,
- * and locale-aware metadata. No geo-IP layer (Cloud Run has no edge country
- * header) — pure Accept-Language plus an explicit switcher choice persisted in
- * a cookie.
+ * Pattern: cookie + Accept-Language negotiation with an optional geo hint
+ * (`CloudFront-Viewer-Country`, present only when CloudFront fronts the origin).
+ * Geo NEVER overrides an explicit language — it only fills a gap when none was
+ * stated, and otherwise drives an ask-prompt (LocalePrompt). Per-locale JSON
+ * dictionaries and locale-aware metadata; an explicit switcher choice persists
+ * in a cookie.
  *
  * ADDING A LOCALE is dictionary + config only, ZERO component edits: drop a
  * `dictionaries/<code>.json` (same key shape as en.json) and add the code here.

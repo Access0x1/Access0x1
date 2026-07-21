@@ -9,7 +9,8 @@ import { FeatureGrid } from '@/components/marketing/FeatureGrid'
 import { IntegrationStrip } from '@/components/marketing/IntegrationStrip'
 import { LandingCTA } from '@/components/marketing/LandingCTA'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
-import { getLocale } from '@/lib/i18n/locale'
+import { LocalePrompt } from '@/components/LocalePrompt'
+import { getLocale, getLocaleContext } from '@/lib/i18n/locale'
 import { getDictionary } from '@/lib/i18n/get-dictionary'
 
 /**
@@ -38,7 +39,7 @@ export default async function Home(): Promise<ReactNode> {
     redirect(`/c/${encodeURIComponent(featuredSlug)}`)
   }
 
-  const locale = await getLocale()
+  const { locale, offer } = await getLocaleContext()
   const dict = getDictionary(locale)
 
   return (
@@ -88,6 +89,10 @@ export default async function Home(): Promise<ReactNode> {
           <LanguageSwitcher active={locale} label={dict.switcher.label} />
         </div>
       </footer>
+
+      {/* Resilient geo ask-prompt: offers Português, once, to a visitor in
+          Portugal who is seeing English. Renders nothing when there's no offer. */}
+      <LocalePrompt offer={offer} />
     </main>
   )
 }
