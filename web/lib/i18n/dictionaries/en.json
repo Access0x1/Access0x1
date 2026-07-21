@@ -4,9 +4,9 @@
     "homeDescription": "Access0x1 is the open, on-chain layer for payments, auth, and agents. Accept USD-priced payments in USDC with one link, prove identity with ENS, and let agents act within scoped grants — zero custody, no contract code. Live on Arc, Base, and zkSync, powered by Chainlink."
   },
   "hero": {
-    "eyebrow": "One link · no code · no contract · no gas — apps build on it",
-    "headline": "The open-source rail for onchain identity + USD-priced payments in USDC",
-    "subhead": "Access0x1 is the open umbrella layer apps build on — the shared, on-chain rail for accepting USD-priced payments in USDC, proving identity, and letting agents act on your behalf. Onboard once, share a link, get paid in USDC — zero custody, no smart-contract code to write.",
+    "eyebrow": "Payments · identity · agents — one open rail",
+    "headline": "Get paid straight to your wallet — money no company can freeze, hold, or claw back",
+    "subhead": "Onboard once, share one link, and payments settle straight to your wallet in USDC — no processor in the middle, no code to write, no gas to manage. The same open rail also proves identity and lets agents pay within limits you set.",
     "hackerPack": "Verified ETHGlobal Hacker Pack holder"
   },
   "cta": {

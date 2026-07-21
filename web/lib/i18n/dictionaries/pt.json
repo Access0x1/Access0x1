@@ -4,9 +4,9 @@
     "homeDescription": "O Access0x1 é a camada aberta on-chain para pagamentos, autenticação e agentes de IA. Aceite pagamentos com preço em USD, liquidados em USDC, com um único link; prove a identidade com ENS; e deixe os agentes agir dentro de permissões limitadas — sem custódia, sem código de contratos. Ativo em Arc, Base e zkSync, com tecnologia Chainlink."
   },
   "hero": {
-    "eyebrow": "Um link · sem código · sem contratos · sem gas — as apps constroem em cima",
-    "headline": "A infraestrutura de código aberto para identidade on-chain e pagamentos com preço em USD, em USDC",
-    "subhead": "O Access0x1 é a camada aberta sobre a qual as apps constroem — a infraestrutura on-chain partilhada para aceitar pagamentos com preço em USD, em USDC, provar a identidade e deixar os agentes de IA agir em seu nome. Registe-se uma vez, partilhe um link e receba em USDC — sem custódia, sem escrever código de contratos.",
+    "eyebrow": "Pagamentos · identidade · agentes — uma infraestrutura aberta",
+    "headline": "Receba diretamente na sua carteira — dinheiro que nenhuma empresa pode congelar, reter ou reverter",
+    "subhead": "Registe-se uma vez, partilhe um link e os pagamentos são liquidados diretamente na sua carteira, em USDC — sem intermediário, sem escrever código, sem gerir gas. A mesma infraestrutura aberta também prova a identidade e deixa os agentes pagar dentro dos limites que definir.",
     "hackerPack": "Detentor verificado do ETHGlobal Hacker Pack"
   },
   "cta": {
