@@ -49,6 +49,7 @@ that matches what you want to do and follow the link.
 | --- | --- |
 | Translate a web3 term to something you already know | [GLOSSARY.md](./GLOSSARY.md) |
 | See how the contracts fit together (the money spine, line by line) | [ARCHITECTURE.md](./ARCHITECTURE.md) |
+| See how a payment gets priced + swap the oracle source per asset | [PRICE-SOURCES.md](./PRICE-SOURCES.md) |
 | Understand the upgrade model + storage layout (you're on UUPS proxies) | [STORAGE-LAYOUT.md](./STORAGE-LAYOUT.md) |
 | Read the contracts themselves | [`src/`](../src) — start at [`Access0x1Router.sol`](../src/Access0x1Router.sol) |
 
