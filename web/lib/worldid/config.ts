@@ -107,3 +107,19 @@ export function worldOperatorAction(): string {
 export function worldAgentAction(): string {
   return (process.env.WORLD_AGENT_ACTION ?? 'agent-trial-unlock').trim()
 }
+
+/**
+ * The distinct action string scoping AgentKit-style DELEGATION proofs — the proof
+ * a verified human signs to stand behind an autonomous agent BEFORE it earns
+ * execution rights (World's AgentKit / "proof of human for the agentic web").
+ *
+ * It is its OWN action, separate from the buyer gate, the operator badge, AND the
+ * reserved `worldAgentAction()` trial-unlock: a human delegating to an agent must
+ * never consume a checkout's one-per-human slot, and the delegation nullifier
+ * lives in its own `worldid:<action>` namespace. Defaults to a readable constant so
+ * the dev/simulator flow works before the env is set; override per deployment via
+ * `WORLD_AGENTKIT_ACTION`. Consumed by {@link verifyHumanBackedAgent}'s live driver.
+ */
+export function worldAgentKitAction(): string {
+  return (process.env.WORLD_AGENTKIT_ACTION ?? 'agentkit-human-backed').trim()
+}
