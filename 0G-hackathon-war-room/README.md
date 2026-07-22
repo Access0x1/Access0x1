@@ -1,5 +1,7 @@
 # access0x1-0g
 
+> ## Bots a business can run for the rest of its life — trustless and permissionless.
+
 **Private hackathon build — Lisbon 0G AI Builder Day.** A Claude-powered
 (0G-swappable) x402 agent that is **identified, private, paid, bounded, and
 un-extractable** — the trust layer that makes an autonomous agent safe to transact

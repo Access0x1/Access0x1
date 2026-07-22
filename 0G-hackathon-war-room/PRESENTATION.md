@@ -6,11 +6,19 @@ pitch. Practice once against a clock.
 
 ---
 
+## The hook (open with this — say it verbatim)
+
+> **"We build bots a business can run for the rest of its life — trustless and
+> permissionless."**
+
+Then land the how in one breath:
+
 ## One-liner (memorize this)
 
 > **access0x1-0g is the trust layer for AI agents: every action is identified,
 > private, paid, bounded, and un-extractable — so an agent can safely work for you,
-> and one day be owned and traded.** Claude by default, 0G's private TEE on demand.
+> for the rest of your business's life, and one day be owned and traded.** Claude by
+> default, 0G's private TEE on demand.
 
 ## The clock
 
