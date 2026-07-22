@@ -30,6 +30,33 @@ provable across five pillars — each already a piece of this build:
 revenue-producing asset with a provable history. That's access0x1's RWA rails
 pointed at agents.
 
+## access0x1 = the Agent OS
+
+> **0G is the machine. access0x1 is the OS agents run on it** — the payments,
+> identity, permissions, and trust kernel for autonomous businesses.
+
+An OS gives every program *system calls* + *kernel guarantees* so it never reinvents
+identity, memory, permissions, or I/O. access0x1 already provides the agent syscalls;
+the five pillars above are the kernel guarantees no agent process can escape.
+
+| OS primitive | access0x1 syscall |
+| --- | --- |
+| identity / process owner | World ID gate + Agentic ID (ERC-7857) |
+| permissions / capabilities | AP2 mandates · session caps · human-in-the-loop |
+| I/O — get paid / pay | x402 seller (`withGateway`) + buyer (`/api/agent/pay`) |
+| persistent memory / filesystem | 0G Storage (root-hash addressed) |
+| protected execution | 0G TEE + attestation |
+| safe resource access | MEV-safe, fail-closed settlement |
+| ownership / provenance | `Access0x1Nft` · ProvenanceRegistry · RWA suite |
+
+**Why this is the right frame (and honest):** it doesn't collide with 0G's "AI OS"
+(that's the infra/hardware layer) — access0x1 is *userland*, the layer agents actually
+run in. It's why the tagline holds: an OS is the durable substrate that lets a business
+**own** an agent and run it for life, not **rent** a SaaS seat. What makes it real is
+exposing these scattered routes/contracts as one coherent **Agent-OS API/SDK** — a
+product move, not a rewrite. Scope honesty: the OS is the vision; the demo proves the
+kernel's **first working syscall** (the trust loop) end-to-end.
+
 ## What we're building
 
 An AI agent whose requests are paid for with **x402** (HTTP-402 USDC micropayments),
