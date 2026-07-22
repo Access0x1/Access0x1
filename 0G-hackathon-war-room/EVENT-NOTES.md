@@ -37,6 +37,11 @@ Facts gathered pre-event (2026-07-22). ✅ = confirmed from a primary/mirror sou
 - ⚠️ Faucet host (via `build.0g.ai/chain`; ~0.1 OG/day)
 - ✅ **No 0G-native USDC/stablecoin found** — do not assume one
 
+## 0G token (0G) — price snapshot (2026-07-22, volatile)
+- ✅ ~**$0.18 USD** · mkt cap ~$39M · rank ~#472–500 · circ ~213M · ATH $7.05 / ATL $0.1667
+- ✅ Role: funds 0G Compute (deposit → per-token billing), gas on 0G Chain, node emissions
+- ➜ Demo uses **free test-OG** (faucet) + x402 on Base Sepolia → price is **pitch context, not a build cost**. Full detail in `0G-TOKEN.md`.
+
 ## 0G Storage (block-based, root-hash addressed)
 - ✅ SDK: `@0glabs/0g-ts-sdk` (`npm i @0glabs/0g-ts-sdk`; peer dep `ethers`)
 - ✅ Indexer (testnet): `https://indexer-storage-testnet-turbo.0g.ai` · EVM RPC `https://evmrpc-testnet.0g.ai`
