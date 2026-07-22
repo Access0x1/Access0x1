@@ -20,18 +20,21 @@ import {
   type PayTokenSymbol,
 } from '../lib/tokens.js'
 
-const CHAIN = 84532 // Base Sepolia, for env-var naming
+const CHAIN = 84532 // Base Sepolia — a chain WITH a zero-config USDC default
+// A supported chain with NO zero-config USDC default (only Arc/Base/Eth-Sepolia
+// carry one), so "USDC unset ⇒ unavailable" is a genuine, testable state here.
+const NODEFAULT = 11155420 // OP Sepolia
 const ALL_SYMBOLS: PayTokenSymbol[] = ['USDC', 'WETH', 'LINK', 'UNI', 'ENS', 'DAI', 'WBTC']
 
 // Every env key these tests touch — cleaned after each so no test leaks into the next.
-const ENV_KEYS = [
-  `NEXT_PUBLIC_USDC_ADDRESS_${CHAIN}`,
-  `NEXT_PUBLIC_USDC_USD_FEED_${CHAIN}`,
+const ENV_KEYS = [CHAIN, NODEFAULT].flatMap((chain) => [
+  `NEXT_PUBLIC_USDC_ADDRESS_${chain}`,
+  `NEXT_PUBLIC_USDC_USD_FEED_${chain}`,
   ...ALL_SYMBOLS.filter((s) => s !== 'USDC').flatMap((s) => [
-    `NEXT_PUBLIC_TOKEN_${s}_${CHAIN}`,
-    `NEXT_PUBLIC_TOKEN_${s}_FEED_${CHAIN}`,
+    `NEXT_PUBLIC_TOKEN_${s}_${chain}`,
+    `NEXT_PUBLIC_TOKEN_${s}_FEED_${chain}`,
   ]),
-]
+])
 
 afterEach(() => {
   for (const k of ENV_KEYS) delete process.env[k]
@@ -107,25 +110,39 @@ describe('resolvePayToken — env-driven, undefined until configured', () => {
 
 describe('resolvePayTokens / defaultPayToken — the chain menu', () => {
   it('returns the full set in order (configured or not — honest menu)', () => {
-    const all = resolvePayTokens(CHAIN)
+    // NODEFAULT has no zero-config USDC, so with nothing set every token is
+    // unavailable — the honest full menu with all rows disabled.
+    const all = resolvePayTokens(NODEFAULT)
     expect(all.map((t) => t.symbol)).toEqual(ALL_SYMBOLS)
     expect(all.every((t) => t.available === false)).toBe(true) // nothing set this chain
   })
 
+  it('USDC is available by default on a zero-config default chain (no env needed)', () => {
+    // The client-inlined getUsdcAddress seam gives Base Sepolia a zero-config USDC
+    // default, so a fresh clone's checkout offers USDC without any NEXT_PUBLIC env.
+    // (Regression guard: the picker previously read a computed process.env key that
+    // Next.js never inlines client-side, so USDC wrongly showed "not available".)
+    const all = resolvePayTokens(CHAIN)
+    const usdc = all.find((t) => t.symbol === 'USDC')
+    expect(usdc?.available).toBe(true)
+    expect(usdc?.address).toBeDefined()
+  })
+
   it('defaultPayToken is USDC when USDC is configured', () => {
-    process.env[`NEXT_PUBLIC_USDC_ADDRESS_${CHAIN}`] = '0x' + 'aa'.repeat(20)
-    const d = defaultPayToken(CHAIN)
+    process.env[`NEXT_PUBLIC_USDC_ADDRESS_${NODEFAULT}`] = '0x' + 'aa'.repeat(20)
+    const d = defaultPayToken(NODEFAULT)
     expect(d?.symbol).toBe('USDC')
     expect(d?.available).toBe(true)
   })
 
   it('defaultPayToken falls back to the first configured token when USDC is unset', () => {
-    process.env[`NEXT_PUBLIC_TOKEN_WETH_${CHAIN}`] = '0x' + 'bb'.repeat(20)
-    const d = defaultPayToken(CHAIN)
+    // On a no-default chain, USDC unset ⇒ the fallback picks the first configured token.
+    process.env[`NEXT_PUBLIC_TOKEN_WETH_${NODEFAULT}`] = '0x' + 'bb'.repeat(20)
+    const d = defaultPayToken(NODEFAULT)
     expect(d?.symbol).toBe('WETH')
   })
 
   it('defaultPayToken is undefined when NO token is configured on the chain', () => {
-    expect(defaultPayToken(CHAIN)).toBeUndefined()
+    expect(defaultPayToken(NODEFAULT)).toBeUndefined()
   })
 })
