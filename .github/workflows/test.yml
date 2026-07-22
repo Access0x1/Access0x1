@@ -180,6 +180,34 @@ jobs:
         working-directory: packages/create-access0x1
         run: node --check bin/index.mjs
 
+      # @access0x1/x402-client — the agent payment-leg client: strict typecheck + vitest.
+      - name: Install @access0x1/x402-client deps
+        working-directory: packages/x402-client
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck @access0x1/x402-client
+        working-directory: packages/x402-client
+        run: npx tsc --noEmit
+
+      - name: Test @access0x1/x402-client (vitest)
+        working-directory: packages/x402-client
+        run: npx vitest run
+
+      # The Python twin — same IAgentPayer contract, stdlib-only runtime; pytest is
+      # its whole gate (see packages/x402-client-py/Makefile). Green-at-merge holds
+      # for the Python side only when CI actually runs it.
+      - name: Setup Python (x402-client-py)
+        # SHA-pinned like every other action here (supply-chain hardening).
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Test x402-client-py (pytest)
+        working-directory: packages/x402-client-py
+        run: |
+          python -m pip install --quiet pytest
+          python -m pytest -q
+
   # snap/ and subgraph/ are Dependabot-tracked but had ZERO CI — a bump (or a source
   # change) could merge completely untested. These jobs run each package's own
   # gate so a regression is caught in CI, not on a maintainer's machine.
