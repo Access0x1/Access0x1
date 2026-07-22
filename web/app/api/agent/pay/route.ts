@@ -61,6 +61,10 @@ import {
   toAnyTokenQuoteJson,
   type AnyTokenQuoteJson,
 } from "../../../../lib/agent/anyTokenQuote.js";
+import {
+  anchorAgentState,
+  type StateAnchorOutcome,
+} from "../../../../lib/agent/stateAnchor.js";
 
 /** Hard ceiling on a single nano-loop request — law #4: the agent fires real, bounded calls. */
 const MAX_DEMO_CALLS = 50;
@@ -249,6 +253,29 @@ async function maybeAnyTokenQuote(
 }
 
 /**
+ * Store + anchor the settled receipt, best-effort (the earn → store → own loop).
+ * Dormant unless AGENT_STATE_ANCHOR=true; NEVER throws into the pay path — any
+ * error inside anchorAgentState resolves to null and the response is unchanged.
+ *
+ * @param url      The paid endpoint url (what the agent bought).
+ * @param totalUsd The total USD value settled in this request.
+ * @param agent    The agent's paying wallet address.
+ * @returns The honest outcome, or null when dormant / storage failed.
+ */
+async function maybeAnchorState(
+  url: string,
+  totalUsd: number,
+  agent: string,
+): Promise<StateAnchorOutcome | null> {
+  return anchorAgentState({
+    url,
+    priceUsd: totalUsd,
+    agent,
+    settledAt: new Date().toISOString(),
+  });
+}
+
+/**
  * Handle POST /api/agent/pay. See the file header for the full status map.
  *
  * @param req The incoming request; body is `{ url, count?, pricePerCallUsd?, quoteToken? }`.
@@ -351,10 +378,22 @@ export async function POST(req: Request): Promise<Response> {
         count: validated.count,
         pricePerCallUsd: price,
       });
-      return json({ ok: true, results, agent: await agentAddress(), ...(quote ? { quote } : {}) }, 200);
+      const agent = await agentAddress();
+      // Earn → store → own: persist + anchor the settled receipt, best-effort.
+      // Fail-soft (recordPayment mirror): a null outcome simply omits the field.
+      const stateAnchor = await maybeAnchorState(validated.url, price * (validated.count ?? 1), agent);
+      return json(
+        { ok: true, results, agent, ...(quote ? { quote } : {}), ...(stateAnchor ? { stateAnchor } : {}) },
+        200,
+      );
     }
     const result = await agentPay({ url: validated.url, maxValueUsd: price });
-    return json({ ok: true, result, agent: await agentAddress(), ...(quote ? { quote } : {}) }, 200);
+    const agent = await agentAddress();
+    const stateAnchor = await maybeAnchorState(validated.url, price, agent);
+    return json(
+      { ok: true, result, agent, ...(quote ? { quote } : {}), ...(stateAnchor ? { stateAnchor } : {}) },
+      200,
+    );
   } catch (err) {
     if (err instanceof BudgetExceeded) {
       return json({ error: "BudgetExceeded", spent: err.spent, cap: err.cap }, 402);
