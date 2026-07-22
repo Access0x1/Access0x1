@@ -80,10 +80,14 @@ contract Upgrade is Script {
         // address the onlyOwner upgrade call will run as.
         address signer = msg.sender;
 
-        require(proxy.code.length > 0, "Upgrade: PROXY has no code on this chain (wrong chain/address?)");
+        require(
+            proxy.code.length > 0, "Upgrade: PROXY has no code on this chain (wrong chain/address?)"
+        );
 
         address currentImpl = _impl(proxy);
-        require(currentImpl != address(0), "Upgrade: proxy reports zero implementation (not a proxy?)");
+        require(
+            currentImpl != address(0), "Upgrade: proxy reports zero implementation (not a proxy?)"
+        );
 
         // Fail LOUD and EARLY if this signer cannot upgrade this module on this chain. The on-chain
         // gate (`_authorizeUpgrade onlyOwner`) would revert anyway, but checking first avoids deploying
@@ -115,7 +119,9 @@ contract Upgrade is Script {
         console2.log("new impl         :", newImpl);
         console2.log("impl slot now    :", afterImpl);
         require(afterImpl == newImpl, "Upgrade: EIP-1967 impl slot did not flip to the new impl");
-        console2.log("UPGRADE OK       : verify the new impl on the explorer + read a preserved value");
+        console2.log(
+            "UPGRADE OK       : verify the new impl on the explorer + read a preserved value"
+        );
     }
 
     /// @notice Read the proxy's EIP-1967 implementation address directly from its storage slot.
@@ -140,7 +146,9 @@ contract Upgrade is Script {
         if (k == keccak256("Access0x1GiftCards")) return address(new Access0x1GiftCards());
         if (k == keccak256("Access0x1Invoices")) return address(new Access0x1Invoices());
         if (k == keccak256("Access0x1Nft")) return address(new Access0x1Nft());
-        if (k == keccak256("Access0x1SponsorRegistry")) return address(new Access0x1SponsorRegistry());
+        if (k == keccak256("Access0x1SponsorRegistry")) {
+            return address(new Access0x1SponsorRegistry());
+        }
         if (k == keccak256("Access0x1Rebates")) return address(new Access0x1Rebates());
         if (k == keccak256("GaslessPayIn")) return address(new GaslessPayIn());
         if (k == keccak256("HouseTokenFactory")) return address(new HouseTokenFactory());
@@ -150,6 +158,10 @@ contract Upgrade is Script {
         if (k == keccak256("SessionGrant")) return address(new SessionGrant());
         if (k == keccak256("SplitSettler")) return address(new SplitSettler());
         if (k == keccak256("ChainRegistry")) return address(new ChainRegistry());
-        revert(string.concat("Upgrade: unknown MODULE '", module, "' (see script/Upgrade.s.sol dispatch)"));
+        revert(
+            string.concat(
+                "Upgrade: unknown MODULE '", module, "' (see script/Upgrade.s.sol dispatch)"
+            )
+        );
     }
 }
