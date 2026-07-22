@@ -6,9 +6,10 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev --webpack",
-    "prebuild": "node scripts/gen-deployments.mjs && node scripts/gen-module-abis.mjs && node scripts/replace-embed-addrs.js",
+    "prebuild": "node scripts/gen-deployments.mjs && node scripts/gen-module-abis.mjs && node scripts/gen-docs-corpus.mjs && node scripts/replace-embed-addrs.js",
     "gen:deployments": "node scripts/gen-deployments.mjs",
     "gen:abis": "node scripts/gen-module-abis.mjs",
+    "gen:docs": "node scripts/gen-docs-corpus.mjs",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
@@ -22,7 +23,7 @@
     "demo": "tsx scripts/demo-loop.mts",
     "fund": "tsx scripts/fund-gateway.mts",
     "capture:swap": "tsx scripts/capture-payout-swap.mts",
-    "gate": "node --check public/embed.js && node scripts/verify-embed.js && node scripts/gen-module-abis.mjs --check && tsc --noEmit && vitest run --exclude '**/*.integration.test.ts'"
+    "gate": "node --check public/embed.js && node scripts/verify-embed.js && node scripts/gen-module-abis.mjs --check && node scripts/gen-docs-corpus.mjs --check && tsc --noEmit && vitest run --exclude '**/*.integration.test.ts'"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
