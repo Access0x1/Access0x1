@@ -835,6 +835,7 @@ no-op, never a blocked payment). The detail for each — file paths and exact be
 | **Chainlink** | `<token>/USD` Data Feeds read in-transaction (+ CRE for the audit consumer) | The settled price is trusted **on-chain**, not a frontend guess — one in-tx call gave us USD→USDC pricing |
 | **Dynamic** | Email sign-in backed by an embedded wallet | A buyer who has never held a wallet completes a USDC checkout — no seed phrase, no extension |
 | **Unlink** | Confidential-withdrawal seam (`@unlink-xyz/sdk`) | A merchant can shield a settled-USDC payout off the public ledger; absent the SDK it degrades to a standard payout |
+| **Uniswap** | Trading API `/quote` → gasless UniswapX `/order` (Base) \| classic `/swap` (zkSync Era) | The **"receive in any coin"** payout swap: settled USDC → the merchant's token, same-chain, non-custodial, **zero added fee** and off the settlement path; env-gated + dormant until an endpoint is set |
 | **World ID** | One-tap proof-of-personhood gate before pay | Verified-human checkout that sits **in front of** settlement — a misconfigured gate degrades, never blocks |
 | **OIDC (e.g. Sign in with Google)** | Server-side ID-token verification via `jose` | "Verify for all" — any app from this template inherits an `oidc` method by setting one env var; blank ⇒ OFF |
 | **ENS** | Name → payout-address resolution, ENSIP-19 verified identity, Namestone gasless subnames | Brand and payout destination can be a name, not a hex string — identity shown only on forward==reverse, off the money path |
@@ -867,6 +868,29 @@ integration let us *not* build, not a marketing wall.
   withdrawal seam: with the `@unlink-xyz/sdk` installed it lets a merchant shield and move their settled
   USDC without exposing the amount on a public ledger; absent the SDK it degrades to a standard USDC
   payout. Off the money path by construction.
+- **Uniswap Trading API — the "Receive In Any Coin" payout swap (integration seam).** A merchant is
+  always settled in USDC on-chain; an async, off-settlement worker then optionally swaps that settled
+  USDC into the merchant's chosen payout token on the *same* chain, non-custodially (the merchant
+  wallet signs). On Base the rail is the Uniswap Trading API — `/quote`, then the gasless UniswapX
+  `/order` (filler-paid, MEV-protected) by default, or the classic `/swap`; on zkSync Era, where the
+  other rails have no coverage, it is the classic `/swap` (Universal Router) with an optional
+  value-recovery leg. The swap adds **no fee of its own** (`customFeeBps: 0` — the on-chain router
+  fee-split is the sole monetization) and never touches the settlement money path: the worker enforces
+  a slippage floor before executing and isolates every failure, so a merchant who does not get a swap
+  simply keeps their settled USDC. The rail is **env-gated and dormant** — blank
+  `UNISWAP_TRADING_API_URL` ⇒ a clean no-op — and the base URL and request field names are marked
+  assumed-until-confirmed in the code; the developer notes and confirmation checklist live in
+  [`FEEDBACK.md`](FEEDBACK.md). Where it all lives, in one hop:
+
+  | Path | What lives there | Anchor |
+  | --- | --- | --- |
+  | [`web/lib/payout-swap/rails/uniswapTradingApi.ts`](web/lib/payout-swap/rails/uniswapTradingApi.ts) | Base rail — `/quote` → gasless `/order` \| classic `/swap` | `createUniswapTradingApiClient` |
+  | [`web/lib/payout-swap/rails/uniswapClassic.ts`](web/lib/payout-swap/rails/uniswapClassic.ts) | zkSync Era classic `/swap` rail (+ optional recovery leg) | `createUniswapClassicClient` |
+  | [`web/lib/payout-swap/deps-from-env.ts`](web/lib/payout-swap/deps-from-env.ts) | Server-only env seam — builds the rails, key-injecting fetch | `buildPayoutSwapDeps` |
+  | [`web/lib/payout-swap/worker.ts`](web/lib/payout-swap/worker.ts) | Off-settlement worker — quote, slippage floor, execute, isolate | `runPayoutSwap` |
+  | [`web/lib/payout-swap/index.ts`](web/lib/payout-swap/index.ts) | Chain → rail selection | `selectPayoutSwapClient` |
+  | [`web/scripts/capture-payout-swap.mts`](web/scripts/capture-payout-swap.mts) | Operator capture of one real Base-Sepolia swap | `main` |
+  | [`web/lib/payout-swap/__tests__/rails.test.ts`](web/lib/payout-swap/__tests__/rails.test.ts) | Offline rail tests — route choice, `customFeeBps: 0`, recovery fallback | — |
 - **World ID — verified-human checkout.** [`web/components/WorldIdGate.tsx`](web/components/WorldIdGate.tsx)
   lets a merchant require a one-tap proof-of-personhood before pay. The gate sits *in front of*
   settlement and never touches the money path — a misconfigured gate degrades to standard checkout
