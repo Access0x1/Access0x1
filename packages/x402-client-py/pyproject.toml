@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "access0x1-x402-client"
+version = "0.1.0"
+description = "IAgentPayer — the minimal client an agent runtime uses to pay through the Access0x1 rail via x402."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+keywords = ["x402", "agent", "payments", "usdc", "eip-3009", "ap2"]
+# The library depends only on the Python standard library (urllib, json) — zero runtime deps.
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["x402_client"]
+
+[tool.pytest.ini_options]
+# Make the package importable when running `pytest` from this directory without install.
+pythonpath = ["."]
+testpaths = ["tests"]
