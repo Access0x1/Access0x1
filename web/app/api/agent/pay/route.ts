@@ -15,6 +15,12 @@
  *   502  { error: "PrivatePayFailed", code, recoverable }      shield landed but payout failed (law #5)
  *   500  { error: "Internal" }           any other throw — no leak
  *
+ * ANY-TOKEN QUOTE (this unit, OPTIONAL + additive): when the body carries `quoteToken` AND
+ * the Trading-API seam is live (`UNISWAP_TRADING_API_URL` + `AGENT_QUOTE_*` set), a successful
+ * settlement response ALSO carries `quote` — "what this payment costs in that token." The
+ * settlement call itself is untouched; the quote is computed fail-soft, so a dormant seam or a
+ * quote error simply omits `quote` and NEVER blocks or changes the settlement (law #5).
+ *
  * CALLER AUTH (R-5): spending is gated by an internal shared secret BEFORE any money moves.
  * The route signs and spends real USDC, so the per-call cap + SSRF allowlist + human gate are
  * defense-in-depth, NOT the security boundary. The boundary is the `x-internal-secret` header
@@ -41,6 +47,11 @@ import {
   PrivatePayFailed,
   type PrivateRailRequest,
 } from "./privateRail.js";
+import {
+  quoteAnyToken,
+  toAnyTokenQuoteJson,
+  type AnyTokenQuoteJson,
+} from "../../../../lib/agent/anyTokenQuote.js";
 
 /** Hard ceiling on a single nano-loop request — law #4: the agent fires real, bounded calls. */
 const MAX_DEMO_CALLS = 50;
@@ -136,6 +147,12 @@ interface PayRequest {
   private?: boolean;
   /** Merchant payee address for the private rail (required only when `private` is true). */
   merchant?: string;
+  /**
+   * Opt into an any-token quote: the input token to price this payment in. When set AND the
+   * Trading-API seam is live, the response also carries `quote`. Additive — never affects the
+   * USDC settlement. Default absent (no quote).
+   */
+  quoteToken?: string;
 }
 
 /**
@@ -170,19 +187,62 @@ function validate(body: unknown): PayRequest | string {
   if (b.merchant !== undefined && (typeof b.merchant !== "string" || b.merchant.length === 0)) {
     return "merchant must be a non-empty string";
   }
+  if (b.quoteToken !== undefined && (typeof b.quoteToken !== "string" || b.quoteToken.length === 0)) {
+    return "quoteToken must be a non-empty string";
+  }
   return {
     url: b.url,
     count: b.count as number | undefined,
     pricePerCallUsd: b.pricePerCallUsd as number | undefined,
     private: b.private as boolean | undefined,
     merchant: b.merchant as string | undefined,
+    quoteToken: b.quoteToken as string | undefined,
   };
+}
+
+/**
+ * Produce an optional any-token quote for this payment, FAIL-SOFT. The quote is additive
+ * telemetry ("what does this payment cost in `quoteToken`?"): a `null` return is the normal
+ * dormant/skipped case and the response is unchanged. It NEVER throws — every error path
+ * (dormant seam, malformed token, missing chain config, Trading-API failure) resolves to
+ * `null` so a quote can never block or alter the USDC settlement (law #5).
+ *
+ * The settlement chain + its USDC (the quote's `tokenOut`) come from `AGENT_QUOTE_CHAIN_ID`
+ * and `AGENT_QUOTE_USDC`; the Trading-API transport is env-gated inside {@link quoteAnyToken}.
+ *
+ * @param v        The validated pay request (only `quoteToken` is read here).
+ * @param priceUsd The per-call USD value the payment settles — the quote's target amount.
+ * @returns A JSON-safe {@link AnyTokenQuoteJson}, or `null` when no quote is produced.
+ */
+async function maybeAnyTokenQuote(
+  v: PayRequest,
+  priceUsd: number,
+): Promise<AnyTokenQuoteJson | null> {
+  // Opt-in per request: no `quoteToken` → never a quote (response byte-identical to today).
+  if (typeof v.quoteToken !== "string" || v.quoteToken.length === 0) return null;
+  try {
+    const chainId = Number(process.env.AGENT_QUOTE_CHAIN_ID ?? "");
+    const tokenOut = (process.env.AGENT_QUOTE_USDC ?? "").trim();
+    // Missing settlement-chain config → skip the quote (no crash, no blocked settlement).
+    if (!Number.isInteger(chainId) || chainId <= 0 || tokenOut.length === 0) return null;
+    const quote = await quoteAnyToken({
+      chainId,
+      tokenIn: v.quoteToken,
+      tokenOut,
+      usdAmount: priceUsd,
+    });
+    return quote ? toAnyTokenQuoteJson(quote) : null;
+  } catch {
+    // Fail-soft: ANY quote error — malformed token, HTTP failure, dormant — is swallowed so
+    // the settlement below is never affected. No secret/stack escapes (guardrail #7).
+    return null;
+  }
 }
 
 /**
  * Handle POST /api/agent/pay. See the file header for the full status map.
  *
- * @param req The incoming request; body is `{ url, count?, pricePerCallUsd? }`.
+ * @param req The incoming request; body is `{ url, count?, pricePerCallUsd?, quoteToken? }`.
  * @returns A JSON {@link Response} with the structured success or error body.
  */
 export async function POST(req: Request): Promise<Response> {
@@ -248,18 +308,23 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
+  const price = validated.pricePerCallUsd ?? DEFAULT_PRICE_USD;
+  // Pre-settlement, fail-soft: "what does this payment cost in `quoteToken`?" A dormant seam
+  // or any quote error yields `null` (no `quote` field, response unchanged). This computes NO
+  // money and cannot throw — the settlement below is fully insulated from the quote leg.
+  const quote = await maybeAnyTokenQuote(validated, price);
+
   try {
-    const price = validated.pricePerCallUsd ?? DEFAULT_PRICE_USD;
     if (validated.count !== undefined && validated.count > 1) {
       const results = await agentNanoLoop({
         url: validated.url,
         count: validated.count,
         pricePerCallUsd: price,
       });
-      return json({ ok: true, results, agent: await agentAddress() }, 200);
+      return json({ ok: true, results, agent: await agentAddress(), ...(quote ? { quote } : {}) }, 200);
     }
     const result = await agentPay({ url: validated.url, maxValueUsd: price });
-    return json({ ok: true, result, agent: await agentAddress() }, 200);
+    return json({ ok: true, result, agent: await agentAddress(), ...(quote ? { quote } : {}) }, 200);
   } catch (err) {
     if (err instanceof BudgetExceeded) {
       return json({ error: "BudgetExceeded", spent: err.spent, cap: err.cap }, 402);
