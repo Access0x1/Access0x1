@@ -10,6 +10,8 @@
  *   200  { ok: true, results: [...] }    nano-loop
  *   200  { ok: true, rail: "private", depositTx, paymentTx }   private rail (UNLINK_PRIVATE_PAY=true)
  *   400  { error: "BadRequest", ... }    bad body / url not allowlisted / count too high
+ *   402  { error: "HumanGateRequired" }   AGENT_REQUIRE_HUMAN on + agent not human-verified
+ *   402  { error: "SessionBudgetCapExceeded", requested, cap, tier }  over the tier's session cap
  *   402  { error: "BudgetExceeded", spent, cap }
  *   502  { error: "PaymentRequiredUnresolved" }
  *   502  { error: "PrivatePayFailed", code, recoverable }      shield landed but payout failed (law #5)
@@ -41,7 +43,14 @@ import { timingSafeEqual } from "node:crypto";
 import { agentPay, agentNanoLoop, PaymentRequiredUnresolved } from "../../../../lib/agent/payPerCall.js";
 import { agentAddress } from "../../../../lib/agent/dynamicAgentWallet.js";
 import { BudgetExceeded } from "../../../../lib/agent/agentMeter.js";
-import { assertAgentTrialAllowed, HumanGateRequired } from "../../../../lib/worldid/agentGate.js";
+import { assertAgentTrialAllowed, HumanGateRequired, isAgentTrialUnlocked } from "../../../../lib/worldid/agentGate.js";
+import { humanBackedFromAdmission } from "../../../../lib/worldid/agentkit.js";
+import {
+  assertWithinSessionCap,
+  isAgentSessionCapEnforced,
+  resolveExecutionRights,
+  SessionBudgetCapExceeded,
+} from "../../../../lib/worldid/agentPolicy.js";
 import {
   attemptPrivateRail,
   PrivatePayFailed,
@@ -276,6 +285,27 @@ export async function POST(req: Request): Promise<Response> {
   } catch (err) {
     if (err instanceof HumanGateRequired) {
       return json({ error: "HumanGateRequired" }, 402);
+    }
+    return json({ error: "Internal" }, 500);
+  }
+
+  // Execution-rights policy (World AgentKit ADR / admission layer): a human-backed
+  // agent earns an elevated per-session budget cap; an unverified one gets the
+  // conservative default. Opt-in via AGENT_SESSION_CAP_ENFORCED — OFF by default, so
+  // the behavior is IDENTICAL to today. It reads the established admission state
+  // (isAgentTrialUnlocked — set by the verify route), NOT a fresh network verify in
+  // the hot path, applies the tier cap to the requested budget (price × count), and
+  // rejects over-cap with a named 402. Defense-in-depth BEFORE settlement: the durable
+  // agentMeter still owns the real budget; the CEI settlement core is untouched.
+  try {
+    if (isAgentSessionCapEnforced()) {
+      const requestedUsd = (validated.pricePerCallUsd ?? DEFAULT_PRICE_USD) * (validated.count ?? 1);
+      const rights = resolveExecutionRights(humanBackedFromAdmission(isAgentTrialUnlocked()));
+      assertWithinSessionCap(requestedUsd, rights);
+    }
+  } catch (err) {
+    if (err instanceof SessionBudgetCapExceeded) {
+      return json({ error: "SessionBudgetCapExceeded", requested: err.requestedUsd, cap: err.capUsd, tier: err.tier }, 402);
     }
     return json({ error: "Internal" }, 500);
   }
