@@ -21,6 +21,7 @@
     "verify:embed": "node scripts/verify-embed.js",
     "demo": "tsx scripts/demo-loop.mts",
     "fund": "tsx scripts/fund-gateway.mts",
+    "capture:swap": "tsx scripts/capture-payout-swap.mts",
     "gate": "node --check public/embed.js && node scripts/verify-embed.js && node scripts/gen-module-abis.mjs --check && tsc --noEmit && vitest run --exclude '**/*.integration.test.ts'"
   },
   "dependencies": {
