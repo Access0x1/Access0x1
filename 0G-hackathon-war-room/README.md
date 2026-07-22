@@ -84,6 +84,12 @@ Next.js (App Router) + TypeScript + npm. `web/` is the app.
 
 ## Build prompts (staged — one PR each into `0g-dev`)
 
+> **The one law (see `BUILD-PROTOCOL.md`): ONE thing at a time, strictly.** Build the
+> smallest slice → **verify** it works end-to-end (gate green + proven behavior, never
+> "should work") → push one PR → checkpoint → only then the next. Core (Prompt 1) is
+> fully done and verified before any stretch. Test the major steps. Never two things
+> at once.
+
 **Prompt 1 — CORE: provider seam (Claude default, 0G swap) + x402 gate.** Provider
 seam in `web/lib/ai/`: `streamChat({system, question, private?}) → {stream,
 attestation?}`, default `AI_PROVIDER=claude`, per-request `private:true` → 0G TEE,
