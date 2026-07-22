@@ -30,6 +30,7 @@ import type {
   PaymentSettlement,
   SettleRequest,
 } from "./types.js";
+import type { MandateRequest, MandateResult } from "./mandate.js";
 
 /**
  * Configuration for {@link Access0x1Payer}. All inputs are explicit — the library
@@ -174,6 +175,42 @@ export class Access0x1Payer implements IAgentPayer {
 
     const res = await this.postJson(this.payPath, body);
     return this.mapPayResponse<T>(request.url, res.status, await readBody(res));
+  }
+
+  /**
+   * Derive an AP2 mandate chain for an on-chain SessionGrant via the rail's
+   * `/api/ap2/mandate` endpoint. This MOVES NO MONEY — it re-expresses the grant in AP2
+   * nouns so an AP2/A2A counterparty can verify the agent's authority. The returned
+   * {@link MandateResult.onChainTruth} MUST be heeded: re-verify the SessionGrant
+   * on-chain before trusting any derived mandate.
+   *
+   * @param request - the grant plus optional cart / payment / options.
+   * @returns the derived mandate chain and its on-chain-truth caveat.
+   * @throws {Error} when `grant` is missing.
+   * @throws {PaymentRailError} on any non-success answer from the rail.
+   */
+  async deriveMandate(request: MandateRequest): Promise<MandateResult> {
+    if (typeof request?.grant !== "object" || request.grant === null) {
+      throw new Error("Access0x1Payer.deriveMandate: `grant` is required");
+    }
+    const body: Record<string, unknown> = { grant: request.grant };
+    if (request.cart !== undefined) body.cart = request.cart;
+    if (request.payment !== undefined) body.payment = request.payment;
+    if (request.options !== undefined) body.options = request.options;
+
+    const res = await this.postJson(this.mandatePath, body);
+    const data = await readBody(res);
+    const d = (typeof data === "object" && data !== null ? data : {}) as Record<string, unknown>;
+    if (res.status === 200 && d.ok === true) {
+      return {
+        mandates: d.mandates,
+        linksValid: typeof d.linksValid === "boolean" ? d.linksValid : undefined,
+        note: strOrUndefined(d.note),
+        onChainTruth: strOr(d.onChainTruth, ""),
+        raw: data,
+      };
+    }
+    throw new PaymentRailError(res.status, strOr(d.error, "MandateError"), strOrUndefined(d.reason), data);
   }
 
   /**
