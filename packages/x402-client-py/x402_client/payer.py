@@ -27,6 +27,7 @@ from .errors import (
     PaymentRailError,
     PaymentUnresolvedError,
 )
+from .mandate import MandateRequest, MandateResult, cart_to_dict, grant_to_dict, payment_to_dict
 from .types import (
     HttpResponse,
     PaymentOutcome,
@@ -223,6 +224,45 @@ class Access0x1Payer:
 
         resp = self._post_json(self._pay_path, body)
         return self._map_pay_response(request.url, resp.status, _read_body(resp))
+
+    def derive_mandate(self, request: MandateRequest) -> MandateResult:
+        """Derive an AP2 mandate chain for an on-chain SessionGrant via ``/api/ap2/mandate``.
+
+        This MOVES NO MONEY — it re-expresses the grant in AP2 nouns so an AP2/A2A
+        counterparty can verify the agent's authority. The returned
+        :attr:`MandateResult.on_chain_truth` MUST be heeded: re-verify the SessionGrant
+        on-chain before trusting any derived mandate.
+
+        Args:
+            request: the grant plus optional cart / payment / options.
+
+        Returns:
+            The derived mandate chain and its on-chain-truth caveat.
+
+        Raises:
+            PaymentRailError: on any non-success answer from the rail.
+        """
+        body: Dict[str, Any] = {"grant": grant_to_dict(request.grant)}
+        if request.cart is not None:
+            body["cart"] = cart_to_dict(request.cart)
+        if request.payment is not None:
+            body["payment"] = payment_to_dict(request.payment)
+        if request.options is not None:
+            body["options"] = dict(request.options)
+
+        resp = self._post_json(self._mandate_path, body)
+        data = _read_body(resp)
+        d = data if isinstance(data, dict) else {}
+        if resp.status == 200 and d.get("ok") is True:
+            links_valid = d.get("linksValid") if isinstance(d.get("linksValid"), bool) else None
+            return MandateResult(
+                mandates=d.get("mandates"),
+                on_chain_truth=_str_or(d.get("onChainTruth"), ""),
+                links_valid=links_valid,
+                note=_str_or_none(d.get("note")),
+                raw=data,
+            )
+        raise PaymentRailError(resp.status, _str_or(d.get("error"), "MandateError"), _str_or_none(d.get("reason")), data)
 
     def _post_json(self, path: str, body: Any) -> HttpResponse:
         """POST a JSON body to a rail path, attaching the caller-auth header when configured."""
