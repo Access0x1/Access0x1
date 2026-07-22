@@ -204,7 +204,7 @@ src/
 └── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (1,989 tests)
+test/                        # unit · attack · invariant (1,992 tests)
 ```
 
 The full first-party surface is **22 production contracts + 2 libraries** (24 `.sol` files in
@@ -800,7 +800,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **1,810 green** across 126 suites — unit · attack · invariant |
+| Tests | **1,992 green** across 130 suites — unit · attack · invariant |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
