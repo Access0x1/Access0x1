@@ -1,4 +1,5 @@
 import type { Address } from 'viem'
+import { getUsdcAddress } from '@/lib/chains'
 
 /**
  * @file tokens.ts — the canonical SUPPORTED PAY-TOKEN set for the hosted checkout.
@@ -160,9 +161,33 @@ function readEnvAddress(name: string): Address | undefined {
  * @param chainId The active chain.
  */
 export function resolvePayToken(meta: PayTokenMeta, chainId: number): ResolvedPayToken {
+  // USDC resolves through the chains.ts literal-key seam (getUsdcAddress), NOT the
+  // computed `process.env[NEXT_PUBLIC_USDC_ADDRESS_<id>]` lookup: Next.js only inlines
+  // process.env for LITERAL keys, so a computed key is `undefined` in the client bundle.
+  // Since this module runs inside the 'use client' checkout, the computed read made even
+  // a correctly-configured (or zero-config-defaulted) USDC render "not available on this
+  // chain" and blocked Pay. getUsdcAddress is inlined + carries the zero-config default.
+  if (meta.symbol === DEFAULT_PAY_TOKEN) {
+    const usdc = safeUsdcAddress(chainId)
+    const feed = readEnvAddress(meta.feedEnv(chainId))
+    return { ...meta, address: usdc, feed, available: usdc !== undefined }
+  }
   const address = readEnvAddress(meta.addressEnv(chainId))
   const feed = readEnvAddress(meta.feedEnv(chainId))
   return { ...meta, address, feed, available: address !== undefined }
+}
+
+/**
+ * The USDC address for a chain via the inlined chains.ts seam, or `undefined` when the
+ * chain has no configured/default USDC. `getUsdcAddress` throws on a fully-unconfigured
+ * chain (its contract), so this guards that into the picker's "not available" state.
+ */
+function safeUsdcAddress(chainId: number): Address | undefined {
+  try {
+    return getUsdcAddress(chainId)
+  } catch {
+    return undefined
+  }
 }
 
 /**
