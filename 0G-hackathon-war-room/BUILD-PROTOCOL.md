@@ -44,11 +44,31 @@ it down for later and finish the first.
 - Every step must **verify things**: identity, payment, attestation, gate, behavior.
   Verification is the product (the whole thesis is a *trust* layer) and the method.
 
+## Debugging & UI verification — headless Chrome
+
+When the thing lives in the browser (the `/agent` page, the 402 → pay → stream flow,
+the receipts shown in the UI), you **verify it by driving headless Chrome** — never
+by assuming the render worked.
+- Use the repo's Playwright + Chromium (already configured: `web/playwright.config.ts`,
+  `web/e2e/`; Chromium at `/opt/pw-browsers` — do NOT run `playwright install`).
+- Run the e2e headless and watch the real flow: does the widget mount, does an
+  unpaid request show 402, does a paid one stream, does the receipt appear?
+- Unit tests prove the logic; a **headless-Chrome pass proves the user actually sees
+  it.** A UI step is not done until it has been driven headless.
+
+## Explain it back — one gesture at a time
+
+At every checkpoint, **explain the one thing back** in plain language before moving
+on: what changed, how it was verified (gate + headless run + the evidence), and what
+the next single thing is. No silent advances. One gesture, explained, then the next —
+that narration IS part of verification.
+
 ## Definition of done (per single thing)
 
 - [ ] Scope was ONE slice, nothing extra crept in.
 - [ ] Gate green (typecheck · lint · test · build).
-- [ ] Behavior demonstrated end-to-end (test or live call), evidence in the PR.
+- [ ] Behavior demonstrated end-to-end (test or live call); **UI slices driven headless in Chrome**. Evidence in the PR.
+- [ ] Explained back in plain language at the checkpoint (what changed · how verified · next one thing).
 - [ ] Pushed as one focused PR into `0g-dev`.
 - [ ] Checkpoint recorded; next one thing named.
 
