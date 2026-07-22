@@ -120,7 +120,7 @@ const nextConfig: NextConfig = {
   // `serverExternalPackages` keeps the Anthropic SDK out of the client bundle;
   // the Claude API key is server-only (doctrine guardrail #8).
   //
-  serverExternalPackages: ['@anthropic-ai/sdk'],
+  serverExternalPackages: ['@anthropic-ai/sdk', '@dynamic-labs-wallet/node-evm'],
   transpilePackages: [
     '@dynamic-labs/sdk-react-core',
     '@dynamic-labs/ethereum',
