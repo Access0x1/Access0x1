@@ -30,6 +30,13 @@ function makeKeyedFetch(apiKey: string): FetchLike {
     fetch(url, { ...init, headers: { ...(init?.headers ?? {}), 'x-api-key': apiKey } })
 }
 
+/** Wrap fetch to inject the 1inch `Authorization: Bearer <key>` header (else plain fetch). */
+function makeBearerFetch(apiKey: string): FetchLike {
+  if (!apiKey) return (url, init) => fetch(url, init)
+  return (url, init) =>
+    fetch(url, { ...init, headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${apiKey}` } })
+}
+
 /** A raw-tx submitter against a JSON-RPC endpoint (`eth_sendRawTransaction`). Throws on RPC error. */
 function makeRpcSubmit(rpcUrl: string): SubmitRawTx {
   return async (rawTx: string): Promise<string> => {
@@ -55,6 +62,7 @@ export function buildPayoutSwapDeps(): PayoutSwapDeps {
     uniswapTradingApi?: PayoutSwapDeps['uniswapTradingApi']
     uniswapClassic?: PayoutSwapDeps['uniswapClassic']
     circleAppKit?: PayoutSwapDeps['circleAppKit']
+    oneInch?: PayoutSwapDeps['oneInch']
   } = {}
 
   // Uniswap Trading API (Base, gasless UniswapX) + Uniswap classic (zkSync). Both share the
@@ -80,6 +88,13 @@ export function buildPayoutSwapDeps(): PayoutSwapDeps {
   // Arc → Circle App Kit Swap. The `@circle-fin/app-kit` SDK is not installed yet, so this rail
   // stays dormant. When the SDK is wired (see PROGRESS), build it here:
   //   if (env('CIRCLE_APP_KIT_ENABLED')) deps.circleAppKit = buildAppKitSdk(/* viem adapter */)
+
+  // 1inch aggregator rail. Independently env-gated: absent `ONEINCH_API_URL` ⇒ dormant. The 1inch
+  // API key (if any) rides a `Authorization: Bearer` fetch; blank key ⇒ plain fetch.
+  const oneInchUrl = env('ONEINCH_API_URL')
+  if (oneInchUrl) {
+    deps.oneInch = { baseUrl: oneInchUrl, fetchImpl: makeBearerFetch(env('ONEINCH_API_KEY')) }
+  }
 
   return deps
 }

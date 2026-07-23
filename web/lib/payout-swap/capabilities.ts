@@ -11,9 +11,11 @@
  *  - Arc → Circle App Kit Swap (Uniswap has nothing on Arc, our DEFAULT chain).
  *  - Base → Uniswap Trading API (/quote then /order gasless | /swap) — the headline demo.
  *  - zkSync Era → Uniswap classic /swap (App Kit + CCTP do NOT support zkSync).
+ *  - Polygon → 1inch aggregator (Fusion gasless | classic /swap) — a chain Uniswap's Trading-API
+ *    rail here does not cover; 1inch has deep Polygon liquidity. Dormant until `ONEINCH_API_URL`.
  */
 
-import { baseSepolia, zksyncSepoliaTestnet } from 'viem/chains'
+import { baseSepolia, polygonAmoy, zksyncSepoliaTestnet } from 'viem/chains'
 
 import { arcTestnet } from '../chains.js'
 import type { ChainSwapCapability, SwapRail } from './types.js'
@@ -23,6 +25,7 @@ const CAPABILITIES: ReadonlyMap<number, SwapRail> = new Map<number, SwapRail>([
   [arcTestnet.id, 'circle-app-kit'],
   [baseSepolia.id, 'uniswap-trading-api'],
   [zksyncSepoliaTestnet.id, 'uniswap-classic'],
+  [polygonAmoy.id, 'one-inch'],
 ])
 
 /**

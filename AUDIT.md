@@ -138,12 +138,15 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 **Seam (code present, NOT exercised in the live example path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),
-  **Uniswap payout-swap** (receive-in-any-token rail), **paymaster** (gas sponsorship). We label these
-  as seams everywhere — never as "live."
+  **Uniswap payout-swap** (receive-in-any-token rail), **1inch** (aggregator payout-swap rail
+  `web/lib/payout-swap/rails/oneInch.ts` + agent pay-any-token quote `web/lib/agent/anyToken1inch.ts`,
+  both unit-tested, env-gated + dormant until `ONEINCH_API_URL`, zero integrator fee),
+  **paymaster** (gas sponsorship). We label these as seams everywhere — never as "live."
 
 **Not built — we do NOT claim these:**
-- Hedera, LI.FI, Canton, Ledger, 1inch, Google Cloud / BigQuery, Privy, CCTP, ERC-5570 / ERC-5192 / ERC-1155,
-  and cbBTC is **not** in the live `SUPPORTED_PAY_TOKENS` list.
+- LI.FI, Canton, Ledger, Google Cloud / BigQuery, Privy, CCTP, ERC-5570 / ERC-5192 / ERC-1155,
+  and cbBTC is **not** in the live `SUPPORTED_PAY_TOKENS` list. (Hedera moves to a deployed chain and
+  1inch to a seam as those land — see the deploy tables / the Built-on list.)
 
 ---
 

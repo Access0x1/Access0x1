@@ -21,8 +21,10 @@ import type { Address } from 'viem'
  *  - `uniswap-trading-api`: Base → Uniswap Trading API (/quote then /order gasless | /swap).
  *  - `circle-app-kit`: Arc → Circle App Kit Swap (Uniswap has nothing on Arc, our default chain).
  *  - `uniswap-classic`: zkSync Era → Uniswap classic /swap (App Kit + CCTP do NOT support zkSync).
+ *  - `one-inch`: 1inch Aggregation/Swap API — the aggregator rail (Fusion gasless | classic /swap),
+ *    an alternative on chains 1inch covers; env-gated + dormant until `ONEINCH_API_URL` is set.
  */
-export type SwapRail = 'uniswap-trading-api' | 'circle-app-kit' | 'uniswap-classic'
+export type SwapRail = 'uniswap-trading-api' | 'circle-app-kit' | 'uniswap-classic' | 'one-inch'
 
 /** Per-chain swap capability: whether a same-chain payout swap is possible, and via which rail. */
 export interface ChainSwapCapability {

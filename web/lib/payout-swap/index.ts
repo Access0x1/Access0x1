@@ -20,6 +20,7 @@ import {
   createUniswapTradingApiClient,
   type UniswapTradingApiConfig,
 } from './rails/uniswapTradingApi.js'
+import { createOneInchClient, type OneInchConfig } from './rails/oneInch.js'
 import type { PayoutSwapClient } from './types.js'
 
 export { runPayoutSwap } from './worker.js'
@@ -27,6 +28,7 @@ export { getSwapCapability, isSwapCapable } from './capabilities.js'
 export { createUniswapTradingApiClient } from './rails/uniswapTradingApi.js'
 export { createUniswapClassicClient } from './rails/uniswapClassic.js'
 export { createCircleAppKitClient } from './rails/circleAppKit.js'
+export { createOneInchClient } from './rails/oneInch.js'
 export type {
   PayoutSwapClient,
   PayoutSwapResult,
@@ -46,6 +48,8 @@ export interface PayoutSwapDeps {
   readonly uniswapClassic?: UniswapClassicConfig
   /** Arc → Circle App Kit Swap SDK (viem-native, merchant-signed). */
   readonly circleAppKit?: AppKitSwapSdk
+  /** 1inch aggregator config (transport + base URL) — the aggregator rail alternative. */
+  readonly oneInch?: OneInchConfig
 }
 
 /**
@@ -82,5 +86,10 @@ export function selectPayoutSwapClient(
         throw new Error(`chain ${chainId} uses circle-app-kit but no SDK was supplied`)
       }
       return createCircleAppKitClient(deps.circleAppKit)
+    case 'one-inch':
+      if (!deps.oneInch) {
+        throw new Error(`chain ${chainId} uses one-inch but no config was supplied`)
+      }
+      return createOneInchClient(deps.oneInch)
   }
 }
