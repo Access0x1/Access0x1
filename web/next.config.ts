@@ -52,6 +52,15 @@ import type { NextConfig } from 'next'
  *     CDN (`iconic.dynamic-static-assets.com`) and WalletConnect's wallet-logo API
  *     (`explorer-api.walletconnect.com`), or the sign-in modal shows blank wallet
  *     tiles (the icons are `<img>`s from those hosts, not inline SVG).
+ *   - `font-src` allows `data:` (Next self-hosts Inter/Space Grotesk from `'self'`)
+ *     PLUS `cdn.jsdelivr.net`: the Dynamic sign-in widget injects its own
+ *     `@font-face` for DM Sans pointing at `@fontsource` on jsDelivr, so on every
+ *     merchant surface (`/onboard`, `/dashboard`, …) a dozen font requests were
+ *     CSP-blocked (transferSize 0), spamming the console. A font host can only
+ *     load font files (no script execution), so whitelisting it is the same
+ *     low-risk, vendor-scoped allowance as the Dynamic/WalletConnect `img-src`
+ *     hosts above — Dynamic's font is loaded internally by the SDK, so it can't be
+ *     self-hosted without patching the vendor bundle.
  *   - `connect-src` allows `https:`/`wss:` because wallet RPC endpoints, Dynamic
  *     auth, World ID, and Google OIDC live on many origins that vary per chain.
  *   - `frame-src` allows `app.dynamicauth.com` for Dynamic's embedded-wallet /
@@ -64,7 +73,7 @@ const CONTENT_SECURITY_POLICY = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://iconic.dynamic-static-assets.com https://dynamic-static-assets.com https://explorer-api.walletconnect.com",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://cdn.jsdelivr.net",
   "connect-src 'self' https: wss:",
   "frame-src 'self' https://app.dynamicauth.com",
   "frame-ancestors 'none'",

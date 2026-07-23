@@ -104,6 +104,35 @@ body {
 }
 
 /*
+ * Form controls follow the active theme by DEFAULT.
+ *
+ * Tailwind Preflight resets inputs to `color: inherit` but leaves their
+ * background at the UA default (white). So a bare <input> with only structural
+ * classes (border/padding, no `bg-*`) rendered the chassis's near-white text on
+ * a white box — invisible on the dark chassis, and still near-white-on-white
+ * inside a `.light` island. (Hit live on the "Register your business" fields.)
+ *
+ * Bind BOTH background and color to the theme tokens so every input/textarea/
+ * select with no explicit `bg-*`/`text-*` class is readable in BOTH themes —
+ * dark chassis: light text on ink; `.light` island: ink text on white — because
+ * `.light` re-defines these same vars.
+ *
+ * Specificity is deliberate: `input:where(:not(…))` keeps element-level (0,0,1)
+ * weight so it wins over Preflight's `input { color: inherit }` by source order,
+ * while the `:where()` wrapper contributes 0 so ANY utility class (`bg-secondary`,
+ * `text-ink`, …) still overrides it. Native pickers (color/file/checkbox/radio/
+ * range) and button-type inputs are excluded — they own their own rendering.
+ */
+input:where(
+    :not([type='color']):not([type='file']):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='submit']):not([type='button']):not([type='reset'])
+  ),
+textarea,
+select {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/*
  * Super Verified shimmer — a subtle sheen that sweeps across the gold/gradient
  * L4 badge. Respects prefers-reduced-motion (the animation is disabled there;
  * the gradient stays). Scoped to the badge variant via the .ax1-shimmer class.
