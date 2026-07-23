@@ -8,6 +8,16 @@ import { formatGas } from '@/lib/onchain-svg/estimate'
 import type { OnchainSvgReport, GasRegime } from '@/lib/onchain-svg/report'
 
 /**
+ * The simulator's client-side upload ceiling — MIRRORS the server cap
+ * `SIM_MAX_SVG_BYTES` in app/api/onchain-estimate/route.ts (64 KB), which bounds
+ * the CPU any anonymous POST can spend on the super-linear sanitizer. Checked here
+ * BEFORE the round-trip so an oversized mark gets an instant, friendly message
+ * instead of a bare 413 the browser only surfaces as a console error. The two
+ * values must stay in sync (server stays the security bound; this is just UX).
+ */
+const SIM_MAX_SVG_BYTES = 64 * 1024
+
+/**
  * OnChainSvgSimulator — upload an SVG (or raster) and see, provably, what it
  * WOULD HAVE COST if it had just run on-chain. Nothing is ever broadcast:
  * the mark is sanitized with the branding scrubber, priced from first
@@ -59,6 +69,18 @@ export function OnChainSvgSimulator({
       // SVG rides as text; a raster becomes a data-URI the sanitizer wraps.
       const isSvg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg')
       const input = isSvg ? await file.text() : await fileToDataUri(file)
+      // Refuse an oversized mark BEFORE the network round-trip. The server caps
+      // the same string at SIM_MAX_SVG_BYTES and would answer a bare 413 that the
+      // browser only surfaces as a console error (the reported "no feedback" bug).
+      // `input.length` is the exact string the POST body carries, so this mirrors
+      // the server check precisely.
+      if (input.length > SIM_MAX_SVG_BYTES) {
+        setState({
+          phase: 'error',
+          message: `That file is about ${Math.ceil(input.length / 1024)} KB — the simulator accepts marks up to ${SIM_MAX_SVG_BYTES / 1024} KB. Real logos are only a few KB; try a smaller or optimized file.`,
+        })
+        return
+      }
       // Client-side pre-flight with the SAME pure sanitizer the server runs —
       // instant honest rejection, no round-trip for junk.
       toInlineSvgLogo(input)
@@ -69,7 +91,18 @@ export function OnChainSvgSimulator({
         body: JSON.stringify({ chainId, svg: input }),
         cache: 'no-store',
       })
-      const body = (await res.json()) as SimulatorReport & { error?: string }
+      // A 413 can also arrive from an upstream proxy (whose body is NOT JSON), so
+      // handle the status explicitly before parsing — a clear message either way,
+      // never a silent failure. (The client size guard above catches the common
+      // case first; this backstops a proxy-imposed limit below our own.)
+      if (res.status === 413) {
+        setState({
+          phase: 'error',
+          message: `That file is too large to simulate — the simulator accepts marks up to ${SIM_MAX_SVG_BYTES / 1024} KB. Real logos are only a few KB.`,
+        })
+        return
+      }
+      const body = (await res.json().catch(() => ({}))) as SimulatorReport & { error?: string }
       if (!res.ok || body.error) {
         setState({ phase: 'error', message: body.error ?? `Estimate failed (${res.status})` })
         return
