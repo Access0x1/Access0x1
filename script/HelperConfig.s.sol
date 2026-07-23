@@ -124,6 +124,15 @@ contract HelperConfig is Script {
     ///         holds). Blockscout-style explorer (chainscan-galileo.0g.ai). Confirmed live via cast 2026-06-20.
     uint256 internal constant GALILEO_TESTNET_CHAIN_ID = 16_602;
 
+    /// @notice Hedera testnet (chainId 296) — the Hedera EVM via the Hashio JSON-RPC relay
+    ///         (`testnet.hashio.io/api`). Native = HBAR (18-dec wei-scaled on the relay), NOT USDC, so
+    ///         `nativeUsdFeed` stays address(0) and same-chain native `quote()` is unavailable. Hedera
+    ///         has NO Chainlink Data Feeds: where a REAL ERC-20 USDC exists, deploy a $1.00 USDC/USD
+    ///         MockV3Aggregator first (`make deploy-usd-mock-feed RPC=$HEDERA_TESTNET_RPC_URL`, the Arc
+    ///         pattern) and set `HEDERA_TESTNET_USDC_USD_FEED` — the router then prices REAL USDC. Explorer
+    ///         is HashScan (not Etherscan/Blockscout), so deploys verify via Sourcify or after-the-fact.
+    uint256 internal constant HEDERA_TESTNET_CHAIN_ID = 296;
+
     // ─────────────────────────────────────────────────────────────────────────────────────────────
     // MAINNET chain ids — AUDIT-GATED, NOT DEPLOYED.
     //
@@ -288,6 +297,8 @@ contract HelperConfig is Script {
             activeConfig = _robinhoodTestnetConfig();
         } else if (block.chainid == GALILEO_TESTNET_CHAIN_ID) {
             activeConfig = _galileoTestnetConfig();
+        } else if (block.chainid == HEDERA_TESTNET_CHAIN_ID) {
+            activeConfig = _hederaTestnetConfig();
         } else if (block.chainid == ETHEREUM_MAINNET_CHAIN_ID) {
             // ── MAINNET arms (AUDIT-GATED, NOT DEPLOYED) — each reads only its own `<CHAIN>_MAINNET_*`
             //    env (default address(0)); selecting a branch never deploys. See the mainnet-id block.
@@ -715,6 +726,28 @@ contract HelperConfig is Script {
                 vm.envOr("GALILEO_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
             ),
             creForwarder: vm.envOr("GALILEO_CRE_FORWARDER", address(0))
+        });
+    }
+
+    /// @dev Hedera testnet (chainId 296, Hedera EVM via Hashio). Reads only `HEDERA_TESTNET_`-prefixed
+    ///      env. Native = HBAR (18 dec), NOT USDC ⇒ `nativeUsdFeed` stays address(0). No Chainlink feeds
+    ///      on Hedera: set `HEDERA_TESTNET_USDC_USD_FEED` to a $1 MockV3Aggregator (the Arc/0G pattern) to
+    ///      price a REAL ERC-20 USDC; every address defaults to address(0) so an unset field is SKIPPED,
+    ///      never guessed. Only `HEDERA_TESTNET_PLATFORM_TREASURY` is required (fails loud if unset).
+    function _hederaTestnetConfig() internal view returns (NetworkConfig memory) {
+        return NetworkConfig({
+            treasury: vm.envAddress("HEDERA_TESTNET_PLATFORM_TREASURY"),
+            platformFeeBps: uint16(
+                vm.envOr("HEDERA_TESTNET_PLATFORM_FEE_BPS", uint256(DEFAULT_PLATFORM_FEE_BPS))
+            ),
+            nativeUsdFeed: vm.envOr("HEDERA_TESTNET_NATIVE_USD_FEED", address(0)),
+            usdc: vm.envOr("HEDERA_TESTNET_USDC_ADDRESS", address(0)),
+            usdcUsdFeed: vm.envOr("HEDERA_TESTNET_USDC_USD_FEED", address(0)),
+            chainRegistry: vm.envOr("HEDERA_TESTNET_CHAIN_REGISTRY", address(0)),
+            graceFailThreshold: uint16(
+                vm.envOr("HEDERA_TESTNET_SUBS_GRACE_FAILS", uint256(DEFAULT_SUBS_GRACE_FAILS))
+            ),
+            creForwarder: vm.envOr("HEDERA_TESTNET_CRE_FORWARDER", address(0))
         });
     }
 
