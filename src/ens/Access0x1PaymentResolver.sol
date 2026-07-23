@@ -20,6 +20,15 @@ import { IAccess0x1PaymentResolver } from "../interfaces/IAccess0x1PaymentResolv
 ///         this resolver makes the name PROGRAMMABLE — `pay.<merchant>.eth` always returns the
 ///         merchant's CURRENT payout address and CURRENT USD-pricing / settlement config, with no
 ///         re-issuance, because every read is a live `router.merchants(id)` lookup.
+///
+///         BUSINESS FRAMING: ENS is a domain name system, and this contract makes Access0x1 the
+///         RESOLVER for a business's name — the front door of the onboarding flow. A business grabs
+///         its ENS name + an Access0x1 subname first, points the subname's resolver here, and from
+///         then on the name IS its live, USD-priced payment endpoint (identity + money behind one
+///         name). Because a business sets that name ONCE and won't change it, the subname becomes a
+///         durable identity anchor — done non-custodially and off the money path, so it is stickiness
+///         by usefulness, never a lock-out. ENSv2 registries can be permissioned, so Access0x1 can
+///         even operate a registry on a business's behalf (registry-as-a-service).
 /// @dev    ENSv2 ("your name, your registry") lets every name own its registry and set its own
 ///         resolver; a merchant points that resolver here and BINDS the name's namehash `node` to
 ///         their `merchantId` via {bindName}. The bind is authorized LIVE against

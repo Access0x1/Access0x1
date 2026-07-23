@@ -9,6 +9,32 @@
 the merchant's current on-chain state**. Change your payout on the router and the name
 resolves to the new address on the very next query, with **zero re-issuance**.
 
+## ENS is the front door of the Access0x1 flow
+
+ENS is a **domain name system**, and Access0x1 makes itself the **resolver** for a business's
+name. That makes ENS the *first* step of onboarding, not an afterthought:
+
+1. **Grab the name.** A business claims (or brings) an ENS name and takes an Access0x1 **subname**
+   under it — e.g. `acme.<parent>.eth`, with a `pay.acme…` label for payments. The parent is your
+   own ENS name, set from `ENS_SUBNAME_PARENT` (never hardcoded); the demo parent for this build is
+   a DNS-imported name the operator holds (e.g. `reserv.click`), supplied via env, not baked in.
+2. **We become the resolver.** The subname's resolver points at Access0x1, so from that moment the
+   name *is* the business's live, USD-priced payment endpoint — identity and money behind one name.
+3. **Everything else plugs in behind the name.** Checkout, payout-swap, agents — they all address
+   the business by its name, and the name always reflects current on-chain truth.
+
+## Why this matters to the business (do it right, early)
+
+- **One permanent identity.** A business sets its name/subname **once**. It won't change it — the
+  name *is* the brand and the payment address — so the subname becomes a durable, sticky anchor:
+  natural retention, not a lock-out. We treat that responsibly (a name is the business's, resolution
+  is non-custodial and off the money path), because getting identity right at the start compounds.
+- **Registry-as-a-service.** ENSv2 registries can be **permissioned**. Access0x1 can operate a
+  registry on a business's behalf — issuing and servicing its subnames — so a non-crypto business
+  gets a real, resolvable onchain name without running ENS infrastructure itself.
+- **Live, not stale.** Because the resolver reads the router, the business never re-issues records
+  when it rotates a payout wallet or updates config — the name follows the business automatically.
+
 ## Why ENSv2 makes this new
 
 ENSv1 is one flat registry: a name is a static row mapping `name → address`, written once.
