@@ -162,7 +162,7 @@ describe('buildZerogBrokerDeps', () => {
         getServiceMetadata: async () => ({ endpoint: 'https://provider.0g', model: 'llama-x' }),
         getRequestHeaders: async () => ({ 'x-0g-signature': 'sig', 'x-0g-fee': '100' }),
         acknowledgeProviderSigner: async () => {},
-        processResponse: async () => {},
+        processResponse: async () => null,
         ...over,
       },
     }
@@ -181,7 +181,7 @@ describe('buildZerogBrokerDeps', () => {
 
   it('wires broker-signed headers + endpoint/model from metadata, and settlement runs', async () => {
     process.env.ZEROG_PROVIDER_ADDRESS = '0xprovider'
-    const processResponse = vi.fn(async () => {})
+    const processResponse = vi.fn(async () => null)
     const deps = await buildZerogBrokerDeps(async () => fakeBroker({ processResponse }))
     expect(deps?.endpoint).toBe('https://provider.0g')
     expect(deps?.model).toBe('llama-x')

@@ -171,8 +171,12 @@ export interface ZerogBrokerLike {
     getRequestHeaders(provider: string, content?: string): Promise<Record<string, string>>
     /** One-time provider acknowledgement before first use (`acknowledgeProviderSigner`). */
     acknowledgeProviderSigner?(provider: string): Promise<void>
-    /** Settle/verify the response for billing (`processResponse`). */
-    processResponse?(provider: string, content: string): Promise<void>
+    /**
+     * Settle/verify the response for billing (`processResponse`). Real SDK signature is
+     * `(providerAddress, chatID?, content?)` — we thread `content` into the 3rd slot (no chatID
+     * in this single-shot adapter). Verified against `@0gfoundation/0g-compute-ts-sdk` 0.9.0.
+     */
+    processResponse?(provider: string, chatID?: string, content?: string): Promise<boolean | null>
   }
 }
 
@@ -245,7 +249,8 @@ export async function buildZerogBrokerDeps(
     authHeaders: (content) => broker.inference.getRequestHeaders(provider, content),
     onResponse: async (content) => {
       try {
-        await broker.inference.processResponse?.(provider, content)
+        // Real signature: processResponse(providerAddress, chatID?, content?). No chatID here.
+        await broker.inference.processResponse?.(provider, undefined, content)
       } catch {
         /* settlement is best-effort on testnet — the caller already has its answer */
       }
