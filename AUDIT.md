@@ -122,6 +122,11 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 - **Dynamic** — the embedded-wallet layer; every connect/sign/pay/register runs through it.
 - **Chainlink** — USD Data Feed read inside every settlement tx; staleness-guarded.
 - **ENS** — gasless merchant subnames via Namestone + ENSIP-11 (coinType) / ENSIP-19 (verified primary name).
+  Plus the **ENSv2 Payment Resolver** (`src/ens/Access0x1PaymentResolver.sol` + `web/lib/ens/ensv2.ts` +
+  `web/app/api/ens/resolve`, unit-tested): a custom resolver that resolves `pay.<merchant>.eth` to the
+  merchant's LIVE router payout/config at query time. The signed EIP-3668 CCIP-Read wrapper is a declared
+  next rung, NOT claimed live (the on-chain resolver is the source of truth); the ENSv2 registry addresses
+  are alpha/env-gated, blank ⇒ the ENSv1 path.
 - **World ID** — one-tap proof-of-personhood gate; nullifier dedup with replay protection; a Casino-Verified
   vertical that makes the gate mandatory for gaming merchants. (World ID proves a unique human only —
   not age, jurisdiction, or a gambling licence; we state that in-product.)

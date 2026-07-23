@@ -23,7 +23,7 @@ Access0x1 is the umbrella layer everything plugs into — non-custodial payments
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 <!-- The test count is bound to `forge test --list` and CI-ENFORCED: scripts/sync-test-badge.mjs fails CI if this number drifts from the real suite, so it can't go stale silently. The CI badge above is the live green/red "they pass" signal. Update after adding tests: `node scripts/sync-test-badge.mjs --write`. -->
-[![Tests](https://img.shields.io/badge/Tests-1992%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/Tests-2016%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -279,7 +279,7 @@ git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
 make install           # forge submodules + npm (@chainlink) + web + SDK — one command
 make build             # forge build
-make test              # 1,992 tests, all green
+make test              # 2,016 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
@@ -921,6 +921,18 @@ integration let us *not* build, not a marketing wall.
     (`com.access0x1.*`). The subname **parent is your own ENS name**, read only from `ENS_SUBNAME_PARENT`
     (never hardcoded); with `NAMESTONE_API_KEY` it's live. **Blank ⇒ the whole seam is a clean no-op**
     (no fabricated name, no network call) — fail-soft, like OIDC degrading when unconfigured.
+  - **ENSv2 — the LIVE Payment Resolver (a brand-new ENS shape).** Built on ENSv2's "your name,
+    your registry" model: instead of a **static** text record, `pay.<merchant>.eth` resolves — via
+    a custom resolver — to the merchant's **live** payout + USD-pricing config, read off the router
+    *at query time* (change your payout, the name follows, zero re-issuance).
+    [`src/ens/Access0x1PaymentResolver.sol`](src/ens/Access0x1PaymentResolver.sol) implements the
+    standard ENS profile (`addr` · ENSIP-11 multichain `addr` · `text` · ENSIP-10 wildcard
+    `resolve`); a name is bound to a seat with owner-consent read live from `router.merchants(id)
+    .owner`. [`web/lib/ens/ensv2.ts`](web/lib/ens/ensv2.ts) +
+    [`web/app/api/ens/resolve`](web/app/api/ens/resolve) are the off-chain twin / CCIP-Read gateway
+    for mainnet-name → L2-router resolution. Env-gated (`NEXT_PUBLIC_ENSV2_*`) + fail-soft: blank ⇒
+    the ENSv1/Namestone path above. The signed EIP-3668 wrapper is the declared next rung (honest
+    scope). Full write-up: [`docs/ENSV2-PAYMENT-RESOLVER.md`](docs/ENSV2-PAYMENT-RESOLVER.md).
 - **Walrus — an un-takedownable checkout.** [`web/lib/walrus.ts`](web/lib/walrus.ts) publishes the
   checkout page and receipt blobs to Walrus (Sui decentralized storage). Because a blob is
   content-addressed and served by any aggregator on the network, the checkout isn't pinned to one

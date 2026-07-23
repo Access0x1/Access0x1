@@ -1,6 +1,12 @@
 /**
  * ens-subnames.ts — the WRITE seam: gasless ENS subnames via Namestone.
  *
+ * SEE ALSO — the ENSv2 LIVE twin: this module writes STATIC text records once. Its
+ * live counterpart is the ENSv2 Payment Resolver (`web/lib/ens/ensv2.ts` +
+ * `src/ens/Access0x1PaymentResolver.sol`), which serves the SAME `com.access0x1.*`
+ * schema COMPUTED from the router at query time. {SUBNAME_TEXT_KEYS} below is shared
+ * by both so the static and live issuers never drift. See docs/ENSV2-PAYMENT-RESOLVER.md.
+ *
  * Issues `<label>.<PARENT>.eth` subnames for merchants and writes their
  * USD-pricing / settlement config into ENS TEXT RECORDS, with ZERO gas and no
  * key handling on our side — Namestone is an offchain ENS issuer (CCIP-Read
