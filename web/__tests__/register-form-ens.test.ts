@@ -36,7 +36,7 @@ import {
 
 const VALID_ADDR = '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B' as const
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as const
-const CHAIN_ID = 5042002 // Arc Testnet — the app default
+const CHAIN_ID = 5042002 // Arc Testnet — a supported settlement chain
 
 beforeEach(() => {
   getEnsAddress.mockReset()
