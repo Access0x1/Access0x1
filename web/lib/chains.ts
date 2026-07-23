@@ -519,8 +519,22 @@ export function getUsdcAddress(chainId: number): Address {
   return addr as Address
 }
 
-/** Resolve a per-chain RPC URL from env (used by server-side public clients). */
+/**
+ * Resolve a per-chain RPC URL for server-side public clients.
+ *
+ * PROVIDER OVERRIDE (QuickNode & friends): an operator can point ANY supported chain's
+ * server-side reads at a dedicated endpoint by setting `RPC_URL_<chainId>` (e.g. a
+ * QuickNode URL like `https://<name>.<network>.quiknode.pro/<token>/`). This closes the
+ * gap the `defineChain` chains already had (Arc/Zircuit/Hedera read a `NEXT_PUBLIC_*_RPC_URL`
+ * in their definition) for the chains imported straight from `viem/chains`, which otherwise
+ * fall back to viem's shared public RPC. Server-only (a computed key is never inlined into
+ * the browser bundle), read via the non-literal form and guarded on `typeof window`; a blank
+ * value falls through to the chain's own default (never an empty URL).
+ */
 export function getRpcUrl(chainId: number): string {
+  const override =
+    typeof window === 'undefined' ? (process.env[`RPC_URL_${chainId}`] || '').trim() : ''
+  if (override.length > 0) return override
   const chain = getChain(chainId)
   return chain.rpcUrls.default.http[0]
 }
