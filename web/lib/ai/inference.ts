@@ -60,6 +60,8 @@ export class InferenceError extends Error {
 export interface InferenceRequest {
   /** The user prompt. */
   readonly prompt: string
+  /** Optional system prompt (e.g. a grounding corpus). Sent as a system message on both paths. */
+  readonly system?: string
   /** Model id override (defaults per provider). */
   readonly model?: string
   /** Max output tokens (default 512). */
@@ -277,13 +279,19 @@ export async function runZerogInference(
   const auth = deps.authHeaders
     ? await deps.authHeaders(req.prompt)
     : { Authorization: `Bearer ${deps.apiKey ?? ''}` }
+  const messages = req.system
+    ? [
+        { role: 'system', content: req.system },
+        { role: 'user', content: req.prompt },
+      ]
+    : [{ role: 'user', content: req.prompt }]
   const res = await deps.fetchImpl(`${deps.endpoint}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...auth },
     body: JSON.stringify({
       model,
       max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
-      messages: [{ role: 'user', content: req.prompt }],
+      messages,
     }),
   })
   if (!res.ok) {
@@ -311,6 +319,7 @@ async function runAnthropicInference(req: InferenceRequest): Promise<InferenceRe
     const message = await client.messages.create({
       model,
       max_tokens: req.maxTokens ?? DEFAULT_MAX_TOKENS,
+      ...(req.system ? { system: req.system } : {}),
       messages: [{ role: 'user', content: req.prompt }],
     })
     const completion = message.content

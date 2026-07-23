@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 
 import { buildDocsSystemPrompt } from '@/lib/docs/corpus.js'
+import { InferenceError, isInferenceConfigured, runInference, selectedProvider } from '@/lib/ai/inference'
 
 export const dynamic = 'force-dynamic'
 
@@ -175,17 +176,27 @@ function jsonError(error: string, status: number, code?: string): Response {
  * handler checks and reveals ONLY a boolean — never the key, never any env
  * detail. `no-store` so configuring a key later is picked up immediately.
  */
+/**
+ * Whether the assistant is configured for its ACTIVE provider (the global inference switch). With
+ * `AI_INFERENCE_PROVIDER=zerog` the docs assistant answers on 0G Compute and this reports the 0G
+ * config; otherwise it reports the Anthropic key. The probe shape stays `{ configured }` either way.
+ */
+function isDocsAssistantConfigured(): boolean {
+  return selectedProvider() === 'zerog'
+    ? isInferenceConfigured('zerog')
+    : Boolean(process.env.CLAUDE_API_KEY)
+}
+
 export async function GET(): Promise<Response> {
-  return new Response(JSON.stringify({ configured: Boolean(process.env.CLAUDE_API_KEY) }), {
+  return new Response(JSON.stringify({ configured: isDocsAssistantConfigured() }), {
     status: 200,
     headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
   })
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const apiKey = process.env.CLAUDE_API_KEY
-  if (!apiKey) {
-    // No key configured: the assistant is optional, so fail soft with a clear
+  if (!isDocsAssistantConfigured()) {
+    // No provider configured: the assistant is optional, so fail soft with a clear
     // machine-readable not_configured status — never crash.
     return jsonError('Assistant is not configured on this deployment.', 503, 'not_configured')
   }
@@ -214,6 +225,37 @@ export async function POST(request: Request): Promise<Response> {
     return jsonError(`Question too long (max ${MAX_QUESTION_LEN} chars)`, 400, 'bad_request')
   }
 
+  // --- 0G Compute path: when the global switch selects 0G, the SAME grounded corpus is answered on
+  //     0G's decentralized inference network. Non-streamed (one completion), tagged with the
+  //     x-inference-provider header the UI badges. The Anthropic path below is otherwise unchanged.
+  if (selectedProvider() === 'zerog') {
+    try {
+      const result = await runInference({
+        provider: 'zerog',
+        system: SYSTEM_PROMPT,
+        prompt: question,
+        maxTokens: MAX_TOKENS,
+      })
+      return new Response(result.completion, {
+        status: 200,
+        headers: {
+          'content-type': 'text/plain; charset=utf-8',
+          'cache-control': 'no-store',
+          'x-inference-provider': 'zerog',
+          'x-inference-model': result.model,
+        },
+      })
+    } catch (err) {
+      if (err instanceof InferenceError) {
+        const status = err.reason === 'not_configured' ? 503 : err.reason === 'invalid-args' ? 400 : 502
+        const code = err.reason === 'not_configured' ? 'not_configured' : 'upstream_error'
+        return jsonError('Assistant request failed.', status, code)
+      }
+      return jsonError('Assistant request failed.', 502, 'upstream_error')
+    }
+  }
+
+  const apiKey = process.env.CLAUDE_API_KEY as string
   const client = new Anthropic({ apiKey })
 
   // Stream the answer back as plain text. The SDK streams content_block_delta
@@ -261,6 +303,7 @@ export async function POST(request: Request): Promise<Response> {
       'content-type': 'text/plain; charset=utf-8',
       'cache-control': 'no-store',
       'x-accel-buffering': 'no',
+      'x-inference-provider': 'anthropic',
     },
   })
 }

@@ -80,6 +80,15 @@ curl -X POST localhost:3000/api/ai/infer \
   -d '{"prompt":"Say hi from 0G Compute."}'            # → {"provider":"zerog","model":…,"completion":…}
 ```
 
+## Demo: the docs assistant on 0G
+
+The **Ask-the-docs** assistant (`/api/docs-ask`, the `DocsAssistant` widget) follows the same global
+inference switch. With `AI_INFERENCE_PROVIDER=zerog` the same doc-grounded corpus is answered on 0G
+Compute, and every response carries an `x-inference-provider` header the UI renders as a badge —
+**"Computed on 0G Compute"** vs "Answered by Claude". That badge is the visible, judge-facing proof
+that inference ran on 0G. (For 0G's smaller-context models, cap the corpus with
+`DOCS_CORPUS_MAX_BYTES` so the grounding prompt fits the provider's context window.)
+
 ## Scope / honesty
 
 0G Compute is chain **16602** (Galileo testnet), the same 0G chain the router already mirrors to.
