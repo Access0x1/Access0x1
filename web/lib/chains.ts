@@ -88,13 +88,15 @@ export const arcTestnet = defineChain({
  * missing value throws rather than guessing. "USDC undefined until confirmed."
  */
 export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [
+  // Ethereum Sepolia (11155111) is the PRIMARY / home chain — the Ethereum L1
+  // testnet the app defaults to ({@link getDefaultChainId}), listed FIRST so every
+  // chain chooser leads with it. The CREATE3 mirror is deployed + source-verified
+  // here and Circle's canonical testnet USDC is allowlisted + quotable on it
+  // (verified on-chain). Every chain below is a mirror of this same router address
+  // on a SELECTED testnet — Ethereum Sepolia is the base, the rest are the mirrors.
+  sepolia,
   arcTestnet,
   baseSepolia,
-  // Ethereum Sepolia (11155111): the CREATE3 mirror is deployed + source-verified
-  // here (MIRROR_SUPPORTED_CHAIN_IDS), and Circle's canonical testnet USDC is
-  // allowlisted + quotable on it — verified on-chain. Added so the hosted checkout
-  // can settle on the L1 testnet, not just the L2s.
-  sepolia,
   zksyncSepoliaTestnet,
   polygonAmoy,
   avalancheFuji,
@@ -231,10 +233,16 @@ export function isGasFree(chainId: number): boolean {
   return chainId === ARC_TESTNET_ID
 }
 
-/** Default chain id the app connects to (from env, falling back to Arc Testnet). */
+/**
+ * Default chain id the app connects to — from `NEXT_PUBLIC_DEFAULT_CHAIN_ID`,
+ * falling back to Ethereum Sepolia (the PRIMARY / home chain; the mirror is
+ * deployed + verified and Circle USDC is quotable there). A deployed instance can
+ * still point the default anywhere via env; Arc / Base / the other testnets remain
+ * fully supported as mirrors, reachable by a per-link `?chainId=`.
+ */
 export function getDefaultChainId(): number {
   const raw = process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID
-  return raw ? Number(raw) : arcTestnet.id
+  return raw ? Number(raw) : sepolia.id
 }
 
 /** Look up a supported chain object by id, or throw a clear error. */
