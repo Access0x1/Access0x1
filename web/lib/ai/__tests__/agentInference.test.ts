@@ -1,7 +1,7 @@
 /**
  * @file agentInference.test.ts — the ETH-native "agent decides to join 0G" resolver.
  *
- * Pins that the inference provider is read off the agent's Ethereum ENS name (`com.access0x1.
+ * Pins that the inference provider is read off the agent's Ethereum ENS name (`click.access0x1.
  * inference`), that only `zerog` opts in, and that any resolver failure / unset record degrades to
  * the safe `anthropic` default (never throws). The ENS read is fully mocked.
  */
@@ -34,7 +34,7 @@ describe('parseInferenceProvider', () => {
 })
 
 describe('resolveAgentInferenceProvider', () => {
-  it('reads com.access0x1.inference off the agent ENS name and returns zerog when it opts in', async () => {
+  it('reads click.access0x1.inference off the agent ENS name and returns zerog when it opts in', async () => {
     readAgentRecord.mockResolvedValueOnce('zerog')
     const provider = await resolveAgentInferenceProvider('agent.acme.eth')
     expect(provider).toBe('zerog')

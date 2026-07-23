@@ -94,7 +94,7 @@ interface IAccess0x1PaymentResolver {
     /// @return payout The 20-byte payout for this chain's coinType, else empty bytes.
     function addr(bytes32 node, uint256 coinType) external view returns (bytes memory payout);
 
-    /// @notice ENS `text` — a live `com.access0x1.*` config value computed from the router/chain
+    /// @notice ENS `text` — a live `click.access0x1.*` config value computed from the router/chain
     ///         (merchantId · router · chainId · pricingCurrency · payout). Unknown keys return "".
     /// @param node The ENS namehash.
     /// @param key  The text-record key.

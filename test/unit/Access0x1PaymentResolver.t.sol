@@ -168,11 +168,11 @@ contract Access0x1PaymentResolverTest is Test, ProxyDeployer {
 
     function test_Text_LiveRecords() public {
         _bind();
-        assertEq(resolver.text(NODE, "com.access0x1.merchantId"), merchantId.toString());
-        assertEq(resolver.text(NODE, "com.access0x1.router"), address(router).toHexString());
-        assertEq(resolver.text(NODE, "com.access0x1.chainId"), block.chainid.toString());
-        assertEq(resolver.text(NODE, "com.access0x1.pricingCurrency"), "USD");
-        assertEq(resolver.text(NODE, "com.access0x1.payout"), merchantPayout.toHexString());
+        assertEq(resolver.text(NODE, "click.access0x1.merchantId"), merchantId.toString());
+        assertEq(resolver.text(NODE, "click.access0x1.router"), address(router).toHexString());
+        assertEq(resolver.text(NODE, "click.access0x1.chainId"), block.chainid.toString());
+        assertEq(resolver.text(NODE, "click.access0x1.pricingCurrency"), "USD");
+        assertEq(resolver.text(NODE, "click.access0x1.payout"), merchantPayout.toHexString());
     }
 
     function test_Text_UnknownKey_IsEmpty() public {
@@ -181,7 +181,7 @@ contract Access0x1PaymentResolverTest is Test, ProxyDeployer {
     }
 
     function test_Text_UnboundNode_IsEmpty() public view {
-        assertEq(resolver.text(UNBOUND_NODE, "com.access0x1.merchantId"), "");
+        assertEq(resolver.text(UNBOUND_NODE, "click.access0x1.merchantId"), "");
     }
 
     // ──────────────────────── ENSIP-10 wildcard resolve ────────────────────────
@@ -202,7 +202,7 @@ contract Access0x1PaymentResolverTest is Test, ProxyDeployer {
 
     function test_Resolve_Text() public {
         _bind();
-        bytes memory data = abi.encodeWithSelector(ID_TEXT, NODE, "com.access0x1.pricingCurrency");
+        bytes memory data = abi.encodeWithSelector(ID_TEXT, NODE, "click.access0x1.pricingCurrency");
         bytes memory out = resolver.resolve(hex"00", data);
         assertEq(abi.decode(out, (string)), "USD");
     }
@@ -229,7 +229,7 @@ contract Access0x1PaymentResolverTest is Test, ProxyDeployer {
 
         assertFalse(resolver.isBound(NODE));
         assertEq(resolver.addr(NODE), address(0));
-        assertEq(resolver.text(NODE, "com.access0x1.merchantId"), "");
+        assertEq(resolver.text(NODE, "click.access0x1.merchantId"), "");
     }
 
     function test_Unbind_ByNonOwner_Reverts() public {

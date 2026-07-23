@@ -96,7 +96,7 @@ describe('issueSubname — configured happy path', () => {
     const res = await issueSubname({
       label: 'merchant-42',
       owner: OWNER,
-      texts: [{ key: 'com.access0x1.merchantId', value: '42' }],
+      texts: [{ key: 'click.access0x1.merchantId', value: '42' }],
     })
 
     expect(res).toEqual({
@@ -117,7 +117,7 @@ describe('issueSubname — configured happy path', () => {
       domain: PARENT, // the env parent, never a literal
       name: 'merchant-42',
       address: OWNER,
-      text_records: { 'com.access0x1.merchantId': '42' },
+      text_records: { 'click.access0x1.merchantId': '42' },
     })
   })
 

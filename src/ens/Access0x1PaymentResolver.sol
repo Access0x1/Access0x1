@@ -64,14 +64,14 @@ contract Access0x1PaymentResolver is
 
     // ──────────────────────── text-record keys (mirror web/lib/ens-subnames.ts) ────────────────────────
 
-    /// @dev The generic `com.access0x1.*` namespace an integrator reads back off a name. These MUST
+    /// @dev The generic `click.access0x1.*` namespace an integrator reads back off a name. These MUST
     ///      stay in lockstep with `SUBNAME_TEXT_KEYS` in `web/lib/ens-subnames.ts` so the on-chain
     ///      resolver and the offchain (Namestone / CCIP-Read) issuer expose one identical schema.
-    string private constant _KEY_MERCHANT_ID = "com.access0x1.merchantId";
-    string private constant _KEY_ROUTER = "com.access0x1.router";
-    string private constant _KEY_CHAIN_ID = "com.access0x1.chainId";
-    string private constant _KEY_PRICING = "com.access0x1.pricingCurrency";
-    string private constant _KEY_PAYOUT = "com.access0x1.payout";
+    string private constant _KEY_MERCHANT_ID = "click.access0x1.merchantId";
+    string private constant _KEY_ROUTER = "click.access0x1.router";
+    string private constant _KEY_CHAIN_ID = "click.access0x1.chainId";
+    string private constant _KEY_PRICING = "click.access0x1.pricingCurrency";
+    string private constant _KEY_PAYOUT = "click.access0x1.payout";
 
     // ──────────────────────── storage ────────────────────────
 

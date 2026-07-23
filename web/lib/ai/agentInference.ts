@@ -5,8 +5,8 @@
  * its money is the USDC router. It does NOT deploy to the 0G chain. So how does it "join 0G" for
  * inference? It publishes a single text record on its own Ethereum ENS name:
  *
- *     com.access0x1.inference = "zerog"      → this agent's inference runs on 0G Compute
- *     com.access0x1.inference = "anthropic"  → (or unset) the default backend
+ *     click.access0x1.inference = "zerog"      → this agent's inference runs on 0G Compute
+ *     click.access0x1.inference = "anthropic"  → (or unset) the default backend
  *
  * This module reads that record off the agent's ETH name (a plain ENS resolver READ — the same
  * money-path-safe path {@link readAgentRecord} already uses) and maps it to an
@@ -25,9 +25,9 @@ import type { InferenceProvider } from './inference'
 
 /**
  * The ENS text-record key an agent sets on its Ethereum name to declare its inference backend.
- * Part of the shared `com.access0x1.*` schema the payment resolver + subname issuer already use.
+ * Part of the shared `click.access0x1.*` schema the payment resolver + subname issuer already use.
  */
-export const AGENT_INFERENCE_RECORD_KEY = 'com.access0x1.inference'
+export const AGENT_INFERENCE_RECORD_KEY = 'click.access0x1.inference'
 
 /** Map a raw record value to a known provider; anything else (incl. null) ⇒ the default. */
 export function parseInferenceProvider(value: string | null | undefined): InferenceProvider {

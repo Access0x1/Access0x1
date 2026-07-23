@@ -45,22 +45,22 @@ describe('/api/ens/resolve', () => {
 
   it('serves a single record for the key form', async () => {
     resolveRecordMock.mockResolvedValue('USD')
-    const res = await GET(get('?chainId=84532&merchantId=42&key=com.access0x1.pricingCurrency'))
+    const res = await GET(get('?chainId=84532&merchantId=42&key=click.access0x1.pricingCurrency'))
     expect(await res.json()).toEqual({ value: 'USD' })
-    expect(resolveRecordMock).toHaveBeenCalledWith(84_532, 42n, 'com.access0x1.pricingCurrency')
+    expect(resolveRecordMock).toHaveBeenCalledWith(84_532, 42n, 'click.access0x1.pricingCurrency')
   })
 
   it('serves full live records for a valid target', async () => {
     resolvePaymentRecordsMock.mockResolvedValue({
       payout: '0x00000000000000000000000000000000000000bb',
       coinType: 2_147_568_180,
-      texts: { 'com.access0x1.merchantId': '42' },
+      texts: { 'click.access0x1.merchantId': '42' },
     })
     const res = await GET(get('?chainId=84532&merchantId=42'))
     const body = await res.json()
     expect(body.payout).toBe('0x00000000000000000000000000000000000000bb')
     expect(body.merchantId).toBe('42')
-    expect(body.texts['com.access0x1.merchantId']).toBe('42')
+    expect(body.texts['click.access0x1.merchantId']).toBe('42')
   })
 
   it('fails soft to null payout when the seat is unknown', async () => {

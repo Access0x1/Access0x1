@@ -923,7 +923,7 @@ integration let us *not* build, not a marketing wall.
   - **WRITE — Namestone gasless subnames.** [`web/lib/ens-subnames.ts`](web/lib/ens-subnames.ts) +
     [`web/app/api/ens/subname`](web/app/api/ens/subname) issue `merchant-<id>.<parent>.eth` with **zero
     gas** via Namestone and write the merchant's USD-pricing / settlement config into ENS **text records**
-    (`com.access0x1.*`). The subname **parent is your own ENS name**, read only from `ENS_SUBNAME_PARENT`
+    (`click.access0x1.*`). The subname **parent is your own ENS name**, read only from `ENS_SUBNAME_PARENT`
     (never hardcoded); with `NAMESTONE_API_KEY` it's live. **Blank ⇒ the whole seam is a clean no-op**
     (no fabricated name, no network call) — fail-soft, like OIDC degrading when unconfigured.
   - **ENSv2 — the LIVE Payment Resolver (a brand-new ENS shape).** Built on ENSv2's "your name,

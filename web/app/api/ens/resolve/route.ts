@@ -13,7 +13,7 @@
  *     → { configured } capability probe (is the ENSv2 registry seam wired?)
  *   GET /api/ens/resolve?chainId=84532&merchantId=42
  *     → { configured, chainId, merchantId, payout, coinType, texts, resolver }
- *   GET /api/ens/resolve?chainId=84532&merchantId=42&key=com.access0x1.payout
+ *   GET /api/ens/resolve?chainId=84532&merchantId=42&key=click.access0x1.payout
  *     → { value }
  *
  * FAIL-SOFT (law #4): resolution is off the money path. An unknown seat, an

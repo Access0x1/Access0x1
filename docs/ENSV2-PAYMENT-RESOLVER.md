@@ -62,7 +62,7 @@ Contrast with the existing (still-supported) ENS seams in this repo:
   can never be bound to a seat its caller does not own. View-only, zero custody, UUPS (the
   `ChainRegistry` template). Tests: `test/unit/Access0x1PaymentResolver.t.sol`.
 - **`web/lib/ens/ensv2.ts`** — the off-chain twin: given a settlement chain + merchant seat, it
-  reads the live merchant and produces the same `addr` + `com.access0x1.*` text records the
+  reads the live merchant and produces the same `addr` + `click.access0x1.*` text records the
   on-chain resolver computes. Fail-soft: unknown seat / unconfigured chain / RPC error ⇒ `null`,
   never a fabricated address. Tests: `web/lib/ens/__tests__/ensv2.test.ts`.
 - **`web/app/api/ens/resolve/route.ts`** — the **CCIP-Read gateway** data endpoint that serves
@@ -76,7 +76,7 @@ The multichain `addr(node, coinType)` answers **only for this chain's ENSIP-11 c
 (mainnet ⇒ 60); any other coinType returns empty bytes. A name therefore never hands a client a
 payout address that lives on a different chain — mirroring the coinType law in `web/lib/ens.ts`.
 
-## The `com.access0x1.*` schema (one identical set across all three issuers)
+## The `click.access0x1.*` schema (one identical set across all three issuers)
 
 `merchantId` · `router` · `chainId` · `pricingCurrency` (always `USD`) · `payout`. Kept in
 lockstep between the on-chain resolver's `_KEY_*` constants, `SUBNAME_TEXT_KEYS` in

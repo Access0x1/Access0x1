@@ -17,7 +17,7 @@ All flow through one seam, `web/lib/ai/inference.ts` (`runInference`):
 2. **Per-request** — a single call passes `provider: 'zerog'`, overriding the global default. This
    is the "it can decide" hook.
 3. **From the agent's own Ethereum ENS name** — the agent publishes a text record
-   `com.access0x1.inference = zerog` on its ENS name, and `web/lib/ai/agentInference.ts`
+   `click.access0x1.inference = zerog` on its ENS name, and `web/lib/ai/agentInference.ts`
    (`resolveAgentInferenceProvider`) reads it and routes accordingly. The choice thus lives in the
    agent's *Ethereum* identity, flippable by the name owner at any time — no 0G footprint at all.
 

@@ -10,7 +10,7 @@
  * merchant's CURRENT on-chain router state at query time. This module is the
  * OFF-CHAIN mirror of {Access0x1PaymentResolver} (src/ens/Access0x1PaymentResolver
  * .sol): given a settlement chain + merchant seat, it reads the live merchant off
- * the audited router and produces the ENS `addr` + `com.access0x1.*` text records a
+ * the audited router and produces the ENS `addr` + `click.access0x1.*` text records a
  * gateway serves — the exact answer the on-chain resolver computes, for the common
  * case where the ENS name lives on mainnet while settlement is on an L2/testnet.
  *
@@ -32,7 +32,7 @@ import { SUBNAME_TEXT_KEYS } from '@/lib/ens-subnames'
 const ZERO = '0x0000000000000000000000000000000000000000'
 
 /**
- * The live `com.access0x1.*` text-record key set the resolver serves, kept in
+ * The live `click.access0x1.*` text-record key set the resolver serves, kept in
  * lockstep with {SUBNAME_TEXT_KEYS} (the Namestone/offchain issuer) AND with the
  * on-chain resolver's `_KEY_*` constants — one identical schema across all three
  * issuers. Adds `payout` on top of the merchant-config keys.
@@ -40,7 +40,7 @@ const ZERO = '0x0000000000000000000000000000000000000000'
 export const PAYMENT_TEXT_KEYS = {
   ...SUBNAME_TEXT_KEYS,
   /** The merchant's current payout address (hex string). */
-  payout: 'com.access0x1.payout',
+  payout: 'click.access0x1.payout',
 } as const
 
 /** The ENSv2 registry pointers, read from env (alpha addresses — confirm from ENS docs). */
@@ -94,7 +94,7 @@ export interface PaymentRecords {
   payout: Address
   /** The ENSIP-11 coinType for `chainId` (the multichain `addr` answers only this). */
   coinType: number
-  /** The live `com.access0x1.*` text records (config computed from the router/chain). */
+  /** The live `click.access0x1.*` text records (config computed from the router/chain). */
   texts: Record<string, string>
 }
 
@@ -161,7 +161,7 @@ export async function resolvePaymentRecords(
  *
  * @param chainId    The settlement chain.
  * @param merchantId The router seat.
- * @param key        A `com.access0x1.*` text key, or undefined for the address.
+ * @param key        A `click.access0x1.*` text key, or undefined for the address.
  */
 export async function resolveRecord(
   chainId: number,

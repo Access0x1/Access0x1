@@ -3,7 +3,7 @@
  * off-chain twin). Proves: records are COMPUTED LIVE from the router read (not a
  * stored row); an unregistered seat (owner 0) yields null, never a fake address; an
  * unconfigured chain fails soft to null; the text schema matches the on-chain
- * resolver's `com.access0x1.*` keys; and the env gate flips the ENSv2 seam on/off.
+ * resolver's `click.access0x1.*` keys; and the env gate flips the ENSv2 seam on/off.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -55,7 +55,7 @@ afterEach(() => {
 })
 
 describe('resolvePaymentRecords — live records from the router', () => {
-  it('computes payout + coinType + com.access0x1.* text from a registered seat', async () => {
+  it('computes payout + coinType + click.access0x1.* text from a registered seat', async () => {
     getMerchantMock.mockResolvedValue(registeredMerchant())
     const records = await resolvePaymentRecords(CHAIN_ID, 42n)
     expect(records).not.toBeNull()
