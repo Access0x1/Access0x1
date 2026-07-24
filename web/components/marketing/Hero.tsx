@@ -13,6 +13,7 @@
 import type { ReactNode } from 'react'
 
 import { BrandMark } from '@/components/BrandMark'
+import { CalcadaBackdrop } from '@/components/marketing/Calcada'
 import { LandingCTA } from '@/components/marketing/LandingCTA'
 import type { Dictionary } from '@/lib/i18n/get-dictionary'
 
@@ -33,6 +34,14 @@ export function Hero({ hero, cta }: HeroProps): ReactNode {
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 -top-32 -z-10 mx-auto h-72 max-w-3xl rounded-full bg-gradient-to-r from-primary/25 via-accent/15 to-primary/25 blur-3xl"
       />
+
+      {/*
+       * The calçada layer — Lisbon's hand-set pavement as the hero's ground:
+       * a cobbled limestone field and the basalt medallion whose geometry IS
+       * the brand glyph (ring + three dots), with orbiting satellite stones
+       * and slow-drawing volutes. Decorative, CSS-only, reduced-motion-safe.
+       */}
+      <CalcadaBackdrop />
 
       <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 px-6 py-24 text-center sm:py-32">
         {/* Brand lockup — the same glyph + wordmark used across the app. */}

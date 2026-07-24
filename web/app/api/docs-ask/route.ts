@@ -178,13 +178,15 @@ function jsonError(error: string, status: number, code?: string): Response {
  */
 /**
  * Whether the assistant is configured for its ACTIVE provider (the global inference switch). With
- * `AI_INFERENCE_PROVIDER=zerog` the docs assistant answers on 0G Compute and this reports the 0G
+ * `AI_INFERENCE_PROVIDER=zerog` (0G Compute, decentralized) or `=access0x1` (Access0x1 Compute,
+ * our hosted AWS-backed endpoint) the docs assistant answers there and this reports that provider's
  * config; otherwise it reports the Anthropic key. The probe shape stays `{ configured }` either way.
  */
 function isDocsAssistantConfigured(): boolean {
-  return selectedProvider() === 'zerog'
-    ? isInferenceConfigured('zerog')
-    : Boolean(process.env.CLAUDE_API_KEY)
+  const provider = selectedProvider()
+  return provider === 'anthropic'
+    ? Boolean(process.env.CLAUDE_API_KEY)
+    : isInferenceConfigured(provider)
 }
 
 export async function GET(): Promise<Response> {
@@ -225,13 +227,15 @@ export async function POST(request: Request): Promise<Response> {
     return jsonError(`Question too long (max ${MAX_QUESTION_LEN} chars)`, 400, 'bad_request')
   }
 
-  // --- 0G Compute path: when the global switch selects 0G, the SAME grounded corpus is answered on
-  //     0G's decentralized inference network. Non-streamed (one completion), tagged with the
-  //     x-inference-provider header the UI badges. The Anthropic path below is otherwise unchanged.
-  if (selectedProvider() === 'zerog') {
+  // --- Alternate-provider path: when the global switch selects 0G Compute (decentralized) or
+  //     Access0x1 Compute (our hosted AWS-backed endpoint), the SAME grounded corpus is answered
+  //     there. Non-streamed (one completion), tagged with the x-inference-provider header the UI
+  //     badges. The Anthropic path below is otherwise unchanged.
+  const activeProvider = selectedProvider()
+  if (activeProvider !== 'anthropic') {
     try {
       const result = await runInference({
-        provider: 'zerog',
+        provider: activeProvider,
         system: SYSTEM_PROMPT,
         prompt: question,
         maxTokens: MAX_TOKENS,
@@ -241,7 +245,7 @@ export async function POST(request: Request): Promise<Response> {
         headers: {
           'content-type': 'text/plain; charset=utf-8',
           'cache-control': 'no-store',
-          'x-inference-provider': 'zerog',
+          'x-inference-provider': activeProvider,
           'x-inference-model': result.model,
         },
       })

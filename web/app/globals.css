@@ -156,3 +156,44 @@ select {
     animation: none;
   }
 }
+
+/* ── Calçada (Lisbon pavement) marketing ornaments ──────────────────────────
+ * Used only by components/marketing/Calcada.tsx. CSS-only motion: the orbit
+ * spins the medallion's satellite dots, draw reveals the volute strokes
+ * (pathLength=1 ⇒ dasharray/offset of 1 works for any path), drift breathes
+ * the whole backdrop. Every one is disabled under prefers-reduced-motion. */
+@keyframes calcada-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes calcada-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes calcada-drift {
+  from { transform: translateY(0px); }
+  to { transform: translateY(-8px); }
+}
+
+.calcada-orbit { animation: calcada-orbit 80s linear infinite; transform-box: view-box; }
+.calcada-orbit-slow { animation: calcada-orbit 140s linear infinite reverse; transform-box: view-box; }
+.calcada-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: calcada-draw 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+.calcada-draw-late { animation-delay: 0.5s; }
+.calcada-drift { animation: calcada-drift 14s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) {
+  .calcada-orbit,
+  .calcada-orbit-slow,
+  .calcada-drift {
+    animation: none;
+  }
+  .calcada-draw,
+  .calcada-draw-late {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

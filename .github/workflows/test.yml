@@ -2,14 +2,66 @@ name: CI
 
 permissions: {}
 
+# MINUTES DISCIPLINE: `push` fires on main only — a PR branch push previously ran the ENTIRE
+# suite twice (once for the push, once for the PR event), doubling every Actions bill for zero
+# extra signal. PRs are covered by the pull_request event alone; main pushes (merges) run all.
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 jobs:
+  # MINUTES DISCIPLINE (part 2): run only the lanes the diff can affect. On a PR this job diffs
+  # against the base and emits one boolean per lane; each heavy job is gated `if:` on its lane.
+  # A skipped job reports conclusion "skipped", which branch protection treats as satisfied — so
+  # a docs-only PR is not blocked by a Foundry lane that never ran. On main-push/dispatch every
+  # lane runs (merge = full validation). No third-party action: plain git diff, SHA-pinned checkout.
+  changes:
+    name: Detect changed lanes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      contracts: ${{ steps.filter.outputs.contracts }}
+      web: ${{ steps.filter.outputs.web }}
+      packages: ${{ steps.filter.outputs.packages }}
+      snap: ${{ steps.filter.outputs.snap }}
+      subgraph: ${{ steps.filter.outputs.subgraph }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != "pull_request" ]; then
+            # main push / manual dispatch → full validation, every lane.
+            for k in contracts web packages snap subgraph; do echo "$k=true" >> "$GITHUB_OUTPUT"; done
+            exit 0
+          fi
+          git diff --name-only "$BASE_SHA" HEAD > /tmp/changed.txt
+          echo "changed files vs base:"; sed 's/^/  /' /tmp/changed.txt
+          hit() { grep -qE "$1" /tmp/changed.txt && echo true || echo false; }
+          # README.md stays in the contracts lane: its badge + mirror-status claims are enforced
+          # INSIDE the Foundry job, so a README edit must still run it. docs/*.md alone does not.
+          # A workflow edit (.github/) re-runs every lane by design.
+          {
+            echo "contracts=$(hit '^(src/|test/|script/|lib/|foundry\.toml|remappings|Makefile|broadcast/|abis/|deployments/|scripts/|package(-lock)?\.json|README\.md|\.github/)')"
+            echo "web=$(hit '^(web/|docs/|\.github/)')"
+            echo "packages=$(hit '^(packages/|\.github/)')"
+            echo "snap=$(hit '^(snap/|\.github/)')"
+            echo "subgraph=$(hit '^(subgraph/|abis/|\.github/)')"
+          } >> "$GITHUB_OUTPUT"
+
   check:
     name: Foundry project
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -97,6 +149,8 @@ jobs:
 
   web:
     name: Web app (Next.js)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -145,6 +199,8 @@ jobs:
   # runs them on every push/PR so a regression in the public SDK is caught here.
   packages:
     name: SDK packages (@access0x1/react + create-access0x1)
+    needs: changes
+    if: needs.changes.outputs.packages == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -213,6 +269,8 @@ jobs:
   # gate so a regression is caught in CI, not on a maintainer's machine.
   snap:
     name: MetaMask Snap (typecheck + tests)
+    needs: changes
+    if: needs.changes.outputs.snap == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -238,6 +296,8 @@ jobs:
 
   subgraph:
     name: Subgraph (codegen + build)
+    needs: changes
+    if: needs.changes.outputs.subgraph == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

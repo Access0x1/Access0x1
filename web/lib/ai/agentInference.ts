@@ -31,7 +31,11 @@ export const AGENT_INFERENCE_RECORD_KEY = 'click.access0x1.inference'
 
 /** Map a raw record value to a known provider; anything else (incl. null) ⇒ the default. */
 export function parseInferenceProvider(value: string | null | undefined): InferenceProvider {
-  return typeof value === 'string' && value.trim().toLowerCase() === 'zerog' ? 'zerog' : 'anthropic'
+  const v = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  if (v === 'zerog') return 'zerog'
+  if (v === 'access0x1') return 'access0x1' // Access0x1 Compute — our HOSTED (AWS-backed) endpoint
+  if (v === 'custom') return 'custom' // any OpenAI-compatible vendor the operator configures
+  return 'anthropic'
 }
 
 /**

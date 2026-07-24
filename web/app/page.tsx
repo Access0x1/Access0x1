@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { BrandMark } from '@/components/BrandMark'
+import { CalcadaDivider } from '@/components/marketing/Calcada'
 import { Hero } from '@/components/marketing/Hero'
 import { FeatureGrid } from '@/components/marketing/FeatureGrid'
 import { IntegrationStrip } from '@/components/marketing/IntegrationStrip'
@@ -50,6 +51,9 @@ export default async function Home(): Promise<ReactNode> {
       {/* Trust strip: Chainlink + the settlement chains. */}
       <IntegrationStrip integrations={dict.integrations} />
 
+      {/* Calçada ribbon — the Lisbon mosaic border between the strip and grid. */}
+      <CalcadaDivider className="py-2" />
+
       {/* The capability grid across the contract surface. */}
       <FeatureGrid features={dict.features} />
 
@@ -67,7 +71,7 @@ export default async function Home(): Promise<ReactNode> {
       {/* Minimal footer: the brand lockup + localized links + language switcher. */}
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
-          <BrandMark size={16} />
+          <BrandMark size={20} />
           <p className="text-xs text-muted-foreground">
             <Link href="/vision" className="text-primary hover:underline">
               {dict.landing.footer.vision}
