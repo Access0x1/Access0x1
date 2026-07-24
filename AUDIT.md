@@ -5,7 +5,7 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
-_Last updated: 2026-07-24 (test-count refresh: 2,022 Foundry contract tests + 1,669 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
+_Last updated: 2026-07-24 (test-count refresh: 2,026 Foundry contract tests + 1,792 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
 
 ---
 
@@ -46,7 +46,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ## 2. Tested
 
-- **2,022 contract tests, 0 failed, 0 skipped** (`make test`; the count is CI-enforced against `forge test --list`
+- **2,026 contract tests, 0 failed, 0 skipped** (`make test`; the count is CI-enforced against `forge test --list`
   by `scripts/sync-test-badge.mjs`). The 3 `test/fork/**` Chainlink-feed tests are
   counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI
   both run green; set `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed.
@@ -180,7 +180,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ```bash
 git clone https://github.com/Access0x1/Access0x1 && cd Access0x1
-make test                       # 2,022 contract tests, 0 failed
+make test                       # 2,026 contract tests, 0 failed
 forge coverage --ir-minimum     # the real coverage number
 make halmos                     # the symbolic fee-split + budget proofs
 make anvil && make deploy-local && make drive-local   # real local payment, no keys

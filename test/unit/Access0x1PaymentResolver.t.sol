@@ -17,6 +17,15 @@ contract Access0x1PaymentResolverV2 is Access0x1PaymentResolver {
     }
 }
 
+/// @notice Minimal mock ENS registry for the strong node-control path: a settable `node ⇒ owner` map.
+contract MockEnsRegistry {
+    mapping(bytes32 => address) public owner;
+
+    function setOwner(bytes32 node, address who) external {
+        owner[node] = who;
+    }
+}
+
 /// @notice Unit suite for {Access0x1PaymentResolver} — ENS as a LIVE payment endpoint. Proves:
 ///         binding is gated by live merchant ownership; `addr`/`text` read the router at query time
 ///         (a payout change with NO re-issuance is reflected immediately); the multichain `addr`
@@ -119,6 +128,74 @@ contract Access0x1PaymentResolverTest is Test, ProxyDeployer {
         );
         vm.prank(merchantOwner);
         resolver.bindName(NODE, ghost);
+    }
+
+    // ──────────────────────── node-control (anti-hijack) ────────────────────────
+
+    /// @dev The hijack the red team found: without a node-control gate, a SECOND merchant seat (freely
+    ///      registered by an attacker) could re-bind a name already bound to a victim's seat. The
+    ///      first-claim fallback (no registry configured) must now reject it as NotNodeOwner.
+    function test_Bind_Rebind_ByStrangerSeat_Reverts() public {
+        _bind(); // merchantOwner binds NODE to their seat
+
+        vm.prank(stranger);
+        uint256 attackerSeat = router.registerMerchant(stranger, address(0), 0, keccak256("evil"));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1PaymentResolver.Access0x1PaymentResolver__NotNodeOwner.selector,
+                NODE,
+                stranger
+            )
+        );
+        vm.prank(stranger);
+        resolver.bindName(NODE, attackerSeat);
+
+        // The victim's binding is untouched.
+        assertEq(resolver.merchantOf(NODE), merchantId);
+    }
+
+    /// @dev A merchant may still re-point their OWN node to another seat they own (overwrite allowed).
+    function test_Bind_Rebind_BySameOwner_Succeeds() public {
+        _bind();
+        vm.prank(merchantOwner);
+        uint256 secondSeat = router.registerMerchant(merchantPayout, address(0), 0, keccak256("acme2"));
+
+        vm.prank(merchantOwner);
+        resolver.bindName(NODE, secondSeat);
+        assertEq(resolver.merchantOf(NODE), secondSeat);
+    }
+
+    /// @dev With a registry configured, binding requires the caller to be the node's ENS owner even
+    ///      for a first claim — the trust-minimized guarantee.
+    function test_Bind_WithRegistry_RequiresNodeOwner() public {
+        MockEnsRegistry reg = new MockEnsRegistry();
+        vm.prank(resolverAdmin);
+        resolver.setEnsRegistry(address(reg));
+
+        // Node owned by someone else ⇒ even the seat owner cannot bind.
+        reg.setOwner(NODE, stranger);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccess0x1PaymentResolver.Access0x1PaymentResolver__NotNodeOwner.selector,
+                NODE,
+                merchantOwner
+            )
+        );
+        vm.prank(merchantOwner);
+        resolver.bindName(NODE, merchantId);
+
+        // Node owned by the caller ⇒ bind succeeds.
+        reg.setOwner(NODE, merchantOwner);
+        vm.prank(merchantOwner);
+        resolver.bindName(NODE, merchantId);
+        assertEq(resolver.merchantOf(NODE), merchantId);
+    }
+
+    function test_SetEnsRegistry_OnlyOwner_Reverts() public {
+        vm.prank(stranger);
+        vm.expectRevert();
+        resolver.setEnsRegistry(address(0xBEEF));
     }
 
     // ──────────────────────── live addr ────────────────────────

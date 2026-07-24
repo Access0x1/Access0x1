@@ -13,6 +13,13 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 import { Access0x1Router } from "../Access0x1Router.sol";
 import { IAccess0x1PaymentResolver } from "../interfaces/IAccess0x1PaymentResolver.sol";
 
+/// @dev The one method this resolver needs off an ENS registry: who owns a node. Kept minimal and
+///      local so the resolver takes no ENS package dependency (ENSv2 is alpha/mainnet-only); the
+///      registry address is owner-configured, never hardcoded.
+interface IEnsRegistry {
+    function owner(bytes32 node) external view returns (address);
+}
+
 /// @title  Access0x1PaymentResolver — ENS as a live payment endpoint
 /// @author Access0x1
 /// @notice An ENS resolver that answers `addr`/`text` for a name from the audited
@@ -90,9 +97,18 @@ contract Access0x1PaymentResolver is
     ///         is unambiguous even against the zero seat, and an unbind is a clean two-field delete.
     mapping(bytes32 node => bool bound) private _isBound;
 
+    /// @notice OPTIONAL ENS registry used to prove a caller controls the `node` they bind. When set
+    ///         (owner-configured, env/broadcast-sourced — NEVER hardcoded), {bindName} requires
+    ///         `registry.owner(node) == msg.sender`, the trust-minimized guarantee. When unset (the
+    ///         default on a chain whose ENSv2 registry address isn't confirmed yet), {bindName} falls
+    ///         back to first-claim + no-overwrite so a name can still be bound for the demo without a
+    ///         standing hijack. `address(0)` ⇒ the strong check is dormant.
+    address public ensRegistry;
+
     /// @dev Reserved storage slots for future appends (UUPS storage-collision safety). Shrink by
     ///      exactly the slots a later version appends; never reorder or insert above this gap.
-    uint256[50] private __gap;
+    ///      (Was 50; `ensRegistry` consumed one.)
+    uint256[49] private __gap;
 
     /// @dev Burn the implementation's initializer so the logic contract can never be
     ///      initialized/owned/upgraded directly (closes the uninitialized-implementation takeover).
@@ -118,18 +134,52 @@ contract Access0x1PaymentResolver is
     // ──────────────────────── write ────────────────────────
 
     /// @inheritdoc IAccess0x1PaymentResolver
-    /// @dev Only the merchant's CURRENT owner (read live) may bind — so a name can never be pointed
-    ///      at a seat the caller does not control. Re-binding the same node overwrites (a merchant
-    ///      may re-point a name at a different seat they own). An unknown seat (owner 0) reverts.
+    /// @dev TWO gates, both required: (1) the caller must be the CURRENT owner of the seat being bound
+    ///      TO (read live from the router) — a name can never point at a seat the caller doesn't own;
+    ///      and (2) the caller must control the ENS `node` itself. Gate (2) is enforced by
+    ///      {_requireNodeControl}: when {ensRegistry} is configured it is the trust-minimized
+    ///      `registry.owner(node) == msg.sender`; when unset it degrades to first-claim + no-overwrite
+    ///      (an already-bound node can only be re-pointed by the owner of the seat it currently points
+    ///      at), which closes the standing-hijack a seat-only check left open. Re-binding your own node
+    ///      overwrites; an unknown seat (owner 0) reverts.
     function bindName(bytes32 node, uint256 merchantId) external {
         address owner_ = _merchantOwner(merchantId);
         if (owner_ == address(0)) revert Access0x1PaymentResolver__MerchantUnknown(merchantId);
         if (msg.sender != owner_) {
             revert Access0x1PaymentResolver__NotMerchantOwner(merchantId, msg.sender);
         }
+        _requireNodeControl(node);
         _merchantOf[node] = merchantId;
         _isBound[node] = true;
         emit NameBound(node, merchantId, owner_);
+    }
+
+    /// @notice Owner-only: set (or clear) the ENS registry used to prove `node` control at bind time.
+    /// @dev    Env/broadcast-sourced, never hardcoded (doctrine). `address(0)` clears it back to the
+    ///         first-claim fallback. Off the money path — resolution never reads it.
+    /// @param registry The ENS registry (or `address(0)` to disable the strong check).
+    function setEnsRegistry(address registry) external onlyOwner {
+        ensRegistry = registry;
+        emit EnsRegistrySet(registry);
+    }
+
+    /// @dev Enforce that the caller controls `node`. Strong path: `ensRegistry.owner(node)` must equal
+    ///      the caller. Fallback (no registry configured): forbid OVERWRITING a node already bound to a
+    ///      seat the caller does not own — first-claim of an unbound node stays open (the residual only
+    ///      the registry check fully closes), but a live binding can never be hijacked out from under
+    ///      its owner. `msg.sender` is already proven to own the target seat by the caller.
+    function _requireNodeControl(bytes32 node) private view {
+        address reg = ensRegistry;
+        if (reg != address(0)) {
+            if (IEnsRegistry(reg).owner(node) != msg.sender) {
+                revert Access0x1PaymentResolver__NotNodeOwner(node, msg.sender);
+            }
+            return;
+        }
+        // No registry: block re-pointing a node bound to a seat whose owner isn't the caller.
+        if (_isBound[node] && _merchantOwner(_merchantOf[node]) != msg.sender) {
+            revert Access0x1PaymentResolver__NotNodeOwner(node, msg.sender);
+        }
     }
 
     /// @inheritdoc IAccess0x1PaymentResolver

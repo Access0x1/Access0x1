@@ -117,6 +117,9 @@ export function AskAssistant({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <textarea
+          id="ask-question"
+          name="question"
+          autoComplete="off"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="How do I integrate Access0x1?"

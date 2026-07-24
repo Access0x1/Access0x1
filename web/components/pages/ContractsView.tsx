@@ -52,6 +52,9 @@ export function ContractsView(): ReactNode {
         <label className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Chain</span>
           <select
+            id="contracts-chain"
+            name="chain"
+            autoComplete="off"
             value={chainId}
             onChange={(e) => setChainId(Number(e.target.value))}
             className="rounded-lg border border-input bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-rail"

@@ -16,8 +16,8 @@ name. That makes ENS the *first* step of onboarding, not an afterthought:
 
 1. **Grab the name.** A business claims (or brings) an ENS name and takes an Access0x1 **subname**
    under it — e.g. `acme.<parent>.eth`, with a `pay.acme…` label for payments. The parent is your
-   own ENS name, set from `ENS_SUBNAME_PARENT` (never hardcoded); the demo parent for this build is
-   a DNS-imported name the operator holds (e.g. `reserv.click`), supplied via env, not baked in.
+   own ENS name, set from `ENS_SUBNAME_PARENT` (never hardcoded) — an ENS name or a DNS-imported
+   name the operator holds (e.g. `yourbrand.eth`), always supplied via env, never baked in.
 2. **We become the resolver.** The subname's resolver points at Access0x1, so from that moment the
    name *is* the business's live, USD-priced payment endpoint — identity and money behind one name.
 3. **Everything else plugs in behind the name.** Checkout, payout-swap, agents — they all address
@@ -57,10 +57,13 @@ Contrast with the existing (still-supported) ENS seams in this repo:
 - **`src/ens/Access0x1PaymentResolver.sol`** — a custom ENS resolver implementing the standard
   resolution profile (`addr(bytes32)`, `addr(bytes32,uint256)` ENSIP-9/11, `text(bytes32,string)`,
   `resolve(bytes,bytes)` ENSIP-10 wildcard). Every read is a live `router.merchants(id)` lookup.
-  A name is bound to a seat with `bindName(node, merchantId)`, authorized **live** against
-  `router.merchants(id).owner` — the same consent gate `Access0x1SponsorRegistry` uses, so a name
-  can never be bound to a seat its caller does not own. View-only, zero custody, UUPS (the
-  `ChainRegistry` template). Tests: `test/unit/Access0x1PaymentResolver.t.sol`.
+  A name is bound to a seat with `bindName(node, merchantId)` behind **two** gates: the caller must
+  be the seat's live `router.merchants(id).owner` (the same consent gate `Access0x1SponsorRegistry`
+  uses, so a name can never point at a seat its caller does not own), AND the caller must control the
+  ENS `node` — enforced by an optional, owner-set `ensRegistry` (`registry.owner(node) == msg.sender`,
+  the trust-minimized guarantee) with a first-claim + no-overwrite fallback when no registry is
+  configured (so a live binding can never be hijacked out from under its owner). View-only, zero
+  custody, UUPS (the `ChainRegistry` template). Tests: `test/unit/Access0x1PaymentResolver.t.sol`.
 - **`web/lib/ens/ensv2.ts`** — the off-chain twin: given a settlement chain + merchant seat, it
   reads the live merchant and produces the same `addr` + `click.access0x1.*` text records the
   on-chain resolver computes. Fail-soft: unknown seat / unconfigured chain / RPC error ⇒ `null`,

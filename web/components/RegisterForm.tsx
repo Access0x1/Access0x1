@@ -211,6 +211,9 @@ export function RegisterForm({
         <span className="font-medium text-ink">Business name</span>
         <input
           type="text"
+          id="register-business-name"
+          name="business-name"
+          autoComplete="organization"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Acme Coffee"
@@ -222,6 +225,8 @@ export function RegisterForm({
         <span className="font-medium text-ink">Price (USD)</span>
         <input
           type="number"
+          id="register-price-usd"
+          name="price-usd"
           min="0.01"
           step="0.01"
           value={priceUsd}
@@ -245,6 +250,9 @@ export function RegisterForm({
         </span>
         <input
           type="text"
+          id="register-fee-recipient"
+          name="fee-recipient"
+          autoComplete="off"
           value={feeRecipient}
           onChange={(e) => {
             setFeeRecipient(e.target.value)

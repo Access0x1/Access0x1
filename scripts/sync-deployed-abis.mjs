@@ -49,6 +49,19 @@ const rel = (p) => relative(REPO_ROOT, p);
 const WRITE = process.argv.includes('--write');
 
 /**
+ * PREVIEW types — contracts that are BUILT + tested but NOT deployed anywhere yet.
+ * They are allowed to carry a committed `abis/<Name>.json` (so the contract console
+ * can surface them, flagged "built · not deployed yet") WITHOUT being flagged as an
+ * orphan. Their ABI is DISPLAY-ONLY (the contract is not callable on-chain yet), so
+ * unlike deployed types it is best-effort: `--write` refreshes it from out/ when the
+ * artifact exists, and CHECK mode WARNS (never fails) on drift/missing-artifact — the
+ * strict byte-law is reserved for deployed contracts, whose ABI must be exact for
+ * on-chain encoding. Remove a name here once it deploys (it then becomes a normal
+ * deployed type, byte-enforced). Keep this list tiny and honest.
+ */
+const PREVIEW_TYPES = ['Access0x1PaymentResolver', 'Access0x1SwapReceiptHook'];
+
+/**
  * Every deployed contract type. Primary source is the committed
  * script/mirror-manifest.json (keys "<Name>.impl" / "<Name>.proxy" / a bare
  * "<Name>" for the Receiver), so this works in CI where deployments/ is absent.
@@ -130,15 +143,26 @@ function main() {
       writeFileSync(join(ABIS, `${name}.json`), serialize(artifactAbi(name)));
       wrote++;
     }
-    // Prune orphans — an ABI committed for a contract no longer deployed anywhere.
+    // Preview types (built, not deployed): refresh from out/ when the artifact exists;
+    // leave the committed display-only ABI untouched when it doesn't (e.g. no forge here).
+    let previews = 0;
+    for (const name of PREVIEW_TYPES) {
+      const abi = artifactAbi(name);
+      if (abi) {
+        writeFileSync(join(ABIS, `${name}.json`), serialize(abi));
+        previews++;
+      }
+    }
+    // Prune orphans — an ABI committed for a contract that is neither deployed nor a
+    // declared preview type.
     for (const f of existsSync(ABIS) ? readdirSync(ABIS) : []) {
       if (!f.endsWith('.json')) continue;
       const name = f.slice(0, -'.json'.length);
-      if (!types.includes(name)) {
+      if (!types.includes(name) && !PREVIEW_TYPES.includes(name)) {
         console.warn(`  (orphan) ${rel(join(ABIS, f))} — no longer deployed; remove it manually.`);
       }
     }
-    console.log(`Wrote ${wrote} deployed-contract ABIs to ${rel(ABIS)}/.`);
+    console.log(`Wrote ${wrote} deployed-contract ABIs to ${rel(ABIS)}/` + (previews ? ` (+${previews} preview).` : '.'));
     return;
   }
 
@@ -156,12 +180,26 @@ function main() {
       problems.push(`${name}: ${rel(file)} DRIFTED from the compiled artifact.`);
     }
   }
-  // Orphan ABIs (committed but not deployed) are a soft problem — flag them.
+  // Orphan ABIs (committed but neither deployed nor a declared preview) are flagged.
   for (const f of existsSync(ABIS) ? readdirSync(ABIS) : []) {
     if (!f.endsWith('.json') || f === 'README.md') continue;
     const name = f.slice(0, -'.json'.length);
-    if (!types.includes(name)) {
+    if (!types.includes(name) && !PREVIEW_TYPES.includes(name)) {
       problems.push(`${rel(join(ABIS, f))}: committed ABI for a contract not in any deployment manifest.`);
+    }
+  }
+
+  // Preview types are DISPLAY-ONLY (not deployed): drift / a missing artifact is a
+  // WARNING, never a failure — the strict byte-law is only for deployed contracts.
+  for (const name of PREVIEW_TYPES) {
+    const file = join(ABIS, `${name}.json`);
+    if (!existsSync(file)) {
+      console.warn(`  (preview) ${name}: no committed ABI yet — run --write after a build to surface it.`);
+      continue;
+    }
+    const abi = artifactAbi(name);
+    if (abi && readFileSync(file, 'utf8') !== serialize(abi)) {
+      console.warn(`  (preview) ${rel(file)}: display ABI drifted from the artifact — refresh with --write.`);
     }
   }
 

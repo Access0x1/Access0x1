@@ -31,6 +31,10 @@ interface IAccess0x1PaymentResolver {
     /// @param merchantId The merchant seat it had pointed at.
     event NameUnbound(bytes32 indexed node, uint256 indexed merchantId);
 
+    /// @notice The optional ENS registry used to prove node control at bind time was set or cleared.
+    /// @param registry The new ENS registry address (`address(0)` ⇒ strong check disabled).
+    event EnsRegistrySet(address indexed registry);
+
     // ──────────────────────── errors ────────────────────────
 
     /// @notice A zero address was supplied where a non-zero one is required (e.g. the router).
@@ -44,6 +48,13 @@ interface IAccess0x1PaymentResolver {
     /// @param merchantId The seat whose owner gate rejected the caller.
     /// @param caller     The rejected caller.
     error Access0x1PaymentResolver__NotMerchantOwner(uint256 merchantId, address caller);
+
+    /// @notice The caller does not control the ENS `node` being bound. Raised either by the strong
+    ///         ENS-registry ownership check (when a registry is configured) or by the first-claim
+    ///         fallback that forbids overwriting a node already bound to a seat the caller doesn't own.
+    /// @param node   The ENS namehash whose control gate rejected the caller.
+    /// @param caller The rejected caller.
+    error Access0x1PaymentResolver__NotNodeOwner(bytes32 node, address caller);
 
     /// @notice `resolve` (ENSIP-10) was handed a call whose selector this resolver does not serve.
     /// @param selector The unsupported function selector.

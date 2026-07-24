@@ -40,7 +40,7 @@ import {
  *     highest-value next method.
  *
  * PRESENTATIONAL: it takes the methods + score and renders; it never calls the
- * network. The container (VerificationStack / CheckoutCard) owns the data and
+ * network. The container (VerificationLadder / CheckoutCard) owns the data and
  * the per-method actions. Off the money path by construction.
  */
 export interface VerificationLevelsProps {

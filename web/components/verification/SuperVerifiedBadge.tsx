@@ -16,7 +16,7 @@ import { LEVEL_INFO, TIER_INFO, tierToLevel, type TrustTier } from '@/lib/verifi
  * SuperVerifiedBadge — the visual rung a user has earned, now on shadcn/ui.
  *
  * Kept on its existing legacy {tier, score} API so existing consumers
- * (CheckoutCard, VerificationStack) don't change. Internally it maps the legacy
+ * (CheckoutCard, VerificationLadder) don't change. Internally it maps the legacy
  * TrustTier onto the 5-rung level ladder and renders the shadcn Badge:
  *   - super-verified -> the distinct gold/gradient shimmer `super` Badge.
  *   - verified       -> the green `success` Badge.

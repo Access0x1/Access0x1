@@ -23,7 +23,7 @@ Access0x1 is the umbrella layer everything plugs into — non-custodial payments
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 <!-- The test count is bound to `forge test --list` and CI-ENFORCED: scripts/sync-test-badge.mjs fails CI if this number drifts from the real suite, so it can't go stale silently. The CI badge above is the live green/red "they pass" signal. Update after adding tests: `node scripts/sync-test-badge.mjs --write`. -->
-[![Tests](https://img.shields.io/badge/Tests-2022%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/Tests-2026%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -204,7 +204,7 @@ src/
 └── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (2,022 tests)
+test/                        # unit · attack · invariant (2,026 tests)
 ```
 
 The full first-party surface is **22 production contracts + 2 libraries** (24 `.sol` files in
@@ -279,7 +279,7 @@ git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
 make install           # forge submodules + npm (@chainlink) + web + SDK — one command
 make build             # forge build
-make test              # 2,022 tests, all green
+make test              # 2,026 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
@@ -322,6 +322,88 @@ Arc/Robinhood/0G (`make verify-galileo`), Routescan for Avalanche Fuji.
 ```sh
 make web-dev           # cd web && npm run dev  →  http://localhost:3000
 ```
+
+### Configure API keys — one command tells you what's missing
+
+Every external API is **env-gated and fail-soft**: blank ⇒ that seam is dormant and the app runs
+normally. To see what's on, what's off, and exactly what to fill next:
+
+```sh
+cd web
+npm run env:demo       # only what a live demo needs (+ what's missing)
+npm run env:doctor     # everything, grouped by impact
+npm run env:set        # add a key, interactively, without it touching your screen
+```
+
+The doctor reads `web/.env.local` and reports each integration as **configured / partial / off**,
+naming the exact variables still missing and **where to get** each credential. `partial` is the one
+to watch — half-set config that silently stays OFF. It prints **variable names and set/unset booleans
+only, never a value**, so its output is safe to paste into an issue or a chat.
+
+`env:set` is the intake path. It prompts for each variable an integration needs and writes
+`web/.env.local` (gitignored, mode `0600`, atomic). **Secret input is read with echo off**, so a key
+never renders on screen, and it is never printed back or logged. Use it instead of pasting
+credentials into an editor, a chat, or a terminal that keeps history.
+
+`GET /api/integrations` exposes the same state as JSON for a dashboard — names and booleans only, a
+value can never enter the payload.
+
+**Adding a new API is one entry**, not a code hunt: append it to
+[`web/lib/config/integrations.ts`](web/lib/config/integrations.ts) — id, label, what it unlocks, its
+variables (`required` / `secret`), and where the key comes from. The doctor, the intake prompt, the
+status route, the readiness count, and the operator docs all derive from that single declaration.
+
+#### Deploying: one sealed file instead of N console pastes
+
+Pasting 20+ credentials into a hosting provider's UI is slow and easy to get wrong. Seal them once:
+
+```sh
+npm run env:seal     # .env.local  -> .env.sealed  (AES-256-GCM, scrypt N=2^17)
+npm run env:check    # verify it opens; writes nothing, prints names only
+npm run env:open     # .env.sealed -> .env.local   (at deploy time)
+```
+
+At deploy: `ACCESS0X1_ENV_PASSPHRASE=… npm run env:open && npm start`.
+
+**What this does and does not do.** It turns **N secrets into 1** — the sealed file rides along with
+the deploy and only the passphrase is supplied out of band. It does **not** remove the last secret;
+the passphrase still has to reach the process somehow. Anything claiming otherwise has moved the
+secret, not deleted it.
+
+Because of that, three rules are not optional:
+
+- **Never commit `.env.sealed` to a public repo.** Encrypted-at-rest is not encrypted against someone
+  who has your file and time — it's an offline target with no rate limit and nothing to alert on.
+  (`.env.*` is gitignored, and both scripts refuse to run if that ever stops being true.)
+- **Use a generated passphrase**, never a memorable one — `openssl rand -base64 32`. Sealing rejects
+  anything under 16 characters. There is no recovery if you lose it.
+- **It is not a substitute for a managed store.** No rotation, no revocation, no audit log. For
+  testnet keys that tradeoff is fine; for anything guarding real money, that audit trail is the point
+  — use AWS Secrets Manager / 1Password / Doppler and let it write the env.
+
+A real environment variable always beats a sealed value, so a deploy can override or rotate one key
+without re-sealing everything. Tampering fails loudly (GCM authentication), and a wrong passphrase
+and a modified file produce the *same* error — telling them apart would leak which half was right.
+
+#### It can't go stale
+
+That table is hand-written because meaning can't be scraped from code — no scanner knows what a key
+unlocks or which console issues it. Its **coverage** is enforced, though:
+[`registry-coverage.test.ts`](web/lib/config/__tests__/registry-coverage.test.ts) closes all three
+places a variable can drift, and fails CI on each:
+
+| Drift | What the test does |
+| --- | --- |
+| Code reads a credential nobody declared | Scans every `process.env` read; fails if a credential-shaped name is undeclared |
+| Registry names a variable the code doesn't read | Fails on declared-but-unused (a typo, or a removed feature) |
+| `.env.example` missing a declared variable | Fails if an operator copying the example would never see the key |
+
+Plus a scan that fails if `.env.example` ever ships a real-looking secret next to a `*_KEY` name.
+
+When first written this caught **15 undeclared credentials** (`WORLD_SIGNING_KEY`, `UNLINK_API_KEY`,
+`OFFRAMP_SERVER_KEY`, …), two registry entries naming RPC variables that **don't exist anywhere in
+the code**, and — immediately after — the new `ACCESS0X1_ENV_PASSPHRASE` the sealed keystore had just
+introduced. The list can't silently go stale again.
 
 ### Build on it — no contracts to write
 
@@ -796,7 +878,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **2,022 green** (Foundry) — unit · attack · invariant — plus 1,669 web/SDK unit tests |
+| Tests | **2,026 green** (Foundry) — unit · attack · invariant — plus 1,792 web/SDK unit tests |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
@@ -840,7 +922,7 @@ no-op, never a blocked payment). The detail for each — file paths and exact be
 | **World ID** | One-tap proof-of-personhood gate before pay | Verified-human checkout that sits **in front of** settlement — a misconfigured gate degrades, never blocks |
 | **OIDC (e.g. Sign in with Google)** | Server-side ID-token verification via `jose` | "Verify for all" — any app from this template inherits an `oidc` method by setting one env var; blank ⇒ OFF |
 | **ENS** | Name → payout-address resolution, ENSIP-19 verified identity, Namestone gasless subnames, **ENSv2 Payment Resolver (built + unit-tested)** | **The front door of the flow: a business grabs an ENS name + subname first, and Access0x1 becomes its resolver** — so `pay.<business>.eth` resolves to live, USD-priced payout state, not a static row (the off-chain gateway serves this today; the on-chain resolver contract is not yet deployed). Identity shown only on forward==reverse, off the money path |
-| **Walrus** | Content-addressed publishing of the checkout page + receipts (Sui) | An un-takedownable checkout — no single origin to pin or take down |
+| **Walrus** | Content-addressed publishing of the checkout page + receipts (Sui) | **Seam — env-gated/manual:** running the publish step (`web/scripts/publish-checkout.mts` + a Sui testnet account) yields an un-takedownable checkout with no single origin to pin; **off ⇒ the app serves normally from its origin** (see `docs/OPTIONAL-SEAMS.md`, AUDIT.md §4) |
 
 ---
 
@@ -936,10 +1018,12 @@ integration let us *not* build, not a marketing wall.
     for mainnet-name → L2-router resolution. Env-gated (`NEXT_PUBLIC_ENSV2_*`) + fail-soft: blank ⇒
     the ENSv1/Namestone path above. The signed EIP-3668 wrapper is the declared next rung (honest
     scope). Full write-up: [`docs/ENSV2-PAYMENT-RESOLVER.md`](docs/ENSV2-PAYMENT-RESOLVER.md).
-- **Walrus — an un-takedownable checkout.** [`web/lib/walrus.ts`](web/lib/walrus.ts) publishes the
-  checkout page and receipt blobs to Walrus (Sui decentralized storage). Because a blob is
-  content-addressed and served by any aggregator on the network, the checkout isn't pinned to one
-  origin — there is no single host to take down.
+- **Walrus — an un-takedownable checkout (seam, env-gated/manual).** [`web/lib/walrus.ts`](web/lib/walrus.ts)
+  **can publish** the checkout page and receipt blobs to Walrus (Sui decentralized storage) **when an
+  operator runs the publish step** (`web/scripts/publish-checkout.mts` + a Sui testnet account). Once
+  published, a blob is content-addressed and served by any aggregator, so the checkout isn't pinned to
+  one origin — no single host to take down. **Off (the default) ⇒ the app serves normally from its
+  origin** (see [`docs/OPTIONAL-SEAMS.md`](docs/OPTIONAL-SEAMS.md); classified as a seam in AUDIT.md §4).
 
 > Honest scope: this is a testnet build. Partner addresses and endpoints carry a "confirm from official docs"
 > note and are read from env, never hardcoded ([law #4](#security-posture)) — see
