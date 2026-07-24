@@ -40,7 +40,7 @@ export function VerificationLevelsPanel({
     return (
       <div className="flex flex-col items-start gap-4">
         <p className="text-sm text-muted-foreground">
-          Connect your wallet to see your verification level.
+          Sign in to see your verification level.
         </p>
       </div>
     )

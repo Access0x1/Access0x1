@@ -66,8 +66,10 @@ test.describe('merchant onboarding', () => {
     await expect(page.getByText(/sign in to set your name, description, and logo/i)).toBeVisible()
     await expect(page.getByPlaceholder("e.g. Joe's Barbershop")).toHaveCount(0)
 
-    // A Connect wallet affordance is offered (the only way forward).
-    await expect(page.getByRole('button', { name: /connect wallet/i }).first()).toBeVisible()
+    // A sign-in affordance is offered (the only way forward). It is deliberately
+    // NOT labelled "Connect wallet": this door is Dynamic's universal auth flow,
+    // and a merchant arriving with no wallet gets one minted from email/Google.
+    await expect(page.getByRole('button', { name: /sign in/i }).first()).toBeVisible()
     // Sanity: the fixture account is the deterministic dummy, never a real key.
     expect(TEST_ACCOUNT).toMatch(/^0x1{40}$/)
   })

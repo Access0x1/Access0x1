@@ -38,7 +38,7 @@ describe('deriveJourney — strict order, honest locks', () => {
       'locked',
       'locked',
     ])
-    expect(steps[1].lockedReason).toContain('Connect your wallet')
+    expect(steps[1].lockedReason).toContain('Sign in')
   })
 
   it('unlocks exactly one next step as each fact lands', () => {

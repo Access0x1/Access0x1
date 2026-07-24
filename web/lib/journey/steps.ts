@@ -30,8 +30,13 @@ export type JourneyStepKey = (typeof JOURNEY_ORDER)[number]
 /** Static copy for each step (title + what it really does on-chain). */
 export const JOURNEY_STEPS: Record<JourneyStepKey, { title: string; blurb: string }> = {
   connect: {
-    title: 'Connect your wallet',
-    blurb: 'The wallet IS the business identity — every step below is signed by it.',
+    // "Sign in", never "Connect your wallet": the door is Dynamic's universal
+    // auth flow, so email or Google mints an embedded wallet for a merchant who
+    // has never held one. Wallet-required wording turns that merchant away at
+    // the first step (see ConnectButton).
+    title: 'Sign in',
+    blurb:
+      'Email, Google, or a wallet — either way you end up holding one, and that wallet IS the business identity: every step below is signed by it.',
   },
   register: {
     title: 'Register your business',

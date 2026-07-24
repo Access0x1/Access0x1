@@ -136,7 +136,7 @@ export function JourneyView(): ReactNode {
             onClick={() => setShowAuthFlow(true)}
             className="rounded-lg bg-rail px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
           >
-            Connect wallet
+            Sign in
           </button>
         )
       case 'register':

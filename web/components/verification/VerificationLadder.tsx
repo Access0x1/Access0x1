@@ -90,7 +90,7 @@ export function VerificationLadder(): ReactNode {
       <div className="flex flex-col items-start gap-4">
         <LadderChips rung={0} connected={false} />
         <p className="text-sm text-muted-foreground">
-          Connect your wallet to start climbing — three rungs, one step at a time.
+          Sign in to start climbing — three rungs, one step at a time.
         </p>
         <ConnectButton />
       </div>

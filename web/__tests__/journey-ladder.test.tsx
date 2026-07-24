@@ -38,7 +38,7 @@ describe('JourneyLadder — the ordering law, rendered', () => {
     const html = render(facts())
     expect(html).toContain('data-journey-step="connect" data-journey-status="ready"')
     expect(html).toContain('data-journey-step="register" data-journey-status="locked"')
-    expect(html).toContain('Connect your wallet')
+    expect(html).toContain('Sign in')
     expect(html).toContain('the journey runs in order')
     expect(html).toContain('data-journey-progress="0"')
   })

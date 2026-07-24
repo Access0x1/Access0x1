@@ -315,7 +315,7 @@ export function RegisterForm({
           onClick={() => setShowAuthFlow(true)}
           className="rounded-lg bg-rail px-4 py-2.5 font-medium text-white transition-opacity hover:opacity-90"
         >
-          Connect wallet to continue
+          Sign in to continue
         </button>
       )}
     </form>

@@ -149,8 +149,9 @@ export function OnboardMerchant({
             Sign in to build your checkout
           </h2>
           <p className="max-w-sm text-sm text-muted-foreground">
-            Connect your wallet and you’ll set your business name, a one-line description, and a logo
-            — then get a branded checkout link that accepts USDC. It takes under two minutes.
+            Sign in with email, Google, or a wallet and you’ll set your business name, a one-line
+            description, and a logo — then get a branded checkout link that accepts USDC. It takes
+            under two minutes.
           </p>
           <ConnectButton />
         </SectionCard>
