@@ -335,7 +335,11 @@ contract Access0x1Router is
         address feeRecipient,
         uint16 feeBps,
         bool active
-    ) external {
+    ) external nonReentrant {
+        // `nonReentrant` is defense-in-depth against hook-token reentrancy: a merchant config can never
+        // be mutated WHILE a `payToken`/`payNative`/`claimRescue` settlement holds the shared guard, so
+        // the payout can't be repointed mid-settlement even before the pay paths' own snapshotting. The
+        // snapshot (in `payToken`/`payNative`) is the primary fix; this closes the window at the source.
         Merchant storage m = merchants[id];
         if (m.owner == address(0)) revert Access0x1__MerchantNotFound(id);
         if (msg.sender != m.owner) revert Access0x1__NotMerchantOwner(id, msg.sender);
@@ -360,7 +364,7 @@ contract Access0x1Router is
     ///         compromised-but-recoverable merchant a path to migrate to a fresh key under owner intent.
     /// @param id       The merchant whose ownership is being transferred (must exist; only its owner may call).
     /// @param newOwner The address proposed as the next owner (`address(0)` cancels a pending proposal).
-    function proposeMerchantOwner(uint256 id, address newOwner) external {
+    function proposeMerchantOwner(uint256 id, address newOwner) external nonReentrant {
         Merchant storage m = merchants[id];
         if (m.owner == address(0)) revert Access0x1__MerchantNotFound(id);
         if (msg.sender != m.owner) revert Access0x1__NotMerchantOwner(id, msg.sender);
@@ -375,7 +379,7 @@ contract Access0x1Router is
     ///         over the merchant (payout/listing/subscription/booking control). A never-proposed merchant
     ///         has a zero pending owner, so this can never be called against it (the zero-caller guard).
     /// @param id The merchant to take ownership of.
-    function acceptMerchantOwner(uint256 id) external {
+    function acceptMerchantOwner(uint256 id) external nonReentrant {
         address pending = pendingMerchantOwner[id];
         // A zero pending owner (never proposed, or already accepted/cancelled) is unclaimable: reject
         // any caller, including address(0), so an unset proposal can never transfer control.
@@ -594,22 +598,28 @@ contract Access0x1Router is
     ///      `merchantFeeDest` (the merchant's `feeRecipient`, or its `payout` if unset). Each leg
     ///      floors, so `net = gross - platformFee - merchantFee` and `net + platformFee +
     ///      merchantFee == gross` holds exactly (the event records `platformFee + merchantFee`).
-    /// @dev `m` is a STORAGE pointer (not a memory copy): the pay paths only ever touch `payout`,
-    ///      `owner`, `feeRecipient`, `feeBps`, `active` — slots 0..3 of the record — and never
-    ///      `nameHash` (slot 4), so reading the live fields straight from storage skips the one cold
-    ///      SLOAD a `Merchant memory` copy would spend loading the unused `nameHash` word. Identical
-    ///      values, identical splits — only the unused brand slot is no longer loaded.
+    /// @dev Takes the merchant's routing fields BY VALUE, not a `Merchant storage` pointer, so the
+    ///      caller MUST snapshot `payout`/`feeRecipient`/`feeBps` into memory BEFORE any external call
+    ///      (the token pull) and pass those snapshots here. This closes a TOCTOU: the pay-in pull is a
+    ///      call into an allowlisted-but-untrusted token; a hook-bearing token could reenter
+    ///      {updateMerchant} and repoint `payout`/`feeRecipient` mid-tx. Reading these live from
+    ///      storage AFTER the pull (the old storage-pointer form did) would let the split + the net
+    ///      push honor the attacker's repointed address; taking them by value pins them to the values
+    ///      validated at entry. Purely arithmetic — no storage reads, so it cannot be tricked.
+    /// @param gross        The gross pay-in amount.
+    /// @param mBps         The merchant surcharge bps, snapshotted before the pull.
+    /// @param feeRecipient The merchant fee recipient, snapshotted before the pull (0 ⇒ falls to payout).
+    /// @param payout       The merchant payout, snapshotted before the pull.
     /// @return platformFee     The platform's cut → `platformTreasury`.
     /// @return merchantFee     The merchant's surcharge → `merchantFeeDest`.
     /// @return net             What the merchant nets → `payout`.
     /// @return merchantFeeDest Where the merchant surcharge lands.
-    function _splitFee(Merchant storage m, uint256 gross)
+    function _splitFee(uint256 gross, uint256 mBps, address feeRecipient, address payout)
         private
         view
         returns (uint256 platformFee, uint256 merchantFee, uint256 net, address merchantFeeDest)
     {
         uint256 pBps = platformFeeBps;
-        uint256 mBps = m.feeBps;
         // Hard buyer-protection cap: even if a later platform-fee change pushed the sum past
         // MAX_FEE_BPS, the buyer is never charged more than the cap — squeeze the MERCHANT surcharge,
         // never the buyer and never the platform cut. Makes "effective fee ≤ MAX_FEE_BPS" hold
@@ -618,10 +628,7 @@ contract Access0x1Router is
         platformFee = Math.mulDiv(gross, pBps, FEE_DENOMINATOR);
         merchantFee = Math.mulDiv(gross, mBps, FEE_DENOMINATOR);
         net = gross - platformFee - merchantFee;
-        // Cache the slot once: `feeRecipient` is otherwise read twice in the fallback ternary. Same
-        // value either way — 0 ⇒ fall back to `payout`.
-        address feeRecipient = m.feeRecipient;
-        merchantFeeDest = feeRecipient == address(0) ? m.payout : feeRecipient;
+        merchantFeeDest = feeRecipient == address(0) ? payout : feeRecipient;
     }
 
     /// @dev Push native value, or credit the pull-map on failure. A settled receipt must never be
@@ -678,8 +685,14 @@ contract Access0x1Router is
         uint256 gross = quote(merchantId, NATIVE, usdAmount8); // reads the feed IN-TX
         if (msg.value < gross) revert Access0x1__Underpaid(gross, msg.value);
 
+        // Snapshot routing fields into memory before any push (parity with `payToken`): the split and
+        // the net push both use the values read here, never a re-read that a reentrant {updateMerchant}
+        // could have moved. `payNative` pulls no token, so the exposure is smaller, but pinning keeps
+        // both pay paths identical and robust.
+        address payout = m.payout;
+
         (uint256 platformFee, uint256 merchantFee, uint256 net, address merchantFeeDest) =
-            _splitFee(m, gross);
+            _splitFee(gross, m.feeBps, m.feeRecipient, payout);
         emit PaymentReceived(
             merchantId,
             msg.sender,
@@ -692,7 +705,7 @@ contract Access0x1Router is
             0
         );
 
-        _pushNativeOrQueue(m.payout, net);
+        _pushNativeOrQueue(payout, net);
         _pushNativeOrQueue(platformTreasury, platformFee);
         _pushNativeOrQueue(merchantFeeDest, merchantFee);
 
@@ -728,10 +741,21 @@ contract Access0x1Router is
         if (token == NATIVE) revert Access0x1__TokenNotAllowed(token); // native goes through payNative
 
         uint256 gross = quote(merchantId, token, usdAmount8); // allowlist + feed + staleness, IN-TX
+
+        // Snapshot the settlement-routing fields BEFORE the external token pull. The pull is a call
+        // into an allowlisted-but-untrusted token; a hook-bearing token can reenter {updateMerchant}
+        // (owner-gated, no reentrancy of its own) and repoint `payout`/`feeRecipient` mid-tx. Pinning
+        // them to locals here means the split + the net push honor the values validated at entry, not
+        // a post-pull re-read — closing the TOCTOU at the router, which also protects every composing
+        // conduit (SplitSettler/Receivables) that trusts the net to return to it.
+        address payout = m.payout;
+        address feeRecipient = m.feeRecipient;
+        uint256 feeBps = m.feeBps;
+
         _pullExact(token, msg.sender, gross); // pull + reject fee-on-transfer via the balance delta
 
         (uint256 platformFee, uint256 merchantFee, uint256 net, address merchantFeeDest) =
-            _splitFee(m, gross);
+            _splitFee(gross, feeBps, feeRecipient, payout);
         emit PaymentReceived(
             merchantId,
             msg.sender,
@@ -744,7 +768,7 @@ contract Access0x1Router is
             0
         );
 
-        _settleNet(merchantId, token, m.payout, net);
+        _settleNet(merchantId, token, payout, net);
         if (platformFee > 0) IERC20(token).safeTransfer(platformTreasury, platformFee);
         if (merchantFee > 0) IERC20(token).safeTransfer(merchantFeeDest, merchantFee);
     }
