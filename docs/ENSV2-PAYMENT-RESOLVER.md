@@ -57,10 +57,13 @@ Contrast with the existing (still-supported) ENS seams in this repo:
 - **`src/ens/Access0x1PaymentResolver.sol`** — a custom ENS resolver implementing the standard
   resolution profile (`addr(bytes32)`, `addr(bytes32,uint256)` ENSIP-9/11, `text(bytes32,string)`,
   `resolve(bytes,bytes)` ENSIP-10 wildcard). Every read is a live `router.merchants(id)` lookup.
-  A name is bound to a seat with `bindName(node, merchantId)`, authorized **live** against
-  `router.merchants(id).owner` — the same consent gate `Access0x1SponsorRegistry` uses, so a name
-  can never be bound to a seat its caller does not own. View-only, zero custody, UUPS (the
-  `ChainRegistry` template). Tests: `test/unit/Access0x1PaymentResolver.t.sol`.
+  A name is bound to a seat with `bindName(node, merchantId)` behind **two** gates: the caller must
+  be the seat's live `router.merchants(id).owner` (the same consent gate `Access0x1SponsorRegistry`
+  uses, so a name can never point at a seat its caller does not own), AND the caller must control the
+  ENS `node` — enforced by an optional, owner-set `ensRegistry` (`registry.owner(node) == msg.sender`,
+  the trust-minimized guarantee) with a first-claim + no-overwrite fallback when no registry is
+  configured (so a live binding can never be hijacked out from under its owner). View-only, zero
+  custody, UUPS (the `ChainRegistry` template). Tests: `test/unit/Access0x1PaymentResolver.t.sol`.
 - **`web/lib/ens/ensv2.ts`** — the off-chain twin: given a settlement chain + merchant seat, it
   reads the live merchant and produces the same `addr` + `click.access0x1.*` text records the
   on-chain resolver computes. Fail-soft: unknown seat / unconfigured chain / RPC error ⇒ `null`,
