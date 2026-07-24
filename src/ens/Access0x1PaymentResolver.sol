@@ -234,10 +234,8 @@ contract Access0x1PaymentResolver is
     /// @param interfaceId The interface id to test.
     /// @return supported Whether it is supported.
     function supportsInterface(bytes4 interfaceId) external pure returns (bool supported) {
-        return interfaceId == type(IERC165).interfaceId
-            || interfaceId == _INTERFACE_ID_ADDR
-            || interfaceId == _INTERFACE_ID_ADDR_COIN
-            || interfaceId == _INTERFACE_ID_TEXT
+        return interfaceId == type(IERC165).interfaceId || interfaceId == _INTERFACE_ID_ADDR
+            || interfaceId == _INTERFACE_ID_ADDR_COIN || interfaceId == _INTERFACE_ID_TEXT
             || interfaceId == _INTERFACE_ID_EXTENDED;
     }
 

@@ -58,7 +58,9 @@ contract Access0x1PaymentResolverTest is Test, ProxyDeployer {
         router = Access0x1Router(
             deployProxy(
                 address(new Access0x1Router()),
-                abi.encodeCall(Access0x1Router.initialize, (routerOwner, treasury, PLATFORM_FEE_BPS))
+                abi.encodeCall(
+                    Access0x1Router.initialize, (routerOwner, treasury, PLATFORM_FEE_BPS)
+                )
             )
         );
 
@@ -212,7 +214,8 @@ contract Access0x1PaymentResolverTest is Test, ProxyDeployer {
         bytes memory data = abi.encodeWithSelector(bogus, NODE);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccess0x1PaymentResolver.Access0x1PaymentResolver__UnsupportedProfile.selector, bogus
+                IAccess0x1PaymentResolver.Access0x1PaymentResolver__UnsupportedProfile.selector,
+                bogus
             )
         );
         resolver.resolve(hex"00", data);
@@ -249,7 +252,8 @@ contract Access0x1PaymentResolverTest is Test, ProxyDeployer {
         // An unbound node maps to seat 0, which the router never assigns ⇒ MerchantUnknown(0).
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccess0x1PaymentResolver.Access0x1PaymentResolver__MerchantUnknown.selector, uint256(0)
+                IAccess0x1PaymentResolver.Access0x1PaymentResolver__MerchantUnknown.selector,
+                uint256(0)
             )
         );
         vm.prank(merchantOwner);
