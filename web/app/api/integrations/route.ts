@@ -42,6 +42,14 @@ export async function GET(): Promise<NextResponse> {
     /** At-a-glance readiness for the surfaces going live depends on. */
     liveReadiness: { ready: core.filter((s) => s.ready).length, total: core.length },
     /**
+     * Vars holding unreplaced scaffolding, per integration. Surfaced because a
+     * placeholder is the one state that reads as configured to a human skimming
+     * a dashboard while being guaranteed to fail at call time.
+     */
+    placeholders: statuses
+      .filter((s) => s.placeholders.length > 0)
+      .map((s) => ({ id: s.id, vars: s.placeholders })),
+    /**
      * `partial` is surfaced separately because it is the dangerous state: half
      * configured reads as "on" at a glance while the call silently fails.
      */

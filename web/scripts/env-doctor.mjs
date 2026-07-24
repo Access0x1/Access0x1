@@ -138,7 +138,12 @@ async function main() {
     const core = list.filter((r) => r.integration.impact === 'core')
     const ready = core.filter((r) => r.status.ready).length
     console.log(`Live readiness: ${ready}/${core.length} integrations configured.`)
-    console.log(`Fill values in web/.env.local (gitignored). Never commit a key.\n`)
+    // Name BOTH files: deploy vars go in the repo-root .env (Foundry/Make read
+    // only that one), so a blanket "put it in web/.env.local" would send an
+    // operator to a file their deploy never reads.
+    console.log('Fill values with:  npm run env:set -- <id>   (it writes the right file)')
+    console.log('  app keys    -> web/.env.local     deploy keys -> .env      (both gitignored)')
+    console.log('Never commit a key.\n')
   }
 
   if (STRICT) {

@@ -64,4 +64,20 @@ describe('GET /api/integrations', () => {
     expect(body.liveReadiness.total).toBeGreaterThan(0)
     expect(body.liveReadiness.ready).toBeLessThanOrEqual(body.liveReadiness.total)
   })
+
+  it('surfaces placeholder vars by name — the state that lies to a dashboard', async () => {
+    vi.stubEnv('CLAUDE_API_KEY', '⟨PASTE your key⟩')
+    const body = await (await get()).json()
+    const hit = body.placeholders.find((p: { id: string }) => p.id === 'anthropic')
+    expect(hit?.vars).toContain('CLAUDE_API_KEY')
+    // Still never the value itself.
+    expect(JSON.stringify(body)).not.toContain('PASTE your key')
+  })
+
+  it('reports no placeholders when nothing is scaffolded', async () => {
+    vi.stubEnv('CLAUDE_API_KEY', 'sk-ant-a-real-looking-value')
+    const body = await (await get()).json()
+    const hit = body.placeholders.find((p: { id: string }) => p.id === 'anthropic')
+    expect(hit).toBeUndefined()
+  })
 })
