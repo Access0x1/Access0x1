@@ -340,6 +340,11 @@ naming the exact variables still missing and **where to get** each credential. `
 to watch — half-set config that silently stays OFF. It prints **variable names and set/unset booleans
 only, never a value**, so its output is safe to paste into an issue or a chat.
 
+It also flags **unreplaced scaffolding** (`⟨PASTE …⟩`, `<your-key>`, `TODO`) as ⛔ rather than
+counting it as configured. A `.env.local` straight off the scaffold is *present but not real*, and a
+green check over a call that will 401 is the worst possible answer — that failure surfaces on stage,
+not at setup time.
+
 `env:set` is the intake path. It prompts for each variable an integration needs and writes
 `web/.env.local` (gitignored, mode `0600`, atomic). **Secret input is read with echo off**, so a key
 never renders on screen, and it is never printed back or logged. Use it instead of pasting
@@ -878,7 +883,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **2,026 green** (Foundry) — unit · attack · invariant — plus 1,792 web/SDK unit tests |
+| Tests | **2,026 green** (Foundry) — unit · attack · invariant — plus 1,797 web/SDK unit tests |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |

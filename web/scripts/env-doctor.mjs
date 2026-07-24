@@ -104,6 +104,11 @@ async function main() {
       console.log(`${ICON[status.state]} ${integration.label}`)
       if (status.state !== 'configured') {
         console.log(`     ${integration.unlocks}`)
+        if (status.placeholders?.length) {
+          // The nastiest state: the file LOOKS filled in, so nobody revisits it
+          // until a live call 401s. Say it before anything else.
+          console.log(`     ⛔ STILL A PLACEHOLDER (not a real value): ${status.placeholders.join(', ')}`)
+        }
         if (status.missingRequired.length) {
           console.log(`     MISSING: ${status.missingRequired.join(', ')}`)
         }

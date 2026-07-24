@@ -9,6 +9,7 @@ import {
   allKnownVarNames,
   allStatuses,
   getIntegration,
+  isPlaceholder,
   isSet,
   secretVarNames,
   statusOf,
@@ -57,6 +58,54 @@ describe('isSet', () => {
     expect(isSet('')).toBe(false)
     expect(isSet('   ')).toBe(false)
     expect(isSet(undefined)).toBe(false)
+  })
+
+  it('treats unreplaced SCAFFOLDING as unset, not configured', () => {
+    // The bug this fixes: a .env.local full of paste-me markers reported every
+    // integration as ✅ CONFIGURED — a green check over a call that will 401.
+    expect(isSet('⟨PASTE 1inch key⟩')).toBe(false)
+    expect(isSet('<your-api-key>')).toBe(false)
+    expect(isSet('YOUR_KEY_HERE')).toBe(false)
+    expect(isSet('TODO')).toBe(false)
+    expect(isSet('changeme')).toBe(false)
+    expect(isSet('xxxxxx')).toBe(false)
+    expect(isSet('sk-ant-...')).toBe(false)
+  })
+
+  it('does NOT false-positive on real, high-entropy values', () => {
+    expect(isSet('sk-ant-api03-9fJk2LmQ8xZ')).toBe(true)
+    expect(isSet('https://api.1inch.dev/swap/v6.0/1')).toBe(true)
+    expect(isSet('0xC0ffee254729296a45a3885639AC7E10F9d54979')).toBe(true)
+    expect(isSet('25')).toBe(true)
+  })
+})
+
+describe('isPlaceholder', () => {
+  it('identifies scaffolding, and only scaffolding', () => {
+    expect(isPlaceholder('⟨PASTE⟩')).toBe(true)
+    expect(isPlaceholder('')).toBe(false)
+    expect(isPlaceholder(undefined)).toBe(false)
+    expect(isPlaceholder('a-real-looking-token-value')).toBe(false)
+  })
+})
+
+describe('a placeholder-filled config is PARTIAL, never configured', () => {
+  const uniswap = getIntegration('uniswap')!
+
+  it('reports the placeholder by name instead of a green check', () => {
+    const s = statusOf(
+      uniswap,
+      env({ UNISWAP_TRADING_API_URL: '⟨PASTE URL⟩', UNISWAP_TRADING_API_KEY: '⟨PASTE KEY⟩' }),
+    )
+    expect(s.ready).toBe(false)
+    expect(s.state).toBe('partial')
+    expect(s.placeholders).toEqual(['UNISWAP_TRADING_API_URL', 'UNISWAP_TRADING_API_KEY'])
+    expect(s.missingRequired).toContain('UNISWAP_TRADING_API_URL')
+  })
+
+  it('is PARTIAL not OFF — "off" would hide that someone meant to fill it', () => {
+    expect(statusOf(uniswap, env({ UNISWAP_TRADING_API_URL: 'TODO' })).state).toBe('partial')
+    expect(statusOf(uniswap, env({})).state).toBe('off')
   })
 })
 

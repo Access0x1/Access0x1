@@ -282,9 +282,48 @@ export const INTEGRATIONS: readonly Integration[] = [
 /** Reading env without depending on a runtime — the doctor passes a parsed file. */
 export type EnvLookup = (name: string) => string | undefined
 
-/** Whether a value counts as SET (non-empty after trim). */
+/**
+ * Scaffold markers — a value that is present but is obviously the placeholder
+ * someone was meant to replace.
+ *
+ * WHY THIS EXISTS: `isSet` originally meant "non-empty", so a `.env.local` full
+ * of `⟨PASTE YOUR KEY⟩` scaffolding reported every integration as ✅ CONFIGURED.
+ * That is precisely the overclaim this repo forbids — a green check over a call
+ * that will 401 at the worst possible moment. Real credentials are
+ * high-entropy; they do not contain the word "paste".
+ *
+ * Deliberately tight, to avoid false positives on real values: only unmistakable
+ * scaffold text, or a value wrapped in angle/bracket placeholder delimiters.
+ */
+const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
+  /\bpaste\b/i,
+  /\byour[_\s-]/i,
+  /\bTODO\b/i,
+  /\bchange[_\s-]?me\b/i,
+  /\breplace[_\s-]?(me|this)\b/i,
+  /^[<⟨[{].*[>⟩\]}]$/,
+  /^x{4,}$/i,
+  /\.\.\./,
+]
+
+/** True when a value is present but is clearly unreplaced scaffolding. */
+export function isPlaceholder(value: string | undefined): boolean {
+  if (typeof value !== 'string') return false
+  const v = value.trim()
+  if (!v) return false
+  return PLACEHOLDER_PATTERNS.some((re) => re.test(v))
+}
+
+/**
+ * Whether a value counts as SET: non-empty AND not obvious scaffolding.
+ *
+ * A placeholder is treated as UNSET on purpose. Reporting it as configured is
+ * worse than reporting it missing — "missing" sends you to fill it in, while a
+ * false green sends you on stage.
+ */
 export function isSet(value: string | undefined): boolean {
-  return typeof value === 'string' && value.trim().length > 0
+  if (typeof value !== 'string' || value.trim().length === 0) return false
+  return !isPlaceholder(value)
 }
 
 /** Per-integration status: on, off, or partially configured (the dangerous middle). */
@@ -300,7 +339,13 @@ export interface IntegrationStatus {
   readonly missingRequired: string[]
   /** Optional vars not set (informational only). */
   readonly missingOptional: string[]
-  /** True when every REQUIRED var is set. */
+  /**
+   * Vars holding unreplaced scaffolding (`⟨PASTE …⟩`). Called out separately
+   * from "missing" because the failure feels different: the file LOOKS filled
+   * in, so nobody goes back to it until a call 401s.
+   */
+  readonly placeholders: string[]
+  /** True when every REQUIRED var is set (and none is a placeholder). */
   readonly ready: boolean
 }
 
@@ -318,10 +363,14 @@ export function statusOf(integration: Integration, env: EnvLookup): IntegrationS
   const missingRequired = required.filter((v) => !isSet(env(v.name))).map((v) => v.name)
   const missingOptional = optional.filter((v) => !isSet(env(v.name))).map((v) => v.name)
 
+  const placeholders = integration.vars.filter((v) => isPlaceholder(env(v.name))).map((v) => v.name)
+
   const anySet = integration.vars.some((v) => isSet(env(v.name)))
   const ready = missingRequired.length === 0 && (required.length > 0 || anySet)
 
-  const state: IntegrationState = ready ? 'configured' : anySet ? 'partial' : 'off'
+  // A file full of scaffolding is `partial`, never `off` — "off" reads as
+  // "nothing here yet", which would hide the fact that someone meant to fill it.
+  const state: IntegrationState = ready ? 'configured' : anySet || placeholders.length ? 'partial' : 'off'
   return {
     id: integration.id,
     label: integration.label,
@@ -329,6 +378,7 @@ export function statusOf(integration: Integration, env: EnvLookup): IntegrationS
     state,
     missingRequired,
     missingOptional,
+    placeholders,
     ready,
   }
 }
