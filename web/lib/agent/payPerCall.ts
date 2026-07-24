@@ -104,6 +104,8 @@ export function setBaseFetchForTests(impl: FetchLike | null): void {
  * @throws {BudgetExceeded} if the meter rejects the charge (no network call made).
  * @throws {PaymentRequiredUnresolved} if the endpoint keeps returning 402 (budget refunded).
  * @throws {UpstreamError} on a non-ok, non-402 response (budget NOT refunded).
+ * @throws {ConfigMissing} if the agent wallet env vars are unset (budget refunded — an
+ *   unconfigured deployment settles nothing, so it must cost nothing).
  */
 export async function agentPay(args: {
   url: string;
@@ -118,14 +120,23 @@ export async function agentPay(args: {
   const reservation = await reserveDailySpend(maxValueUsd);
 
   // 2. INTERACTION — pay-and-fetch via the x402 wrapper.
-  const account = await buildAgentX402Account();
-  const paidFetch = wrapFetchWithPayment(baseFetch, account);
-
+  //
+  // Account construction is INSIDE the refund guard, not before it. It authenticates
+  // against Dynamic and reads server env, so it can throw for reasons that settle
+  // nothing: `ConfigMissing` when the wallet vars are unset, or a plain network error
+  // when Dynamic is down. Both used to escape between the reserve and the try, leaving
+  // the reservation charged against a call that never touched the wire — a caller
+  // hitting an unconfigured or degraded deployment in a loop would burn the whole
+  // daily cap without a single payment. Law #5 is symmetric: nothing settled, nothing
+  // spent.
   let res: Response;
   try {
+    const account = await buildAgentX402Account();
+    const paidFetch = wrapFetchWithPayment(baseFetch, account);
     res = await paidFetch(url, headers ? { headers } : undefined);
   } catch (err) {
-    // Network-level failure before any settlement: refund the reservation (law #5).
+    // Nothing settled — refund the reservation (law #5) and rethrow unchanged so the
+    // route can still tell a ConfigMissing (503) from a network failure (502).
     await refundDailySpend(maxValueUsd, reservation);
     throw err;
   }

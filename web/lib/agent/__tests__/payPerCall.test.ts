@@ -15,6 +15,7 @@ import {
 } from "../payPerCall.js";
 import { __resetMeterForTests, meterSpent } from "../agentMeter.js";
 import {
+  ConfigMissing,
   setDynamicClientFactory,
   __resetWalletForTests,
   type DynamicEvmWalletClient,
@@ -115,6 +116,31 @@ describe("payPerCall", () => {
     }) as never);
     await expect(agentPay({ url: "https://x/quote", maxValueUsd: 0.02 })).rejects.toThrow(/ECONNRESET/);
     expect(meterSpent()).toBe(0); // refunded
+  });
+
+  it("refunds when the agent wallet is UNCONFIGURED (nothing settled, nothing spent)", async () => {
+    // The regression this pins: account construction used to sit between the reserve
+    // and the try, so an unconfigured deployment charged the meter on every call while
+    // never reaching the wire. Looping against it burned the whole daily cap for free.
+    __resetWalletForTests();
+    setDynamicClientFactory(null); // no factory ⇒ ConfigMissing on first use
+    delete process.env.DYNAMIC_ENVIRONMENT_ID;
+    setWrapFetchWithPayment((() => async () => jsonResponse({ ok: true })) as never);
+
+    await expect(agentPay({ url: "https://x/quote", maxValueUsd: 0.02 })).rejects.toThrowError(ConfigMissing);
+    expect(meterSpent()).toBe(0); // refunded — an unconfigured seam costs nothing
+  });
+
+  it("refunds when the wallet provider is DOWN (a settled-nothing failure)", async () => {
+    // Same guard, non-env cause: Dynamic reachable-but-erroring must not spend budget.
+    __resetWalletForTests();
+    setDynamicClientFactory((() => {
+      throw new Error("dynamic 503 upstream");
+    }) as never);
+    setWrapFetchWithPayment((() => async () => jsonResponse({ ok: true })) as never);
+
+    await expect(agentPay({ url: "https://x/quote", maxValueUsd: 0.02 })).rejects.toThrow(/dynamic 503/);
+    expect(meterSpent()).toBe(0);
   });
 
   it("agentNanoLoop fires agentPay exactly count times and returns count results", async () => {

@@ -41,7 +41,7 @@
 
 import { timingSafeEqual } from "node:crypto";
 import { agentPay, agentNanoLoop, PaymentRequiredUnresolved } from "../../../../lib/agent/payPerCall.js";
-import { agentAddress } from "../../../../lib/agent/dynamicAgentWallet.js";
+import { agentAddress, ConfigMissing } from "../../../../lib/agent/dynamicAgentWallet.js";
 import { BudgetExceeded } from "../../../../lib/agent/agentMeter.js";
 import { assertAgentTrialAllowed, HumanGateRequired, isAgentTrialUnlocked } from "../../../../lib/worldid/agentGate.js";
 import { humanBackedFromAdmission } from "../../../../lib/worldid/agentkit.js";
@@ -400,6 +400,13 @@ export async function POST(req: Request): Promise<Response> {
     }
     if (err instanceof PaymentRequiredUnresolved) {
       return json({ error: "PaymentRequiredUnresolved" }, 502);
+    }
+    if (err instanceof ConfigMissing) {
+      // The agent wallet vars are blank: this deployment has a dormant seam, not a
+      // bug (law #1). A 500 sends an operator hunting through logs; `not_configured`
+      // tells them in one line. The var NAME is deliberately not echoed — the
+      // env doctor is the place that maps this to a specific variable.
+      return json({ error: "not_configured", code: "not_configured" }, 503);
     }
     // Any other throw: no secret, no stack trace in the body (guardrail #7).
     return json({ error: "Internal" }, 500);
