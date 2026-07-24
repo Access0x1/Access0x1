@@ -395,9 +395,9 @@ those addresses; the live mirror/per-chain status is the
 0xe92244e3368561faf21648146511DeDE3a475EB5
 ```
 
-This same address is live on **eight testnets** today (Arc `5042002`, Base Sepolia `84532`, Ethereum
+This same address is live on **nine testnets** today (Arc `5042002`, Base Sepolia `84532`, Ethereum
 Sepolia `11155111`, Optimism Sepolia `11155420`, Avalanche Fuji `43113`, Robinhood `46630`, Arbitrum
-Sepolia `421614`, Celo Sepolia `11142220`) and source-verified on seven of them; it resolves on every
+Sepolia `421614`, Celo Sepolia `11142220`, zkSync Sepolia `300`) and source-verified on seven of them; it resolves on every
 further chain as it is cut over (see [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md)). The only other per-chain
 value is the USDC `token` address — the contract code is the same multi-tenant router everywhere. The
 canonical, broadcast-derived set is published once in

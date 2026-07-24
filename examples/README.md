@@ -29,8 +29,12 @@ Optimism Sepolia, Arbitrum Sepolia, and the rest without an address change.
 | `Access0x1Subscriptions` | `0x787D2d97F7b0B0A7aFE1eCD97032912fefE8e0ba` |
 | `SessionGrant` | `0xf84fEA541939f3683893530101Fe77d05c390C9d` |
 | `Access0x1Nft` | `0x9625bEc5e2eD53B48e4CbcbBbe9287C00db31178` |
-| `Access0x1Receiver` | `0xA365aEC97a582e521e5d5444C2930E96B59AD215` |
 | USDC (Base Sepolia, Circle) | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` |
+
+`Access0x1Receiver` used to be listed here. It is **not deployed on any chain** — its
+CREATE3 address is predictable from the salt, but `DeployAll` only deploys it when a
+chain config supplies a CRE forwarder, and none has. A predicted address is not a
+deployment.
 
 > **Always re-confirm an address on the explorer before pointing real value at it**
 > (LAW #4 — an address that isn't on-chain isn't claimed). The single source of truth

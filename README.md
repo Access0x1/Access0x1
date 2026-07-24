@@ -724,7 +724,12 @@ the matching `.impl` key in [`script/mirror-manifest.json`](script/mirror-manife
 | `AutomationGateway` | [`0x2b664Ca5A28498cC62B475576fEe6835DD51060b`](https://sepolia.basescan.org/address/0x2b664Ca5A28498cC62B475576fEe6835DD51060b) |
 | `Access0x1ProvenanceRegistry` | [`0x899b9E0b633BC46f56D7EC34ad667147D8e68ceb`](https://sepolia.basescan.org/address/0x899b9E0b633BC46f56D7EC34ad667147D8e68ceb) |
 | `Access0x1Nft` | [`0x9625bEc5e2eD53B48e4CbcbBbe9287C00db31178`](https://sepolia.basescan.org/address/0x9625bEc5e2eD53B48e4CbcbBbe9287C00db31178) |
-| `Access0x1Receiver` | [`0xA365aEC97a582e521e5d5444C2930E96B59AD215`](https://sepolia.basescan.org/address/0xA365aEC97a582e521e5d5444C2930E96B59AD215) |
+
+> **`Access0x1Receiver` is NOT in the table above, on purpose.** Its CREATE3 address is
+> *predictable* (`0xA365aEC9…`, in [`script/mirror-manifest.json`](script/mirror-manifest.json)) but it
+> has **never been deployed on any chain** — `DeployAll` only deploys it when a chain config supplies a
+> CRE forwarder, and no committed run did. A salt-derived address is a prediction, not a deployment, so
+> it does not belong in a list of addresses an integrator points at.
 
 **Per-chain cutover status** — a chain shows the set above only once its `broadcast/` record proves it
 carries those addresses (no chain is claimed mirrored otherwise). The table below is generated from the
@@ -756,82 +761,112 @@ canonical one, and [`web/lib/deployments.ts`](web/lib/deployments.ts) (regenerat
 `broadcast/` record) is the authoritative per-chain source — confirm a legacy chain's live feed/merchant
 on-chain before relying on its row here.
 
-| Chain | Contract | Address | Tx |
-| --- | --- | --- | --- |
-| Arc Testnet (5042002) | `Access0x1Router` | [`0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e`](https://testnet.arcscan.app/address/0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e) | — |
-| Arc Testnet (5042002) | `SessionGrant` | [`0x065311fa0170422ee6025c2c4baa5724a5886bf0`](https://testnet.arcscan.app/address/0x065311fa0170422ee6025c2c4baa5724a5886bf0) | — |
-| Arc Testnet (5042002) | `PaymentLanes` | [`0x1fecfe4781e9a38b4291b681751e048cc6d1eac5`](https://testnet.arcscan.app/address/0x1fecfe4781e9a38b4291b681751e048cc6d1eac5) | — |
-| Arc Testnet (5042002) | `HouseTokenFactory` | [`0x5b2c1857c65c7daa672985fc9c3aaf2050b42288`](https://testnet.arcscan.app/address/0x5b2c1857c65c7daa672985fc9c3aaf2050b42288) | — |
-| Arc Testnet (5042002) | `Access0x1ProvenanceRegistry` | [`0xd682f77d0ae016838d89b4f673f17acd93102231`](https://testnet.arcscan.app/address/0xd682f77d0ae016838d89b4f673f17acd93102231) | — |
-| Arc Testnet (5042002) | `Access0x1Escrow` | [`0xec89c9ee28af42ae2b917bb0bae245eaad6e8e57`](https://testnet.arcscan.app/address/0xec89c9ee28af42ae2b917bb0bae245eaad6e8e57) | — |
-| Arc Testnet (5042002) | `Access0x1Subscriptions` | [`0x5578929702b0158682286982e3f82d04a08f3b92`](https://testnet.arcscan.app/address/0x5578929702b0158682286982e3f82d04a08f3b92) | — |
-| Arc Testnet (5042002) | `AutomationGateway` | [`0x41e63263a6d78f85458dc50c9a9ea4298ed1cdfe`](https://testnet.arcscan.app/address/0x41e63263a6d78f85458dc50c9a9ea4298ed1cdfe) | — |
-| Arc Testnet (5042002) | `Access0x1Bookings` | [`0xd3ac71914d01a8229d00c2cf9abc7f93237a253d`](https://testnet.arcscan.app/address/0xd3ac71914d01a8229d00c2cf9abc7f93237a253d) | — |
-| Arc Testnet (5042002) | `Access0x1Invoices` | [`0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909`](https://testnet.arcscan.app/address/0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909) | — |
-| Arc Testnet (5042002) | `Access0x1GiftCards` | [`0x70606850d07fe7257805e8533594494dca02dcd2`](https://testnet.arcscan.app/address/0x70606850d07fe7257805e8533594494dca02dcd2) | — |
-| Arc Testnet (5042002) | `Access0x1Nft` | [`0xc93bd2808fadfe87ea40a90db8fded3e09d266a4`](https://testnet.arcscan.app/address/0xc93bd2808fadfe87ea40a90db8fded3e09d266a4) | — |
-| 0G Galileo (16602) | `Access0x1Router` | [`0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad`](https://chainscan-galileo.0g.ai/address/0xA5982ea8842Eea97C6e313A5f75FD8CF72C69Aad) | — |
-| 0G Galileo (16602) | `SessionGrant` | [`0x89f904a7328eaB1Fd8Ea422A5e635344766fBF4d`](https://chainscan-galileo.0g.ai/address/0x89f904a7328eaB1Fd8Ea422A5e635344766fBF4d) | — |
-| 0G Galileo (16602) | `PaymentLanes` | [`0x3D5247B4D5d1947c7b9c82b27f20246da9923238`](https://chainscan-galileo.0g.ai/address/0x3D5247B4D5d1947c7b9c82b27f20246da9923238) | — |
-| 0G Galileo (16602) | `HouseTokenFactory` | [`0x1001dc04da8706D53b24389c3348Ca512A5bA6b7`](https://chainscan-galileo.0g.ai/address/0x1001dc04da8706D53b24389c3348Ca512A5bA6b7) | — |
-| 0G Galileo (16602) | `Access0x1ProvenanceRegistry` | [`0xF0056B52Df2CC2Aa3e80e607a0770b062Ba737D5`](https://chainscan-galileo.0g.ai/address/0xF0056B52Df2CC2Aa3e80e607a0770b062Ba737D5) | — |
-| 0G Galileo (16602) | `Access0x1Escrow` | [`0xc7Ed3886Ec8995531531cb2659d6B4bC4519C231`](https://chainscan-galileo.0g.ai/address/0xc7Ed3886Ec8995531531cb2659d6B4bC4519C231) | — |
-| 0G Galileo (16602) | `Access0x1Subscriptions` | [`0x5aC1bC66D5073B0f84BB4f240dc2dDA95CC46a6e`](https://chainscan-galileo.0g.ai/address/0x5aC1bC66D5073B0f84BB4f240dc2dDA95CC46a6e) | — |
-| 0G Galileo (16602) | `AutomationGateway` | [`0x065311Fa0170422Ee6025c2c4BAA5724a5886Bf0`](https://chainscan-galileo.0g.ai/address/0x065311Fa0170422Ee6025c2c4BAA5724a5886Bf0) | — |
-| 0G Galileo (16602) | `Access0x1Bookings` | [`0x1fECfe4781E9a38B4291b681751E048cc6d1eAc5`](https://chainscan-galileo.0g.ai/address/0x1fECfe4781E9a38B4291b681751E048cc6d1eAc5) | — |
-| 0G Galileo (16602) | `Access0x1Invoices` | [`0xB90f34e22683D24b622a8CA32FB8cCEB8aB1d505`](https://chainscan-galileo.0g.ai/address/0xB90f34e22683D24b622a8CA32FB8cCEB8aB1d505) | — |
-| 0G Galileo (16602) | `Access0x1GiftCards` | [`0x5b2C1857C65c7daa672985Fc9C3AAF2050b42288`](https://chainscan-galileo.0g.ai/address/0x5b2C1857C65c7daa672985Fc9C3AAF2050b42288) | — |
-| 0G Galileo (16602) | `Access0x1Nft` | [`0xD682F77D0aE016838D89b4F673f17Acd93102231`](https://chainscan-galileo.0g.ai/address/0xD682F77D0aE016838D89b4F673f17Acd93102231) | — |
-| Ethereum Sepolia (11155111) | `Access0x1Router` | [`0x81815209cc36dbd83662bd502694386e7024ba85`](https://sepolia.etherscan.io/address/0x81815209cc36dbd83662bd502694386e7024ba85) | — |
-| Ethereum Sepolia (11155111) | `SessionGrant` | [`0xaba9017da86c7b0610efb0351457ff1a198ddea1`](https://sepolia.etherscan.io/address/0xaba9017da86c7b0610efb0351457ff1a198ddea1) | — |
-| Ethereum Sepolia (11155111) | `PaymentLanes` | [`0x7ce8b5a101080a1d7c9bb79f73e8934feebdab0b`](https://sepolia.etherscan.io/address/0x7ce8b5a101080a1d7c9bb79f73e8934feebdab0b) | — |
-| Ethereum Sepolia (11155111) | `HouseTokenFactory` | [`0x4844024f3c1d0c288b4001cef114fb50c5170046`](https://sepolia.etherscan.io/address/0x4844024f3c1d0c288b4001cef114fb50c5170046) | — |
-| Ethereum Sepolia (11155111) | `Access0x1ProvenanceRegistry` | [`0x11b00bdb2c954d39ab0bdf954bb3da9ea03dd509`](https://sepolia.etherscan.io/address/0x11b00bdb2c954d39ab0bdf954bb3da9ea03dd509) | — |
-| Ethereum Sepolia (11155111) | `Access0x1Escrow` | [`0x599076634c3d8e08e4b8376ed160436cee71dca5`](https://sepolia.etherscan.io/address/0x599076634c3d8e08e4b8376ed160436cee71dca5) | — |
-| Ethereum Sepolia (11155111) | `Access0x1Subscriptions` | [`0xddb88dcb413eceacc5532bcc1eee9e1592467206`](https://sepolia.etherscan.io/address/0xddb88dcb413eceacc5532bcc1eee9e1592467206) | — |
-| Ethereum Sepolia (11155111) | `AutomationGateway` | [`0x6619e3a9c27173821cc44ce6a431ccf6cd65360f`](https://sepolia.etherscan.io/address/0x6619e3a9c27173821cc44ce6a431ccf6cd65360f) | — |
-| Ethereum Sepolia (11155111) | `Access0x1Bookings` | [`0xa8c60ad074ce9df014736a55f3f85f09d67859a5`](https://sepolia.etherscan.io/address/0xa8c60ad074ce9df014736a55f3f85f09d67859a5) | — |
-| Ethereum Sepolia (11155111) | `Access0x1Invoices` | [`0x308e0ce27726ccd5064c5746925938f4e41ee895`](https://sepolia.etherscan.io/address/0x308e0ce27726ccd5064c5746925938f4e41ee895) | — |
-| Ethereum Sepolia (11155111) | `Access0x1GiftCards` | [`0x9ae47ff9c18898c1c58ef47ceef2c29fa593f9f0`](https://sepolia.etherscan.io/address/0x9ae47ff9c18898c1c58ef47ceef2c29fa593f9f0) | — |
-| Ethereum Sepolia (11155111) | `Access0x1Nft` | [`0x67072815258ebfd5b99c21140a3816e368d1e855`](https://sepolia.etherscan.io/address/0x67072815258ebfd5b99c21140a3816e368d1e855) | — |
-| Optimism Sepolia (11155420) | `Access0x1Router` | [`0xba90ca4c50eb571c855a1b8a1eb6bae3bcb9129d`](https://sepolia-optimism.etherscan.io/address/0xba90ca4c50eb571c855a1b8a1eb6bae3bcb9129d) | — |
-| Optimism Sepolia (11155420) | `SessionGrant` | [`0x545c2d5a8170b8a34b85fe4e24cbaa200398b373`](https://sepolia-optimism.etherscan.io/address/0x545c2d5a8170b8a34b85fe4e24cbaa200398b373) | — |
-| Optimism Sepolia (11155420) | `PaymentLanes` | [`0xcd59d70551e438cc0ef859f86c8c12c5e6007728`](https://sepolia-optimism.etherscan.io/address/0xcd59d70551e438cc0ef859f86c8c12c5e6007728) | — |
-| Optimism Sepolia (11155420) | `HouseTokenFactory` | [`0x06dcae57da4e774748865d734097c69bf484b788`](https://sepolia-optimism.etherscan.io/address/0x06dcae57da4e774748865d734097c69bf484b788) | — |
-| Optimism Sepolia (11155420) | `Access0x1ProvenanceRegistry` | [`0xb2764d719364b4abc8bf22ef1015e95545ab963c`](https://sepolia-optimism.etherscan.io/address/0xb2764d719364b4abc8bf22ef1015e95545ab963c) | — |
-| Optimism Sepolia (11155420) | `Access0x1Escrow` | [`0x60a4d48a982a28b288522e899669024f33f03314`](https://sepolia-optimism.etherscan.io/address/0x60a4d48a982a28b288522e899669024f33f03314) | — |
-| Optimism Sepolia (11155420) | `Access0x1Subscriptions` | [`0x5e23ca4299a4728ae8e55ffe9b707046d38eb19d`](https://sepolia-optimism.etherscan.io/address/0x5e23ca4299a4728ae8e55ffe9b707046d38eb19d) | — |
-| Optimism Sepolia (11155420) | `AutomationGateway` | [`0x51cebbf9ab3ee6effd3b67e3972af58c7d04df89`](https://sepolia-optimism.etherscan.io/address/0x51cebbf9ab3ee6effd3b67e3972af58c7d04df89) | — |
-| Optimism Sepolia (11155420) | `Access0x1Bookings` | [`0xa0c5cc4fc6a6446a6f532942ecb6eeef91ae8901`](https://sepolia-optimism.etherscan.io/address/0xa0c5cc4fc6a6446a6f532942ecb6eeef91ae8901) | — |
-| Optimism Sepolia (11155420) | `Access0x1Invoices` | [`0xca3f99fff5fb0b53766d2a0c14f989c8d6bc087f`](https://sepolia-optimism.etherscan.io/address/0xca3f99fff5fb0b53766d2a0c14f989c8d6bc087f) | — |
-| Optimism Sepolia (11155420) | `Access0x1GiftCards` | [`0x84e567892074518770f40a34fb7994c34e3614c8`](https://sepolia-optimism.etherscan.io/address/0x84e567892074518770f40a34fb7994c34e3614c8) | — |
-| Optimism Sepolia (11155420) | `Access0x1Nft` | [`0x8cdddf8a426ac79a2accc83e6b63fb16eb7580e2`](https://sepolia-optimism.etherscan.io/address/0x8cdddf8a426ac79a2accc83e6b63fb16eb7580e2) | — |
-| Avalanche Fuji (43113) | `Access0x1Router` | [`0xd37634efeee3bc5ba16790345e7d5e15f06da69f`](https://testnet.snowtrace.io/address/0xd37634efeee3bc5ba16790345e7d5e15f06da69f) | — |
-| Avalanche Fuji (43113) | `SessionGrant` | [`0x59257f3dd227a3861ab117b13a6027280490be50`](https://testnet.snowtrace.io/address/0x59257f3dd227a3861ab117b13a6027280490be50) | — |
-| Avalanche Fuji (43113) | `PaymentLanes` | [`0x9ec3984b224057e495175aa0a6e21c1a38a7da92`](https://testnet.snowtrace.io/address/0x9ec3984b224057e495175aa0a6e21c1a38a7da92) | — |
-| Avalanche Fuji (43113) | `HouseTokenFactory` | [`0x8e933669a24fa6bf05206a1c17e67d5822231c6a`](https://testnet.snowtrace.io/address/0x8e933669a24fa6bf05206a1c17e67d5822231c6a) | — |
-| Avalanche Fuji (43113) | `Access0x1ProvenanceRegistry` | [`0x3af71b68612bc3facb0172eb6dcd980f50b51e86`](https://testnet.snowtrace.io/address/0x3af71b68612bc3facb0172eb6dcd980f50b51e86) | — |
-| Avalanche Fuji (43113) | `Access0x1Escrow` | [`0x41f671f29ebd14fca6d8355e97f48d92ab4573a9`](https://testnet.snowtrace.io/address/0x41f671f29ebd14fca6d8355e97f48d92ab4573a9) | — |
-| Avalanche Fuji (43113) | `Access0x1Subscriptions` | [`0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6`](https://testnet.snowtrace.io/address/0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6) | — |
-| Avalanche Fuji (43113) | `AutomationGateway` | [`0xa888a802826b08c307a252fe8b948e411dcbf835`](https://testnet.snowtrace.io/address/0xa888a802826b08c307a252fe8b948e411dcbf835) | — |
-| Avalanche Fuji (43113) | `Access0x1Bookings` | [`0x2067238186ee13d9c543742e1bb6be9fe4a1b20b`](https://testnet.snowtrace.io/address/0x2067238186ee13d9c543742e1bb6be9fe4a1b20b) | — |
-| Avalanche Fuji (43113) | `Access0x1Invoices` | [`0xbcb59e981662d26769ff1fe5d75f66e38c68c99b`](https://testnet.snowtrace.io/address/0xbcb59e981662d26769ff1fe5d75f66e38c68c99b) | — |
-| Avalanche Fuji (43113) | `Access0x1GiftCards` | [`0x2ba5411803bc7734652afa292bc97f39ae409f76`](https://testnet.snowtrace.io/address/0x2ba5411803bc7734652afa292bc97f39ae409f76) | — |
-| Avalanche Fuji (43113) | `Access0x1Nft` | [`0x6602e07658214f0eaa83e857ae6f848add86a6d5`](https://testnet.snowtrace.io/address/0x6602e07658214f0eaa83e857ae6f848add86a6d5) | — |
-| Robinhood Chain (46630) | `Access0x1Router` | [`0x93f00097e13de25090a8431d69f1cd89e1df1cf1`](https://explorer.testnet.chain.robinhood.com/address/0x93f00097e13de25090a8431d69f1cd89e1df1cf1) | — |
-| Robinhood Chain (46630) | `SessionGrant` | [`0xd37634efeee3bc5ba16790345e7d5e15f06da69f`](https://explorer.testnet.chain.robinhood.com/address/0xd37634efeee3bc5ba16790345e7d5e15f06da69f) | — |
-| Robinhood Chain (46630) | `PaymentLanes` | [`0x59257f3dd227a3861ab117b13a6027280490be50`](https://explorer.testnet.chain.robinhood.com/address/0x59257f3dd227a3861ab117b13a6027280490be50) | — |
-| Robinhood Chain (46630) | `HouseTokenFactory` | [`0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb`](https://explorer.testnet.chain.robinhood.com/address/0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb) | — |
-| Robinhood Chain (46630) | `Access0x1ProvenanceRegistry` | [`0x8e933669a24fa6bf05206a1c17e67d5822231c6a`](https://explorer.testnet.chain.robinhood.com/address/0x8e933669a24fa6bf05206a1c17e67d5822231c6a) | — |
-| Robinhood Chain (46630) | `Access0x1Escrow` | [`0x3af71b68612bc3facb0172eb6dcd980f50b51e86`](https://explorer.testnet.chain.robinhood.com/address/0x3af71b68612bc3facb0172eb6dcd980f50b51e86) | — |
-| Robinhood Chain (46630) | `Access0x1Subscriptions` | [`0x41f671f29ebd14fca6d8355e97f48d92ab4573a9`](https://explorer.testnet.chain.robinhood.com/address/0x41f671f29ebd14fca6d8355e97f48d92ab4573a9) | — |
-| Robinhood Chain (46630) | `AutomationGateway` | [`0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6`](https://explorer.testnet.chain.robinhood.com/address/0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6) | — |
-| Robinhood Chain (46630) | `Access0x1Bookings` | [`0xa888a802826b08c307a252fe8b948e411dcbf835`](https://explorer.testnet.chain.robinhood.com/address/0xa888a802826b08c307a252fe8b948e411dcbf835) | — |
-| Robinhood Chain (46630) | `Access0x1Invoices` | [`0x2067238186ee13d9c543742e1bb6be9fe4a1b20b`](https://explorer.testnet.chain.robinhood.com/address/0x2067238186ee13d9c543742e1bb6be9fe4a1b20b) | — |
-| Robinhood Chain (46630) | `Access0x1GiftCards` | [`0xbcb59e981662d26769ff1fe5d75f66e38c68c99b`](https://explorer.testnet.chain.robinhood.com/address/0xbcb59e981662d26769ff1fe5d75f66e38c68c99b) | — |
-| Robinhood Chain (46630) | `Access0x1Nft` | [`0x2ba5411803bc7734652afa292bc97f39ae409f76`](https://explorer.testnet.chain.robinhood.com/address/0x2ba5411803bc7734652afa292bc97f39ae409f76) | — |
-<!-- zkSync Sepolia (300) is a MIRROR chain — its contracts live at the shared mirror address
-     0xe92244e3…, listed in the mirror table above (broadcast/…/300); it is not a pre-mirror deploy. -->
+Every address below is read out of a committed `broadcast/.../<chainId>/` record by
+[`web/scripts/gen-premirror-table.mjs`](web/scripts/gen-premirror-table.mjs) and re-checked in CI, so
+nothing here can be claimed that was not deployed (law #3). A chain listed under the CREATE3 mirror
+above may also appear here — that is its earlier, superseded set. Chains whose only record IS the
+mirror (e.g. zkSync Sepolia, `300`) do not appear at all.
+
+<!-- PREMIRROR-ADDRESSES:START (generated by `make sync` — do not edit by hand) -->
+
+| Chain | Contract | Address |
+| --- | --- | --- |
+| 0G Galileo Testnet (16602) | `Access0x1Router` | [`0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad`](https://chainscan-galileo.0g.ai/address/0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad) |
+| 0G Galileo Testnet (16602) | `SessionGrant` | [`0x89f904a7328eab1fd8ea422a5e635344766fbf4d`](https://chainscan-galileo.0g.ai/address/0x89f904a7328eab1fd8ea422a5e635344766fbf4d) |
+| 0G Galileo Testnet (16602) | `PaymentLanes` | [`0x3d5247b4d5d1947c7b9c82b27f20246da9923238`](https://chainscan-galileo.0g.ai/address/0x3d5247b4d5d1947c7b9c82b27f20246da9923238) |
+| 0G Galileo Testnet (16602) | `HouseTokenFactory` | [`0x1001dc04da8706d53b24389c3348ca512a5ba6b7`](https://chainscan-galileo.0g.ai/address/0x1001dc04da8706d53b24389c3348ca512a5ba6b7) |
+| 0G Galileo Testnet (16602) | `Access0x1ProvenanceRegistry` | [`0xf0056b52df2cc2aa3e80e607a0770b062ba737d5`](https://chainscan-galileo.0g.ai/address/0xf0056b52df2cc2aa3e80e607a0770b062ba737d5) |
+| 0G Galileo Testnet (16602) | `Access0x1Escrow` | [`0xc7ed3886ec8995531531cb2659d6b4bc4519c231`](https://chainscan-galileo.0g.ai/address/0xc7ed3886ec8995531531cb2659d6b4bc4519c231) |
+| 0G Galileo Testnet (16602) | `Access0x1Subscriptions` | [`0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e`](https://chainscan-galileo.0g.ai/address/0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e) |
+| 0G Galileo Testnet (16602) | `AutomationGateway` | [`0x065311fa0170422ee6025c2c4baa5724a5886bf0`](https://chainscan-galileo.0g.ai/address/0x065311fa0170422ee6025c2c4baa5724a5886bf0) |
+| 0G Galileo Testnet (16602) | `Access0x1Bookings` | [`0x1fecfe4781e9a38b4291b681751e048cc6d1eac5`](https://chainscan-galileo.0g.ai/address/0x1fecfe4781e9a38b4291b681751e048cc6d1eac5) |
+| 0G Galileo Testnet (16602) | `Access0x1Invoices` | [`0xb90f34e22683d24b622a8ca32fb8cceb8ab1d505`](https://chainscan-galileo.0g.ai/address/0xb90f34e22683d24b622a8ca32fb8cceb8ab1d505) |
+| 0G Galileo Testnet (16602) | `Access0x1GiftCards` | [`0x5b2c1857c65c7daa672985fc9c3aaf2050b42288`](https://chainscan-galileo.0g.ai/address/0x5b2c1857c65c7daa672985fc9c3aaf2050b42288) |
+| 0G Galileo Testnet (16602) | `Access0x1Nft` | [`0xd682f77d0ae016838d89b4f673f17acd93102231`](https://chainscan-galileo.0g.ai/address/0xd682f77d0ae016838d89b4f673f17acd93102231) |
+| Tempo Testnet (Moderato) (42431) | `Access0x1Router` * | [`0x60eb647d166b70662e0567551af7e575f13e8008`](https://explore.testnet.tempo.xyz/address/0x60eb647d166b70662e0567551af7e575f13e8008) |
+| Tempo Testnet (Moderato) (42431) | `SessionGrant` * | [`0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad`](https://explore.testnet.tempo.xyz/address/0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad) |
+| Tempo Testnet (Moderato) (42431) | `PaymentLanes` * | [`0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b`](https://explore.testnet.tempo.xyz/address/0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b) |
+| Tempo Testnet (Moderato) (42431) | `HouseTokenFactory` * | [`0x3d5247b4d5d1947c7b9c82b27f20246da9923238`](https://explore.testnet.tempo.xyz/address/0x3d5247b4d5d1947c7b9c82b27f20246da9923238) |
+| Tempo Testnet (Moderato) (42431) | `Access0x1Subscriptions` * | [`0x3a43171f6d503ab314366d19b7ddc7aa861125f2`](https://explore.testnet.tempo.xyz/address/0x3a43171f6d503ab314366d19b7ddc7aa861125f2) |
+| Tempo Testnet (Moderato) (42431) | `Access0x1Bookings` * | [`0x1db513ec23bc7de46afd6dae5133de14d8a62bf8`](https://explore.testnet.tempo.xyz/address/0x1db513ec23bc7de46afd6dae5133de14d8a62bf8) |
+| Tempo Testnet (Moderato) (42431) | `Access0x1Invoices` * | [`0x4e099b81a9a46a99378ac70cad195bf8e25f0c82`](https://explore.testnet.tempo.xyz/address/0x4e099b81a9a46a99378ac70cad195bf8e25f0c82) |
+| Tempo Testnet (Moderato) (42431) | `Access0x1GiftCards` * | [`0x1001dc04da8706d53b24389c3348ca512a5ba6b7`](https://explore.testnet.tempo.xyz/address/0x1001dc04da8706d53b24389c3348ca512a5ba6b7) |
+| Avalanche Fuji (43113) | `Access0x1Router` | [`0xd37634efeee3bc5ba16790345e7d5e15f06da69f`](https://testnet.snowtrace.io/address/0xd37634efeee3bc5ba16790345e7d5e15f06da69f) |
+| Avalanche Fuji (43113) | `SessionGrant` | [`0x59257f3dd227a3861ab117b13a6027280490be50`](https://testnet.snowtrace.io/address/0x59257f3dd227a3861ab117b13a6027280490be50) |
+| Avalanche Fuji (43113) | `PaymentLanes` | [`0x9ec3984b224057e495175aa0a6e21c1a38a7da92`](https://testnet.snowtrace.io/address/0x9ec3984b224057e495175aa0a6e21c1a38a7da92) |
+| Avalanche Fuji (43113) | `HouseTokenFactory` | [`0x8e933669a24fa6bf05206a1c17e67d5822231c6a`](https://testnet.snowtrace.io/address/0x8e933669a24fa6bf05206a1c17e67d5822231c6a) |
+| Avalanche Fuji (43113) | `Access0x1ProvenanceRegistry` | [`0x3af71b68612bc3facb0172eb6dcd980f50b51e86`](https://testnet.snowtrace.io/address/0x3af71b68612bc3facb0172eb6dcd980f50b51e86) |
+| Avalanche Fuji (43113) | `Access0x1Escrow` | [`0x41f671f29ebd14fca6d8355e97f48d92ab4573a9`](https://testnet.snowtrace.io/address/0x41f671f29ebd14fca6d8355e97f48d92ab4573a9) |
+| Avalanche Fuji (43113) | `Access0x1Subscriptions` | [`0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6`](https://testnet.snowtrace.io/address/0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6) |
+| Avalanche Fuji (43113) | `AutomationGateway` | [`0xa888a802826b08c307a252fe8b948e411dcbf835`](https://testnet.snowtrace.io/address/0xa888a802826b08c307a252fe8b948e411dcbf835) |
+| Avalanche Fuji (43113) | `Access0x1Bookings` | [`0x2067238186ee13d9c543742e1bb6be9fe4a1b20b`](https://testnet.snowtrace.io/address/0x2067238186ee13d9c543742e1bb6be9fe4a1b20b) |
+| Avalanche Fuji (43113) | `Access0x1Invoices` | [`0xbcb59e981662d26769ff1fe5d75f66e38c68c99b`](https://testnet.snowtrace.io/address/0xbcb59e981662d26769ff1fe5d75f66e38c68c99b) |
+| Avalanche Fuji (43113) | `Access0x1GiftCards` | [`0x2ba5411803bc7734652afa292bc97f39ae409f76`](https://testnet.snowtrace.io/address/0x2ba5411803bc7734652afa292bc97f39ae409f76) |
+| Avalanche Fuji (43113) | `Access0x1Nft` | [`0x6602e07658214f0eaa83e857ae6f848add86a6d5`](https://testnet.snowtrace.io/address/0x6602e07658214f0eaa83e857ae6f848add86a6d5) |
+| Robinhood Chain Testnet (46630) | `Access0x1Router` | [`0x93f00097e13de25090a8431d69f1cd89e1df1cf1`](https://explorer.testnet.chain.robinhood.com/address/0x93f00097e13de25090a8431d69f1cd89e1df1cf1) |
+| Robinhood Chain Testnet (46630) | `SessionGrant` | [`0xd37634efeee3bc5ba16790345e7d5e15f06da69f`](https://explorer.testnet.chain.robinhood.com/address/0xd37634efeee3bc5ba16790345e7d5e15f06da69f) |
+| Robinhood Chain Testnet (46630) | `PaymentLanes` | [`0x59257f3dd227a3861ab117b13a6027280490be50`](https://explorer.testnet.chain.robinhood.com/address/0x59257f3dd227a3861ab117b13a6027280490be50) |
+| Robinhood Chain Testnet (46630) | `HouseTokenFactory` | [`0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb`](https://explorer.testnet.chain.robinhood.com/address/0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb) |
+| Robinhood Chain Testnet (46630) | `Access0x1ProvenanceRegistry` | [`0x8e933669a24fa6bf05206a1c17e67d5822231c6a`](https://explorer.testnet.chain.robinhood.com/address/0x8e933669a24fa6bf05206a1c17e67d5822231c6a) |
+| Robinhood Chain Testnet (46630) | `Access0x1Escrow` | [`0x3af71b68612bc3facb0172eb6dcd980f50b51e86`](https://explorer.testnet.chain.robinhood.com/address/0x3af71b68612bc3facb0172eb6dcd980f50b51e86) |
+| Robinhood Chain Testnet (46630) | `Access0x1Subscriptions` | [`0x41f671f29ebd14fca6d8355e97f48d92ab4573a9`](https://explorer.testnet.chain.robinhood.com/address/0x41f671f29ebd14fca6d8355e97f48d92ab4573a9) |
+| Robinhood Chain Testnet (46630) | `AutomationGateway` | [`0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6`](https://explorer.testnet.chain.robinhood.com/address/0xf5d9eefb2e3abbfb9ae2b4e6a26d170de7ad12c6) |
+| Robinhood Chain Testnet (46630) | `Access0x1Bookings` | [`0xa888a802826b08c307a252fe8b948e411dcbf835`](https://explorer.testnet.chain.robinhood.com/address/0xa888a802826b08c307a252fe8b948e411dcbf835) |
+| Robinhood Chain Testnet (46630) | `Access0x1Invoices` | [`0x2067238186ee13d9c543742e1bb6be9fe4a1b20b`](https://explorer.testnet.chain.robinhood.com/address/0x2067238186ee13d9c543742e1bb6be9fe4a1b20b) |
+| Robinhood Chain Testnet (46630) | `Access0x1GiftCards` | [`0xbcb59e981662d26769ff1fe5d75f66e38c68c99b`](https://explorer.testnet.chain.robinhood.com/address/0xbcb59e981662d26769ff1fe5d75f66e38c68c99b) |
+| Robinhood Chain Testnet (46630) | `Access0x1Nft` | [`0x2ba5411803bc7734652afa292bc97f39ae409f76`](https://explorer.testnet.chain.robinhood.com/address/0x2ba5411803bc7734652afa292bc97f39ae409f76) |
+| Base Sepolia (84532) | `Access0x1Router` | [`0x4fbf47bc5273491b8a4e339e65b208d180b27c3b`](https://sepolia.basescan.org/address/0x4fbf47bc5273491b8a4e339e65b208d180b27c3b) |
+| Base Sepolia (84532) | `SessionGrant` | [`0xb71fe836cc8c698ea0fa150deed6cd33ad352c85`](https://sepolia.basescan.org/address/0xb71fe836cc8c698ea0fa150deed6cd33ad352c85) |
+| Base Sepolia (84532) | `PaymentLanes` | [`0x64273ad774082b4e6fd98e49523733962df9769d`](https://sepolia.basescan.org/address/0x64273ad774082b4e6fd98e49523733962df9769d) |
+| Base Sepolia (84532) | `HouseTokenFactory` | [`0x2d6b08eb73898036eee756351453b08188d92c56`](https://sepolia.basescan.org/address/0x2d6b08eb73898036eee756351453b08188d92c56) |
+| Base Sepolia (84532) | `Access0x1ProvenanceRegistry` | [`0x994011ff20df033fb35e67fedfb17f647bf66635`](https://sepolia.basescan.org/address/0x994011ff20df033fb35e67fedfb17f647bf66635) |
+| Base Sepolia (84532) | `Access0x1Escrow` | [`0x025f098873557105259b81618f05e09c833fd705`](https://sepolia.basescan.org/address/0x025f098873557105259b81618f05e09c833fd705) |
+| Base Sepolia (84532) | `Access0x1Subscriptions` | [`0x81ca26e3fb738661d44d5ad89280fb32848038e8`](https://sepolia.basescan.org/address/0x81ca26e3fb738661d44d5ad89280fb32848038e8) |
+| Base Sepolia (84532) | `AutomationGateway` | [`0x93cb11ce74d45a1b554007cd43c2a96fb830b113`](https://sepolia.basescan.org/address/0x93cb11ce74d45a1b554007cd43c2a96fb830b113) |
+| Base Sepolia (84532) | `Access0x1Bookings` | [`0xdea2b9d695f92ffea246ff0a01bdcb1ff37d86b3`](https://sepolia.basescan.org/address/0xdea2b9d695f92ffea246ff0a01bdcb1ff37d86b3) |
+| Base Sepolia (84532) | `Access0x1Invoices` | [`0xe654209f302b3767455f3527b8dd50a5174a162b`](https://sepolia.basescan.org/address/0xe654209f302b3767455f3527b8dd50a5174a162b) |
+| Base Sepolia (84532) | `Access0x1GiftCards` | [`0xfd714779a732770ca0eb14f95769b63542e3ac9f`](https://sepolia.basescan.org/address/0xfd714779a732770ca0eb14f95769b63542e3ac9f) |
+| Base Sepolia (84532) | `Access0x1Nft` | [`0x6f7c77bc50fe6e062390ddb50052d88b1fe9f2cf`](https://sepolia.basescan.org/address/0x6f7c77bc50fe6e062390ddb50052d88b1fe9f2cf) |
+| Hoodi (560048) | `Access0x1Router` * | [`0x60eb647d166b70662e0567551af7e575f13e8008`](https://hoodi.etherscan.io/address/0x60eb647d166b70662e0567551af7e575f13e8008) |
+| Hoodi (560048) | `SessionGrant` * | [`0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad`](https://hoodi.etherscan.io/address/0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad) |
+| Hoodi (560048) | `PaymentLanes` * | [`0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b`](https://hoodi.etherscan.io/address/0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b) |
+| Hoodi (560048) | `HouseTokenFactory` * | [`0x3d5247b4d5d1947c7b9c82b27f20246da9923238`](https://hoodi.etherscan.io/address/0x3d5247b4d5d1947c7b9c82b27f20246da9923238) |
+| Hoodi (560048) | `Access0x1Subscriptions` * | [`0x3a43171f6d503ab314366d19b7ddc7aa861125f2`](https://hoodi.etherscan.io/address/0x3a43171f6d503ab314366d19b7ddc7aa861125f2) |
+| Hoodi (560048) | `Access0x1Bookings` * | [`0x1db513ec23bc7de46afd6dae5133de14d8a62bf8`](https://hoodi.etherscan.io/address/0x1db513ec23bc7de46afd6dae5133de14d8a62bf8) |
+| Hoodi (560048) | `Access0x1Invoices` * | [`0x4e099b81a9a46a99378ac70cad195bf8e25f0c82`](https://hoodi.etherscan.io/address/0x4e099b81a9a46a99378ac70cad195bf8e25f0c82) |
+| Hoodi (560048) | `Access0x1GiftCards` * | [`0x1001dc04da8706d53b24389c3348ca512a5ba6b7`](https://hoodi.etherscan.io/address/0x1001dc04da8706d53b24389c3348ca512a5ba6b7) |
+| Arc Testnet (5042002) | `Access0x1Router` | `0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e` |
+| Arc Testnet (5042002) | `SessionGrant` | `0x065311fa0170422ee6025c2c4baa5724a5886bf0` |
+| Arc Testnet (5042002) | `PaymentLanes` | `0x1fecfe4781e9a38b4291b681751e048cc6d1eac5` |
+| Arc Testnet (5042002) | `HouseTokenFactory` | `0x5b2c1857c65c7daa672985fc9c3aaf2050b42288` |
+| Arc Testnet (5042002) | `Access0x1ProvenanceRegistry` | `0xd682f77d0ae016838d89b4f673f17acd93102231` |
+| Arc Testnet (5042002) | `Access0x1Escrow` | `0xec89c9ee28af42ae2b917bb0bae245eaad6e8e57` |
+| Arc Testnet (5042002) | `Access0x1Subscriptions` | `0x5578929702b0158682286982e3f82d04a08f3b92` |
+| Arc Testnet (5042002) | `AutomationGateway` | `0x41e63263a6d78f85458dc50c9a9ea4298ed1cdfe` |
+| Arc Testnet (5042002) | `Access0x1Bookings` | `0xd3ac71914d01a8229d00c2cf9abc7f93237a253d` |
+| Arc Testnet (5042002) | `Access0x1Invoices` | `0x3ea759f15e7edefcbfa6b55c1d3bf8a40e596909` |
+| Arc Testnet (5042002) | `Access0x1GiftCards` | `0x70606850d07fe7257805e8533594494dca02dcd2` |
+| Arc Testnet (5042002) | `Access0x1Nft` | `0xc93bd2808fadfe87ea40a90db8fded3e09d266a4` |
+| Sepolia (11155111) | `Access0x1Router` * | [`0x75aad7079f3e3b9f51b46529e5f235934af2e932`](https://sepolia.etherscan.io/address/0x75aad7079f3e3b9f51b46529e5f235934af2e932) |
+| Sepolia (11155111) | `SessionGrant` * | [`0xdc2b6aeaca9824abbdd250947bedf16381f9d887`](https://sepolia.etherscan.io/address/0xdc2b6aeaca9824abbdd250947bedf16381f9d887) |
+| Sepolia (11155111) | `PaymentLanes` * | [`0x9d79a34438f1089be3402be687363e5615977c74`](https://sepolia.etherscan.io/address/0x9d79a34438f1089be3402be687363e5615977c74) |
+| Sepolia (11155111) | `HouseTokenFactory` * | [`0x16f61eef4642329739f2ff788fd580dae248b7ac`](https://sepolia.etherscan.io/address/0x16f61eef4642329739f2ff788fd580dae248b7ac) |
+| Sepolia (11155111) | `Access0x1Subscriptions` * | [`0xe3209e754b4b1fb423f421d28eeb422a7949c9bf`](https://sepolia.etherscan.io/address/0xe3209e754b4b1fb423f421d28eeb422a7949c9bf) |
+| Sepolia (11155111) | `Access0x1Bookings` * | [`0xb1dfa8fd2d55f6592562ed2a738fd9bf45df4023`](https://sepolia.etherscan.io/address/0xb1dfa8fd2d55f6592562ed2a738fd9bf45df4023) |
+| Sepolia (11155111) | `Access0x1Invoices` * | [`0x52dd1e0f44282be35991864375c88ae267b450fc`](https://sepolia.etherscan.io/address/0x52dd1e0f44282be35991864375c88ae267b450fc) |
+| Sepolia (11155111) | `Access0x1GiftCards` * | [`0x1ac9457a3436ea0864cad2ce8f4bbf8a1e853f51`](https://sepolia.etherscan.io/address/0x1ac9457a3436ea0864cad2ce8f4bbf8a1e853f51) |
+| OP Sepolia (11155420) | `Access0x1Router` * | [`0xc7ed3886ec8995531531cb2659d6b4bc4519c231`](https://optimism-sepolia.blockscout.com/address/0xc7ed3886ec8995531531cb2659d6b4bc4519c231) |
+| OP Sepolia (11155420) | `SessionGrant` * | [`0xd37634efeee3bc5ba16790345e7d5e15f06da69f`](https://optimism-sepolia.blockscout.com/address/0xd37634efeee3bc5ba16790345e7d5e15f06da69f) |
+| OP Sepolia (11155420) | `PaymentLanes` * | [`0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e`](https://optimism-sepolia.blockscout.com/address/0x5ac1bc66d5073b0f84bb4f240dc2dda95cc46a6e) |
+| OP Sepolia (11155420) | `HouseTokenFactory` * | [`0x9ec3984b224057e495175aa0a6e21c1a38a7da92`](https://optimism-sepolia.blockscout.com/address/0x9ec3984b224057e495175aa0a6e21c1a38a7da92) |
+| OP Sepolia (11155420) | `Access0x1Subscriptions` * | [`0x1fecfe4781e9a38b4291b681751e048cc6d1eac5`](https://optimism-sepolia.blockscout.com/address/0x1fecfe4781e9a38b4291b681751e048cc6d1eac5) |
+| OP Sepolia (11155420) | `Access0x1Bookings` * | [`0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb`](https://optimism-sepolia.blockscout.com/address/0xfd567edc7abed6e9e2cfdc8d40c4af5c8b20f4bb) |
+| OP Sepolia (11155420) | `Access0x1Invoices` * | [`0xb90f34e22683d24b622a8ca32fb8cceb8ab1d505`](https://optimism-sepolia.blockscout.com/address/0xb90f34e22683d24b622a8ca32fb8cceb8ab1d505) |
+| OP Sepolia (11155420) | `Access0x1GiftCards` * | [`0x8e933669a24fa6bf05206a1c17e67d5822231c6a`](https://optimism-sepolia.blockscout.com/address/0x8e933669a24fa6bf05206a1c17e67d5822231c6a) |
+
+\* Deployed before the proxy migration — this address is the contract itself, not an ERC1967 proxy.
+
+<!-- PREMIRROR-ADDRESSES:END -->
 
 > **Multi-tenant, on-chain.** The Base Sepolia router (`platformFeeBps = 100`, i.e. 1%) already carries
 > a registered merchant (`#1`) — registered with its own payout wallet, fee config, and name hash. A

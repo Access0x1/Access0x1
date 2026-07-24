@@ -254,6 +254,7 @@ mirror-manifest: ## Compute every contract's CREATE3 mirror address from its sal
 sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status + deployed ABIs + test-count badge
 	@node web/scripts/gen-deployments.mjs
 	@node web/scripts/sync-readme-status.mjs
+	@node web/scripts/gen-premirror-table.mjs
 	@node scripts/sync-deployed-abis.mjs --write
 	@node scripts/sync-test-badge.mjs --write
 

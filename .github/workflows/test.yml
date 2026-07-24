@@ -143,6 +143,15 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund
           node scripts/sync-readme-status.mjs --check
 
+      # The per-chain ADDRESS table under it was hand-maintained until an audit found 24
+      # addresses in it that no broadcast record backs — 12 attributed to a chain they were
+      # never deployed on, 12 more under the wrong chain's name and explorer. It is now
+      # derived too, and re-derived here: law #3 says no address is claimed without a
+      # committed broadcast record, and this is what enforces it.
+      - name: README pre-mirror address table not stale
+        working-directory: web
+        run: node scripts/gen-premirror-table.mjs --check
+
       # The Router ABI is duplicated (curated subsets) into web/lib/contracts.ts and
       # packages/react/src/abi.ts. This asserts every fragment they declare is byte-identical
       # to the canonical forge artifact, so a drifted decoder fails CI instead of shipping.

@@ -7,7 +7,7 @@
 | **Commit** | The merged `main` spine + the commerce set + the fuzz/symbolic/integration tiers. |
 | **Toolchain** | Foundry (forge 1.3.5 / solc 0.8.28, EVM `cancun`, `via_ir`), Aderyn v0.1.9, Slither v0.11.5, Halmos (symbolic). |
 | **Methodology** | Foundry unit + invariant + adversarial (`test/attack/**`) + integration + fuzz + scenario suites, Halmos symbolic proofs (`test/symbolic/**`), Aderyn, Slither, `forge coverage`, manual review |
-| **Status at event** | **Testnet-only.** The CREATE3 mirror is live on eight testnets (Arc / Base / Optimism / Arbitrum / Celo / Avalanche / Robinhood + Ethereum Sepolia), source-verified on seven. Mainnet deployment is gated on an independent third-party audit (see §8). |
+| **Status at event** | **Testnet-only.** The CREATE3 mirror is live on nine testnets (Arc / Base / Optimism / Arbitrum / Celo / Avalanche / Robinhood / zkSync Sepolia + Ethereum Sepolia), source-verified on seven. Mainnet deployment is gated on an independent third-party audit (see §8). |
 | **Report style** | Cyfrin-style: scope → methodology → posture → findings (resolve-or-justify) → residual risk |
 
 > This report records the security work performed during the build. It is an
