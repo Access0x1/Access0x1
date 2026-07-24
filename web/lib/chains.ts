@@ -101,7 +101,16 @@ export const zircuitGarfield = defineChain({
  * `viem/chains`, so hand-defined like {@link arcTestnet}. Native HBAR (the JSON-RPC
  * relay exposes 18-dec wei-scaled balances). Hedera has no Chainlink feeds, so USDC
  * pricing uses a $1 mock feed the deploy provisions (same pattern as 0G Galileo).
- * RPC is env-overridable (a QuickNode endpoint slots in here).
+ *
+ * CONFIRMED 2026-07-24 against docs.hedera.com/hedera/core-concepts/smart-contracts/json-rpc-relay:
+ * network id 296, relay `https://testnet.hashio.io/api`.
+ *
+ * ⚠️ Hashio is explicitly **development and testing only**, and rate-limited by
+ * Hedera: ~50 HBAR/min globally plus 100–1,600 requests per IP per minute by
+ * endpoint tier. A booth demo sharing one venue IP can trip that, so the RPC is
+ * env-overridable — set `NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL` to a commercial
+ * relay (QuickNode) or a self-hosted Hiero relay for anything load-bearing.
+ * Hedera's own docs recommend exactly that for non-toy use.
  */
 export const hederaTestnet = defineChain({
   id: 296,
