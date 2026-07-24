@@ -62,7 +62,8 @@ contract Access0x1SwapReceiptHookTest is Test {
         emit SwapReceipt(key.toId(), swapper, 42, bytes32("order-7"), -123456);
 
         vm.prank(manager);
-        (bytes4 selector, int128 hookDelta) = hook.afterSwap(swapper, key, _params(), delta, hookData);
+        (bytes4 selector, int128 hookDelta) =
+            hook.afterSwap(swapper, key, _params(), delta, hookData);
         assertEq(selector, IHooks.afterSwap.selector);
         assertEq(hookDelta, 0); // the hook never takes currency
     }

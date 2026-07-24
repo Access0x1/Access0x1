@@ -6,10 +6,7 @@ import { PoolKey } from "@uniswap/v4-core/src/types/PoolKey.sol";
 import { PoolId, PoolIdLibrary } from "@uniswap/v4-core/src/types/PoolId.sol";
 import { BalanceDelta } from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import { BeforeSwapDelta } from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
-import {
-    ModifyLiquidityParams,
-    SwapParams
-} from "@uniswap/v4-core/src/types/PoolOperation.sol";
+import { ModifyLiquidityParams, SwapParams } from "@uniswap/v4-core/src/types/PoolOperation.sol";
 
 /// @title  Access0x1SwapReceiptHook
 /// @author Access0x1
@@ -96,16 +93,21 @@ contract Access0x1SwapReceiptHook is IHooks {
     }
 
     /// @inheritdoc IHooks
-    function afterInitialize(address, PoolKey calldata, uint160, int24) external pure returns (bytes4) {
-        revert Access0x1SwapReceiptHook__HookNotImplemented();
-    }
-
-    /// @inheritdoc IHooks
-    function beforeAddLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
+    function afterInitialize(address, PoolKey calldata, uint160, int24)
         external
         pure
         returns (bytes4)
     {
+        revert Access0x1SwapReceiptHook__HookNotImplemented();
+    }
+
+    /// @inheritdoc IHooks
+    function beforeAddLiquidity(
+        address,
+        PoolKey calldata,
+        ModifyLiquidityParams calldata,
+        bytes calldata
+    ) external pure returns (bytes4) {
         revert Access0x1SwapReceiptHook__HookNotImplemented();
     }
 
@@ -122,11 +124,12 @@ contract Access0x1SwapReceiptHook is IHooks {
     }
 
     /// @inheritdoc IHooks
-    function beforeRemoveLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
-        external
-        pure
-        returns (bytes4)
-    {
+    function beforeRemoveLiquidity(
+        address,
+        PoolKey calldata,
+        ModifyLiquidityParams calldata,
+        bytes calldata
+    ) external pure returns (bytes4) {
         revert Access0x1SwapReceiptHook__HookNotImplemented();
     }
 
