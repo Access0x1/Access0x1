@@ -323,6 +323,28 @@ Arc/Robinhood/0G (`make verify-galileo`), Routescan for Avalanche Fuji.
 make web-dev           # cd web && npm run dev  →  http://localhost:3000
 ```
 
+### Configure API keys — one command tells you what's missing
+
+Every external API is **env-gated and fail-soft**: blank ⇒ that seam is dormant and the app runs
+normally. To see what's on, what's off, and exactly what to fill next:
+
+```sh
+cd web
+npm run env:demo       # only what a live demo needs (+ what's missing)
+npm run env:doctor     # everything, grouped by impact
+```
+
+It reads `web/.env.local` and reports each integration as **configured / partial / off**, naming the
+exact variables still missing and **where to get** each credential. `partial` is the one to watch —
+half-set config that silently stays OFF. The doctor prints **variable names and set/unset booleans
+only, never a value**, so its output is safe to paste into an issue or a chat.
+
+**Adding a new API is one entry**, not a code hunt: append it to
+[`web/lib/config/integrations.ts`](web/lib/config/integrations.ts) — id, label, what it unlocks, its
+variables (`required` / `secret`), and where the key comes from. The doctor, the readiness count, and
+the operator docs all derive from that single declaration. Mark any credential `secret: true`: those
+are server-only and must never reach a client bundle, a log, or a commit.
+
 ### Build on it — no contracts to write
 
 Don't want the monorepo, just the stack in your own app? Scaffold a pre-wired starter — checkout +

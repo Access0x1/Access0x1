@@ -9,6 +9,8 @@
     "prebuild": "node scripts/gen-deployments.mjs && node scripts/gen-module-abis.mjs && node scripts/gen-docs-corpus.mjs && node scripts/replace-embed-addrs.js",
     "gen:deployments": "node scripts/gen-deployments.mjs",
     "gen:abis": "node scripts/gen-module-abis.mjs",
+    "env:doctor": "tsx scripts/env-doctor.mjs",
+    "env:demo": "tsx scripts/env-doctor.mjs --demo",
     "gen:docs": "node scripts/gen-docs-corpus.mjs",
     "build": "next build --webpack",
     "start": "next start",
