@@ -218,7 +218,8 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     /// @notice Issue an invoice NFT. Only the router `owner` of `merchantId`. The invoice may be locked
     ///         to a single `payer` (only that address can settle) or open to anyone (`payer == 0`). The
     ///         NFT is minted to `to` (typically the merchant, so a factor can later buy the receivable).
-    /// @dev    Deliberately NOT `nonReentrant`, and that is safe rather than an oversight: the only
+    /// @dev    Deliberately NOT `nonReentrant`, and that is a considered choice rather than an
+    ///         oversight — here is the reasoning so a reviewer can check it rather than trust it: the only
     ///         external call is `_safeMint`'s `onERC721Received` callback, and by the time it fires the
     ///         id counter is bumped, the record is written and the event emitted. A receiver that
     ///         re-enters {issue} therefore just mints a second, independent invoice under its own fresh

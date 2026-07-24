@@ -98,10 +98,22 @@ interface IHouseTokenFactory {
 
     /// @notice The total number of house tokens this factory has deployed. A monotonic counter — never
     ///         a registry the factory can mutate after the fact.
+    /// @dev    Increments once per successful deploy and is never decremented, so it doubles as the
+    ///         length of the global enumeration. Deploying is permissionless, so treat this as a
+    ///         throughput figure, not a measure of legitimate demand.
+    /// @return The count of tokens deployed through this factory, all-time.
     function deployedCount() external view returns (uint256);
 
     /// @notice Whether `token` was deployed by THIS factory. Lets the router trust a house token's
     ///         provenance without trusting the factory with any authority over it.
+    /// @dev    PROVENANCE ONLY — read exactly what this asserts. True means "this factory deployed the
+    ///         contract", which pins its constructor behaviour (owner and full supply assigned to the
+    ///         business, decimals ≤ 18). It says NOTHING about the token's current owner, supply, or
+    ///         conduct afterwards: the business retains sole mint authority, so a true result is not a
+    ///         safety judgement about the token. Write-once at deploy and never cleared, so the factory
+    ///         cannot retroactively grant or revoke provenance.
+    /// @param  token The address to test.
+    /// @return True iff `token` was deployed by this factory.
     function isHouseToken(address token) external view returns (bool);
 
     /// @notice Every house token `owner` has deployed through the factory, in deploy order. The on-chain

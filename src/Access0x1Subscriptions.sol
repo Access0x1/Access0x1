@@ -523,6 +523,20 @@ contract Access0x1Subscriptions is
     ///         self-call. {SessionGrant.spend} and {Access0x1Router.payToken} are the only external
     ///         calls; CEI holds within {_charge}. The self-call cannot be entered by anyone but this
     ///         contract (the `msg.sender == address(this)` gate).
+    /// @dev    WHY THIS IS `external` AND NOT AN ATTACK SURFACE: it must be externally callable purely
+    ///         so {renew} can wrap it in `try`/`catch` — Solidity cannot catch a reverting INTERNAL
+    ///         call, and the try/catch is what lets a charge failure be classified (subscriber-side ⇒
+    ///         dun; system-side ⇒ re-revert) instead of bricking the renewal loop. The
+    ///         `msg.sender == address(this)` gate makes it unreachable from any other account, so the
+    ///         public ABI entry is inert to outsiders. Note the guard reverts
+    ///         {Access0x1Subs__NotSubscriber}, reusing an existing error rather than a bespoke one; a
+    ///         direct external call therefore reports "not the subscriber", not "not self".
+    /// @param  subId      The subscription being charged.
+    /// @param  merchantId The router merchant to pay.
+    /// @param  sessionId  The {SessionGrant} whose budget is debited before any money moves.
+    /// @param  token      The pay-in token pulled from the subscriber.
+    /// @param  priceUsd8  The period price in USD, 8 decimals.
+    /// @return tokenPulled The token amount actually pulled from the subscriber and routed.
     function chargeViaSelf(
         uint256 subId,
         uint256 merchantId,

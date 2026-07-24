@@ -195,6 +195,13 @@ interface IAccess0x1Rebates {
         );
 
     /// @notice Whether an `orderId` already consumed its rebate (the idempotency key).
+    /// @dev    THE double-claim guard, and the reason a rebate is one-shot per order: set on the first
+    ///         successful claim and never cleared, so a replayed claim for the same order is refused
+    ///         even if the promo is still funded and inside its window. Because the flag is global to
+    ///         this contract rather than scoped per merchant, an `orderId` must be unique across the
+    ///         deployment — colliding references would let the first claim block the second.
+    /// @param  orderId The settled-payment reference to test.
+    /// @return True iff a rebate has already been claimed against this order.
     function claimedOrder(bytes32 orderId) external view returns (bool);
 
     /// @notice The queued-rebate balance an account may {withdraw} for an asset.

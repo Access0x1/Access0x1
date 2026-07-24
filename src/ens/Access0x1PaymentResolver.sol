@@ -27,6 +27,17 @@ import { IAccess0x1PaymentResolver } from "../interfaces/IAccess0x1PaymentResolv
 ///      local so the resolver takes no ENS package dependency (ENSv2 is alpha/mainnet-only); the
 ///      registry address is owner-configured, never hardcoded.
 interface IEnsRegistry {
+    /// @notice The controller of an ENS `node` — the single fact {bindName} uses to prove a caller may
+    ///         bind the name they are claiming.
+    /// @dev    The registry is an EXTERNAL TRUST DEPENDENCY, and it is trusted only for this one
+    ///         answer. Because the address is owner-configured (never hardcoded), a misconfigured or
+    ///         hostile registry could authorize arbitrary node binds — but it can do nothing else: it
+    ///         is never consulted during resolution and can neither move funds nor alter a merchant's
+    ///         payout, since the second, independent gate (the caller must own the merchant seat on the
+    ///         router) is read from the router and cannot be influenced from here. A call that reverts
+    ///         propagates and fails the bind rather than degrading to the weaker fallback path.
+    /// @param  node The ENS namehash to look up.
+    /// @return The node's controller, or `address(0)` if it has none.
     function owner(bytes32 node) external view returns (address);
 }
 

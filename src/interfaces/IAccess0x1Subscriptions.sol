@@ -50,7 +50,18 @@ interface IAccess0x1Router {
 
     /// @notice Read a merchant record. The 2nd return member is the merchant `owner` (the only address
     ///         that may administer the merchant — used here for `onlyMerchantOwner`).
+    /// @dev    An UNREGISTERED id returns the all-zero record rather than reverting, so a zero `owner`
+    ///         is the canonical "no such merchant" signal every consumer in this codebase tests for.
+    ///         Never test existence via `active`: a registered merchant that has been deactivated also
+    ///         reports false. Read live on each call — the record is mutable by its owner.
     /// @param id The merchant id.
+    /// @return payout       Where the net payment lands.
+    /// @return owner        The only address that may administer this merchant; `address(0)` means the
+    ///                      seat was never registered.
+    /// @return feeRecipient Where this merchant's own fee leg lands (`address(0)` falls back to payout).
+    /// @return feeBps       The merchant's surcharge in basis points, on top of the platform fee.
+    /// @return active       False when the merchant is deactivated and new payments to it revert.
+    /// @return nameHash     An identity commitment; the readable name is not stored on-chain.
     function merchants(uint256 id)
         external
         view
@@ -372,9 +383,23 @@ interface IAccess0x1Subscriptions {
     // ──────────────────────── views ────────────────────────
 
     /// @notice Read a plan.
+    /// @dev    Plans are namespaced per merchant, so the same `planKey` under two merchants is two
+    ///         unrelated plans. Never reverts: an unset (merchant, plan) pair returns the all-zero
+    ///         {Plan} rather than failing, so test existence against the struct's own sentinel fields
+    ///         rather than assuming a successful call means the plan is configured.
+    /// @param  merchantId The merchant that owns the plan.
+    /// @param  planKey    The merchant-scoped plan identifier.
+    /// @return The stored {Plan}, or an all-zero struct when no such plan exists.
     function plans(uint256 merchantId, uint8 planKey) external view returns (Plan memory);
 
     /// @notice Read a subscription.
+    /// @dev    Returns RAW STORED STATE, not the effective state: `status` is only advanced when a
+    ///         transaction touches the subscription, so a record can still read as active while its
+    ///         `periodEnd` is already in the past and a renewal is due. Callers deciding entitlement
+    ///         must use the dedicated tier view, which collapses stored state against the clock, rather
+    ///         than reading `status` here. Never reverts; an unknown id returns an all-zero struct.
+    /// @param  subId The subscription id.
+    /// @return The stored {Subscription}, or an all-zero struct when the id was never issued.
     function subs(uint256 subId) external view returns (Subscription memory);
 
     /// @notice The entitled tier for a subscription RIGHT NOW — a PURE function of stored state

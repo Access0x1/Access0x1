@@ -102,12 +102,23 @@ contract Access0x1Receiver is IReceiver, Ownable2Step {
     /// @notice Allow or disallow a CRE workflow owner from writing audit entries.
     /// @dev    Owner-gated config; mirrors `KeystoneFeedsConsumer.setConfig`'s owner allowlist but
     ///         kept granular (one setter per dimension) so it composes cleanly with tests + scripts.
+    ///         Note the two allowlists are ANDed at `onReport`, not ORed: allowing an owner here is
+    ///         necessary but never sufficient, since the workflow NAME must be allowlisted too. Takes
+    ///         effect immediately, so revoking a compromised workflow owner stops the next report
+    ///         without touching any audit entry already written (history is append-only).
+    /// @param  workflowOwner The address that registered the CRE workflow on the DON.
+    /// @param  allowed       True to permit its reports, false to revoke.
     function setAllowedWorkflowOwner(address workflowOwner, bool allowed) external onlyOwner {
         allowedWorkflowOwner[workflowOwner] = allowed;
         emit WorkflowOwnerSet(workflowOwner, allowed);
     }
 
     /// @notice Allow or disallow a CRE workflow name from writing audit entries.
+    /// @dev    The second half of the ANDed gate — see {setAllowedWorkflowOwner}. `bytes10` is the
+    ///         on-DON workflow identifier as it appears in the report metadata, so it must match the
+    ///         deployed workflow's name exactly (right-padded), not a human label for it.
+    /// @param  workflowName The `bytes10` workflow identifier carried in the report metadata.
+    /// @param  allowed      True to permit reports naming it, false to revoke.
     function setAllowedWorkflowName(bytes10 workflowName, bool allowed) external onlyOwner {
         allowedWorkflowName[workflowName] = allowed;
         emit WorkflowNameSet(workflowName, allowed);

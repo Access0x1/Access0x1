@@ -68,10 +68,20 @@ interface IAccess0x1SponsorRegistry {
 
     /// @notice THE record: the sponsor wired to this merchant, or address(0) when none. A
     ///         dashboard renders CONNECTED exactly when this is non-zero — never from prose.
+    /// @dev    A DECLARATION, not an entitlement. Nothing in the payment path reads this, so a stale or
+    ///         wrong value cannot block or redirect a settlement; a relayer chooses to honour it. Never
+    ///         reverts, including for a merchant id that was never registered.
+    /// @param  merchantId The merchant seat to read.
+    /// @return The accepted sponsor, or `address(0)` when the seat has none.
     function sponsorOf(uint256 merchantId) external view returns (address);
 
     /// @notice A pending, not-yet-accepted offer (address(0) when none). Renders as an
     ///         actionable "offer awaiting your acceptance" for the merchant's owner.
+    /// @dev    Inert until the merchant's owner accepts — being named here grants the offering wallet
+    ///         no authority whatsoever. Only the newest offer is retained (last offer stands), so this
+    ///         is a single slot, not a queue. Never reverts.
+    /// @param  merchantId The merchant seat to read.
+    /// @return The wallet awaiting acceptance, or `address(0)` when no offer is outstanding.
     function pendingSponsorOf(uint256 merchantId) external view returns (address);
 
     // ──────────────────────── mutating ────────────────────────
