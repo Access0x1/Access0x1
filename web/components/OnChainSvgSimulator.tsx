@@ -261,6 +261,9 @@ export function OnChainSvgSimulatorView({
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Network</span>
           <select
+            id="svgsim-chain"
+            name="chain"
+            autoComplete="off"
             value={chainId}
             onChange={(e) => onChainChange(Number(e.target.value))}
             className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-rail"
@@ -276,6 +279,9 @@ export function OnChainSvgSimulatorView({
           <span className="font-medium text-ink">Artwork</span>
           <input
             type="file"
+            id="svgsim-file"
+            name="file"
+            autoComplete="off"
             accept="image/svg+xml,.svg,image/png,image/jpeg,image/webp,image/gif"
             onChange={onFile}
             className="rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-rail file:px-3 file:py-1 file:text-xs file:font-medium file:text-white"

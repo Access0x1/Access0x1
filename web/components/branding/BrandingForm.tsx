@@ -204,6 +204,9 @@ export function BrandingForm({
           </span>
           <input
             type="text"
+            id="branding-business-name"
+            name="business-name"
+            autoComplete="organization"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Joe's Barbershop"
@@ -220,6 +223,9 @@ export function BrandingForm({
             </span>
             <input
               type="text"
+              id="branding-checkout-slug"
+              name="checkout-slug"
+              autoComplete="off"
               value={effectiveSlug}
               onChange={(e) => {
                 setSlugTouched(true)
@@ -268,6 +274,9 @@ export function BrandingForm({
         </span>
         <input
           type="text"
+          id="branding-description"
+          name="description"
+          autoComplete="off"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="e.g. Fresh cuts & hot-towel shaves in Brooklyn"
@@ -307,6 +316,9 @@ export function BrandingForm({
           <input
             ref={fileRef}
             type="file"
+            id="branding-logo"
+            name="logo"
+            autoComplete="off"
             accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
             className="hidden"
             onChange={(e) => {
@@ -318,6 +330,9 @@ export function BrandingForm({
             Brand color
             <input
               type="color"
+              id="branding-brand-color"
+              name="brand-color"
+              autoComplete="off"
               value={hexForInput(brandColor)}
               onChange={(e) => setBrandColor(e.target.value)}
               className="h-8 w-10 cursor-pointer rounded border border-input"

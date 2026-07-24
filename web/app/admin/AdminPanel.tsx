@@ -181,6 +181,9 @@ export function AdminPanel(): ReactNode {
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium text-foreground">Network</span>
           <select
+            id="admin-chain"
+            name="chain"
+            autoComplete="off"
             value={chainId}
             onChange={(e) => setChainId(Number(e.target.value))}
             className="rounded-md border border-input bg-background px-3 py-2 text-foreground outline-none focus:border-primary"
@@ -210,6 +213,9 @@ export function AdminPanel(): ReactNode {
           </span>
           <input
             type="text"
+            id="admin-registry"
+            name="registry"
+            autoComplete="off"
             value={registryInput}
             onChange={(e) => {
               setRegistryInput(e.target.value)
@@ -299,6 +305,9 @@ export function AdminPanel(): ReactNode {
           <span className="font-medium text-foreground">Content id (CID)</span>
           <input
             type="text"
+            id="admin-cid"
+            name="cid"
+            autoComplete="off"
             value={cid}
             onChange={(e) => setCid(e.target.value)}
             placeholder="bafy… (IPFS CID)"
@@ -312,6 +321,9 @@ export function AdminPanel(): ReactNode {
           </span>
           <input
             type="text"
+            id="admin-tag"
+            name="tag"
+            autoComplete="off"
             value={tag}
             onChange={(e) => setTag(e.target.value)}
             placeholder="v1.0.0"
@@ -323,6 +335,9 @@ export function AdminPanel(): ReactNode {
           <span className="font-medium text-foreground">Merkle root (bytes32)</span>
           <input
             type="text"
+            id="admin-merkle-root"
+            name="merkleRoot"
+            autoComplete="off"
             value={merkleRoot}
             onChange={(e) => setMerkleRoot(e.target.value)}
             placeholder="0x… (0x + 64 hex chars)"

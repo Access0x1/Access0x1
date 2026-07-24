@@ -177,6 +177,9 @@ export function GatewayBalanceCard(): ReactNode {
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Amount (USDC)</span>
             <input
+              id="gateway-amount"
+              name="amount"
+              autoComplete="off"
               value={amount}
               onChange={(e) => onEdit(setAmount)(e.target.value)}
               inputMode="decimal"
@@ -187,6 +190,9 @@ export function GatewayBalanceCard(): ReactNode {
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Destination chain</span>
             <select
+              id="gateway-destination"
+              name="destination"
+              autoComplete="off"
               value={dest}
               onChange={(e) => onEdit(setDest)(e.target.value)}
               className="rounded-lg border border-input px-3 py-1.5"
@@ -201,6 +207,9 @@ export function GatewayBalanceCard(): ReactNode {
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Recipient address</span>
             <input
+              id="gateway-recipient"
+              name="recipient"
+              autoComplete="off"
               value={recipient}
               onChange={(e) => onEdit(setRecipient)(e.target.value)}
               placeholder="0x…"

@@ -124,11 +124,11 @@ export function PlanForm({
       <div className="flex flex-wrap gap-3">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Price (USD)</span>
-          <input type="number" min="0.01" step="0.01" value={priceUsd} onChange={(e) => setPriceUsd(e.target.value)} className={inputCls} />
+          <input type="number" id="sellable-price" name="price" autoComplete="off" min="0.01" step="0.01" value={priceUsd} onChange={(e) => setPriceUsd(e.target.value)} className={inputCls} />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Billing period</span>
-          <select value={periodSecs} onChange={(e) => setPeriodSecs(e.target.value)} className={inputCls}>
+          <select id="sellable-period" name="period" autoComplete="off" value={periodSecs} onChange={(e) => setPeriodSecs(e.target.value)} className={inputCls}>
             {PLAN_PERIODS.map((p) => (
               <option key={p.secs} value={p.secs}>
                 {p.label}
@@ -138,7 +138,7 @@ export function PlanForm({
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Plan number</span>
-          <input type="number" min="0" max="255" value={planKey} onChange={(e) => setPlanKey(e.target.value)} className={inputCls} />
+          <input type="number" id="sellable-plan-key" name="planKey" autoComplete="off" min="0" max="255" value={planKey} onChange={(e) => setPlanKey(e.target.value)} className={inputCls} />
         </label>
       </div>
       {formError ?? error ? <p className="text-sm text-red-600">{formError ?? error}</p> : null}
@@ -200,20 +200,20 @@ export function InvoiceForm({
       <div className="flex flex-wrap gap-3">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Amount (USD)</span>
-          <input type="number" min="0.01" step="0.01" value={amountUsd} onChange={(e) => setAmountUsd(e.target.value)} className={inputCls} />
+          <input type="number" id="sellable-amount" name="amount" autoComplete="off" min="0.01" step="0.01" value={amountUsd} onChange={(e) => setAmountUsd(e.target.value)} className={inputCls} />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Due in (days)</span>
-          <input type="number" min="1" step="1" value={dueDays} onChange={(e) => setDueDays(e.target.value)} className={inputCls} />
+          <input type="number" id="sellable-due-days" name="dueDays" autoComplete="off" min="1" step="1" value={dueDays} onChange={(e) => setDueDays(e.target.value)} className={inputCls} />
         </label>
       </div>
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">Memo <span className="text-muted-foreground">(only its hash goes on-chain)</span></span>
-        <input type="text" value={memo} onChange={(e) => setMemo(e.target.value)} className={inputCls} />
+        <input type="text" id="sellable-memo" name="memo" autoComplete="off" value={memo} onChange={(e) => setMemo(e.target.value)} className={inputCls} />
       </label>
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">Payer <span className="text-muted-foreground">(optional — empty means anyone can pay)</span></span>
-        <input type="text" value={payer} onChange={(e) => setPayer(e.target.value)} placeholder="0x…" className={`${inputCls} font-mono`} />
+        <input type="text" id="sellable-payer" name="payer" autoComplete="off" value={payer} onChange={(e) => setPayer(e.target.value)} placeholder="0x…" className={`${inputCls} font-mono`} />
       </label>
       {formError ?? error ? <p className="text-sm text-red-600">{formError ?? error}</p> : null}
       <button type="submit" disabled={submitting} className={buttonCls}>
@@ -277,16 +277,16 @@ export function GiftCardForm({
       <div className="flex flex-wrap gap-3">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Card code <span className="text-muted-foreground">(never leaves your browser in the clear)</span></span>
-          <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="WELCOME25" className={`${inputCls} font-mono`} />
+          <input type="text" id="sellable-code" name="code" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} placeholder="WELCOME25" className={`${inputCls} font-mono`} />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink">Value (USD)</span>
-          <input type="number" min="0.01" step="0.01" value={faceUsd} onChange={(e) => setFaceUsd(e.target.value)} className={inputCls} />
+          <input type="number" id="sellable-face-usd" name="faceUsd" autoComplete="off" min="0.01" step="0.01" value={faceUsd} onChange={(e) => setFaceUsd(e.target.value)} className={inputCls} />
         </label>
       </div>
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">Recipient <span className="text-muted-foreground">(optional — defaults to you)</span></span>
-        <input type="text" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="0x…" className={`${inputCls} font-mono`} />
+        <input type="text" id="sellable-recipient" name="recipient" autoComplete="off" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="0x…" className={`${inputCls} font-mono`} />
       </label>
       {formError ?? error ? <p className="text-sm text-red-600">{formError ?? error}</p> : null}
       <button type="submit" disabled={submitting} className={buttonCls}>
