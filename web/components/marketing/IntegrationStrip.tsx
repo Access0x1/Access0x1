@@ -15,6 +15,7 @@
 import type { ReactNode } from 'react'
 
 import { Badge } from '@/components/ui/badge'
+import { CalcadaMedallion } from '@/components/marketing/Calcada'
 import { DEPLOYMENTS } from '@/lib/deployments'
 import type { Dictionary } from '@/lib/i18n/get-dictionary'
 
@@ -61,6 +62,9 @@ export function IntegrationStrip({ integrations }: IntegrationStripProps): React
   return (
     <section className="mx-auto max-w-5xl px-6 py-12">
       <div className="flex flex-col items-center gap-6 rounded-2xl border border-border bg-card/50 px-6 py-8">
+        {/* The brand glyph as a calçada roundel — the logo, set in stone. */}
+        <CalcadaMedallion size={64} className="-mb-2" />
+
         <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           {integrations.heading}
         </p>
