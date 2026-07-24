@@ -46,6 +46,32 @@ import { assertServerOnly } from "./serverOnly.js";
 
 assertServerOnly("stateAnchor");
 
+/**
+ * Hard deadlines for the post-settlement anchor legs. This runs AFTER real USDC is
+ * spent and is awaited before the response is built, so an unbounded storage hang or
+ * a slow receipt wait would stall the reply. Each leg is bounded and best-effort: a
+ * timeout degrades to a stored-only (or null) outcome, never a hung request.
+ */
+const STORE_TIMEOUT_MS = 5_000;
+const ANCHOR_TIMEOUT_MS = 20_000;
+
+/** Reject with a Timeout error if `p` doesn't settle within `ms` (best-effort bound). */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`stateAnchor: ${label} timed out after ${ms}ms`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
 /** The receipt/state payload persisted after a settled agent payment. */
 export interface AgentStateReceipt {
   /** The paid endpoint URL. */
@@ -145,9 +171,14 @@ export async function anchorAgentState(
   try {
     const deps = depsOverride ?? realDeps();
 
-    // 1. STORE — the exact bytes we hash are the exact bytes we publish.
+    // 1. STORE — the exact bytes we hash are the exact bytes we publish. Bounded so a
+    //    hung publisher degrades to null (nothing stored) instead of stalling the reply.
     const bytes = new TextEncoder().encode(JSON.stringify(receipt));
-    const published = await deps.walrus.publish(bytes, "application/json");
+    const published = await withTimeout(
+      deps.walrus.publish(bytes, "application/json"),
+      STORE_TIMEOUT_MS,
+      "walrus.publish",
+    );
     const contentHash = keccak256(bytes);
 
     const outcome: StateAnchorOutcome = {
@@ -158,30 +189,41 @@ export async function anchorAgentState(
       anchored: false,
     };
 
-    // 2. ANCHOR — optional leg; unconfigured → stored-only outcome (honest).
+    // 2. ANCHOR — optional leg; unconfigured → stored-only outcome (honest). The whole
+    //    leg is bounded (ANCHOR_TIMEOUT_MS) AND the receipt wait carries an explicit
+    //    timeout (viem defaults to 180s), so a slow chain degrades to stored-only.
     try {
       const writer = deps.buildAnchorWriter();
       if (writer) {
         const { walletClient, registry } = writer;
         const account = walletClient.account;
         if (account) {
-          const txHash = await walletClient.writeContract({
-            account,
-            chain: walletClient.chain,
-            address: registry,
-            abi: REGISTRY_ABI,
-            functionName: "anchorRelease",
-            args: [deriveAgentRepoId(), published.blobId, receipt.settledAt, contentHash],
-          });
-          // Wait for the receipt so `anchored: true` is a MINED claim (law #4).
-          const publicClient = getAdminPublicClient(walletClient.chain!.id);
-          await publicClient.waitForTransactionReceipt({ hash: txHash });
-          outcome.anchorTx = txHash;
-          outcome.anchored = true;
+          await withTimeout(
+            (async () => {
+              const txHash = await walletClient.writeContract({
+                account,
+                chain: walletClient.chain,
+                address: registry,
+                abi: REGISTRY_ABI,
+                functionName: "anchorRelease",
+                args: [deriveAgentRepoId(), published.blobId, receipt.settledAt, contentHash],
+              });
+              // Wait for the receipt so `anchored: true` is a MINED claim (law #4).
+              const publicClient = getAdminPublicClient(walletClient.chain!.id);
+              await publicClient.waitForTransactionReceipt({
+                hash: txHash,
+                timeout: ANCHOR_TIMEOUT_MS,
+              });
+              outcome.anchorTx = txHash;
+              outcome.anchored = true;
+            })(),
+            ANCHOR_TIMEOUT_MS,
+            "anchor",
+          );
         }
       }
     } catch {
-      // Anchor leg failed — the stored-only outcome below is still true & useful.
+      // Anchor leg failed or timed out — the stored-only outcome below is still true & useful.
     }
 
     return outcome;

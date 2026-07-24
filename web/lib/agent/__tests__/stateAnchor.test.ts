@@ -56,6 +56,7 @@ afterEach(() => {
   setStateAnchorDeps(null);
   delete process.env.AGENT_STATE_ANCHOR;
   delete process.env.AGENT_REPO_ID;
+  vi.useRealTimers();
 });
 
 describe("isStateAnchorEnabled", () => {
@@ -176,6 +177,42 @@ describe("anchorAgentState", () => {
     });
     setStateAnchorDeps(deps);
     const outcome = await anchorAgentState(RECEIPT);
+    expect(outcome).not.toBeNull();
+    expect(outcome!.blobId).toBe("blob-123");
+    expect(outcome!.anchored).toBe(false);
+  });
+
+  it("bounded: a hung Walrus publish times out to null (never stalls the reply)", async () => {
+    vi.useFakeTimers();
+    process.env.AGENT_STATE_ANCHOR = "true";
+    const publish = vi.fn().mockReturnValue(new Promise(() => {})); // never resolves
+    const { deps } = makeDeps();
+    (deps.walrus as unknown as { publish: typeof publish }).publish = publish;
+    setStateAnchorDeps(deps);
+    const p = anchorAgentState(RECEIPT);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(await p).toBeNull();
+  });
+
+  it("bounded: a hung anchor tx times out to the stored-only outcome", async () => {
+    vi.useFakeTimers();
+    process.env.AGENT_STATE_ANCHOR = "true";
+    const writeContract = vi.fn().mockReturnValue(new Promise(() => {})); // never resolves
+    const { deps } = makeDeps({
+      buildAnchorWriter: () =>
+        ({
+          walletClient: {
+            account: { address: "0x2222222222222222222222222222222222222222" },
+            chain: { id: 84532, rpcUrls: { default: { http: ["http://x"] } } },
+            writeContract,
+          },
+          registry: "0x3333333333333333333333333333333333333333",
+        }) as never,
+    });
+    setStateAnchorDeps(deps);
+    const p = anchorAgentState(RECEIPT);
+    await vi.advanceTimersByTimeAsync(20_000);
+    const outcome = await p;
     expect(outcome).not.toBeNull();
     expect(outcome!.blobId).toBe("blob-123");
     expect(outcome!.anchored).toBe(false);
