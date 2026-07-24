@@ -330,7 +330,7 @@ normally. To see what's on, what's off, and exactly what to fill next:
 
 ```sh
 cd web
-npm run env:demo       # only what a live demo needs (+ what's missing)
+npm run env:core       # only what going live needs (+ what's missing)
 npm run env:doctor     # everything, grouped by impact
 npm run env:set        # add a key, interactively, without it touching your screen
 ```

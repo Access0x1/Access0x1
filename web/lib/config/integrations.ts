@@ -21,8 +21,8 @@
 
 /** What a missing integration costs — used to sort the doctor's output. */
 export type IntegrationImpact =
-  /** The demo/pitch visibly needs it. */
-  | 'demo'
+  /** The live product visibly needs it — a launch blocker. */
+  | 'core'
   /** A real feature switches off, but the app is fine. */
   | 'feature'
   /** Nice to have; almost always fine unset. */
@@ -79,7 +79,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     id: 'uniswap',
     label: 'Uniswap Trading API',
     unlocks: 'Receive-in-any-coin payout swaps (gasless / classic / smart-account) off the money path.',
-    impact: 'demo',
+    impact: 'core',
     where: 'hub.uniswap.org — create an app, copy the Trading API key.',
     vars: [
       { name: 'UNISWAP_TRADING_API_URL', purpose: 'Trading API base URL', required: true },
@@ -89,8 +89,8 @@ export const INTEGRATIONS: readonly Integration[] = [
   {
     id: 'oneinch',
     label: '1inch Swap API',
-    unlocks: 'The 1inch payout rail + the agent pay-any-token quote (mainnets only — read-only demo on testnets).',
-    impact: 'demo',
+    unlocks: 'The 1inch payout rail + the agent pay-any-token quote (mainnets only — read-only on testnets).',
+    impact: 'core',
     where: 'portal.1inch.dev — free Dev plan, copy the API key.',
     vars: [
       { name: 'ONEINCH_API_URL', purpose: 'Swap API base URL including the chain segment', required: true },
@@ -101,7 +101,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     id: 'anthropic',
     label: 'Claude (default AI provider)',
     unlocks: 'The docs assistant, the judge Q&A bot, and /api/ai/infer when the provider is anthropic.',
-    impact: 'demo',
+    impact: 'core',
     where: 'console.anthropic.com — API keys.',
     vars: [{ name: 'CLAUDE_API_KEY', purpose: 'Anthropic API key', required: true, secret: true }],
   },
@@ -145,7 +145,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     id: 'dynamic',
     label: 'Dynamic (merchant wallet auth)',
     unlocks: 'Merchant sign-in, the agent MPC server wallet, and verified-session writes.',
-    impact: 'demo',
+    impact: 'core',
     where: 'app.dynamic.xyz — environment id + API token.',
     vars: [
       { name: 'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID', purpose: 'Public environment id (client)', required: true },
@@ -164,7 +164,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     id: 'ens-subnames',
     label: 'ENS subnames (Namestone)',
     unlocks: 'Issuing pay.<business>.eth subnames — the front door of onboarding.',
-    impact: 'demo',
+    impact: 'core',
     where: 'namestone.com — API key, plus an ENS name you control as the parent.',
     vars: [
       { name: 'NAMESTONE_API_KEY', purpose: 'Namestone API key', required: true, secret: true },
@@ -259,7 +259,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     id: 'agent',
     label: 'Agent (x402 earn/spend)',
     unlocks: 'The autonomous pay loop: the agent earns and spends from its own bounded wallet.',
-    impact: 'demo',
+    impact: 'core',
     where: 'Set after the Dynamic wallet exists; caps/allowlist are yours to choose.',
     vars: [
       {

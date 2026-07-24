@@ -10,7 +10,7 @@
     "gen:deployments": "node scripts/gen-deployments.mjs",
     "gen:abis": "node scripts/gen-module-abis.mjs",
     "env:doctor": "tsx scripts/env-doctor.mjs",
-    "env:demo": "tsx scripts/env-doctor.mjs --demo",
+    "env:core": "tsx scripts/env-doctor.mjs --core",
     "env:set": "tsx scripts/env-set.mjs",
     "env:seal": "tsx scripts/env-seal.mjs",
     "env:open": "tsx scripts/env-seal.mjs --open",

@@ -27,7 +27,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(): Promise<NextResponse> {
   const statuses = allStatuses((name) => process.env[name])
 
-  const demo = statuses.filter((s) => s.impact === 'demo')
+  const core = statuses.filter((s) => s.impact === 'core')
   const body = {
     /** Per-integration state: configured | partial | off (never a value). */
     integrations: statuses.map((s) => {
@@ -39,8 +39,8 @@ export async function GET(): Promise<NextResponse> {
         secretVars: (meta?.vars ?? []).filter((v) => v.secret).map((v) => v.name),
       }
     }),
-    /** At-a-glance readiness for the surfaces a live demo depends on. */
-    demoReadiness: { ready: demo.filter((s) => s.ready).length, total: demo.length },
+    /** At-a-glance readiness for the surfaces going live depends on. */
+    liveReadiness: { ready: core.filter((s) => s.ready).length, total: core.length },
     /**
      * `partial` is surfaced separately because it is the dangerous state: half
      * configured reads as "on" at a glance while the call silently fails.

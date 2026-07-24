@@ -12,9 +12,9 @@
  *
  * USAGE
  *   node scripts/env-doctor.mjs              # full report
- *   node scripts/env-doctor.mjs --demo       # only what the live demo needs
+ *   node scripts/env-doctor.mjs --core       # only what going live needs
  *   node scripts/env-doctor.mjs --json       # machine-readable (no values)
- *   node scripts/env-doctor.mjs --strict     # exit 1 if any `demo` integration isn't ready
+ *   node scripts/env-doctor.mjs --strict     # exit 1 if any `core` integration isn't ready
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -25,7 +25,8 @@ const WEB_ROOT = resolve(HERE, '..')
 
 const ARGS = process.argv.slice(2)
 const JSON_OUT = ARGS.includes('--json')
-const DEMO_ONLY = ARGS.includes('--demo')
+// `--demo` still accepted so an existing script or muscle-memory does not break.
+const CORE_ONLY = ARGS.includes('--core') || ARGS.includes('--demo')
 const STRICT = ARGS.includes('--strict')
 
 /**
@@ -60,7 +61,7 @@ function parseEnvFile(path) {
 }
 
 const ICON = { configured: '✅', partial: '⚠️ ', off: '·  ' }
-const IMPACT_ORDER = { demo: 0, feature: 1, optional: 2 }
+const IMPACT_ORDER = { core: 0, feature: 1, optional: 2 }
 
 async function main() {
   // The registry is TypeScript; read it through the same tsx/ts path the app uses.
@@ -75,7 +76,7 @@ async function main() {
       : fileEnv[name]
 
   let list = INTEGRATIONS.map((i) => ({ integration: i, status: statusOf(i, lookup) }))
-  if (DEMO_ONLY) list = list.filter((r) => r.integration.impact === 'demo')
+  if (CORE_ONLY) list = list.filter((r) => r.integration.impact === 'core')
   list.sort(
     (a, b) =>
       IMPACT_ORDER[a.integration.impact] - IMPACT_ORDER[b.integration.impact] ||
@@ -93,8 +94,8 @@ async function main() {
     for (const { integration, status } of list) {
       if (integration.impact !== lastImpact) {
         const head =
-          integration.impact === 'demo'
-            ? 'NEEDED FOR THE LIVE DEMO'
+          integration.impact === 'core'
+            ? 'REQUIRED TO GO LIVE'
             : integration.impact === 'feature'
               ? 'FEATURES (app is fine without)'
               : 'OPTIONAL'
@@ -125,16 +126,16 @@ async function main() {
       console.log('')
     }
 
-    const demo = list.filter((r) => r.integration.impact === 'demo')
-    const ready = demo.filter((r) => r.status.ready).length
-    console.log(`Demo readiness: ${ready}/${demo.length} integrations configured.`)
+    const core = list.filter((r) => r.integration.impact === 'core')
+    const ready = core.filter((r) => r.status.ready).length
+    console.log(`Live readiness: ${ready}/${core.length} integrations configured.`)
     console.log(`Fill values in web/.env.local (gitignored). Never commit a key.\n`)
   }
 
   if (STRICT) {
-    const blocked = list.filter((r) => r.integration.impact === 'demo' && !r.status.ready)
+    const blocked = list.filter((r) => r.integration.impact === 'core' && !r.status.ready)
     if (blocked.length) {
-      console.error(`env-doctor --strict: ${blocked.length} demo integration(s) not ready.`)
+      console.error(`env-doctor --strict: ${blocked.length} core integration(s) not ready.`)
       process.exit(1)
     }
   }

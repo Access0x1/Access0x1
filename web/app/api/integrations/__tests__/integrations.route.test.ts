@@ -59,9 +59,9 @@ describe('GET /api/integrations', () => {
     expect(claude.secretVars).toContain('CLAUDE_API_KEY')
   })
 
-  it('counts demo readiness out of the demo-impact integrations', async () => {
+  it('counts live readiness out of the core-impact integrations', async () => {
     const body = await (await get()).json()
-    expect(body.demoReadiness.total).toBeGreaterThan(0)
-    expect(body.demoReadiness.ready).toBeLessThanOrEqual(body.demoReadiness.total)
+    expect(body.liveReadiness.total).toBeGreaterThan(0)
+    expect(body.liveReadiness.ready).toBeLessThanOrEqual(body.liveReadiness.total)
   })
 })
