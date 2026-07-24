@@ -650,7 +650,7 @@ the committed table has drifted — so it can never go stale by hand:
 | 0G Galileo Testnet | `16602` | ⏳ pre-mirror |
 | Tempo Testnet (Moderato) | `42431` | ⏳ pre-mirror |
 | Avalanche Fuji | `43113` | ✅ mirror |
-| Chain 46630 | `46630` | ✅ mirror |
+| Robinhood Chain Testnet | `46630` | ✅ mirror |
 | Base Sepolia | `84532` | ✅ mirror |
 | Arbitrum Sepolia | `421614` | ✅ mirror |
 | Hoodi | `560048` | ⏳ pre-mirror |
