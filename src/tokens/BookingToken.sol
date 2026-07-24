@@ -684,12 +684,21 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     }
 
     /// @dev Revert unless booking `tokenId`'s status equals `required` (NotFound for an unset id).
+    ///      Checking `NONE` first is what keeps "never existed" and "already resolved" distinguishable
+    ///      to a caller instead of collapsing both into one opaque revert.
+    /// @param id       The reservation id (for the revert payload).
+    /// @param current  The status actually stored.
+    /// @param required The status the caller's transition demands.
     function _requireStatus(uint256 id, BStatus current, BStatus required) private pure {
         if (current == BStatus.NONE) revert BookingToken__NotFound(id);
         if (current != required) revert BookingToken__WrongStatus(id, current, required);
     }
 
     /// @dev Read the router owner of `merchantId` (the `owner` field of the Merchant record).
+    ///      `address(0)` means the seat was never registered — every auth check above treats that as
+    ///      "unknown merchant" and reverts rather than falling through.
+    /// @param merchantId The merchant seat to look up.
+    /// @return owner_ The seat's current owner, or `address(0)` if it was never registered.
     function _merchantOwner(uint256 merchantId) private view returns (address owner_) {
         (, owner_,,,,) = router.merchants(merchantId);
     }
