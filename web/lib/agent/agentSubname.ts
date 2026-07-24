@@ -30,6 +30,8 @@ import { isSubnameIssuanceConfigured, issueSubname } from '../ens-subnames'
 import type { AgentIdentity } from './identity'
 import type { AgentRegistry } from './ensIdentity'
 import { AGENT_CONTEXT_KEY, agentEndpointKey, expectedAgentRegistration } from './ensIdentity'
+import { AGENT_INFERENCE_RECORD_KEY } from '../ai/agentInference'
+import type { InferenceProvider } from '../ai/inference'
 
 /**
  * Generic TEXT-record keys for agent provenance on the subname — the agent-side
@@ -42,6 +44,13 @@ export const AGENT_SUBNAME_TEXT_KEYS = {
   agentOwner: 'click.access0x1.agentOwner',
   /** The agent's display-name COMMITMENT (keccak256), when the caller named it. */
   agentNameHash: 'click.access0x1.agentNameHash',
+  /**
+   * The agent's chosen inference backend (`zerog` ⇒ 0G Compute, `anthropic` ⇒ default). Writing
+   * this record is how an ETH-native agent PUBLISHES its decision to join 0G — `agentInference.ts`
+   * (`resolveAgentInferenceProvider`) reads the SAME key back off the name. Set only when a provider
+   * is explicitly chosen, so an unset record cleanly means "the default".
+   */
+  inference: AGENT_INFERENCE_RECORD_KEY,
 } as const
 
 /** How many hex chars of the agentId go into the label (64 bits — see below). */
@@ -69,6 +78,11 @@ export interface AgentDiscovery {
   context?: string
   /** `agent-endpoint[<protocol>]` values keyed by protocol (e.g. `{ mcp: url, a2a: url }`). */
   endpoints?: Record<string, string>
+  /**
+   * The agent's chosen inference backend, published as `click.access0x1.inference`. When set, the
+   * agent "joins 0G" (or pins Anthropic) via its own ENS identity; unset ⇒ no record ⇒ the default.
+   */
+  inferenceProvider?: InferenceProvider
 }
 
 /**
@@ -110,6 +124,10 @@ export function agentSubnameTexts(
     // agentEndpointKey throws on reserved brackets — the caller sees bad_input
     // via issueAgentSubname, or the raw throw when calling this pure builder.
     texts.push({ key: agentEndpointKey(protocol), value })
+  }
+  // The agent's inference choice — publishing this record is how it JOINS 0G via its ENS identity.
+  if (discovery?.inferenceProvider) {
+    texts.push({ key: AGENT_SUBNAME_TEXT_KEYS.inference, value: discovery.inferenceProvider })
   }
   return texts
 }

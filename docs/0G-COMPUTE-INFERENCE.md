@@ -20,6 +20,11 @@ All flow through one seam, `web/lib/ai/inference.ts` (`runInference`):
    `click.access0x1.inference = zerog` on its ENS name, and `web/lib/ai/agentInference.ts`
    (`resolveAgentInferenceProvider`) reads it and routes accordingly. The choice thus lives in the
    agent's *Ethereum* identity, flippable by the name owner at any time — no 0G footprint at all.
+   **Write side:** `POST /api/ens/agent` issues `agent-<id>.<PARENT>.eth` and publishes that record
+   (gaslessly via Namestone), deriving the agent's `agentId` server-side from `(owner, delegate)` and
+   auth-gating on the owner wallet. **Read side:** `resolveAgentInferenceProvider(name)` reads the
+   same key back at inference time. That round-trip is the whole loop — the agent *declares* on
+   Ethereum, the app *honors* it on 0G.
 
 Every path is env-gated and fail-soft: if 0G is not configured, `/api/ai/infer` returns
 `not_configured` (503) and the default backend is used — never a crash, never a faked completion.
