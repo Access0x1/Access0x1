@@ -175,17 +175,9 @@ contract Access0x1CcipSender is Ownable2Step, ReentrancyGuardTransient {
         address refundTo,
         address feeToken
     ) external view returns (uint256 fee) {
-        ICcipRouterClient.EVM2AnyMessage memory message =
-            _buildMessage(
-                destChainSelector,
-                merchantId,
-                usdAmount8,
-                orderId,
-                token,
-                amount,
-                refundTo,
-                feeToken
-            );
+        ICcipRouterClient.EVM2AnyMessage memory message = _buildMessage(
+            destChainSelector, merchantId, usdAmount8, orderId, token, amount, refundTo, feeToken
+        );
         return i_ccipRouter.getFee(destChainSelector, message);
     }
 
@@ -217,17 +209,9 @@ contract Access0x1CcipSender is Ownable2Step, ReentrancyGuardTransient {
         address feeToken = payFeeInLink ? i_link : address(0);
         if (payFeeInLink && i_link == address(0)) revert Access0x1CcipSender__LinkNotConfigured();
 
-        ICcipRouterClient.EVM2AnyMessage memory message =
-            _buildMessage(
-                destChainSelector,
-                merchantId,
-                usdAmount8,
-                orderId,
-                token,
-                amount,
-                refundTo,
-                feeToken
-            );
+        ICcipRouterClient.EVM2AnyMessage memory message = _buildMessage(
+            destChainSelector, merchantId, usdAmount8, orderId, token, amount, refundTo, feeToken
+        );
 
         uint256 fee = i_ccipRouter.getFee(destChainSelector, message);
 

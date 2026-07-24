@@ -240,9 +240,7 @@ contract Access0x1CcipReceiverTest is Test {
     function test_ShortAmountIsCreditedInFullAndNotSettled() public {
         _deliver(_msg("m1", SRC_SELECTOR, SRC_SENDER, 20e18, BUYER));
 
-        assertEq(
-            router.lastGrossPulled(), 0, "nothing settled: a partial settle would under-pay"
-        );
+        assertEq(router.lastGrossPulled(), 0, "nothing settled: a partial settle would under-pay");
         assertEq(receiver.claimable(BUYER, address(token)), 20e18, "the FULL delivery is claimable");
     }
 

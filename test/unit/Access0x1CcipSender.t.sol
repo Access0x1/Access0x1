@@ -73,9 +73,8 @@ contract MockCcipRouter {
         lastValue = msg.value;
         // The real Router pulls the bridged tokens from the caller.
         for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
-            IERC20(message.tokenAmounts[i].token).transferFrom(
-                msg.sender, address(this), message.tokenAmounts[i].amount
-            );
+            IERC20(message.tokenAmounts[i].token)
+                .transferFrom(msg.sender, address(this), message.tokenAmounts[i].amount);
         }
         if (message.feeToken != address(0)) {
             IERC20(message.feeToken).transferFrom(msg.sender, address(this), fee);
