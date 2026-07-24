@@ -78,6 +78,15 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice An invoice was issued: NFT `invoiceId` minted to `to` for `amountUsd8` of `token`.
+    /// @param  invoiceId  The freshly minted invoice NFT / obligation id.
+    /// @param  merchantId The router merchant owed — the seat settlement will pay, regardless of who
+    ///                    later holds the NFT.
+    /// @param  to         The initial creditor the NFT was minted to (typically the merchant itself, so
+    ///                    a factor can buy the receivable).
+    /// @param  token      The settlement token the debt is denominated in.
+    /// @param  amountUsd8 The amount owed in USD, 8 decimals. The USD figure is what is fixed; the token
+    ///                    gross is priced in the settling tx, so it is NOT known at issue time.
+    /// @param  payer      The locked payer, or `address(0)` when anyone may settle.
     event InvoiceIssued(
         uint256 indexed invoiceId,
         uint256 indexed merchantId,
@@ -88,24 +97,102 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     );
 
     /// @notice An invoice was settled: `gross` of `token` routed through the fee-split for the holder.
+    /// @dev    Emitted only on the successful terminal OPEN→PAID transition, after the zero-residual
+    ///         assertion, so its presence is proof the money reached the merchant and none stuck here.
+    /// @param  invoiceId The invoice now PAID. Its NFT is deliberately NOT burned — it survives as a
+    ///                   transferable proof of payment.
+    /// @param  payer     The account whose EIP-3009 signature funded the settlement.
+    /// @param  relayer   `msg.sender` — whoever submitted the tx and paid the gas. Untrusted and
+    ///                   unrestricted by design: the structured nonce is what binds the payment, so an
+    ///                   arbitrary relayer cannot redirect it. Logged for attribution only.
+    /// @param  gross     The token amount pulled from the payer and routed through the fee-split.
     event InvoiceSettled(
         uint256 indexed invoiceId, address indexed payer, address indexed relayer, uint256 gross
     );
 
     /// @notice An unpaid invoice was voided by the merchant owner.
+    /// @dev    Terminal and one-directional: a voided invoice can never be settled, and a PAID invoice
+    ///         can never be voided. Only reachable while OPEN, so this never cancels a payment that
+    ///         already moved money.
+    /// @param  invoiceId The invoice moved OPEN→VOID, whose NFT was burned.
     event InvoiceVoided(uint256 indexed invoiceId);
 
+    /// @notice A required address argument was the zero address — the settlement `token` at {issue}, or
+    ///         `router_` at construction. Refused rather than stored: a zero token has no feed and no
+    ///         allowlist entry, so an invoice denominated in it could never be quoted or settled.
     error InvoiceToken__ZeroAddress();
+
+    /// @notice {issue} was called with `amountUsd8 == 0`. A zero-value invoice has nothing to settle
+    ///         and would mint a permanently meaningless obligation NFT.
     error InvoiceToken__ZeroAmount();
+
+    /// @notice No merchant with this id is registered on the {Access0x1Router} (its `owner` reads back
+    ///         as the zero address), so there is no seat to owe the money to and no owner to authorize
+    ///         the action.
+    /// @param  merchantId The id that resolved to no merchant.
     error InvoiceToken__MerchantNotFound(uint256 merchantId);
+
+    /// @notice The caller is not the router `owner` of the invoice's merchant. Gates {issue} and
+    ///         {void}, so only the operator that is owed the money may create an obligation under its
+    ///         seat or cancel an unpaid one. Authority is read LIVE from the router on every call.
+    /// @param  merchantId The merchant whose owner was required.
+    /// @param  caller     The address that attempted the call.
     error InvoiceToken__NotMerchantOwner(uint256 merchantId, address caller);
+
+    /// @notice No invoice was ever issued under this id (its status is `NONE`). Distinguished from
+    ///         {InvoiceToken__NotOpen} so a caller can tell "never existed" from "already resolved".
+    /// @param  invoiceId The unknown invoice id.
     error InvoiceToken__NotFound(uint256 invoiceId);
+
+    /// @notice The invoice exists but is no longer OPEN — it is already PAID or VOID. Both terminal
+    ///         states are absorbing, so this is the guard a replayed {settle} hits: the one-shot
+    ///         protection that layers on top of the token's own single-use 3009 nonce.
+    /// @param  invoiceId The invoice whose status blocked the transition.
     error InvoiceToken__NotOpen(uint256 invoiceId);
+
+    /// @notice The invoice is locked to a specific payer and a different account was presented. The
+    ///         lock is enforced here AND cryptographically by the structured nonce, which commits to
+    ///         the payer — so a relayer cannot settle a locked invoice with a third party's signature.
+    /// @param  invoiceId The locked invoice.
+    /// @param  expected  The payer the invoice was locked to.
+    /// @param  actual    The payer presented by the caller.
     error InvoiceToken__WrongPayer(uint256 invoiceId, address expected, address actual);
+
+    /// @notice {settle} was called with the zero address as `payer`. Rejected explicitly so a
+    ///         malformed call can never reach signature recovery, where a zero address is the classic
+    ///         "recovery failed" sentinel.
     error InvoiceToken__ZeroPayer();
+
+    /// @notice THE MERCHANT-BINDING GUARD. The submitted 3009 `nonce` does not equal
+    ///         `settlementNonce(invoiceId, payer)`, so the payer's token signature does not commit to
+    ///         THIS invoice / merchant / token / amount on THIS chain and contract. Thrown BEFORE any
+    ///         pull, which is what stops a relayer redirecting an otherwise merchant-blind EIP-3009
+    ///         authorization to a different merchant or amount.
+    /// @param  expected The nonce the payer must have signed.
+    /// @param  provided The nonce actually submitted.
     error InvoiceToken__IntentMismatch(bytes32 expected, bytes32 provided);
+
+    /// @notice The signed 3009 `value` does not equal the in-tx router quote for the invoice's USD
+    ///         amount. A 3009 authorization pulls a FIXED amount, so it must match exactly — an
+    ///         inequality means the price moved between signing and submission, and settling anyway
+    ///         would under- or over-pay the merchant. The payer re-signs at the new quote.
+    /// @param  signed The value the payer authorized.
+    /// @param  quoted The gross the router priced in this tx.
     error InvoiceToken__AuthorizationValueMismatch(uint256 signed, uint256 quoted);
+
+    /// @notice The contract's balance rose by less than the authorized gross, i.e. the token takes a
+    ///         transfer fee or rebases. Refused: the router is about to be approved for the full gross,
+    ///         so a short pull would route money this contract does not hold.
+    /// @param  expected The gross that should have arrived.
+    /// @param  received What the balance actually rose by.
     error InvoiceToken__PullShortfall(uint256 expected, uint256 received);
+
+    /// @notice ZERO-CUSTODY ASSERTION. After routing, the token balance did not return to its
+    ///         pre-settlement level, meaning this contract retained value it should have passed
+    ///         straight through. The whole settlement reverts rather than leaving a residual in a
+    ///         contract that has no withdrawal path for it.
+    /// @param  token   The settlement token.
+    /// @param  balance The balance measured after routing.
     error InvoiceToken__CustodyResidual(address token, uint256 balance);
 
     /*//////////////////////////////////////////////////////////////
@@ -131,6 +218,16 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     /// @notice Issue an invoice NFT. Only the router `owner` of `merchantId`. The invoice may be locked
     ///         to a single `payer` (only that address can settle) or open to anyone (`payer == 0`). The
     ///         NFT is minted to `to` (typically the merchant, so a factor can later buy the receivable).
+    /// @dev    Deliberately NOT `nonReentrant`, and that is safe rather than an oversight: the only
+    ///         external call is `_safeMint`'s `onERC721Received` callback, and by the time it fires the
+    ///         id counter is bumped, the record is written and the event emitted. A receiver that
+    ///         re-enters {issue} therefore just mints a second, independent invoice under its own fresh
+    ///         id — it cannot overwrite or double-spend the first. No money moves here at all; {issue}
+    ///         only records an obligation, so there is no value path to guard.
+    /// @dev    Issuing does NOT check that `token` is currently allowlisted or priced on the router.
+    ///         Pricing is deferred to settlement time by design (the USD figure is the fixed term), so
+    ///         an invoice denominated in a token the router will not quote simply cannot be settled
+    ///         until it is wired up — it is never silently settled at a bad price.
     /// @param to         The invoice-NFT holder (the creditor; must accept ERC-721).
     /// @param merchantId The router merchant owed (caller must be its owner).
     /// @param token      The settlement token (allowlisted + priced on the router).
@@ -285,11 +382,24 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice The full invoice record for `invoiceId` (zeroed if it never existed).
+    /// @dev    Never reverts, so a UI or router can staticcall it blind. The record SURVIVES both
+    ///         terminal transitions — a settled or voided invoice keeps its struct with an absorbing
+    ///         `status` — so this is also the post-mortem read. Test existence with
+    ///         `status == IStatus.NONE`, never with a zero `amountUsd8`.
+    /// @param  invoiceId The invoice id to read.
+    /// @return The stored {Invoice} (all-zero, i.e. `status == NONE`, for an id never issued).
     function invoiceOf(uint256 invoiceId) external view returns (Invoice memory) {
         return _invoices[invoiceId];
     }
 
     /// @notice The in-tx router quote (token gross) for `invoiceId`'s USD amount — what a payer signs.
+    /// @dev    A LIVE, MOVING figure, not a stored term: it is re-read from the oracle on every call,
+    ///         so it changes with the price and a signature authorizing an older value will be refused
+    ///         by {settle}'s exact-match check. Callers should quote and sign in the same breath.
+    ///         Unlike the read paths in this contract, this one CAN revert — it bubbles the router's
+    ///         staleness / allowlist / missing-feed reverts rather than returning a fabricated price,
+    ///         and reverts {InvoiceToken__NotFound} for an id that was never issued. Do not staticcall
+    ///         it expecting a safe default.
     /// @param invoiceId The invoice.
     /// @return The token amount owed at the current price.
     function quoteGross(uint256 invoiceId) external view returns (uint256) {
