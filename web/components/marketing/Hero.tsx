@@ -12,7 +12,7 @@
  */
 import type { ReactNode } from 'react'
 
-import { BrandMark } from '@/components/BrandMark'
+import { AnimatedBrandMark } from '@/components/AnimatedBrandMark'
 import { CalcadaBackdrop } from '@/components/marketing/Calcada'
 import { LandingCTA } from '@/components/marketing/LandingCTA'
 import type { Dictionary } from '@/lib/i18n/get-dictionary'
@@ -44,8 +44,13 @@ export function Hero({ hero, cta }: HeroProps): ReactNode {
       <CalcadaBackdrop />
 
       <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 px-6 py-24 text-center sm:py-32">
-        {/* Brand lockup — the same glyph + wordmark used across the app. */}
-        <BrandMark size={24} />
+        {/* Brand lockup — the ANIMATED glyph here, because the hero is the one
+            place with room to let the mark say its sentence: power gathers in
+            the socket, crosses the connection, the pin lands ON. Everywhere
+            else in the app keeps the static {@link BrandMark} — a logo that
+            re-animates on every screen is noise, not identity. Motion is
+            decorative and no-ops under prefers-reduced-motion. */}
+        <AnimatedBrandMark size={56} />
 
         {/* Eyebrow: positions the product before the headline lands. */}
         <span className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">

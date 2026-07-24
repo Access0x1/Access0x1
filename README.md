@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="web/public/access0x1-mark.svg" width="96" alt="Access0x1 — the 0x1 access-plug mark: a socket, a crossed connection, a pin. Wire web2 to web3." />
+<img src="web/public/access0x1-mark-animated.svg" width="96" alt="Access0x1 — the 0x1 access-plug mark: a socket ring holding three web3 dots, a crossed connection, and a pin where the bit lands ON. Wire web2 to web3." />
 
 **The open-source rail for onchain identity + USD-priced payments in USDC. One link, no code, no contract, no gas. Apps build on it.**
 

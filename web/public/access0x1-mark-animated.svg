@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" role="img" aria-label="Access0x1">
+  <title>Access0x1</title>
+  <desc>The access plug: a socket ring holding three web3 dots (the bit is OFF), a crossed connection, and a pin where the bit lands ON.</desc>
+  <!--
+    DEGRADES TO THE FINISHED MARK. Every element below is authored in its FINAL,
+    fully-lit state; the CSS only animates *toward* that state. So a renderer
+    that strips <style> (some markdown sanitizers do) shows the complete logo
+    rather than a blank or half-drawn frame.
+
+    CSS rather than SMIL on purpose: SMIL cannot be switched off by
+    prefers-reduced-motion, and this motion is decorative.
+  -->
+  <style>
+    .ring { stroke-dasharray: 70; animation: draw 3.2s ease-out infinite; }
+    .dot  { animation: wake 3.2s ease-in-out infinite; }
+    .dot2 { animation-delay: .16s; }
+    .dot3 { animation-delay: .32s; }
+    .x    { stroke-dasharray: 24; animation: drawx 3.2s ease-out infinite .58s; }
+    .pin  { transform-origin: 53px 32px; animation: land 3.2s ease-out infinite 1.22s; }
+
+    @keyframes draw  { 0% { stroke-dashoffset: 70; } 28%, 100% { stroke-dashoffset: 0; } }
+    @keyframes drawx { 0% { stroke-dashoffset: 24; } 28%, 100% { stroke-dashoffset: 0; } }
+    @keyframes wake  { 0%, 10% { opacity: .3; } 30%, 100% { opacity: 1; } }
+    @keyframes land  {
+      0%   { opacity: .25; transform: scaleY(.55); }
+      55%  { opacity: 1;   transform: scaleY(1.12); }
+      70%, 100% { opacity: 1; transform: scaleY(1); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ring, .dot, .x, .pin { animation: none; }
+      .ring, .x { stroke-dashoffset: 0; }
+      .dot, .pin { opacity: 1; transform: none; }
+    }
+  </style>
+
+  <!-- 0 — the socket ring (cyan structure) -->
+  <circle class="ring" cx="16" cy="32" r="11" fill="none" stroke="#22D3EE" stroke-width="4"/>
+  <!-- the three web3 dots held in the socket (teal) -->
+  <circle class="dot" cx="11.6" cy="29.4" r="2.3" fill="#2DD4BF"/>
+  <circle class="dot dot2" cx="20.4" cy="29.4" r="2.3" fill="#2DD4BF"/>
+  <circle class="dot dot3" cx="16" cy="37.6" r="2.3" fill="#2DD4BF"/>
+  <!-- x — the connection that flips the bit off to on (cyan) -->
+  <path class="x" d="M28 23 L41 41 M41 23 L28 41" stroke="#22D3EE" stroke-width="4" stroke-linecap="round"/>
+  <!-- 1 — the pin: the bit lands ON (teal) -->
+  <path class="pin" d="M53 22 L53 42" stroke="#2DD4BF" stroke-width="4.6" stroke-linecap="round"/>
+</svg>
