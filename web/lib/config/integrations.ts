@@ -138,8 +138,15 @@ export const INTEGRATIONS: readonly Integration[] = [
     where: 'app.dynamic.xyz — environment id + API token.',
     vars: [
       { name: 'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID', purpose: 'Public environment id (client)', required: true },
+      { name: 'DYNAMIC_ENVIRONMENT_ID', purpose: 'Same id, read server-side (MPC wallet ops)' },
       { name: 'DYNAMIC_JWT_ISSUER', purpose: 'JWT issuer for verifying sessions server-side' },
+      { name: 'DYNAMIC_JWT_AUDIENCE', purpose: 'JWT audience for verifying sessions server-side' },
       { name: 'DYNAMIC_AUTH_TOKEN', purpose: 'Server API token (MPC wallet ops)', secret: true },
+      // Read by lib/agent/dynamicAgentWallet.ts — this is the DYNAMIC server
+      // wallet's password, so it belongs here. It was previously grouped under
+      // x402-seller, which meant `env:set -- dynamic` never asked for it and the
+      // agent wallet failed at boot with a var the operator was never prompted for.
+      { name: 'WALLET_PASSWORD', purpose: 'Unlocks the Dynamic server wallet (agent MPC)', secret: true },
     ],
   },
   {
@@ -199,7 +206,6 @@ export const INTEGRATIONS: readonly Integration[] = [
     vars: [
       { name: 'SELLER_PRIVATE_KEY', purpose: 'Testnet key the gateway withdraw route signs with', secret: true },
       { name: 'BUYER_PRIVATE_KEY', purpose: 'Testnet key that funds the gateway (npm run fund)', secret: true },
-      { name: 'WALLET_PASSWORD', purpose: 'Password unlocking the Dynamic server wallet', secret: true },
     ],
   },
   {
