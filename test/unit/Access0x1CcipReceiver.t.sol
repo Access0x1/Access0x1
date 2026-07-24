@@ -303,6 +303,25 @@ contract Access0x1CcipReceiverTest is Test {
         new Access0x1CcipReceiver(address(0), address(router), OWNER);
     }
 
+    // ── ERC-165: CCIP probes this BEFORE it will deliver ─────────────────────────────────────
+
+    /// @dev Chainlink's router checks ERC-165 to confirm a destination can receive. A false here
+    ///      means deliveries fail for a reason nothing on-chain explains, so it is pinned.
+    function test_AdvertisesTheCcipReceiverInterface() public view {
+        assertTrue(receiver.supportsInterface(type(ICcipReceiver).interfaceId), "IAny2EVMMessageReceiver");
+        assertTrue(receiver.supportsInterface(0x01ffc9a7), "IERC165");
+        assertFalse(receiver.supportsInterface(0xffffffff), "the ERC-165 invalid id must be false");
+    }
+
+    /// @dev The interface id MUST equal Chainlink's `IAny2EVMMessageReceiver` — which is simply the
+    ///      `ccipReceive` selector, since that interface declares exactly one function. If
+    ///      {ICcipReceiver} ever gains a second function (or inherits IERC165), the XOR changes and
+    ///      CCIP stops recognising this contract. This asserts the equality directly.
+    function test_InterfaceIdEqualsTheCcipReceiveSelector() public pure {
+        bytes4 expected = bytes4(keccak256("ccipReceive((bytes32,uint64,bytes,bytes,(address,uint256)[]))"));
+        assertEq(type(ICcipReceiver).interfaceId, expected, "id must be the ccipReceive selector alone");
+    }
+
     // ── the invariant, stated as a test ──────────────────────────────────────────────────────
 
     /// @dev Whatever happens, the receiver holds exactly what it owes — never more, never less.

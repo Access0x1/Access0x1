@@ -12,6 +12,7 @@ pragma solidity 0.8.28;
 // └──────────────────────────────────────────────────────────────────────────────┘
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
@@ -60,8 +61,16 @@ import { IAccess0x1Router as IRouter } from "./interfaces/IAccess0x1Subscription
 ///         `docs.chain.link/ccip/directory` for the deployed chain before it is allowlisted.
 ///
 /// @custom:security-contact security@access0x1.dev
-contract Access0x1CcipReceiver is ICcipReceiver, Ownable2Step, ReentrancyGuardTransient {
+contract Access0x1CcipReceiver is ICcipReceiver, IERC165, Ownable2Step, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
+
+    /// @dev Restricts a call to the configured CCIP Router. Named to match Chainlink's own
+    ///      `CCIPReceiver.onlyRouter`, so the trust boundary reads the same to anyone who has seen
+    ///      their base contract.
+    modifier onlyCcipRouter() {
+        if (msg.sender != i_ccipRouter) revert Access0x1CcipReceiver__NotCcipRouter(msg.sender);
+        _;
+    }
 
     // ─────────────────────────────────────────────────────────────────────────────────────────
     // Immutables
@@ -214,9 +223,7 @@ contract Access0x1CcipReceiver is ICcipReceiver, Ownable2Step, ReentrancyGuardTr
     ///         CEI: the replay flag and the pull-map credit are written BEFORE any external call, so
     ///         a token with a transfer hook re-entering here finds the message already processed.
     ///         `nonReentrant` backs that up.
-    function ccipReceive(Any2EVMMessage calldata message) external override nonReentrant {
-        if (msg.sender != i_ccipRouter) revert Access0x1CcipReceiver__NotCcipRouter(msg.sender);
-
+    function ccipReceive(Any2EVMMessage calldata message) external override onlyCcipRouter nonReentrant {
         address sender = abi.decode(message.sender, (address));
         address allowed = allowedSenderFor[message.sourceChainSelector];
         if (allowed == address(0) || sender != allowed) {
@@ -315,6 +322,25 @@ contract Access0x1CcipReceiver is ICcipReceiver, Ownable2Step, ReentrancyGuardTr
     // ─────────────────────────────────────────────────────────────────────────────────────────
     // Views
     // ─────────────────────────────────────────────────────────────────────────────────────────
+
+    /// @inheritdoc IERC165
+    /// @dev    NOT optional. CCIP probes ERC-165 to confirm a destination can receive messages
+    ///         BEFORE invoking {ccipReceive} — a contract that fails this check is not treated as a
+    ///         receiver, so omitting it would make deliveries fail for a reason nothing on-chain
+    ///         explains. Chainlink's own `CCIPReceiver` advertises the same ids.
+    ///
+    ///         `type(ICcipReceiver).interfaceId` equals Chainlink's `IAny2EVMMessageReceiver` id:
+    ///         both declare exactly one function with an identical signature, and an interface id is
+    ///         the XOR of its selectors. This is also why {ICcipReceiver} deliberately does NOT
+    ///         extend IERC165 — inheriting it would fold `supportsInterface` into the XOR and yield
+    ///         a DIFFERENT id than the one CCIP looks for.
+    ///
+    ///         `IAny2EVMMessageReceiverV2` is intentionally NOT advertised: it is a distinct
+    ///         signature this contract does not implement, and claiming it would be a lie the router
+    ///         acts on.
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+        return interfaceId == type(ICcipReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
+    }
 
     /// @notice Whether a lane is open and, if so, the sender it trusts.
     /// @param srcChainSelector The CCIP chain selector.
