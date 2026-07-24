@@ -159,7 +159,8 @@ contract Access0x1PaymentResolverTest is Test, ProxyDeployer {
     function test_Bind_Rebind_BySameOwner_Succeeds() public {
         _bind();
         vm.prank(merchantOwner);
-        uint256 secondSeat = router.registerMerchant(merchantPayout, address(0), 0, keccak256("acme2"));
+        uint256 secondSeat =
+            router.registerMerchant(merchantPayout, address(0), 0, keccak256("acme2"));
 
         vm.prank(merchantOwner);
         resolver.bindName(NODE, secondSeat);

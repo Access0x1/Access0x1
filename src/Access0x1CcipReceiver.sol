@@ -16,7 +16,9 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {
+    ReentrancyGuardTransient
+} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
 import { ICcipReceiver } from "./interfaces/ICcipReceiver.sol";
 // The router-facing surface (quote / payToken / merchants) is declared as
@@ -136,7 +138,11 @@ contract Access0x1CcipReceiver is ICcipReceiver, IERC165, Ownable2Step, Reentran
     /// @param amount    The full delivered amount, now claimable.
     /// @param reason    Machine-readable cause: `SHORT_AMOUNT` or `ROUTER_REFUSED`.
     event CrossChainPaymentCredited(
-        bytes32 indexed messageId, address indexed refundTo, address token, uint256 amount, bytes32 reason
+        bytes32 indexed messageId,
+        address indexed refundTo,
+        address token,
+        uint256 amount,
+        bytes32 reason
     );
 
     /// @notice A claimable balance was withdrawn in full.
@@ -233,7 +239,9 @@ contract Access0x1CcipReceiver is ICcipReceiver, IERC165, Ownable2Step, Reentran
         if (message.destTokenAmounts.length != 1) {
             revert Access0x1CcipReceiver__ExpectedOneToken(message.destTokenAmounts.length);
         }
-        if (processed[message.messageId]) revert Access0x1CcipReceiver__AlreadyProcessed(message.messageId);
+        if (processed[message.messageId]) {
+            revert Access0x1CcipReceiver__AlreadyProcessed(message.messageId);
+        }
         processed[message.messageId] = true; // Effect before any external call.
 
         (uint256 merchantId, uint256 usdAmount8, bytes32 orderId, address refundTo) =
@@ -245,7 +253,16 @@ contract Access0x1CcipReceiver is ICcipReceiver, IERC165, Ownable2Step, Reentran
         // which is a contract we allowlisted, i.e. one we know can be made whole off-chain.
         if (refundTo == address(0)) refundTo = sender;
 
-        _settleOrCredit(message.messageId, message.sourceChainSelector, merchantId, usdAmount8, orderId, token, delivered, refundTo);
+        _settleOrCredit(
+            message.messageId,
+            message.sourceChainSelector,
+            merchantId,
+            usdAmount8,
+            orderId,
+            token,
+            delivered,
+            refundTo
+        );
     }
 
     /// @dev Try to settle through the router; on any refusal, credit the full delivered amount.
@@ -284,7 +301,9 @@ contract Access0x1CcipReceiver is ICcipReceiver, IERC165, Ownable2Step, Reentran
         try i_router.payToken(merchantId, token, usdAmount8, orderId) {
             uint256 surplus = delivered - gross;
             if (surplus != 0) _credit(messageId, refundTo, token, surplus, "SURPLUS");
-            emit CrossChainPaymentSettled(messageId, srcChainSelector, merchantId, token, gross, surplus);
+            emit CrossChainPaymentSettled(
+                messageId, srcChainSelector, merchantId, token, gross, surplus
+            );
         } catch {
             // Merchant inactive, token de-allowlisted, router paused: not the buyer's fault and not
             // ours to resolve on-chain. Clear the dangling approval before crediting so a later
@@ -296,7 +315,9 @@ contract Access0x1CcipReceiver is ICcipReceiver, IERC165, Ownable2Step, Reentran
 
     /// @dev Record an amount as claimable. Never transfers — that is {claim}'s job, so a payee that
     ///      cannot receive a push can never block delivery.
-    function _credit(bytes32 messageId, address to, address token, uint256 amount, bytes32 reason) private {
+    function _credit(bytes32 messageId, address to, address token, uint256 amount, bytes32 reason)
+        private
+    {
         if (amount == 0) return;
         claimable[to][token] += amount;
         emit CrossChainPaymentCredited(messageId, to, token, amount, reason);

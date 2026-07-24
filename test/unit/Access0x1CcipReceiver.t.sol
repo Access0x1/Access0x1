@@ -132,7 +132,9 @@ contract Access0x1CcipReceiverTest is Test {
     function test_RevertWhen_CallerIsNotCcipRouter() public {
         ICcipReceiver.Any2EVMMessage memory m = _msg("m1", SRC_SELECTOR, SRC_SENDER, 25e18, BUYER);
         vm.expectRevert(
-            abi.encodeWithSelector(Access0x1CcipReceiver.Access0x1CcipReceiver__NotCcipRouter.selector, address(this))
+            abi.encodeWithSelector(
+                Access0x1CcipReceiver.Access0x1CcipReceiver__NotCcipRouter.selector, address(this)
+            )
         );
         receiver.ccipReceive(m);
     }
@@ -143,7 +145,9 @@ contract Access0x1CcipReceiverTest is Test {
         vm.prank(CCIP_ROUTER);
         vm.expectRevert(
             abi.encodeWithSelector(
-                Access0x1CcipReceiver.Access0x1CcipReceiver__LaneNotAllowed.selector, unknown, SRC_SENDER
+                Access0x1CcipReceiver.Access0x1CcipReceiver__LaneNotAllowed.selector,
+                unknown,
+                SRC_SENDER
             )
         );
         receiver.ccipReceive(m);
@@ -155,7 +159,9 @@ contract Access0x1CcipReceiverTest is Test {
         vm.prank(CCIP_ROUTER);
         vm.expectRevert(
             abi.encodeWithSelector(
-                Access0x1CcipReceiver.Access0x1CcipReceiver__LaneNotAllowed.selector, SRC_SELECTOR, impostor
+                Access0x1CcipReceiver.Access0x1CcipReceiver__LaneNotAllowed.selector,
+                SRC_SELECTOR,
+                impostor
             )
         );
         receiver.ccipReceive(m);
@@ -170,7 +176,9 @@ contract Access0x1CcipReceiverTest is Test {
         vm.prank(CCIP_ROUTER);
         vm.expectRevert(
             abi.encodeWithSelector(
-                Access0x1CcipReceiver.Access0x1CcipReceiver__LaneNotAllowed.selector, otherChain, SRC_SENDER
+                Access0x1CcipReceiver.Access0x1CcipReceiver__LaneNotAllowed.selector,
+                otherChain,
+                SRC_SENDER
             )
         );
         receiver.ccipReceive(m);
@@ -182,7 +190,10 @@ contract Access0x1CcipReceiverTest is Test {
         token.mint(address(receiver), 25e18);
         vm.prank(CCIP_ROUTER);
         vm.expectRevert(
-            abi.encodeWithSelector(Access0x1CcipReceiver.Access0x1CcipReceiver__AlreadyProcessed.selector, bytes32("dup"))
+            abi.encodeWithSelector(
+                Access0x1CcipReceiver.Access0x1CcipReceiver__AlreadyProcessed.selector,
+                bytes32("dup")
+            )
         );
         receiver.ccipReceive(m);
     }
@@ -198,7 +209,9 @@ contract Access0x1CcipReceiverTest is Test {
         });
         vm.prank(CCIP_ROUTER);
         vm.expectRevert(
-            abi.encodeWithSelector(Access0x1CcipReceiver.Access0x1CcipReceiver__ExpectedOneToken.selector, 0)
+            abi.encodeWithSelector(
+                Access0x1CcipReceiver.Access0x1CcipReceiver__ExpectedOneToken.selector, 0
+            )
         );
         receiver.ccipReceive(m);
     }
@@ -227,7 +240,9 @@ contract Access0x1CcipReceiverTest is Test {
     function test_ShortAmountIsCreditedInFullAndNotSettled() public {
         _deliver(_msg("m1", SRC_SELECTOR, SRC_SENDER, 20e18, BUYER));
 
-        assertEq(router.lastGrossPulled(), 0, "nothing settled — a partial settle would under-pay");
+        assertEq(
+            router.lastGrossPulled(), 0, "nothing settled — a partial settle would under-pay"
+        );
         assertEq(receiver.claimable(BUYER, address(token)), 20e18, "the FULL delivery is claimable");
     }
 
@@ -237,7 +252,9 @@ contract Access0x1CcipReceiverTest is Test {
 
         assertEq(router.lastGrossPulled(), 0, "no settlement happened");
         assertEq(receiver.claimable(BUYER, address(token)), 25e18, "the FULL delivery is claimable");
-        assertEq(token.allowance(address(receiver), address(router)), 0, "dangling approval cleared");
+        assertEq(
+            token.allowance(address(receiver), address(router)), 0, "dangling approval cleared"
+        );
     }
 
     function test_StaleFeedOrBadQuoteIsCreditedInFull() public {
@@ -253,7 +270,9 @@ contract Access0x1CcipReceiverTest is Test {
         _deliver(_msg("m1", SRC_SELECTOR, SRC_SENDER, 25e18, address(0)));
 
         assertEq(receiver.claimable(SRC_SENDER, address(token)), 25e18, "credited to the sender");
-        assertEq(receiver.claimable(address(0), address(token)), 0, "never credited to the zero address");
+        assertEq(
+            receiver.claimable(address(0), address(token)), 0, "never credited to the zero address"
+        );
     }
 
     // ── claims ───────────────────────────────────────────────────────────────────────────────
