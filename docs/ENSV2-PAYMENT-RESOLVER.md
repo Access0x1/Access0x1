@@ -16,8 +16,8 @@ name. That makes ENS the *first* step of onboarding, not an afterthought:
 
 1. **Grab the name.** A business claims (or brings) an ENS name and takes an Access0x1 **subname**
    under it — e.g. `acme.<parent>.eth`, with a `pay.acme…` label for payments. The parent is your
-   own ENS name, set from `ENS_SUBNAME_PARENT` (never hardcoded); the demo parent for this build is
-   a DNS-imported name the operator holds (e.g. `reserv.click`), supplied via env, not baked in.
+   own ENS name, set from `ENS_SUBNAME_PARENT` (never hardcoded) — an ENS name or a DNS-imported
+   name the operator holds (e.g. `yourbrand.eth`), always supplied via env, never baked in.
 2. **We become the resolver.** The subname's resolver points at Access0x1, so from that moment the
    name *is* the business's live, USD-priced payment endpoint — identity and money behind one name.
 3. **Everything else plugs in behind the name.** Checkout, payout-swap, agents — they all address
