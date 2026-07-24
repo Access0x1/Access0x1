@@ -6,7 +6,7 @@ block, run it, and check the result against the **Expected** line under it.
 
 Everything here runs **locally** against a throwaway [Anvil](https://book.getfoundry.sh/anvil/)
 chain. No real money, no real keys, no testnet, nothing to lose. The same flows
-the automated suite proves (2,026 contract tests + the web gate)
+the automated suite proves (2,059 contract tests + the web gate)
 you will drive by hand, so you can see the money move and the guards bite.
 
 > **Naming note.** This document only uses public, standard names: Anvil, Arc,
@@ -27,7 +27,7 @@ you will drive by hand, so you can see the money move and the guards bite.
   - [B7. SessionGrant — openSession → spend → revoke](#b7-sessiongrant--opensession--spend--revoke)
   - [B8. Nft — list → buy](#b8-nft--list--buy)
 - [C. Web app — onboarding, checkout, verify, dashboard](#c-web-app--onboarding-checkout-verify-dashboard)
-- [D. The test suites (2,026 + web gate)](#d-the-test-suites-2026--web-gate)
+- [D. The test suites (2,059 + web gate)](#d-the-test-suites-2059--web-gate)
 - [E. Pre-walkthrough smoke checklist](#e-pre-walkthrough-smoke-checklist)
 
 ---
@@ -925,19 +925,19 @@ var, so simulate their outage by blocking the RPC host at the network level.)
 
 ---
 
-## D. The test suites (2,026 + web gate)
+## D. The test suites (2,059 + web gate)
 
 The automated suites are the ground truth behind every manual flow above. Run
 them to confirm a clean tree.
 
-### D1. The contract suite — 2,026 tests
+### D1. The contract suite — 2,059 tests
 
 ```bash
 make test          # or: forge test
 ```
 
 **Expected:** the final summary line reads roughly
-`... 2026 tests passed; 0 failed; 0 skipped` (the suite total the badge is CI-pinned to). This is the union of:
+`... 2059 tests passed; 0 failed; 0 skipped` (the suite total the badge is CI-pinned to). This is the union of:
 
 - **`test/unit/`** — per-function correctness.
 - **`test/attack/`** — adversarial / exploit attempts that must fail.
@@ -976,7 +976,7 @@ failure — run `cd web && npm install` and re-run the gate.
 make gate
 ```
 
-**Expected:** contracts build + 2,026 tests + `forge fmt --check`, then the web
+**Expected:** contracts build + 2,059 tests + `forge fmt --check`, then the web
 gate, ending in `==> GATE GREEN`. This is the single command that proves the
 whole repo is healthy before a commit.
 
