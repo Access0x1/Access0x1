@@ -171,7 +171,10 @@ function askSecret(question) {
 
 async function main() {
   assertGitignored()
-  const { INTEGRATIONS, statusOf } = await import('../lib/config/integrations.ts')
+  // `isPlaceholder` comes from the registry rather than being re-implemented here:
+  // two copies of "what counts as unfilled" would drift, and the doctor and this
+  // tool disagreeing about whether a value is real is the worst possible outcome.
+  const { INTEGRATIONS, statusOf, isPlaceholder } = await import('../lib/config/integrations.ts')
 
   const { map } = readEnvFile()
   const lookup = (n) =>
@@ -212,8 +215,30 @@ async function main() {
   console.log(`   ${chosen.unlocks}`)
   console.log(`   Where to get it: ${chosen.where}\n`)
 
+  // ONLY ASK FOR WHAT IS ACTUALLY MISSING. Walking an operator past fields they
+  // already filled — each one needing an Enter to leave alone — trains them to
+  // press Enter through the whole list, which is exactly how a REQUIRED field
+  // gets skipped by reflex. A value that is already real is not a question.
+  // `--all` revisits everything, for changing a value on purpose.
+  const REVISIT_ALL = ARGS.includes('--all')
+  const isReal = (name) => {
+    const v = lookup(name)
+    return typeof v === 'string' && v.trim() !== '' && !isPlaceholder(v)
+  }
+  const settled = REVISIT_ALL ? [] : chosen.vars.filter((v) => isReal(v.name))
+  const toAsk = REVISIT_ALL ? chosen.vars : chosen.vars.filter((v) => !isReal(v.name))
+
+  if (settled.length) {
+    console.log(`   already set (skipping): ${settled.map((v) => v.name).join(', ')}`)
+    console.log(`   to change one: npm run env:set -- ${chosen.id} --all\n`)
+  }
+  if (toAsk.length === 0) {
+    console.log('Nothing left to fill for this integration.\n')
+    return
+  }
+
   const updates = new Map()
-  for (const v of chosen.vars) {
+  for (const v of toAsk) {
     const current = lookup(v.name)
     const state = current ? 'already set' : v.required ? 'REQUIRED, not set' : 'optional, not set'
     console.log(`${v.name} — ${v.purpose}`)
