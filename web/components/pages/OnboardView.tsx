@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { BrandMark } from '@/components/BrandMark'
 import { NetworkBadge } from '@/components/NetworkBadge'
@@ -12,19 +12,72 @@ import { AskAssistant } from '@/components/AskAssistant'
 import { showOnboardCards } from '@/lib/branding/onboardGate'
 import { PageHeading } from '@/components/ui/PageHeading'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { StartFork, type StartPath } from '@/components/onboard/StartFork'
+import { DeveloperPanel } from '@/components/onboard/DeveloperPanel'
 
 /**
- * Onboarding view: sign in (Dynamic) → the non-coder "Make it yours" branding
- * screen (ADR D2). Three plain-English fields (name, one-line description,
- * logo), a live "Pay {name}" preview, a live checkout-link check, and one Save
- * that yields the checkout link + embed tag + a Test-it button. No code, no
- * deploy, no gas — on-chain registration comes later (the Advanced path, the
- * existing RegisterForm, is reachable from the dashboard).
+ * Onboarding view: a "How do you want to start?" fork FIRST (StartFork) → then
+ * either the guided, no-jargon "get me paid" flow (OnboardMerchant, ADR D2) or
+ * the developer clone/contribute panel (DeveloperPanel). The fork is the first
+ * thing a visitor sees, before any sign-in: it asks the only question that
+ * changes the path, and never makes a non-technical visitor read wallet jargon
+ * to begin.
+ *
+ * This outer component is just the router — the chosen path is local-only state
+ * that never leaves the page. Each path owns its own `<main>` so the layout is
+ * identical whichever branch renders.
  *
  * Rendered client-only (the route wrapper imports it with ssr: false) so the
- * Dynamic wallet hooks never run during static generation.
+ * Dynamic wallet hooks in the merchant path never run during static generation.
  */
 export function OnboardView(): ReactNode {
+  const [path, setPath] = useState<StartPath | null>(null)
+
+  if (path === null) {
+    return (
+      <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
+        <StartFork onChoose={setPath} />
+      </main>
+    )
+  }
+
+  if (path === 'developer') {
+    return (
+      <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
+        <DeveloperPanel onBack={() => setPath(null)} />
+      </main>
+    )
+  }
+
+  // path === 'merchant' — the existing guided onboarding, intact.
+  return (
+    <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
+      <OnboardMerchant onDeveloperPath={() => setPath('developer')} />
+    </main>
+  )
+}
+
+/**
+ * OnboardMerchant — the guided, no-jargon "get me paid" flow (the existing
+ * onboarding, unchanged). Sign in (Dynamic) → three plain-English fields (name,
+ * one-line description, logo), a live "Pay {name}" preview, a live checkout-link
+ * check, and one Save that yields the checkout link + embed tag + a Test-it
+ * button. On-chain registration comes later (the RegisterForm, reachable from
+ * the dashboard).
+ *
+ * Split out as its own component (the JourneyLadder / IdentityChipView
+ * precedent) so its wallet-gated behavior — the single hero connect-gate when
+ * disconnected vs the three configuration cards when connected — stays directly
+ * renderable in the node test env with the Dynamic hook mocked.
+ *
+ * `onDeveloperPath` is the quiet re-route for someone who reached this flow but
+ * actually wants the code, so the fork stays reversible.
+ */
+export function OnboardMerchant({
+  onDeveloperPath,
+}: {
+  onDeveloperPath: () => void
+}): ReactNode {
   // Read inside the MerchantProviders subtree (the route wraps this view in it),
   // so this is safe even when Dynamic is unconfigured: the provider simply never
   // yields a primaryWallet and we render the connect-gate — no hard-throw.
@@ -32,7 +85,7 @@ export function OnboardView(): ReactNode {
   const showCards = showOnboardCards(primaryWallet)
 
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-16">
+    <>
       <header className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <BrandMark size={18} />
@@ -103,7 +156,21 @@ export function OnboardView(): ReactNode {
         </SectionCard>
       )}
 
+      {/* Quiet re-route: a developer who picked this path by mistake can still
+          reach the clone/contribute panel — the fork stays reversible. */}
+      <p className="text-center text-xs text-muted-foreground">
+        Prefer to work with the code?{' '}
+        <button
+          type="button"
+          onClick={onDeveloperPath}
+          className="text-rail underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+        >
+          See the developer path
+        </button>
+        .
+      </p>
+
       <AskAssistant />
-    </main>
+    </>
   )
 }

@@ -119,7 +119,7 @@ basic checkout deployment needs; **all of them are optional** and every one fail
 
 | Variable | Required? | If unset |
 |---|---|---|
-| `NEXT_PUBLIC_DEFAULT_CHAIN_ID` | No (defaults to `5042002`, Arc testnet) | The app/embed use the built-in default chain id. |
+| `NEXT_PUBLIC_DEFAULT_CHAIN_ID` | No (defaults to `11155111`, Ethereum Sepolia) | The app uses the built-in default chain id (the embed keeps its own per-tag `data-chain-id` default). |
 | `NEXT_PUBLIC_ROUTER_ADDRESS_<chainId>` | Per chain you support | That chain has **no router**: the checkout shows the USD price only — never a guessed address (LAW #4). |
 | `NEXT_PUBLIC_USDC_ADDRESS_<chainId>` | Per chain you support | The settlement-token address is unknown for that chain; quotes/pay are disabled there. |
 | `NEXT_PUBLIC_<CHAIN>_RPC_URL` | No (public RPCs default) | The app uses the built-in public RPC for that chain. |

@@ -1,9 +1,14 @@
 /**
- * @file OnboardView.test.tsx — the onboard shell connect-gate.
+ * @file OnboardView.test.tsx — the onboard shell: the start fork FIRST, then the
+ * merchant flow's connect-gate.
  *
+ * OnboardView now fronts /onboard with the "How do you want to start?" chooser
+ * (StartFork), so its default render is the fork — the branding cards / connect
+ * gate live behind the 'merchant' choice. The wallet-gated behavior itself is
+ * unchanged and pinned directly on the extracted OnboardMerchant:
  * DISCONNECTED → ONE hero connect-gate (a single headline + one ConnectButton +
  * the "what you'll build" line), NOT three empty card boxes each repeating a
- * sign-in prompt. CONNECTED → the three configuration cards.
+ * sign-in prompt; CONNECTED → the three configuration cards.
  *
  * Rendered via React's static server renderer (node env; the FundButton /
  * AskView precedent). `useDynamicContext` is mocked so we can drive both states.
@@ -30,21 +35,37 @@ vi.mock('wagmi', () => ({
   useChainId: () => 5042002,
 }))
 
-const { OnboardView } = await import('../OnboardView')
+const { OnboardView, OnboardMerchant } = await import('../OnboardView')
+
+const noop = (): void => {}
 
 afterEach(() => {
   wallet.mutable = null
   vi.clearAllMocks()
 })
 
-function render(): string {
-  return renderToStaticMarkup(createElement(OnboardView))
+/** The merchant flow in isolation — the wallet-gated body, no fork wrapper. */
+function renderMerchant(): string {
+  return renderToStaticMarkup(createElement(OnboardMerchant, { onDeveloperPath: noop }))
 }
+
+describe('OnboardView — the start fork is the first thing', () => {
+  it('defaults to the two-path chooser, before any sign-in or branding form', () => {
+    wallet.mutable = null
+    const html = renderToStaticMarkup(createElement(OnboardView))
+    expect(html).toContain('data-onboard-fork')
+    expect(html).toContain('data-fork-card="merchant"')
+    expect(html).toContain('data-fork-card="developer"')
+    // The merchant body (connect-gate / branding cards) is behind the choice.
+    expect(html).not.toContain('data-onboard-gate="connect"')
+    expect(html).not.toContain('What is your business called?')
+  })
+})
 
 describe('disconnected → single hero connect-gate', () => {
   it('renders exactly ONE connect-gate section, not three card boxes', () => {
     wallet.mutable = null
-    const html = render()
+    const html = renderMerchant()
     expect(html).toContain('data-onboard-gate="connect"')
     // The configuration cards must NOT be present when disconnected.
     expect(html).not.toContain('What is your business called?')
@@ -53,7 +74,7 @@ describe('disconnected → single hero connect-gate', () => {
 
   it('shows a single "what you’ll build" outcome line', () => {
     wallet.mutable = null
-    const html = render()
+    const html = renderMerchant()
     expect(html.toLowerCase()).toContain('branded checkout link that accepts usdc')
   })
 })
@@ -61,7 +82,7 @@ describe('disconnected → single hero connect-gate', () => {
 describe('connected → the three configuration cards', () => {
   it('renders the branding + checkout-mode cards (no connect-gate)', () => {
     wallet.mutable = { address: '0x' + '1'.repeat(40) }
-    const html = render()
+    const html = renderMerchant()
     expect(html).not.toContain('data-onboard-gate="connect"')
     expect(html).toContain('What is your business called?')
     expect(html).toContain('Who can pay you, and how?')
