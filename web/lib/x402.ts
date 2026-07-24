@@ -254,7 +254,34 @@ export function withGateway(
   };
 
   return async function gatewayHandler(req: Request): Promise<Response> {
-    const { requirements, amountUsdc, config } = ensureRequirements();
+    // LAW #1 (env-gated + fail-soft): an unset seam is a clean `not_configured`,
+    // never a crash. `ensureRequirements` throws when SELLER_ADDRESS is blank, and
+    // it used to run OUTSIDE any try — so a plain request to a priced route on a
+    // deployment without a seller 500'd with a generic Next.js error page.
+    //
+    // That was not theoretical: docs/OPTIONAL-SEAMS.md tells a reader to verify this
+    // exact path — "POST to a priced route with no payment header → it returns 402 …
+    // instead of 500" — so the shipped documentation described behaviour the code did
+    // not have. Anyone following our own docs on an unconfigured deployment hit the
+    // one thing the docs promised wouldn't happen.
+    let requirements: PaymentRequirements;
+    let amountUsdc: string;
+    let config: ReturnType<typeof resolveX402Config>;
+    try {
+      ({ requirements, amountUsdc, config } = ensureRequirements());
+    } catch (err) {
+      return new Response(
+        JSON.stringify({
+          error: "not_configured",
+          code: "not_configured",
+          message:
+            err instanceof Error
+              ? err.message
+              : "the x402 seller seam is not configured on this deployment",
+        }),
+        { status: 503, headers: { "content-type": "application/json" } },
+      );
+    }
     const facilitator = getFacilitator(config.facilitatorUrl);
     const sigHeader = req.headers.get("payment-signature");
     if (!sigHeader) {
