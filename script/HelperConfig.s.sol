@@ -125,12 +125,22 @@ contract HelperConfig is Script {
     uint256 internal constant GALILEO_TESTNET_CHAIN_ID = 16_602;
 
     /// @notice Hedera testnet (chainId 296) — the Hedera EVM via the Hashio JSON-RPC relay
-    ///         (`testnet.hashio.io/api`). Native = HBAR (18-dec wei-scaled on the relay), NOT USDC, so
-    ///         `nativeUsdFeed` stays address(0) and same-chain native `quote()` is unavailable. Hedera
-    ///         has NO Chainlink Data Feeds: where a REAL ERC-20 USDC exists, deploy a $1.00 USDC/USD
-    ///         MockV3Aggregator first (`make deploy-usd-mock-feed RPC=$HEDERA_TESTNET_RPC_URL`, the Arc
-    ///         pattern) and set `HEDERA_TESTNET_USDC_USD_FEED` — the router then prices REAL USDC. Explorer
-    ///         is HashScan (not Etherscan/Blockscout), so deploys verify via Sourcify or after-the-fact.
+    ///         (`testnet.hashio.io/api`). Chain id + relay CONFIRMED 2026-07-24 against
+    ///         docs.hedera.com/evm/development/json-rpc. Native = HBAR (18-dec wei-scaled on the relay),
+    ///         NOT USDC, so `nativeUsdFeed` stays address(0) and same-chain native `quote()` is unavailable.
+    ///
+    ///         CORRECTION (2026-07-24): this previously asserted Hedera has NO Chainlink Data Feeds.
+    ///         That is WRONG — Hedera documents Chainlink price feeds via the Chainlink Price Feeds
+    ///         Adapter (docs.hedera.com/evm/integrations/oracles/chainlink), with the address list on
+    ///         docs.chain.link (?network=hedera). What is NOT verified is whether a **USDC/USD feed on
+    ///         testnet 296** exists — that requires the Chainlink addresses page. So the $1
+    ///         MockV3Aggregator path below stays the DEFAULT, and a real feed is a per-deploy upgrade:
+    ///         set `HEDERA_TESTNET_USDC_USD_FEED` to a confirmed Chainlink aggregator if one exists,
+    ///         otherwise to a $1.00 mock (`make deploy-usd-mock-feed RPC=$HEDERA_TESTNET_RPC_URL`, the
+    ///         Arc pattern). Either way the router prices REAL USDC; only the feed source differs.
+    ///
+    ///         Explorer is HashScan (not Etherscan/Blockscout), so deploys verify via Sourcify or
+    ///         after-the-fact.
     uint256 internal constant HEDERA_TESTNET_CHAIN_ID = 296;
 
     // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -730,9 +740,11 @@ contract HelperConfig is Script {
     }
 
     /// @dev Hedera testnet (chainId 296, Hedera EVM via Hashio). Reads only `HEDERA_TESTNET_`-prefixed
-    ///      env. Native = HBAR (18 dec), NOT USDC ⇒ `nativeUsdFeed` stays address(0). No Chainlink feeds
-    ///      on Hedera: set `HEDERA_TESTNET_USDC_USD_FEED` to a $1 MockV3Aggregator (the Arc/0G pattern) to
-    ///      price a REAL ERC-20 USDC; every address defaults to address(0) so an unset field is SKIPPED,
+    ///      env. Native = HBAR (18 dec), NOT USDC ⇒ `nativeUsdFeed` stays address(0). Set
+    ///      `HEDERA_TESTNET_USDC_USD_FEED` to a confirmed Chainlink USDC/USD aggregator if one exists on
+    ///      296 (Hedera DOES document Chainlink feeds — see the chain-id NatSpec above), else to a $1
+    ///      MockV3Aggregator (the Arc/0G pattern), to price a REAL ERC-20 USDC. Either way this is env,
+    ///      never a literal; every address defaults to address(0) so an unset field is SKIPPED,
     ///      never guessed. Only `HEDERA_TESTNET_PLATFORM_TREASURY` is required (fails loud if unset).
     function _hederaTestnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({

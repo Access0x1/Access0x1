@@ -99,18 +99,29 @@ export const zircuitGarfield = defineChain({
 /**
  * Hedera testnet (296) — the Hedera EVM via the Hashio JSON-RPC relay; not in
  * `viem/chains`, so hand-defined like {@link arcTestnet}. Native HBAR (the JSON-RPC
- * relay exposes 18-dec wei-scaled balances). Hedera has no Chainlink feeds, so USDC
- * pricing uses a $1 mock feed the deploy provisions (same pattern as 0G Galileo).
+ * relay exposes 18-dec wei-scaled balances). USDC pricing uses a $1 mock feed the
+ * deploy provisions (same pattern as 0G Galileo) — see the correction below.
  *
- * CONFIRMED 2026-07-24 against docs.hedera.com/hedera/core-concepts/smart-contracts/json-rpc-relay:
- * network id 296, relay `https://testnet.hashio.io/api`.
+ * CONFIRMED 2026-07-24 against docs.hedera.com/evm/development/json-rpc:
+ * chain id 296, relay `https://testnet.hashio.io/api`.
  *
  * ⚠️ Hashio is explicitly **development and testing only**, and rate-limited by
  * Hedera: ~50 HBAR/min globally plus 100–1,600 requests per IP per minute by
  * endpoint tier. A booth demo sharing one venue IP can trip that, so the RPC is
  * env-overridable — set `NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL` to a commercial
  * relay (QuickNode) or a self-hosted Hiero relay for anything load-bearing.
- * Hedera's own docs recommend exactly that for non-toy use.
+ * Hedera's own docs recommend exactly that for non-toy use. A free second public
+ * relay also exists for 296 (`https://296.rpc.thirdweb.com`, same docs table) —
+ * a useful fallback, though it is no more production-grade than Hashio.
+ *
+ * CORRECTION (2026-07-24): this file used to state "Hedera has no Chainlink
+ * feeds". That is wrong. Hedera documents Chainlink price feeds via the
+ * Chainlink Price Feeds Adapter (docs.hedera.com/evm/integrations/oracles/chainlink);
+ * Pyth and Supra are documented too, and Supra publishes an HBAR/USD feed. What
+ * remains UNVERIFIED is whether a **USDC/USD feed exists on testnet 296** — the
+ * address list lives on docs.chain.link, which is outside what was checked. So
+ * the $1 mock stays the default and a real feed is a per-deploy upgrade, not a
+ * claim this file gets to make.
  */
 export const hederaTestnet = defineChain({
   id: 296,
