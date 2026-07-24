@@ -52,7 +52,7 @@
       },
       "ens": {
         "title": "Identidade ENS",
-        "description": "Pague a um nome legível e verificado em vez de um endereço hexadecimal. O checkout resolve e prova o nome ENS do comerciante antes de mover um cêntimo."
+        "description": "Registe o seu endereço de recebimento com um nome ENS e ele é resolvido on-chain antes de ser guardado. O checkout mostra depois esse nome apenas quando o ENS prova que ele resolve de volta para o endereço exato — caso contrário, o comprador vê o endereço em bruto."
       }
     }
   },

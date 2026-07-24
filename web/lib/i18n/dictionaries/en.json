@@ -52,7 +52,7 @@
       },
       "ens": {
         "title": "ENS identity",
-        "description": "Pay a verified human-readable name instead of a hex address. Checkout resolves and proves the merchant’s ENS name before a cent moves."
+        "description": "Register your payout with an ENS name and it is resolved on-chain before it is stored. Checkout then shows that name only when ENS proves it resolves back to the exact payout address — otherwise the buyer sees the raw address."
       }
     }
   },
