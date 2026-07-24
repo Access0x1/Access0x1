@@ -254,7 +254,22 @@ export const INTEGRATIONS: readonly Integration[] = [
       { name: 'AGENT_WALLET_ID', purpose: 'The agent MPC wallet id', required: true },
       { name: 'AGENT_DAILY_USD_CAP', purpose: 'Hard daily spend ceiling (0 blocks everything)', required: true },
       { name: 'AGENT_URL_ALLOWLIST', purpose: 'Comma-separated origins the agent may pay (deny-all when blank)', required: true },
-      { name: 'AGENT_INTERNAL_SECRET', purpose: 'Shared secret gating /api/agent/pay', secret: true },
+      // REQUIRED, not optional: /api/agent/pay FAILS CLOSED with 503 not_configured when this is
+      // unset (route.ts callerAuthFailure). Labelling a secret that gates a money route "optional"
+      // reads as "safe to skip" — it is safe, but it silently disables the agent pay path.
+      {
+        name: 'AGENT_INTERNAL_SECRET',
+        purpose: 'Shared secret gating /api/agent/pay (unset ⇒ the route 503s)',
+        required: true,
+        secret: true,
+      },
+      // The dev-only bypass for the gate above. Present here so the doctor can SHOW it — an
+      // operator who sets it in production has disabled caller auth on a route that spends USDC.
+      {
+        name: 'AGENT_ALLOW_INSECURE',
+        purpose: 'LOCAL DEV ONLY — "true" bypasses the /api/agent/pay auth gate. Never set in production.',
+        hasDefault: true,
+      },
     ],
   },
   {
