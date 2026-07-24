@@ -9,6 +9,7 @@ import { NetworkBadge } from '@/components/NetworkBadge'
 import { registerMerchant } from '@/lib/contracts'
 import { getPublicClient, getWalletClient } from '@/lib/wallet'
 import { EnsResolutionError, isEnsInput, resolveENS } from '@/lib/ens'
+import { setWalletLabel } from '@/lib/walletLabel'
 
 export interface RegisterResult {
   merchantId: bigint
@@ -185,6 +186,11 @@ export function RegisterForm({
         },
       )
 
+      // Label the wallet with the business name (local, plain label — the chip
+      // shows it instead of a bare 0x…; external wallets never share their own
+      // account nickname with a site, so this is the user's first visible name).
+      setWalletLabel(payout, trimmedName)
+
       onRegistered({
         merchantId,
         txHash,
@@ -224,7 +230,16 @@ export function RegisterForm({
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
+      {/* Optional plumbing lives behind a disclosure so the visible form is just
+          "name + price + button" — the two answers every merchant actually has.
+          The input stays mounted (details keeps children in the DOM), so ENS
+          resolution and the existing tests behave identically. */}
+      <details className="rounded-lg border border-border px-3 py-2 text-sm [&[open]]:pb-3">
+        <summary className="cursor-pointer select-none font-medium text-muted-foreground">
+          Advanced <span className="font-normal">— fee recipient (optional)</span>
+        </summary>
+
+        <label className="mt-3 flex flex-col gap-1 text-sm">
         <span className="font-medium text-ink">
           Fee recipient <span className="text-muted-foreground">(optional — 0x address or ENS name)</span>
         </span>
@@ -259,7 +274,8 @@ export function RegisterForm({
             {ensError}
           </span>
         ) : null}
-      </label>
+        </label>
+      </details>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
