@@ -53,6 +53,16 @@ TEMPO_RPC_URL ?= https://rpc.testnet.tempo.xyz
 # live credential into the terminal, the scrollback, and any screen recording or pasted log. Argv is
 # also world-readable via `ps` while the process runs. `forge` reads ETHERSCAN_API_KEY from the
 # environment on its own, so exporting it is strictly better and needs no flag.
+# Fail LOUD when a deploy target runs without a sender. `DEPLOYER` has no default —
+# 67 recipes pass it as `--sender $(DEPLOYER)`, so an unset value silently becomes an EMPTY
+# --sender and forge fails deep in its own argument handling, far from the actual cause.
+# Scoped to `deploy-*` goals so every other target (build, test, fmt) still works with no .env.
+ifneq ($(filter deploy-%,$(MAKECMDGOALS)),)
+  ifeq ($(strip $(DEPLOYER)),)
+    $(error DEPLOYER is not set. Put the address your keystore controls in .env, e.g. DEPLOYER=0x... — `cast wallet list` shows the accounts you have)
+  endif
+endif
+
 export ETHERSCAN_API_KEY
 VERIFY_ES := $(if $(strip $(ETHERSCAN_API_KEY)),--verify,)
 VERIFY_ZK := $(if $(strip $(ZKSYNC_VERIFIER_URL)),--verify --verifier zksync --verifier-url $(ZKSYNC_VERIFIER_URL),)
