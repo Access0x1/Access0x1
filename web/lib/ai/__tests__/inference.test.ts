@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  buildCustomDeps,
   buildHostedDeps,
   buildZerogBrokerDeps,
   buildZerogDeps,
@@ -33,6 +34,9 @@ const ENV_KEYS = [
   'ACCESS0X1_COMPUTE_ENDPOINT',
   'ACCESS0X1_COMPUTE_API_KEY',
   'ACCESS0X1_COMPUTE_MODEL',
+  'CUSTOM_COMPUTE_ENDPOINT',
+  'CUSTOM_COMPUTE_API_KEY',
+  'CUSTOM_COMPUTE_MODEL',
 ]
 const saved: Record<string, string | undefined> = {}
 
@@ -162,6 +166,35 @@ describe('access0x1 (hosted) provider', () => {
 
   it('throws not_configured when selected but no endpoint is set', async () => {
     process.env.AI_INFERENCE_PROVIDER = 'access0x1'
+    await expect(runInference({ prompt: 'hi' }, undefined)).rejects.toMatchObject({
+      reason: 'not_configured',
+    })
+  })
+})
+
+describe('custom (any-vendor) provider — no lock-in', () => {
+  it('any OpenAI-compatible endpoint works via CUSTOM_COMPUTE_*, with Bearer when a key is set', async () => {
+    process.env.AI_INFERENCE_PROVIDER = 'custom'
+    expect(isInferenceConfigured()).toBe(false)
+    process.env.CUSTOM_COMPUTE_ENDPOINT = 'https://api.groq.example/openai/v1'
+    process.env.CUSTOM_COMPUTE_API_KEY = 'gk'
+    process.env.CUSTOM_COMPUTE_MODEL = 'mixtral-8x7b'
+    expect(selectedProvider()).toBe('custom')
+    expect(isInferenceConfigured()).toBe(true)
+
+    const fetchImpl = vi.fn<FetchLike>(async () => json({ choices: [{ message: { content: 'vendor-free' } }] }))
+    const deps = { ...buildCustomDeps()!, fetchImpl }
+    const res = await runInference({ prompt: 'hi' }, deps)
+    expect(res).toMatchObject({ provider: 'custom', completion: 'vendor-free' })
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(String(url)).toBe('https://api.groq.example/openai/v1/chat/completions')
+    const sent = (init as RequestInit).headers as Record<string, string>
+    expect(sent.Authorization).toBe('Bearer gk')
+    expect(JSON.parse((init as RequestInit).body as string).model).toBe('mixtral-8x7b')
+  })
+
+  it('throws not_configured when selected with no endpoint', async () => {
+    process.env.AI_INFERENCE_PROVIDER = 'custom'
     await expect(runInference({ prompt: 'hi' }, undefined)).rejects.toMatchObject({
       reason: 'not_configured',
     })

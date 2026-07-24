@@ -28,6 +28,7 @@ describe('parseInferenceProvider', () => {
     expect(parseInferenceProvider('  ZeroG  ')).toBe('zerog')
     expect(parseInferenceProvider('access0x1')).toBe('access0x1')
     expect(parseInferenceProvider(' Access0x1 ')).toBe('access0x1')
+    expect(parseInferenceProvider('custom')).toBe('custom')
     expect(parseInferenceProvider('anthropic')).toBe('anthropic')
     expect(parseInferenceProvider('')).toBe('anthropic')
     expect(parseInferenceProvider(null)).toBe('anthropic')

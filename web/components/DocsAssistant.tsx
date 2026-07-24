@@ -230,7 +230,9 @@ export function DocsAssistant({
                     ? 'Computed on 0G Compute'
                     : provider === 'access0x1'
                       ? 'Computed on Access0x1 Compute'
-                      : 'Answered by Claude'}
+                      : provider === 'custom'
+                        ? 'Computed on a custom endpoint'
+                        : 'Answered by Claude'}
                 </span>
               )}
             </div>

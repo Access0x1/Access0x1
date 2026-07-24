@@ -45,8 +45,11 @@ import type { FetchLike } from '../payout-swap/rails/uniswapTradingApi.js'
  *    (AWS-backed, served from an operator-set URL such as api.access0x1.com). Positioned as the
  *    hosted alternative competing with 0G on price/latency/region — deliberately NOT described as
  *    decentralized (truth-in-copy: AWS-hosted is managed infrastructure, and we say so).
+ *  - `custom`     — ANY OpenAI-compatible vendor the operator points at (OpenAI, Groq, Together,
+ *    a self-hosted vLLM box, …). The no-vendor-lock-in guarantee made literal: one env var swaps
+ *    the whole backend; nothing in this repo is coupled to a specific model company.
  */
-export type InferenceProvider = 'anthropic' | 'zerog' | 'access0x1'
+export type InferenceProvider = 'anthropic' | 'zerog' | 'access0x1' | 'custom'
 
 /** How the 0G path authenticates: a static gateway key, or the native 0G broker. */
 export type ZerogMode = 'key' | 'broker'
@@ -112,6 +115,7 @@ export function selectedProvider(): InferenceProvider {
   const raw = env('AI_INFERENCE_PROVIDER').toLowerCase()
   if (raw === 'zerog') return 'zerog'
   if (raw === 'access0x1') return 'access0x1'
+  if (raw === 'custom') return 'custom'
   return 'anthropic'
 }
 
@@ -139,6 +143,7 @@ function isZerogConfigured(): boolean {
 export function isInferenceConfigured(provider: InferenceProvider = selectedProvider()): boolean {
   if (provider === 'zerog') return isZerogConfigured()
   if (provider === 'access0x1') return env('ACCESS0X1_COMPUTE_ENDPOINT').length > 0
+  if (provider === 'custom') return env('CUSTOM_COMPUTE_ENDPOINT').length > 0
   return env('CLAUDE_API_KEY').length > 0
 }
 
@@ -180,10 +185,25 @@ export function buildZerogDeps(): ZerogDeps | undefined {
  * set); `ACCESS0X1_COMPUTE_MODEL` optionally pins the served model. Server-only, fail-soft.
  */
 export function buildHostedDeps(): ZerogDeps | undefined {
-  const endpoint = env('ACCESS0X1_COMPUTE_ENDPOINT')
+  return buildEndpointDeps('ACCESS0X1_COMPUTE')
+}
+
+/**
+ * Build the **custom-vendor** deps from env, or `undefined` when unconfigured. Any
+ * OpenAI-compatible endpoint works — `CUSTOM_COMPUTE_ENDPOINT` (+ optional
+ * `CUSTOM_COMPUTE_API_KEY` / `CUSTOM_COMPUTE_MODEL`). This is the no-lock-in escape hatch:
+ * operators are never stuck with a vendor this repo happens to name.
+ */
+export function buildCustomDeps(): ZerogDeps | undefined {
+  return buildEndpointDeps('CUSTOM_COMPUTE')
+}
+
+/** Shared env→deps builder for plain OpenAI-compatible endpoints (key + model optional). */
+function buildEndpointDeps(prefix: 'ACCESS0X1_COMPUTE' | 'CUSTOM_COMPUTE'): ZerogDeps | undefined {
+  const endpoint = env(`${prefix}_ENDPOINT`)
   if (!endpoint) return undefined
-  const apiKey = env('ACCESS0X1_COMPUTE_API_KEY')
-  const model = env('ACCESS0X1_COMPUTE_MODEL')
+  const apiKey = env(`${prefix}_API_KEY`)
+  const model = env(`${prefix}_MODEL`)
   return {
     endpoint,
     ...(apiKey ? { apiKey } : { authHeaders: () => ({}) }),
@@ -299,9 +319,10 @@ interface ChatCompletionResponse {
 }
 
 /** Human label per OpenAI-compatible provider, used only in error messages (never a secret). */
-const OPENAI_COMPAT_LABEL: Record<'zerog' | 'access0x1', string> = {
+const OPENAI_COMPAT_LABEL: Record<'zerog' | 'access0x1' | 'custom', string> = {
   zerog: '0G Compute',
   access0x1: 'Access0x1 Compute',
+  custom: 'The custom inference endpoint',
 }
 
 /**
@@ -312,7 +333,7 @@ const OPENAI_COMPAT_LABEL: Record<'zerog' | 'access0x1', string> = {
 async function runOpenAiCompatible(
   req: InferenceRequest,
   deps: ZerogDeps,
-  provider: 'zerog' | 'access0x1',
+  provider: 'zerog' | 'access0x1' | 'custom',
 ): Promise<InferenceResult> {
   const model = req.model ?? deps.model ?? DEFAULT_ZEROG_MODEL
   const auth = deps.authHeaders
@@ -422,6 +443,11 @@ export async function runInference(
     const deps = zerogDeps === RESOLVE_ZEROG_DEPS ? buildHostedDeps() : zerogDeps
     if (!deps) throw new InferenceError('not_configured', 'Access0x1 Compute is not configured')
     return runOpenAiCompatible(req, deps, 'access0x1')
+  }
+  if (provider === 'custom') {
+    const deps = zerogDeps === RESOLVE_ZEROG_DEPS ? buildCustomDeps() : zerogDeps
+    if (!deps) throw new InferenceError('not_configured', 'The custom inference endpoint is not configured')
+    return runOpenAiCompatible(req, deps, 'custom')
   }
   return runAnthropicInference(req)
 }
