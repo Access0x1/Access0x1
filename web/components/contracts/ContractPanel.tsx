@@ -63,7 +63,7 @@ function ContractPanelView({
   chainId: number
   chainName: string
 }): ReactNode {
-  const { meta, parts, address } = resolved
+  const { meta, parts, address, preview } = resolved
   const explorer = address ? moduleExplorerUrl(chainId, address) : undefined
 
   return (
@@ -84,6 +84,10 @@ function ContractPanelView({
             ) : (
               <span className="font-mono text-xs text-muted-foreground">{short(address)}</span>
             )
+          ) : preview ? (
+            <span className="rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[10px] uppercase tracking-widest text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+              built · not deployed yet
+            </span>
           ) : (
             <span className="rounded-full border border-input px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
               not on {chainName} yet

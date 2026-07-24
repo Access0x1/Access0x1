@@ -8,9 +8,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import { MODULE_ABIS, MODULE_NAMES } from '@/lib/generated/module-abis'
-import { MODULE_CATALOG } from './catalog'
+import { MODULE_CATALOG, defaultLabel } from './catalog'
 import {
   groupByCategory,
+  isDeployedAnywhere,
   isRead,
   listModules,
   liveCount,
@@ -31,10 +32,47 @@ describe('catalog ⇄ ABIs coverage', () => {
     }
   })
 
-  it('covers every ABI exactly once (no gaps, no dupes)', () => {
+  it('covers every ABI exactly once (no gaps, no dupes) — guaranteed by auto-derivation', () => {
     const catalogNames = MODULE_CATALOG.map((m) => m.name).sort()
     expect(catalogNames).toEqual([...MODULE_NAMES].sort())
     expect(new Set(catalogNames).size).toBe(catalogNames.length)
+  })
+
+  it('surfaces newly-built contracts (the resolver + v4 hook) automatically', () => {
+    const names = MODULE_CATALOG.map((m) => m.name)
+    expect(names).toContain('Access0x1PaymentResolver')
+    expect(names).toContain('Access0x1SwapReceiptHook')
+  })
+})
+
+describe('auto-derivation — dynamic catalog', () => {
+  it('defaultLabel strips the Access0x1 prefix and de-camelCases', () => {
+    expect(defaultLabel('Access0x1FooBar')).toBe('Foo bar')
+    expect(defaultLabel('HouseTokenFactory')).toBe('House token factory')
+    expect(defaultLabel('Access0x1NFTVault')).toBe('Nft vault')
+  })
+
+  it('every catalog entry carries a non-empty label + blurb (curated or default)', () => {
+    for (const m of MODULE_CATALOG) {
+      expect(m.label.length, `${m.name} label`).toBeGreaterThan(0)
+      expect(m.blurb.length, `${m.name} blurb`).toBeGreaterThan(0)
+    }
+  })
+
+  it('marks a built-but-undeployed contract as preview, and a deployed one as not', () => {
+    // The resolver + hook are built this sprint but broadcast to no chain yet.
+    expect(isDeployedAnywhere('Access0x1PaymentResolver')).toBe(false)
+    expect(isDeployedAnywhere('Access0x1SwapReceiptHook')).toBe(false)
+    // The router is mirrored across the testnets.
+    expect(isDeployedAnywhere('Access0x1Router')).toBe(true)
+  })
+
+  it('listModules flags preview modules (deployed nowhere)', () => {
+    const modules = listModules(FUJI)
+    const resolver = modules.find((m) => m.meta.name === 'Access0x1PaymentResolver')
+    const router = modules.find((m) => m.meta.name === 'Access0x1Router')
+    expect(resolver?.preview).toBe(true)
+    expect(router?.preview).toBe(false)
   })
 })
 

@@ -63,6 +63,16 @@ export function splitAbi(abi: Abi): ModuleAbiParts {
   }
 }
 
+/** True when a module has an address on NO chain in the broadcast map — i.e. it is
+ *  BUILT but not deployed anywhere yet (the "preview" state). Derived, so a contract
+ *  stops being preview automatically the moment its first deployment is recorded. */
+export function isDeployedAnywhere(name: string): boolean {
+  return DEPLOYMENTS.some(
+    (c) =>
+      c.deployments.some((d) => d.contractName === `${name}.proxy` || d.contractName === name),
+  )
+}
+
 /** A fully-resolved module: metadata + interface + (chain-resolved) address. */
 export interface ResolvedModule {
   readonly meta: ModuleMeta
@@ -70,6 +80,8 @@ export interface ResolvedModule {
   readonly parts: ModuleAbiParts
   /** The live address on the queried chain, or `null` when not deployed there. */
   readonly address: Address | null
+  /** True when the module is deployed on NO chain yet — render "built · not deployed yet". */
+  readonly preview: boolean
 }
 
 /** The ABI for a module by name (always present — the union guarantees it). */
@@ -87,6 +99,7 @@ export function getModule(name: ModuleName, chainId: number): ResolvedModule | n
     abi,
     parts: splitAbi(abi),
     address: moduleAddressFor(chainId, name),
+    preview: !isDeployedAnywhere(name),
   }
 }
 
@@ -102,6 +115,7 @@ export function listModules(chainId: number): ResolvedModule[] {
     abi: MODULE_ABIS[meta.name],
     parts: splitAbi(MODULE_ABIS[meta.name]),
     address: moduleAddressFor(chainId, meta.name),
+    preview: !isDeployedAnywhere(meta.name),
   }))
 }
 
