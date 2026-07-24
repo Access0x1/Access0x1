@@ -8,6 +8,7 @@
     "check:abi": "node scripts/sync-abi.mjs"
   },
   "dependencies": {
-    "@chainlink/contracts": "1.5.0"
+    "@chainlink/contracts": "1.5.0",
+    "@uniswap/v4-core": "^1.0.2"
   }
 }

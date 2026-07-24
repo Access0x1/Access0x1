@@ -5,7 +5,7 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
-_Last updated: 2026-07-24 (test-count refresh: 2,016 Foundry contract tests + 1,660 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
+_Last updated: 2026-07-24 (test-count refresh: 2,022 Foundry contract tests + 1,669 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
 
 ---
 
@@ -38,16 +38,16 @@ record (law #4 — an address that isn't on-chain isn't claimed) and self-checke
   deployed-runtime-equals-this-source attestation is in [`audit/DEPLOYED-CODE.md`](audit/DEPLOYED-CODE.md)
   (a reproducible `cast code` vs `forge inspect deployedBytecode` diff, independent of the explorer badge).
 
-**zkSync Sepolia** is one-command ready but not yet broadcast — it needs its dedicated EraVM path (zksolc
-from a clean root; it deployed at the SAME mirror address `0xe92244e3…`, confirmed in `broadcast/…/300` — see `docs/ZKSYNC-TESTING.md`). More
+**zkSync Sepolia** required its dedicated EraVM path (zksolc from a clean root) and is DEPLOYED at the
+SAME mirror address `0xe92244e3…`, confirmed in `broadcast/…/300` — see `docs/ZKSYNC-TESTING.md`. More
 EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy-<chain>`) but not yet broadcast.
 
 ---
 
 ## 2. Tested
 
-- **2,016 contract tests, 0 failed, 0 skipped** (`make test`; the count is CI-enforced against `forge test --list`
-  for this update — 1810 passed / 0 failed / 0 skipped). The 3 `test/fork/**` Chainlink-feed tests are
+- **2,022 contract tests, 0 failed, 0 skipped** (`make test`; the count is CI-enforced against `forge test --list`
+  by `scripts/sync-test-badge.mjs`). The 3 `test/fork/**` Chainlink-feed tests are
   counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI
   both run green; set `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed.
 - **The web + SDK suites** (Vitest) cover `@access0x1/react` and the Next.js money-adjacent routes. A
@@ -137,6 +137,12 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   SDK** (drop-in `<PayButton>` + the `usePayment` hook — orderId-bound receipt watch with a 120s timeout
   ceiling; Vitest-covered; git-distributed — consumed as a GitHub dependency, not published to npm by design), and the `create-access0x1` scaffolder.
 
+- **Uniswap v4 hook** — `src/uniswap/Access0x1SwapReceiptHook.sol` (+ 6-test unit suite): an
+  afterSwap-only hook that emits an attributable on-chain SwapReceipt (merchantId + orderRef via
+  hookData) for merchant payout swaps — zero custody, zero fee, the other nine callbacks revert.
+  Built + unit-tested; NOT deployed (a live deploy needs the CREATE2 address-mining step so the
+  address carries the AFTER_SWAP flag — claimed only when a broadcast record exists).
+
 **Seam (code present, NOT exercised in the live example path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),
   **Uniswap payout-swap** (receive-in-any-token rail), **1inch** (aggregator payout-swap rail
@@ -174,7 +180,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ```bash
 git clone https://github.com/Access0x1/Access0x1 && cd Access0x1
-make test                       # 2,016 contract tests, 0 failed
+make test                       # 2,022 contract tests, 0 failed
 forge coverage --ir-minimum     # the real coverage number
 make halmos                     # the symbolic fee-split + budget proofs
 make anvil && make deploy-local && make drive-local   # real local payment, no keys

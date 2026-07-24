@@ -21,6 +21,7 @@ remappings = [
     # the non-upgradeable proxy/UUPS impl, so a version skew between the two would silently misresolve.
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
     "@chainlink/contracts/=node_modules/@chainlink/contracts/",  # npm dep — chainlink-brownie is deprecated
+    "@uniswap/v4-core/=node_modules/@uniswap/v4-core/",  # npm dep — the v4 hook interfaces/types
     "forge-std/=lib/forge-std/src/",
 ]
 # DevOpsTools.get_most_recent_deployment() reads broadcast/out to resolve the latest router per chain
