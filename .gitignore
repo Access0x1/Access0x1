@@ -113,13 +113,13 @@ contract-docs
 # economics, legal, marketing, design, product, QA + support material live WITH
 # the apps (example + YourApp), never in this repo. These dirs are local-only;
 # ignoring them blocks an accidental `git add -A` from leaking strategy publicly.
-analytics/
-business/
-design/
-legal/
-marketing/
-product/
-qa/
+/analytics/
+/business/
+/design/
+/legal/
+/marketing/
+/product/
+/qa/
 support/
 
 # Playwright run artifacts — never committed
