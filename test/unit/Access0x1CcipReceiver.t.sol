@@ -241,7 +241,7 @@ contract Access0x1CcipReceiverTest is Test {
         _deliver(_msg("m1", SRC_SELECTOR, SRC_SENDER, 20e18, BUYER));
 
         assertEq(
-            router.lastGrossPulled(), 0, "nothing settled — a partial settle would under-pay"
+            router.lastGrossPulled(), 0, "nothing settled: a partial settle would under-pay"
         );
         assertEq(receiver.claimable(BUYER, address(token)), 20e18, "the FULL delivery is claimable");
     }
@@ -357,7 +357,7 @@ contract Access0x1CcipReceiverTest is Test {
         assertEq(
             token.balanceOf(address(receiver)),
             receiver.claimable(BUYER, address(token)),
-            "held balance equals the outstanding credit — nothing stuck, nothing kept"
+            "held balance equals the outstanding credit: nothing stuck, nothing kept"
         );
     }
 }
