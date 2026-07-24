@@ -50,15 +50,40 @@ contract Access0x1SwapReceiptHook is IHooks {
         int256 delta
     );
 
+    /// @notice The constructor was given the zero address for the PoolManager. Rejected at deploy: the
+    ///         PoolManager is immutable, so a hook pinned to `address(0)` could never authenticate a
+    ///         callback and would be permanently inert — better to fail the deployment than ship one.
     error Access0x1SwapReceiptHook__ZeroPoolManager();
+
+    /// @notice A hook callback was invoked by something other than the pinned {POOL_MANAGER}. Only the
+    ///         PoolManager may drive this hook, so an attacker cannot forge a {SwapReceipt} for a swap
+    ///         that never happened and poison a merchant's attribution trail.
     error Access0x1SwapReceiptHook__NotPoolManager();
+
+    /// @notice A callback this hook deliberately does not implement was invoked. Reverting (rather than
+    ///         silently returning the selector) is the correct v4 posture: the address flags say only
+    ///         `afterSwap` is served, so reaching any other callback means the hook was deployed at an
+    ///         address whose permission bits disagree with this code — a misconfiguration that should
+    ///         be loud, not tolerated.
     error Access0x1SwapReceiptHook__HookNotImplemented();
 
+    /// @notice Restrict a callback to the pinned v4 PoolManager — the contract's only trust anchor.
+    /// @dev    The PoolManager is trusted to report `sender`, `key`, and `delta` truthfully; this hook
+    ///         does no independent verification of them, which is sound precisely because nothing else
+    ///         can reach the guarded functions. Note the modifier is applied ONLY to {afterSwap}; the
+    ///         unimplemented callbacks are `pure` and revert unconditionally, so they need no gate.
     modifier onlyPoolManager() {
         if (msg.sender != POOL_MANAGER) revert Access0x1SwapReceiptHook__NotPoolManager();
         _;
     }
 
+    /// @notice Deploy the receipt hook, pinning the one PoolManager whose callbacks it will honour.
+    /// @dev    Reverts {Access0x1SwapReceiptHook__ZeroPoolManager} on a zero address. `POOL_MANAGER` is
+    ///         immutable — there is no setter and no admin, so the trust anchor is fixed at deploy and
+    ///         this contract has no privileged role of any kind afterwards. DEPLOY-TIME REQUIREMENT:
+    ///         v4 encodes hook permissions in the ADDRESS, so the CREATE2 salt must be mined until the
+    ///         resulting address satisfies {REQUIRED_HOOK_FLAGS}; a correct constructor argument alone
+    ///         is not sufficient for the PoolManager to accept the hook.
     /// @param poolManager The chain's canonical v4 PoolManager (env/broadcast-sourced, never hardcoded).
     constructor(address poolManager) {
         if (poolManager == address(0)) revert Access0x1SwapReceiptHook__ZeroPoolManager();
@@ -69,6 +94,20 @@ contract Access0x1SwapReceiptHook is IHooks {
     /// @notice Emits the {SwapReceipt}. `hookData` optionally carries
     ///         `abi.encode(uint256 merchantId, bytes32 orderRef)`; anything shorter attributes 0/0.
     ///         Takes no delta (returns 0) — the hook never touches funds.
+    /// @dev    OFF THE MONEY PATH, AND SPECIFICALLY OFF THE SWAP'S. Returning a zero `int128` delta is
+    ///         the load-bearing part: the hook takes no fee, moves no tokens, holds no balance and has
+    ///         no approval, so a swap through a hooked pool settles identically to one without it.
+    ///         Emitting is the entire body — there is no state to corrupt, so a re-entrant PoolManager
+    ///         callback is a non-issue and no guard is needed.
+    /// @dev    ATTRIBUTION IS UNVERIFIED AND SELF-ASSERTED. `merchantId` and `orderRef` come straight
+    ///         from caller-supplied `hookData`; nothing here checks that the swapper is entitled to
+    ///         claim that merchant. Anyone can therefore emit a receipt naming any merchant, so a
+    ///         consumer MUST corroborate a receipt against the router's own settlement events rather
+    ///         than trusting this log alone. That is an accepted trade for keeping the hook zero-custody
+    ///         and zero-fee; the log is evidence to be joined, not an authorization.
+    /// @dev    The `>= 64` length test admits any over-long `hookData` and lets `abi.decode` read the
+    ///         first two words. Malformed data therefore yields a garbage-but-harmless attribution
+    ///         rather than a revert — chosen so a bad `hookData` can never fail someone's swap.
     function afterSwap(
         address sender,
         PoolKey calldata key,
@@ -86,6 +125,17 @@ contract Access0x1SwapReceiptHook is IHooks {
     }
 
     // ── The nine unimplemented callbacks (permissions say so; the address must too) ──
+    //
+    // IHooks requires all ten callbacks to exist on the ABI, but a v4 hook only ever RECEIVES the ones
+    // its address flags advertise. Since a correctly mined address carries AFTER_SWAP alone, the
+    // PoolManager never calls any of the nine below — so in practice they are unreachable, and each is
+    // `pure` + `external` with no state access precisely to make that inability structural.
+    //
+    // They revert rather than politely returning their selector for one reason: if execution ever DOES
+    // land here, the deployed address's permission bits contradict this source, and the pool is
+    // misconfigured. Failing loudly surfaces that at integration time instead of letting a pool run
+    // against a hook that silently ignores half its lifecycle. None of them can affect a swap that a
+    // correctly deployed hook serves, and none can touch funds.
 
     /// @inheritdoc IHooks
     function beforeInitialize(address, PoolKey calldata, uint160) external pure returns (bytes4) {

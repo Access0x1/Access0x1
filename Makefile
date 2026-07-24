@@ -735,3 +735,6 @@ upgrade-zksync-sepolia: upgrade-guard ## Upgrade MODULE on zkSync Era Sepolia (3
 	MODULE=$(MODULE) PROXY=$$P forge script script/Upgrade.s.sol \
 		--rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) \
 		--broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+show-contracts: ## Where is the actual code? Every contract's PROXY vs IMPLEMENTATION + explorer links (add --verify to read the live EIP-1967 slot)
+	@node scripts/show-contracts.mjs $(ARGS)

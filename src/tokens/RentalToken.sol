@@ -126,8 +126,17 @@ contract RentalToken is ERC721, Ownable, IERC4907 {
     /// @dev The single OZ 5.x transfer choke-point. On a real transfer (owner actually changes and it
     ///      is NOT a mint), any active tenant record is cleared and a `user == 0` {UpdateUser} is
     ///      emitted — a sale ends the lease. The clear is skipped when no user was set, so mints and
-    ///      transfers of unrented tokens emit no spurious event. Runs BEFORE `super._update` moves the
-    ///      token so `from` is still resolvable and the state is consistent for observers.
+    ///      transfers of unrented tokens emit no spurious event.
+    /// @dev ORDERING: `super._update` runs FIRST and the tenancy is cleared AFTER it, using the `from`
+    ///      it returns. That order is deliberate — the previous owner is only knowable from the base's
+    ///      return value, and deferring the clear means an authorization failure inside `super._update`
+    ///      reverts before any tenant state is touched. The consequence to know: the {UpdateUser} clear
+    ///      is emitted after the ERC-721 {Transfer}, so an indexer sees the sale before the lease end
+    ///      within the same tx. Both are in one atomic transaction, so no observer can act between them.
+    /// @param to      The recipient (or `address(0)` on a burn).
+    /// @param tokenId The token being moved.
+    /// @param auth    The address the base checks authorization against (0 skips the check).
+    /// @return from The previous owner as reported by `super._update` (`address(0)` on a mint).
     function _update(address to, uint256 tokenId, address auth)
         internal
         virtual

@@ -179,6 +179,12 @@ contract SessionGrant is
     }
 
     /// @notice The EIP-712 domain separator (exposed for off-chain signers / ERC-6492 tooling).
+    /// @dev    Binds every signature this contract accepts to THIS contract address and chain id, so a
+    ///         grant authorization can never be replayed against another deployment or another chain.
+    ///         Delegates to OZ's `_domainSeparatorV4`, which recomputes the separator whenever the
+    ///         cached chain id no longer matches — so the value stays correct across a chain fork
+    ///         rather than going stale. Read-only: exposing it grants no authority.
+    /// @return The current EIP-712 domain separator for this contract.
     function domainSeparator() external view returns (bytes32) {
         return _domainSeparatorV4();
     }

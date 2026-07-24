@@ -131,7 +131,15 @@ contract PaymentLanes is
 
     /// @notice ERC-165 introspection. ERC-6909 makes `supportsInterface` MANDATORY, so a
     ///         6909-aware wallet/indexer can detect this ledger before interacting.
-    /// @dev    `0x0f632fb3` is the EIP-6909 interface id; `0x01ffc9a7` is ERC-165 itself.
+    /// @dev    `0x0f632fb3` is the EIP-6909 interface id; `0x01ffc9a7` is ERC-165 itself. Both are
+    ///         hardcoded constants rather than `type(...).interfaceId`, because {IPaymentLanes} extends
+    ///         the bare 6909 surface with the Access0x1 lane methods — computing the id from it would
+    ///         yield a value no 6909-aware wallet recognises. Pinning the canonical ids is what keeps
+    ///         detection interoperable, at the cost of needing a manual update if EIP-6909's id ever
+    ///         changed. `pure`, so a detecting client pays no storage read.
+    /// @param  interfaceId The ERC-165 interface id to test.
+    /// @return True for EIP-6909 and ERC-165; false for everything else, including the extended
+    ///         {IPaymentLanes} interface itself.
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
         return interfaceId == 0x0f632fb3 || interfaceId == 0x01ffc9a7;
     }

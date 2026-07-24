@@ -417,6 +417,21 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     ///      brick settlement). The router re-quotes the SAME `amountUsd8` in this tx (same feed round) and
     ///      pulls the approved gross, pushing net→merchant + fee→treasury. The dangling approval is reset
     ///      to 0 defensively. `net + fee == gross` is the router's audited invariant, never re-derived.
+    /// @dev TRUST + FAILURE MODES. The router is the one external contract trusted here, and the trust
+    ///      is bounded three ways: the approval is scoped to exactly `gross`, it is revoked in the same
+    ///      tx, and the residual assertion independently verifies the outcome. Unlike the sibling
+    ///      {BookingToken} release, `payToken` is NOT wrapped in try/catch — a failed route IS the
+    ///      settlement failing, so it must bubble and unwind the whole {settle}, leaving the invoice
+    ///      OPEN and the payer's 3009 nonce unspent. Reachable only from {settle}, which is
+    ///      `nonReentrant`, so the approve → call → revoke window cannot be re-entered.
+    /// @param merchantId The router merchant to pay.
+    /// @param token      The settlement token already pulled into this contract.
+    /// @param amountUsd8 The invoice's USD term, re-quoted by the router within this same tx (and so
+    ///                   against the same feed round that priced `gross`).
+    /// @param gross      The token amount pulled in, and the exact approval granted to the router.
+    /// @param balBefore  The pre-pull balance the zero-residual assertion measures against — a DELTA,
+    ///                   so pre-existing dust in this contract cannot brick a settlement.
+    /// @param invoiceId  Passed through as the router's opaque order reference.
     function _routeToMerchant(
         uint256 merchantId,
         address token,
@@ -436,6 +451,9 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     }
 
     /// @dev Revert unless `msg.sender` is the router owner of `merchantId` (single source of truth).
+    ///      Read LIVE on every call, never cached at issue time, so transferring the router merchant
+    ///      seat moves issue/void authority with it and a former owner loses it in the same tx.
+    /// @param merchantId The merchant whose current owner is required.
     function _requireMerchantOwner(uint256 merchantId) private view {
         address owner_ = _merchantOwner(merchantId);
         if (owner_ == address(0)) revert InvoiceToken__MerchantNotFound(merchantId);
@@ -443,6 +461,10 @@ contract InvoiceToken is ERC721, ReentrancyGuardTransient {
     }
 
     /// @dev Read the router owner of `merchantId` (the `owner` field of the Merchant record).
+    ///      `address(0)` means the seat was never registered — every auth check above treats that as
+    ///      "unknown merchant" and reverts rather than falling through.
+    /// @param merchantId The merchant seat to look up.
+    /// @return owner_ The seat's current owner, or `address(0)` if it was never registered.
     function _merchantOwner(uint256 merchantId) private view returns (address owner_) {
         (, owner_,,,,) = router.merchants(merchantId);
     }

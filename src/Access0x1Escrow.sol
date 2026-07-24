@@ -185,6 +185,12 @@ contract Access0x1Escrow is
     }
 
     /// @notice The EIP-712 domain separator (exposed for off-chain signers building {releaseWithSig}).
+    /// @dev    Binds every release authorization to THIS contract address and chain id, so a buyer's
+    ///         signature cannot be replayed against another escrow deployment or another chain.
+    ///         Delegates to OZ's `_domainSeparatorV4`, which recomputes the separator whenever the
+    ///         cached chain id no longer matches — so the value stays correct across a chain fork
+    ///         rather than going stale. Read-only: exposing it grants no authority.
+    /// @return The current EIP-712 domain separator for this contract.
     function domainSeparator() external view returns (bytes32) {
         return _domainSeparatorV4();
     }
