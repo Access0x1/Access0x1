@@ -239,13 +239,15 @@ describe('POST onchain', () => {
   })
 })
 
-describe('POST caller-binding (anti-farm) — world-id / oidc / onchain', () => {
-  // These three methods prove a human / an account / a funded address, but NOT
-  // that the CALLER controls `user`. Left open, a caller could farm those badges
-  // onto an arbitrary wallet (the trust tier gates trial pay + checkout modes).
-  // In production they are gated at dispatch under the same fail-closed policy as
-  // `dynamic`: require a verified Dynamic session whose wallet IS `user`. `ens`
-  // (resolve==user) and `dynamic` (session==user) bind themselves and are exempt.
+describe('POST caller-binding (anti-farm) — world-id / oidc / onchain / ens', () => {
+  // These methods prove a fact ABOUT `user` (a human / an account / a funded
+  // address / a name that resolves to it), but NONE proves the CALLER controls
+  // `user`. Left open, a caller could farm those badges onto an arbitrary wallet
+  // (the trust tier gates trial pay + checkout modes). In production they are gated
+  // at dispatch under the same fail-closed policy as `dynamic`: require a verified
+  // Dynamic session whose wallet IS `user`. Only `dynamic` (session==user) is exempt
+  // — it binds itself. (`ens` used to be exempt on a wrong "resolve==user binds
+  // itself" theory; a public read of a caller-named name proves nothing about the caller.)
   beforeEach(() => {
     process.env.BRANDING_REQUIRE_VERIFIED_WRITES = 'true'
   })
@@ -275,6 +277,15 @@ describe('POST caller-binding (anti-farm) — world-id / oidc / onchain', () => 
   it('401 oidc for an unverified caller — token never verified, not recorded', async () => {
     const res = await POST(post({ user: USER, method: 'oidc', token: 'x.y.z' }))
     expect(res.status).toBe(401)
+    expect(store.getProfile(USER).methods).toEqual([])
+  })
+
+  it('401 ens for an unverified caller — name never resolved, not recorded', async () => {
+    resolveENS.mockResolvedValue(USER) // even a name that WOULD match must not slip through
+    const res = await POST(post({ user: USER, method: 'ens', ensName: 'alice.eth' }))
+    expect(res.status).toBe(401)
+    // The gate runs BEFORE verifyEnsMethod, so the resolver is never consulted.
+    expect(resolveENS).not.toHaveBeenCalled()
     expect(store.getProfile(USER).methods).toEqual([])
   })
 

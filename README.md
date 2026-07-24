@@ -840,7 +840,7 @@ no-op, never a blocked payment). The detail for each — file paths and exact be
 | **World ID** | One-tap proof-of-personhood gate before pay | Verified-human checkout that sits **in front of** settlement — a misconfigured gate degrades, never blocks |
 | **OIDC (e.g. Sign in with Google)** | Server-side ID-token verification via `jose` | "Verify for all" — any app from this template inherits an `oidc` method by setting one env var; blank ⇒ OFF |
 | **ENS** | Name → payout-address resolution, ENSIP-19 verified identity, Namestone gasless subnames, **ENSv2 Payment Resolver (built + unit-tested)** | **The front door of the flow: a business grabs an ENS name + subname first, and Access0x1 becomes its resolver** — so `pay.<business>.eth` resolves to live, USD-priced payout state, not a static row (the off-chain gateway serves this today; the on-chain resolver contract is not yet deployed). Identity shown only on forward==reverse, off the money path |
-| **Walrus** | Content-addressed publishing of the checkout page + receipts (Sui) | An un-takedownable checkout — no single origin to pin or take down |
+| **Walrus** | Content-addressed publishing of the checkout page + receipts (Sui) | **Seam — env-gated/manual:** running the publish step (`web/scripts/publish-checkout.mts` + a Sui testnet account) yields an un-takedownable checkout with no single origin to pin; **off ⇒ the app serves normally from its origin** (see `docs/OPTIONAL-SEAMS.md`, AUDIT.md §4) |
 
 ---
 
@@ -936,10 +936,12 @@ integration let us *not* build, not a marketing wall.
     for mainnet-name → L2-router resolution. Env-gated (`NEXT_PUBLIC_ENSV2_*`) + fail-soft: blank ⇒
     the ENSv1/Namestone path above. The signed EIP-3668 wrapper is the declared next rung (honest
     scope). Full write-up: [`docs/ENSV2-PAYMENT-RESOLVER.md`](docs/ENSV2-PAYMENT-RESOLVER.md).
-- **Walrus — an un-takedownable checkout.** [`web/lib/walrus.ts`](web/lib/walrus.ts) publishes the
-  checkout page and receipt blobs to Walrus (Sui decentralized storage). Because a blob is
-  content-addressed and served by any aggregator on the network, the checkout isn't pinned to one
-  origin — there is no single host to take down.
+- **Walrus — an un-takedownable checkout (seam, env-gated/manual).** [`web/lib/walrus.ts`](web/lib/walrus.ts)
+  **can publish** the checkout page and receipt blobs to Walrus (Sui decentralized storage) **when an
+  operator runs the publish step** (`web/scripts/publish-checkout.mts` + a Sui testnet account). Once
+  published, a blob is content-addressed and served by any aggregator, so the checkout isn't pinned to
+  one origin — no single host to take down. **Off (the default) ⇒ the app serves normally from its
+  origin** (see [`docs/OPTIONAL-SEAMS.md`](docs/OPTIONAL-SEAMS.md); classified as a seam in AUDIT.md §4).
 
 > Honest scope: this is a testnet build. Partner addresses and endpoints carry a "confirm from official docs"
 > note and are read from env, never hardcoded ([law #4](#security-posture)) — see

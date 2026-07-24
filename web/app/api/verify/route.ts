@@ -110,16 +110,19 @@ async function verifyMethod(
   body: Record<string, unknown>,
   request: Request,
 ): Promise<Verdict> {
-  // Caller-binding (anti-farm): `world-id`, `oidc`, and `onchain` prove a human,
-  // an account, and a funded address respectively — but NONE of them proves the
-  // CALLER controls `user`, so left open a caller could record those badges onto
-  // an arbitrary wallet (the trust tier gates trial pay + checkout modes). Gate
-  // them at dispatch, BEFORE the real check runs, so an unauthorized caller can't
-  // even consume a World nullifier / OIDC subject on another wallet's behalf.
-  // `ens` (name resolves to `user`) and `dynamic` (session IS `user`) bind
-  // themselves. Shared with the dedicated /api/oidc/verify route so the `oidc`
-  // binding can't be bypassed by using that route instead (lib/verification/callerBinding).
-  if (method === 'world-id' || method === 'oidc' || method === 'onchain') {
+  // Caller-binding (anti-farm): `world-id`, `oidc`, `onchain`, and `ens` prove a
+  // fact ABOUT `user` (a human, an account, a funded address, a name that resolves
+  // to it) — but NONE proves the HTTP CALLER controls `user`, so left open a caller
+  // could record those badges onto an arbitrary wallet (the trust tier gates trial
+  // pay + checkout modes). `ens` was previously exempted on a wrong "resolution binds
+  // itself" theory: verifyEnsMethod only checks the caller-named ensName resolves to
+  // the caller-named `user` (a public on-chain read), never who is calling — exactly
+  // the `onchain` shape. Gate them all at dispatch, BEFORE the real check runs, so an
+  // unauthorized caller can't consume a World nullifier / OIDC subject / ENS credential
+  // on another wallet's behalf. Only `dynamic` (the session IS `user`) binds itself.
+  // Shared with the dedicated /api/oidc/verify route so the `oidc` binding can't be
+  // bypassed by using that route instead (lib/verification/callerBinding).
+  if (method === 'world-id' || method === 'oidc' || method === 'onchain' || method === 'ens') {
     const binding = await requireCallerOwnsUser(request, user, body.user)
     if (!binding.ok) return { ok: false, code: binding.code, status: binding.status }
   }

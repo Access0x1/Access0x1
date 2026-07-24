@@ -31,6 +31,9 @@ import type { FetchLike } from '../payout-swap/rails/uniswapTradingApi.js'
 
 assertServerOnly('anyTokenQuote')
 
+/** Hard deadline for the pre-settlement quote fetch, so a hung upstream never stalls a payment. */
+const QUOTE_TIMEOUT_MS = 5_000
+
 /** Why an any-token quote could not be produced (all are caught fail-soft by the route). */
 export type AnyTokenQuoteFailure =
   | 'invalid-args' // a required arg was missing/malformed — a caller bug, surfaced fail-fast.
@@ -219,9 +222,13 @@ export async function quoteAnyToken(
 
   const amountOut = resolveAmountOut(req)
 
+  // Bound the fetch: this quote is awaited BEFORE settlement, so an unbounded hang here would
+  // stall a real payment. A hard 5s deadline degrades to a thrown AbortError, which the caller
+  // (maybeAnyTokenQuote) already swallows to a fail-soft `null` — the payment proceeds unquoted.
   const res = await deps.fetchImpl(`${deps.baseUrl}/quote`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
+    signal: AbortSignal.timeout(QUOTE_TIMEOUT_MS),
     body: JSON.stringify({
       // EXACT_OUTPUT: fix the settlement (tokenOut) amount, let the API return the tokenIn cost.
       type: 'EXACT_OUTPUT',
