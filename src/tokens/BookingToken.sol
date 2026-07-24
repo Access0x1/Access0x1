@@ -113,6 +113,17 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice A slot was reserved: `tokenId` minted to `to`, `deposit` of `token` escrowed.
+    /// @dev    Emitted BEFORE the deposit is pulled in (CEI orders the ledger write and the mint ahead
+    ///         of the external transfer), so an indexer must treat the enclosing tx's success as the
+    ///         confirmation that the escrow was actually funded.
+    /// @param  tokenId    The freshly minted reservation NFT.
+    /// @param  merchantId The router merchant whose calendar the slot belongs to.
+    /// @param  to         The buyer the NFT was minted to (the initial holder; the deposit follows
+    ///                    whoever HOLDS the NFT, not this address).
+    /// @param  slotKey    The opaque slot identity now occupied for `merchantId`.
+    /// @param  token      The deposit token.
+    /// @param  deposit    The escrowed token amount, quoted from USD in this tx.
+    /// @param  expiresAt  The instant the hold lapses (`mint + holdSecs`).
     event BookingHeld(
         uint256 indexed tokenId,
         uint256 indexed merchantId,
@@ -124,32 +135,128 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     );
 
     /// @notice A booking was confirmed: `settled` released to the operator, `refund` (surplus) to holder.
+    /// @dev    `settled + refund == deposit` always. A `settled` of 0 with the FULL deposit refunded is
+    ///         the deliberate degraded outcome when the release could not be priced (dead/stale feed or
+    ///         a de-allowlisted token): the booking still resolves and the holder is made whole rather
+    ///         than the deposit being stranded.
+    /// @param  tokenId The reservation that was confirmed and burned.
+    /// @param  settled The token amount actually routed through the router fee-split (measured, not
+    ///                 assumed).
+    /// @param  refund  The surplus returned to the holder (price drift, quote-inversion dust, or the
+    ///                 whole deposit when nothing could be routed).
     event BookingConfirmed(uint256 indexed tokenId, uint256 settled, uint256 refund);
 
     /// @notice A booking was cancelled by the holder: full `refund` returned.
+    /// @param  tokenId The reservation that was cancelled and burned.
+    /// @param  holder  The NFT holder at cancel time, who is owed the refund.
+    /// @param  refund  The full escrowed deposit (pushed, or queued to the pull-map if the push failed).
     event BookingCancelled(uint256 indexed tokenId, address indexed holder, uint256 refund);
 
     /// @notice A booking expired: full `refund` returned to the holder.
+    /// @param  tokenId The reservation that lapsed and was burned.
+    /// @param  holder  The NFT holder at expiry time, who is owed the refund — NOT necessarily the
+    ///                 caller, since the merchant owner may also trigger an expiry to free the slot.
+    /// @param  refund  The full escrowed deposit (pushed, or queued to the pull-map if the push failed).
     event BookingExpired(uint256 indexed tokenId, address indexed holder, uint256 refund);
 
     /// @notice A refund push failed and was queued to the pull-map.
+    /// @dev    The refund-never-blocked signal: the lifecycle transition still succeeded and the money
+    ///         is still owed — see {claimRefund}. A payee that cannot receive a push (a reverting
+    ///         contract, a blocklisted address) can never brick the transition itself.
+    /// @param  holder The party the refund is now owed to.
+    /// @param  token  The token owed.
+    /// @param  amount The amount added to that holder's claimable credit.
     event RefundQueued(address indexed holder, address indexed token, uint256 amount);
 
     /// @notice A queued refund was claimed.
+    /// @param  holder The claimant.
+    /// @param  token  The token withdrawn.
+    /// @param  amount The amount paid out (always the full outstanding credit — claims are not partial).
     event RefundClaimed(address indexed holder, address indexed token, uint256 amount);
 
+    /// @notice A required address argument was the zero address — the deposit `token` at
+    ///         {mintBooking}, or `router_` at construction. Refused rather than stored: a zero deposit
+    ///         token has no feed and no allowlist entry, and a zero router would leave the collection
+    ///         permanently unable to price or release a deposit.
     error BookingToken__ZeroAddress();
+
+    /// @notice {mintBooking} was called with `depositUsd8 == 0`. A zero-value hold would occupy a
+    ///         merchant's slot at no cost, which is exactly the slot-squatting grief `MIN_HOLD_SECS`
+    ///         and the deposit exist to price.
     error BookingToken__ZeroAmount();
+
+    /// @notice The requested hold window is shorter than {MIN_HOLD_SECS}, so the booking would be
+    ///         expirable at (or near) the moment it was minted. Refused to close the mint→expire
+    ///         slot-cycling grief.
+    /// @param  holdSecs The window the caller asked for, in seconds.
+    /// @param  min      The enforced floor ({MIN_HOLD_SECS}).
     error BookingToken__HoldTooShort(uint64 holdSecs, uint64 min);
+
+    /// @notice No merchant with this id is registered on the {Access0x1Router} (its `owner` reads back
+    ///         as the zero address). Bookings are only ever minted against a live router seat, so an
+    ///         unregistered id can never accumulate escrow that nobody is authorized to confirm.
+    /// @param  merchantId The id that resolved to no merchant.
     error BookingToken__MerchantNotFound(uint256 merchantId);
+
+    /// @notice The caller is not the router `owner` of the booking's merchant. Thrown by {confirm} —
+    ///         the release leg — so only the operator that is owed the money may commit the service.
+    ///         Authority is read LIVE from the router, so a merchant-seat handover moves it too.
+    /// @param  merchantId The merchant whose owner was required.
+    /// @param  caller     The address that attempted the call.
     error BookingToken__NotMerchantOwner(uint256 merchantId, address caller);
+
+    /// @notice This `clientNonce` was already consumed by an earlier {mintBooking}. The idempotency
+    ///         guard: a re-submitted (or replayed) mint reverts instead of escrowing a second deposit
+    ///         and occupying a second slot.
+    /// @param  clientNonce The nonce that was already spent.
     error BookingToken__NonceUsed(bytes32 clientNonce);
+
+    /// @notice A live booking already occupies this merchant's `slotKey`. Occupancy is namespaced by
+    ///         merchant, so this only ever signals a double-book of the SAME merchant's slot — the
+    ///         identical `slotKey` under a different merchant is unaffected.
+    /// @param  slotKey The contested slot.
+    /// @param  tokenId The reservation currently holding it.
     error BookingToken__SlotTaken(bytes32 slotKey, uint256 tokenId);
+
+    /// @notice No booking was ever minted under this id (its status is `NONE`). Distinguished from
+    ///         {BookingToken__WrongStatus} so a caller can tell "never existed" from "already resolved".
+    /// @param  tokenId The unknown reservation id.
     error BookingToken__NotFound(uint256 tokenId);
+
+    /// @notice The booking is not in the state this transition requires. Every terminal state is
+    ///         absorbing, so this is what a replayed {confirm}/{cancel}/{expire} hits — the second
+    ///         one-shot guard that stops a resolved deposit being released or refunded twice.
+    /// @param  tokenId  The reservation.
+    /// @param  current  Its actual status.
+    /// @param  required The status the transition demanded (always `HELD` today).
     error BookingToken__WrongStatus(uint256 tokenId, BStatus current, BStatus required);
+
+    /// @notice The caller does not hold the reservation NFT. Thrown by {cancel} (holder-only) and by
+    ///         {expire} when the caller is neither the holder nor the merchant owner — so no third
+    ///         party can churn a merchant's calendar or force someone else's refund.
+    /// @param  tokenId The reservation.
+    /// @param  caller  The address that attempted the call.
     error BookingToken__NotHolder(uint256 tokenId, address caller);
+
+    /// @notice {expire} was called before the hold window lapsed. The deposit stays escrowed until
+    ///         `expiresAt`; before it, only the holder's {cancel} or the merchant's {confirm} resolve
+    ///         the booking.
+    /// @param  tokenId   The reservation.
+    /// @param  expiresAt The instant the hold lapses.
+    /// @param  nowTs     `block.timestamp` at the attempt.
     error BookingToken__NotExpired(uint256 tokenId, uint64 expiresAt, uint256 nowTs);
+
+    /// @notice The measured balance delta of the deposit pull did not equal the quoted deposit, i.e.
+    ///         the token takes a transfer fee or rebases. Refused at mint: the escrow ledger records
+    ///         `deposit`, so a short pull would leave the conservation invariant
+    ///         (`balance == Σ live escrow`) broken and a later refund under-funded.
+    /// @param  expected The quoted deposit the ledger was credited with.
+    /// @param  received What the contract's balance actually rose by.
     error BookingToken__FeeOnTransferToken(uint256 expected, uint256 received);
+
+    /// @notice {claimRefund} was called with no queued refund for that token. Nothing is owed, so
+    ///         there is nothing to pull; the pull-map itself is never blockable, only ever empty.
+    /// @param  token The token the caller tried to claim.
     error BookingToken__NothingToClaim(address token);
 
     /*//////////////////////////////////////////////////////////////
@@ -180,6 +287,16 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     ///         nonce, bump the escrow ledger, mint) → interaction (pull the deposit, delta-checked to
     ///         reject fee-on-transfer). The deposit is quoted from USD in-tx (OracleLib staleness guard),
     ///         so a stale feed reverts the mint rather than escrowing a bad amount.
+    /// @dev    ORDERING CAVEAT worth knowing before you edit this function: `_safeMint` is ITSELF an
+    ///         external call — it invokes `onERC721Received` on a contract `to` — and it runs BEFORE the
+    ///         deposit is pulled in. So inside that receiver callback the escrow ledger already counts
+    ///         `deposit` that the contract does not yet hold, i.e. the `balance == Σ live escrow`
+    ///         conservation invariant is transiently over-stated. `nonReentrant` is what makes this
+    ///         safe: every escrow-touching entry point ({mintBooking}, {confirm}, {cancel}, {expire},
+    ///         {claimRefund}) carries the guard, so the callback cannot re-enter and act on the
+    ///         inflated figure, and the invariant is restored (or the whole tx reverts) before the
+    ///         guard is released. A receiver that reverts, or a deposit pull that comes up short,
+    ///         unwinds the entire mint.
     /// @param to          The buyer/holder of the reservation NFT (must accept ERC-721).
     /// @param merchantId  The router merchant the slot belongs to (must exist).
     /// @param slotKey     Opaque slot reference (must be vacant).
@@ -344,6 +461,12 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice The full booking record for `tokenId` (zeroed if it never existed / was burned).
+    /// @dev    Never reverts, so a router or UI can staticcall it blind. NOTE the record SURVIVES the
+    ///         terminal transitions: `confirm`/`cancel`/`expire` burn the NFT but leave the struct in
+    ///         place with its absorbing `status`, so this is also the post-mortem read for a resolved
+    ///         booking. Read `status == BStatus.NONE` — not a zero `deposit` — to test existence.
+    /// @param  tokenId The reservation id to read.
+    /// @return The stored {Booking} (all-zero, i.e. `status == NONE`, for an id never minted).
     function bookingOf(uint256 tokenId) external view returns (Booking memory) {
         return _bookings[tokenId];
     }
@@ -351,21 +474,41 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     /// @notice Whether `slotKey` is currently available for `merchantId` (no live booking occupies that
     ///         merchant's slot). Occupancy is per-merchant, so the same slotKey may be available for one
     ///         merchant and taken for another.
+    /// @dev    An availability HINT, not a reservation: it reflects state at call time only, and
+    ///         {mintBooking} is permissionless, so a slot can be taken between this read and the mint.
+    ///         The authoritative check is {mintBooking}'s own `SlotTaken` revert.
+    /// @param  merchantId The merchant whose calendar to check.
+    /// @param  slotKey    The opaque slot identity to check.
+    /// @return True when no live reservation occupies that merchant's slot.
     function isSlotFree(uint256 merchantId, bytes32 slotKey) external view returns (bool) {
         return occupant[merchantId][slotKey] == 0;
     }
 
     /// @notice Total token escrowed across live bookings (equals the contract's balance of `token`).
+    /// @dev    The conservation anchor an auditor checks: `IERC20(token).balanceOf(this)` should equal
+    ///         this value plus any credits queued in the refund pull-map. Credited at mint and debited
+    ///         on every terminal transition.
+    /// @param  token The deposit token to total.
+    /// @return The sum of live (HELD) deposits denominated in `token`.
     function escrowedOf(address token) external view returns (uint256) {
         return _escrowedOf[token];
     }
 
     /// @notice A holder's queued (claimable) refund of `token`.
+    /// @dev    Non-zero only when a refund push failed and fell back to the pull-map. Withdrawn in full
+    ///         by {claimRefund}; no party can block or reduce it.
+    /// @param  holder The party owed the refund.
+    /// @param  token  The token owed.
+    /// @return The amount `holder` may currently {claimRefund} in `token`.
     function refundRescueOf(address holder, address token) external view returns (uint256) {
         return _refundRescue[holder][token];
     }
 
     /// @notice The opaque slotKey `tokenId` occupies (0 if it never existed).
+    /// @dev    Written once at mint and never cleared, so a resolved booking still reports the slot it
+    ///         HELD — use {isSlotFree} (or {occupant}) to test current availability.
+    /// @param  tokenId The reservation id to read.
+    /// @return The slot identity recorded at mint (`bytes32(0)` for an id never minted).
     function slotKeyOf(uint256 tokenId) external view returns (bytes32) {
         return _slotKeyOf[tokenId];
     }
@@ -380,6 +523,19 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     ///      REFUND-NEVER-BLOCKED: a stale/dead oracle or de-allowlisted token makes the re-quote revert;
     ///      rather than bricking confirm, treat it as "cannot price the release" — route nothing, so the
     ///      full escrow refunds to the holder.
+    /// @dev TRUST + FAILURE MODES. The router is the only external contract called here and is trusted
+    ///      to honour `net + fee == gross`; the amount routed is nevertheless MEASURED as a balance
+    ///      delta rather than assumed, so even a router that pulled less than approved cannot make the
+    ///      caller over-refund. The `payToken` call is `try`/`catch`ed and the approval is reset to 0 on
+    ///      BOTH branches, so a failed release leaves no standing allowance for the router to draw on
+    ///      later. Reachable only from {confirm}, which is `nonReentrant`; the approve → call → revoke
+    ///      window therefore cannot be re-entered.
+    /// @param merchantId The router merchant to pay.
+    /// @param token      The escrowed deposit token.
+    /// @param usd8       The USD amount recorded at mint, re-quoted here at confirm-time price.
+    /// @param escrow     The held deposit — the hard ceiling on what may be routed.
+    /// @return settled The token amount actually routed (0 when the release could not be priced or the
+    ///                 router call reverted, in which case the caller refunds the full escrow).
     function _settleThroughRouter(uint256 merchantId, address token, uint256 usd8, uint256 escrow)
         private
         returns (uint256 settled)
@@ -404,12 +560,29 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     }
 
     /// @dev A stable per-token orderId for the router receipt (opaque; the router echoes it in its event).
+    ///      NOT unique per booking — every confirm of the same token emits the same reference, so an
+    ///      indexer must key router receipts by tx hash / log index rather than treating this as an
+    ///      idempotency key. It is a label, never a guard; the booking's own absorbing status is what
+    ///      makes a confirm one-shot.
+    /// @param token The deposit token being released.
+    /// @return The order reference passed to {Access0x1Router.payToken}.
     function _orderId(address token) private pure returns (bytes32) {
         return bytes32(uint256(uint160(token)));
     }
 
     /// @dev {Access0x1Router.quote} wrapped so a revert (stale/zero price, de-allowlist, missing feed) is
     ///      surfaced as `ok == false` instead of bubbling and bricking a refund (law #5).
+    ///      DELIBERATELY SWALLOWS the revert reason: this sits on the REFUND path, where the correct
+    ///      response to "cannot price" is to route nothing and return the holder's money, not to strand
+    ///      the deposit. The money-path counterpart is the opposite — {mintBooking} calls
+    ///      `router.quote` unwrapped, so a stale feed reverts the mint outright rather than escrowing a
+    ///      deposit priced off a bad answer.
+    /// @param merchantId The router merchant to quote against.
+    /// @param token      The token to price.
+    /// @param usd8       The USD amount (8 decimals) to convert.
+    /// @return amount The quoted token amount, or 0 when the quote failed.
+    /// @return ok     False when the router reverted for ANY reason; the caller must not treat the
+    ///                accompanying zero `amount` as a real price.
     function _trySafeQuote(uint256 merchantId, address token, uint256 usd8)
         private
         view
@@ -427,6 +600,15 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     ///      linear in usd8 (rounded up), so probe `quote(1e8)` (=$1) and divide, rounding DOWN. Returns 0
     ///      when `amount` is below one dollar's worth of token (caller treats it as dust). Wrapped for
     ///      the same law-#5 reason: an unreadable oracle routes nothing.
+    /// @dev  Rounding is DOWN by construction, and that direction is the safety property: the router
+    ///       re-quotes this USD figure and rounds UP, so rounding down here guarantees the gross the
+    ///       router pulls never exceeds the `target` this contract approved. The residue stays in
+    ///       escrow and refunds to the holder as surplus.
+    /// @param merchantId The router merchant to quote against.
+    /// @param token      The token being valued.
+    /// @param amount     The token amount to express in USD.
+    /// @return usd8 The USD value (8 decimals) whose quote is ≤ `amount`; 0 when the oracle is
+    ///              unreadable or `amount` is worth less than one dollar (treated as dust).
     function _tokenToUsd8(uint256 merchantId, address token, uint256 amount)
         private
         view
@@ -438,13 +620,24 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     }
 
     /// @dev Decrement the escrow ledger for `token` by `amount` BEFORE any external transfer of that
-    ///      escrow (CEI), so `balance == Σ live escrow` holds at every external-call boundary.
+    ///      escrow (CEI), so `balance == Σ live escrow` holds at every external-call boundary on the
+    ///      RELEASE side — the ledger is never left claiming escrow that has already left the contract.
+    ///      (The one place the invariant is transiently over-stated instead is the MINT side, where
+    ///      `_safeMint`'s receiver callback fires before the deposit is pulled; `nonReentrant` covers
+    ///      that window — see {mintBooking}.) Deliberately CHECKED arithmetic: an `amount` exceeding the
+    ///      recorded escrow underflows and reverts rather than silently wrapping, so a bookkeeping bug
+    ///      can never mint escrow out of thin air.
+    /// @param token  The deposit token whose escrow total is being reduced.
+    /// @param amount The amount leaving escrow (must not exceed the recorded total).
     function _release(address token, uint256 amount) private {
         _escrowedOf[token] -= amount;
     }
 
     /// @dev Vacate the slot a terminal reservation occupied so the slotKey can be reused for that merchant.
-    ///      Idempotent.
+    ///      Idempotent. The `occupant[merchantId][slotKey] == id` equality is load-bearing, not
+    ///      defensive: it guarantees a booking can only ever release the occupancy IT holds, so a stale
+    ///      or repeated call can never evict the reservation that legitimately owns the slot now.
+    /// @param id The reservation reaching a terminal state.
     function _vacate(uint256 id) private {
         uint256 merchantId = _bookings[id].merchantId;
         bytes32 slotKey = _slotKeyOf[id];
@@ -457,6 +650,16 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     ///      low-level `call` and inspect: empty return-data = success (USDT), 32-byte `true` = success,
     ///      only a genuine revert or a `false`-liar queues. So every refund pays out or queues — it NEVER
     ///      reverts the lifecycle transition (law #5). CEI: runs after all status/ledger effects.
+    /// @dev THE LOW-LEVEL CALL IS THE POINT, and it is reentrancy-relevant: `token` is merchant-chosen,
+    ///      so this hands control to an arbitrary address. Safe here because (a) every caller reaches
+    ///      this only from a `nonReentrant` entry point, and (b) CEI has already run — status is
+    ///      terminal, the slot is vacated, the escrow ledger is debited and the NFT burned — so a
+    ///      re-entrant token finds a fully settled booking and nothing left to double-spend. A
+    ///      `false`-returning or reverting token costs the recipient nothing: the amount lands in the
+    ///      pull-map instead, claimable forever via {claimRefund}.
+    /// @param to     The party owed the money.
+    /// @param token  The token to push.
+    /// @param amount The amount to push; a zero amount is a no-op and queues nothing.
     // slither-disable-next-line reentrancy-events
     function _payoutOrQueue(address to, address token, uint256 amount) private {
         if (amount == 0) return;
@@ -471,6 +674,9 @@ contract BookingToken is ERC721, ReentrancyGuardTransient {
     }
 
     /// @dev Revert unless `msg.sender` is the router owner of `merchantId` (single source of truth).
+    ///      Read LIVE on every call, never cached at mint, so transferring the router merchant seat
+    ///      moves confirm authority with it and a former owner loses it in the same tx.
+    /// @param merchantId The merchant whose current owner is required.
     function _requireMerchantOwner(uint256 merchantId) private view {
         address owner_ = _merchantOwner(merchantId);
         if (owner_ == address(0)) revert BookingToken__MerchantNotFound(merchantId);

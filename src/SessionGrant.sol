@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+// ┌──────────────────────────────────────────────────────────────────────────────┐
+// │   .---.     \ /    |                                                         │
+// │  ( o o )     X     |     A C C E S S 0 x 1                                   │
+// │   `-o-'     / \    |     wire web2 to web3 — zero custody, testnet only      │
+// │     0        x     1                                                         │
+// ├──────────────────────────────────────────────────────────────────────────────┤
+// │  SessionGrant                                                                │
+// │  Sign once: a budget-scoped, expiring agent session. A ledger, not a wallet. │
+// └──────────────────────────────────────────────────────────────────────────────┘
+
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {
     UUPSUpgradeable
