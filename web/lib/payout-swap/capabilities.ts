@@ -25,7 +25,17 @@ const CAPABILITIES: ReadonlyMap<number, SwapRail> = new Map<number, SwapRail>([
   [arcTestnet.id, 'circle-app-kit'],
   [baseSepolia.id, 'uniswap-trading-api'],
   [zksyncSepoliaTestnet.id, 'uniswap-classic'],
-  [polygonAmoy.id, 'one-inch'],
+  // NO 1inch ENTRY, DELIBERATELY. `polygonAmoy → 'one-inch'` used to live here and it
+  // was a capability this rail cannot deliver: 1inch's API serves NO testnets, which
+  // this repo states itself in lib/config/integrations.ts ("mainnets only"). The table
+  // is the app's public answer to "can this chain swap?", so an entry here is a promise.
+  // Claiming one on a chain the vendor does not serve — and which has no broadcast
+  // record either — is exactly the overclaim law #4 forbids.
+  //
+  // The 1inch client in rails/oneInch.ts is kept: it is real code for a MAINNET
+  // deployment, and its quote leg matches the v6 API. Re-add a mapping here only for a
+  // chain 1inch actually serves, and only once the execute leg has a signer (see
+  // FEEDBACK.md — the current execute path parses a `txHash` the API never returns).
 ])
 
 /**
