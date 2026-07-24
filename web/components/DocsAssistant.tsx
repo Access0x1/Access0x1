@@ -226,7 +226,11 @@ export function DocsAssistant({
                   className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
                 >
                   <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-rail" />
-                  {provider === 'zerog' ? 'Computed on 0G Compute' : 'Answered by Claude'}
+                  {provider === 'zerog'
+                    ? 'Computed on 0G Compute'
+                    : provider === 'access0x1'
+                      ? 'Computed on Access0x1 Compute'
+                      : 'Answered by Claude'}
                 </span>
               )}
             </div>

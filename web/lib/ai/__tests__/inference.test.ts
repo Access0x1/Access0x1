@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  buildHostedDeps,
   buildZerogBrokerDeps,
   buildZerogDeps,
   InferenceError,
@@ -29,6 +30,9 @@ const ENV_KEYS = [
   'ZEROG_BROKER_PRIVATE_KEY',
   'ZEROG_PROVIDER_ADDRESS',
   'ZEROG_BROKER_RPC_URL',
+  'ACCESS0X1_COMPUTE_ENDPOINT',
+  'ACCESS0X1_COMPUTE_API_KEY',
+  'ACCESS0X1_COMPUTE_MODEL',
 ]
 const saved: Record<string, string | undefined> = {}
 
@@ -128,6 +132,39 @@ describe('runInference dispatch', () => {
     const res = await runInference({ prompt: 'hi', provider: 'zerog' }, zerogDeps(fetchImpl))
     expect(res.provider).toBe('zerog')
     expect(res.completion).toBe('via-record')
+  })
+})
+
+describe('access0x1 (hosted) provider', () => {
+  it('selects via AI_INFERENCE_PROVIDER=access0x1 and gates on the endpoint alone', () => {
+    process.env.AI_INFERENCE_PROVIDER = 'access0x1'
+    expect(selectedProvider()).toBe('access0x1')
+    expect(isInferenceConfigured()).toBe(false)
+    process.env.ACCESS0X1_COMPUTE_ENDPOINT = 'https://api.access0x1.example'
+    expect(isInferenceConfigured()).toBe(true) // key is optional on our own endpoint
+    expect(buildHostedDeps()?.endpoint).toBe('https://api.access0x1.example')
+  })
+
+  it('dispatches to the hosted endpoint; Bearer only when a key is set; env model wins default', async () => {
+    process.env.ACCESS0X1_COMPUTE_ENDPOINT = 'https://api.access0x1.example'
+    process.env.ACCESS0X1_COMPUTE_MODEL = 'access0x1-serve-1'
+    const fetchImpl = vi.fn<FetchLike>(async () => json({ choices: [{ message: { content: 'hosted-answer' } }] }))
+    const deps = { ...buildHostedDeps()!, fetchImpl }
+    const res = await runInference({ prompt: 'hi', provider: 'access0x1' }, deps)
+    expect(res.provider).toBe('access0x1')
+    expect(res.completion).toBe('hosted-answer')
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(String(url)).toBe('https://api.access0x1.example/chat/completions')
+    const sent = (init as RequestInit).headers as Record<string, string>
+    expect(sent.Authorization).toBeUndefined() // no key configured ⇒ no header
+    expect(JSON.parse((init as RequestInit).body as string).model).toBe('access0x1-serve-1')
+  })
+
+  it('throws not_configured when selected but no endpoint is set', async () => {
+    process.env.AI_INFERENCE_PROVIDER = 'access0x1'
+    await expect(runInference({ prompt: 'hi' }, undefined)).rejects.toMatchObject({
+      reason: 'not_configured',
+    })
   })
 })
 

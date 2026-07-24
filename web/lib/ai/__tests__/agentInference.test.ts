@@ -23,9 +23,11 @@ afterEach(() => {
 })
 
 describe('parseInferenceProvider', () => {
-  it('maps only "zerog" (case/space-insensitive) to zerog, everything else to anthropic', () => {
+  it('maps "zerog" and "access0x1" (case/space-insensitive); everything else to anthropic', () => {
     expect(parseInferenceProvider('zerog')).toBe('zerog')
     expect(parseInferenceProvider('  ZeroG  ')).toBe('zerog')
+    expect(parseInferenceProvider('access0x1')).toBe('access0x1')
+    expect(parseInferenceProvider(' Access0x1 ')).toBe('access0x1')
     expect(parseInferenceProvider('anthropic')).toBe('anthropic')
     expect(parseInferenceProvider('')).toBe('anthropic')
     expect(parseInferenceProvider(null)).toBe('anthropic')

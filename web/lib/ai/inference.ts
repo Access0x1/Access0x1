@@ -37,8 +37,16 @@
 
 import type { FetchLike } from '../payout-swap/rails/uniswapTradingApi.js'
 
-/** Which inference backend a completion is served from. */
-export type InferenceProvider = 'anthropic' | 'zerog'
+/**
+ * Which inference backend a completion is served from.
+ *  - `anthropic`  — the default (Claude).
+ *  - `zerog`      — 0G Compute, 0G's DECENTRALIZED inference network.
+ *  - `access0x1`  — **Access0x1 Compute**: our own HOSTED, OpenAI-compatible inference endpoint
+ *    (AWS-backed, served from an operator-set URL such as api.access0x1.com). Positioned as the
+ *    hosted alternative competing with 0G on price/latency/region — deliberately NOT described as
+ *    decentralized (truth-in-copy: AWS-hosted is managed infrastructure, and we say so).
+ */
+export type InferenceProvider = 'anthropic' | 'zerog' | 'access0x1'
 
 /** How the 0G path authenticates: a static gateway key, or the native 0G broker. */
 export type ZerogMode = 'key' | 'broker'
@@ -101,7 +109,10 @@ function env(name: string): string {
  * unrecognized value falls back to `anthropic` (fail-safe — the existing behavior).
  */
 export function selectedProvider(): InferenceProvider {
-  return env('AI_INFERENCE_PROVIDER').toLowerCase() === 'zerog' ? 'zerog' : 'anthropic'
+  const raw = env('AI_INFERENCE_PROVIDER').toLowerCase()
+  if (raw === 'zerog') return 'zerog'
+  if (raw === 'access0x1') return 'access0x1'
+  return 'anthropic'
 }
 
 /**
@@ -126,7 +137,9 @@ function isZerogConfigured(): boolean {
  * what a `GET {configured}` probe reports.
  */
 export function isInferenceConfigured(provider: InferenceProvider = selectedProvider()): boolean {
-  return provider === 'zerog' ? isZerogConfigured() : env('CLAUDE_API_KEY').length > 0
+  if (provider === 'zerog') return isZerogConfigured()
+  if (provider === 'access0x1') return env('ACCESS0X1_COMPUTE_ENDPOINT').length > 0
+  return env('CLAUDE_API_KEY').length > 0
 }
 
 /**
@@ -158,6 +171,25 @@ export function buildZerogDeps(): ZerogDeps | undefined {
   const apiKey = env('ZEROG_COMPUTE_API_KEY')
   if (!endpoint || !apiKey) return undefined
   return { endpoint, apiKey, fetchImpl: (url, init) => fetch(url, init) }
+}
+
+/**
+ * Build the **Access0x1 Compute** (hosted) deps from env, or `undefined` when unconfigured.
+ * `ACCESS0X1_COMPUTE_ENDPOINT` is an operator-run, OpenAI-compatible base URL (AWS-backed — e.g.
+ * an api.access0x1.com deployment); `ACCESS0X1_COMPUTE_API_KEY` is optional (sent as Bearer when
+ * set); `ACCESS0X1_COMPUTE_MODEL` optionally pins the served model. Server-only, fail-soft.
+ */
+export function buildHostedDeps(): ZerogDeps | undefined {
+  const endpoint = env('ACCESS0X1_COMPUTE_ENDPOINT')
+  if (!endpoint) return undefined
+  const apiKey = env('ACCESS0X1_COMPUTE_API_KEY')
+  const model = env('ACCESS0X1_COMPUTE_MODEL')
+  return {
+    endpoint,
+    ...(apiKey ? { apiKey } : { authHeaders: () => ({}) }),
+    ...(model ? { model } : {}),
+    fetchImpl: (url, init) => fetch(url, init),
+  }
 }
 
 /**
@@ -266,14 +298,21 @@ interface ChatCompletionResponse {
   model?: string
 }
 
+/** Human label per OpenAI-compatible provider, used only in error messages (never a secret). */
+const OPENAI_COMPAT_LABEL: Record<'zerog' | 'access0x1', string> = {
+  zerog: '0G Compute',
+  access0x1: 'Access0x1 Compute',
+}
+
 /**
- * Run one inference against 0G Compute (an OpenAI-compatible `/chat/completions` endpoint), in
- * either key or broker mode depending on the {@link ZerogDeps} handed in. Injectable for tests.
+ * Run one inference against an OpenAI-compatible `/chat/completions` endpoint — the shared
+ * transport for BOTH `zerog` (key or broker mode) and `access0x1` (hosted). Injectable for tests.
  * Throws {@link InferenceError} on a bad status or a response with no text.
  */
-export async function runZerogInference(
+async function runOpenAiCompatible(
   req: InferenceRequest,
   deps: ZerogDeps,
+  provider: 'zerog' | 'access0x1',
 ): Promise<InferenceResult> {
   const model = req.model ?? deps.model ?? DEFAULT_ZEROG_MODEL
   const auth = deps.authHeaders
@@ -295,16 +334,33 @@ export async function runZerogInference(
     }),
   })
   if (!res.ok) {
-    throw new InferenceError('upstream_error', `0G Compute inference failed (${res.status})`)
+    throw new InferenceError(
+      'upstream_error',
+      `${OPENAI_COMPAT_LABEL[provider]} inference failed (${res.status})`,
+    )
   }
   const body = (await res.json()) as ChatCompletionResponse
   const completion = body.choices?.[0]?.message?.content
   if (typeof completion !== 'string' || completion.length === 0) {
-    throw new InferenceError('upstream_error', '0G Compute returned no completion text')
+    throw new InferenceError(
+      'upstream_error',
+      `${OPENAI_COMPAT_LABEL[provider]} returned no completion text`,
+    )
   }
-  // Broker settlement (no-op in key mode); best-effort, never rewrites the answer.
+  // Broker settlement (zerog broker mode only; a no-op elsewhere); never rewrites the answer.
   if (deps.onResponse) await deps.onResponse(completion)
-  return { provider: 'zerog', model: body.model ?? model, completion }
+  return { provider, model: body.model ?? model, completion }
+}
+
+/**
+ * Run one inference against 0G Compute, in either key or broker mode depending on the
+ * {@link ZerogDeps} handed in. Thin wrapper over the shared OpenAI-compatible transport.
+ */
+export async function runZerogInference(
+  req: InferenceRequest,
+  deps: ZerogDeps,
+): Promise<InferenceResult> {
+  return runOpenAiCompatible(req, deps, 'zerog')
 }
 
 /** Run one inference against Anthropic (the default provider). Throws {@link InferenceError}. */
@@ -359,7 +415,13 @@ export async function runInference(
   if (provider === 'zerog') {
     const deps = zerogDeps === RESOLVE_ZEROG_DEPS ? await resolveZerogDeps() : zerogDeps
     if (!deps) throw new InferenceError('not_configured', '0G Compute is not configured')
-    return runZerogInference(req, deps)
+    return runOpenAiCompatible(req, deps, 'zerog')
+  }
+  if (provider === 'access0x1') {
+    // The injectable seam doubles for the hosted path in tests; from env it resolves separately.
+    const deps = zerogDeps === RESOLVE_ZEROG_DEPS ? buildHostedDeps() : zerogDeps
+    if (!deps) throw new InferenceError('not_configured', 'Access0x1 Compute is not configured')
+    return runOpenAiCompatible(req, deps, 'access0x1')
   }
   return runAnthropicInference(req)
 }
