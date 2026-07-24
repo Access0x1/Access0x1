@@ -266,10 +266,12 @@ contract Access0x1CcipSender is Ownable2Step, ReentrancyGuardTransient {
     // Internals
     // ─────────────────────────────────────────────────────────────────────────────────────────
 
-    /// @dev Chainlink's `EVM_EXTRA_ARGS_V1_TAG` — `bytes4(keccak256("CCIP EVMExtraArgsV1"))`,
-    ///      0x97a657c9. Verified against chainlink-ccip's Client.sol 2026-07-24. The V1 args carry
-    ///      only the destination gas limit, which is all this sender needs.
-    bytes4 private constant EVM_EXTRA_ARGS_V1_TAG = 0x97a657c9;
+    /// @dev Chainlink's `EVM_EXTRA_ARGS_V1_TAG`, DERIVED rather than pasted. Chainlink defines it as
+    ///      `bytes4(keccak256("CCIP EVMExtraArgsV1"))`; computing it here means the source string is
+    ///      the source of truth and the magic number cannot be mistyped. It evaluates to 0x97a657c9
+    ///      (verified against chainlink-ccip's Client.sol, 2026-07-24) and is asserted in the tests.
+    ///      The V1 args carry only the destination gas limit, which is all this sender needs.
+    bytes4 private constant EVM_EXTRA_ARGS_V1_TAG = bytes4(keccak256("CCIP EVMExtraArgsV1"));
 
     /// @dev Build the CCIP message: the abi-encoded payment intent the receiver decodes, plus the
     ///      single token amount. Reverts when the destination is not configured — quoting against

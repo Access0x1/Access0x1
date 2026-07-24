@@ -229,6 +229,32 @@ contract Access0x1CcipSenderTest is Test {
         sender.setDestination(1, address(1));
     }
 
+    // ── wire-format constants: derived, then proven ──────────────────────────────────────────
+
+    /// @dev The sender DERIVES Chainlink's extra-args tag from its source string rather than
+    ///      pasting the hex. This pins the derivation to the value chainlink-ccip documents, so if
+    ///      the two ever disagree the suite says so instead of messages silently mis-decoding.
+    function test_ExtraArgsTagMatchesChainlinksDocumentedValue() public pure {
+        assertEq(
+            bytes4(keccak256("CCIP EVMExtraArgsV1")),
+            bytes4(0x97a657c9),
+            "EVM_EXTRA_ARGS_V1_TAG must equal Chainlink's Client.sol constant"
+        );
+    }
+
+    /// @dev And that the encoded extraArgs actually carry the configured gas limit.
+    function test_ExtraArgsCarryTheConfiguredGasLimit() public {
+        _pay(25e18, 0.01 ether, false);
+        (,,,, bytes memory extraArgs) = _lastMessageFields();
+        assertEq(bytes4(extraArgs), bytes4(0x97a657c9), "tagged as EVMExtraArgsV1");
+
+        bytes memory tail = new bytes(extraArgs.length - 4);
+        for (uint256 i = 0; i < tail.length; ++i) {
+            tail[i] = extraArgs[i + 4];
+        }
+        assertEq(abi.decode(tail, (uint256)), sender.destGasLimit(), "gas limit round-trips");
+    }
+
     // ── the invariant ────────────────────────────────────────────────────────────────────────
 
     /// @dev Zero custody: whatever happens, the sender holds nothing after the tx.

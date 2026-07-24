@@ -35,25 +35,47 @@ const BROADCAST = join(ROOT, 'broadcast', 'DeployAll.s.sol')
 const IMPL_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
 
 /**
- * Chains the mirror is broadcast to, with a public explorer + RPC. Explorer URLs
- * are the ones already used in web/lib/chains.ts and the README mirror table —
- * not invented here. A chain with no public explorer simply prints no link
- * rather than a guessed URL.
+ * Chain display names for the chains the mirror is broadcast to. NAMES ONLY —
+ * no endpoint is baked in here.
+ *
+ * An earlier version of this script carried a table of explorer and RPC URLs,
+ * which is exactly the hardcoding law #3 forbids: an endpoint in source is a
+ * value nobody confirmed, silently going stale. Explorer bases and RPCs now come
+ * from the environment, keyed by chain id, so a new chain needs no code:
+ *
+ *     EXPLORER_<chainId>   explorer base, e.g. EXPLORER_84532=https://sepolia.basescan.org
+ *     RPC_URL_<chainId>    JSON-RPC endpoint for --verify
+ *
+ * Unset means the script prints no link and skips verification for that chain
+ * rather than guessing one.
  */
-const CHAINS = {
-  84532: { name: 'Base Sepolia', explorer: 'https://sepolia.basescan.org', rpc: 'https://sepolia.base.org' },
-  11155111: { name: 'Ethereum Sepolia', explorer: 'https://sepolia.etherscan.io', rpc: 'https://ethereum-sepolia-rpc.publicnode.com' },
-  11155420: { name: 'Optimism Sepolia', explorer: 'https://sepolia-optimism.etherscan.io', rpc: 'https://sepolia.optimism.io' },
-  421614: { name: 'Arbitrum Sepolia', explorer: 'https://sepolia.arbiscan.io', rpc: 'https://sepolia-rollup.arbitrum.io/rpc' },
-  43113: { name: 'Avalanche Fuji', explorer: 'https://testnet.snowtrace.io', rpc: 'https://api.avax-test.network/ext/bc/C/rpc' },
-  11142220: { name: 'Celo Sepolia', explorer: '', rpc: '' },
-  5042002: { name: 'Arc Testnet', explorer: '', rpc: 'https://rpc.testnet.arc.network' },
-  300: { name: 'zkSync Sepolia', explorer: 'https://sepolia.explorer.zksync.io', rpc: 'https://sepolia.era.zksync.dev' },
-  46630: { name: 'Robinhood Chain', explorer: '', rpc: '' },
-  16602: { name: '0G Galileo', explorer: '', rpc: '' },
-  42431: { name: 'Tempo Moderato', explorer: '', rpc: '' },
-  560048: { name: 'Ethereum Hoodi', explorer: '', rpc: '' },
+const CHAIN_NAMES = {
+  84532: 'Base Sepolia',
+  11155111: 'Ethereum Sepolia',
+  11155420: 'Optimism Sepolia',
+  421614: 'Arbitrum Sepolia',
+  43113: 'Avalanche Fuji',
+  11142220: 'Celo Sepolia',
+  5042002: 'Arc Testnet',
+  300: 'zkSync Sepolia',
+  46630: 'Robinhood Chain',
+  16602: '0G Galileo',
+  42431: 'Tempo Moderato',
+  560048: 'Ethereum Hoodi',
 }
+
+/** Read a chain-keyed env var, e.g. `EXPLORER_84532`. Blank/absent ⇒ null. */
+const envForChain = (prefix, chainId) => {
+  const v = process.env[`${prefix}_${chainId}`]
+  return v && v.trim() ? v.trim().replace(/\/$/, '') : null
+}
+
+/** Chain metadata: name from the table, endpoints strictly from env. */
+const chainInfo = (chainId) => ({
+  name: CHAIN_NAMES[chainId] ?? null,
+  explorer: envForChain('EXPLORER', chainId),
+  rpc: envForChain('RPC_URL', chainId),
+})
 
 const ARGS = process.argv.slice(2)
 const has = (f) => ARGS.includes(f)
@@ -117,7 +139,7 @@ async function liveImpl(rpc, proxy) {
 }
 
 const all = rows()
-const chain = CHAINS[CHAIN]
+const chain = chainInfo(CHAIN)
 const deployed = deployedChains()
 
 if (has('--json')) {
@@ -126,7 +148,10 @@ if (has('--json')) {
 }
 
 console.log(`\nAccess0x1 — deployed contracts (${all.length} shown)`)
-console.log(`Chain for links: ${CHAIN} ${chain ? `(${chain.name})` : '(unknown — no links)'}`)
+console.log(`Chain for links: ${CHAIN}${chain.name ? ` (${chain.name})` : ''}`)
+if (!chain.explorer) {
+  console.log(`No EXPLORER_${CHAIN} set — printing addresses without links (nothing is guessed).`)
+}
 console.log(
   `Broadcast records exist for ${deployed.length} chains: ${deployed.join(', ')}\n` +
     `Addresses are CREATE3-mirrored — identical on every chain above.\n`,
@@ -154,7 +179,7 @@ for (const r of all) {
 
 if (has('--verify')) {
   if (!chain?.rpc) {
-    console.error(`--verify needs an RPC for chain ${CHAIN}; none configured here.`)
+    console.error(`--verify needs RPC_URL_${CHAIN} set; none configured (nothing is guessed).`)
     process.exit(1)
   }
   console.log(`Reading the live EIP-1967 slot on ${chain.name} — manifest vs chain:\n`)
