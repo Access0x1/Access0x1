@@ -10,6 +10,7 @@
 
 import type { CheckoutMode, HumanVerifier, MerchantVertical, TenantBranding } from './store'
 import type { TrustTier } from '../verification/tiers'
+import { authedJsonHeaders } from '../authedFetch'
 
 /** The tenant-facing branding row returned by GET/POST /api/branding. */
 export type ClientBranding = TenantBranding
@@ -35,7 +36,7 @@ export async function saveCheckoutMode(input: {
   try {
     const res = await fetch('/api/branding/checkout-mode', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: authedJsonHeaders(),
       body: JSON.stringify(input),
     })
     const json = (await res.json()) as { branding?: ClientBranding; error?: string; code?: string }
@@ -83,7 +84,7 @@ export async function attachOnChain(input: {
   try {
     const res = await fetch('/api/branding/attach-onchain', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: authedJsonHeaders(),
       body: JSON.stringify(input),
     })
     const json = (await res.json()) as { branding?: ClientBranding; error?: string; code?: string }
@@ -124,7 +125,7 @@ export async function saveBranding(input: {
   try {
     const res = await fetch('/api/branding', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: authedJsonHeaders(),
       body: JSON.stringify(input),
     })
     const json = (await res.json()) as { branding?: ClientBranding; error?: string; code?: string }
@@ -213,7 +214,7 @@ export async function uploadLogo(
   try {
     const res = await fetch('/api/branding/logo', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: authedJsonHeaders(),
       body: JSON.stringify({ tenantId, logo }),
     })
     const json = (await res.json()) as { logoSvgInline?: string; error?: string }

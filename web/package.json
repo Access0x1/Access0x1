@@ -28,6 +28,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
     "@circle-fin/x402-batching": "3.2.0",
+    "@dynamic-labs-wallet/node-evm": "1.0.81",
     "@dynamic-labs/ethereum": "^4.91.6",
     "@dynamic-labs/sdk-react-core": "^4.91.6",
     "@dynamic-labs/wagmi-connector": "^4.91.6",
