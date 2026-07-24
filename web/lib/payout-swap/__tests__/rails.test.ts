@@ -80,6 +80,62 @@ describe('Uniswap Trading API rail (Base)', () => {
     const res = await runPayoutSwap(baseReq(), client)
     expect(res.reason).toBe('quote-failed')
   })
+
+  it('checkApproval: returns the ready-to-sign approval tx when the API says one is needed', async () => {
+    const fetchImpl = vi.fn<FetchLike>(async (url, init) => {
+      if (url.endsWith('/check_approval')) {
+        const body = JSON.parse((init as RequestInit).body as string)
+        // Field names verified against @uniswap/client-trading@0.5.15.
+        expect(body).toMatchObject({
+          walletAddress: MERCHANT,
+          token: USDC,
+          amount: '1000000',
+          chainId: baseSepolia.id,
+        })
+        return json({ requestId: 'r1', approval: { to: '0xperm', data: '0xdead' } })
+      }
+      return json({ error: 'unexpected' }, 500)
+    })
+    const client = createUniswapTradingApiClient({ baseUrl: 'https://api', fetchImpl })
+    const check = await client.checkApproval!(baseReq())
+    expect(check.needed).toBe(true)
+    expect(check.approval).toMatchObject({ to: '0xperm', data: '0xdead' })
+  })
+
+  it('checkApproval: absent approval field means already approved (needed=false)', async () => {
+    const fetchImpl = vi.fn<FetchLike>(async () => json({ requestId: 'r2' }))
+    const client = createUniswapTradingApiClient({ baseUrl: 'https://api', fetchImpl })
+    const check = await client.checkApproval!(baseReq())
+    expect(check).toEqual({ needed: false, approval: null })
+  })
+
+  it('checkApproval: a non-ok response throws (the caller isolates it)', async () => {
+    const fetchImpl = vi.fn<FetchLike>(async () => json({ error: 'down' }, 502))
+    const client = createUniswapTradingApiClient({ baseUrl: 'https://api', fetchImpl })
+    await expect(client.checkApproval!(baseReq())).rejects.toThrow('/check_approval failed (502)')
+  })
+
+  it('the three execution modes route to /order, /swap, /swap_7702 (business/user/agent)', async () => {
+    for (const [mode, path] of [
+      ['gasless', '/order'],
+      ['classic', '/swap'],
+      ['smart-account', '/swap_7702'],
+    ] as const) {
+      const fetchImpl = vi.fn<FetchLike>(async (url) => {
+        if (url.endsWith('/quote')) return json({ amountOut: '995000', quoteId: 'q1' })
+        if (url.endsWith(path)) return json({ txHash: `0x${mode}` })
+        return json({ error: `unexpected ${url}` }, 500)
+      })
+      const client = createUniswapTradingApiClient({
+        baseUrl: 'https://api',
+        fetchImpl,
+        executionMode: mode,
+      })
+      const quote = await client.quote(baseReq())
+      const exec = await client.execute(baseReq(), quote)
+      expect(exec.txHash).toBe(`0x${mode}`)
+    }
+  })
 })
 
 describe('Uniswap classic rail (zkSync) + Blink Recovery', () => {

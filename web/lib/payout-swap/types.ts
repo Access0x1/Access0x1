@@ -91,6 +91,20 @@ export interface PayoutSwapClient {
   quote(req: SwapRequest): Promise<RailQuote>
   /** Execute the swap (merchant-signed). May reject (the worker isolates it). */
   execute(req: SwapRequest, quote: RailQuote): Promise<RailExecution>
+  /**
+   * Check whether the input token needs an ERC-20 approval before `execute`, returning the
+   * ready-to-sign approval transaction when one is required (the wallet owner submits it —
+   * this seam never holds a key). Optional: rails without an approval pre-step omit it.
+   */
+  checkApproval?(req: SwapRequest): Promise<ApprovalCheck>
+}
+
+/** Result of a rail's approval pre-check. */
+export interface ApprovalCheck {
+  /** True when an approval transaction must be submitted before the swap. */
+  readonly needed: boolean
+  /** The ready-to-sign approval tx (to/data/value), or null when already approved. */
+  readonly approval: { to: string; data: string; value?: string } | null
 }
 
 /** Why a payout swap did not execute. `none` = it ran (or correctly no-op'd). */
