@@ -14,6 +14,7 @@
  * Adding an API is still ONE registry entry — this just guarantees you can't
  * forget it.
  */
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
@@ -68,6 +69,41 @@ describe('THE LAW: no undeclared credentials', () => {
         if (v.secret) expect(v.name.startsWith('NEXT_PUBLIC_'), v.name).toBe(false)
       }
     }
+  })
+})
+
+describe('.env.example stays in sync', () => {
+  // The third place a variable can go stale. The registry knows a key exists and
+  // the code reads it, but an operator copying .env.example would never see it.
+  const examplePath = resolve(WEB_ROOT, '.env.example')
+  const exampleText = readFileSync(examplePath, 'utf8')
+  const inExample = new Set(
+    [...exampleText.matchAll(/^#?\s*([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1] as string),
+  )
+
+  it('every declared variable appears in .env.example (commented or not)', () => {
+    const missing = allKnownVarNames().filter((v) => !inExample.has(v))
+    expect(
+      missing,
+      `Declared in INTEGRATIONS but absent from web/.env.example:\n  ${missing.join('\n  ')}`,
+    ).toEqual([])
+  })
+
+  it('.env.example never ships a real-looking secret value', () => {
+    // A placeholder is fine; a 32+ char high-entropy value next to a *_KEY name
+    // is how a key gets committed. Scoped to credential-shaped names only.
+    const offenders: string[] = []
+    for (const line of exampleText.split('\n')) {
+      const m = line.trim().match(/^([A-Z][A-Z0-9_]*)=(.*)$/)
+      if (!m) continue
+      const [, name, raw] = m
+      if (!name || !isCredentialName(name)) continue
+      const value = (raw ?? '').trim().replace(/^["']|["']$/g, '')
+      if (value.length >= 32 && /^[A-Za-z0-9_\-+/=]+$/.test(value) && !/PASTE|YOUR|EXAMPLE|xxx|\.\.\./i.test(value)) {
+        offenders.push(name)
+      }
+    }
+    expect(offenders, `Possible real secret committed in .env.example: ${offenders.join(', ')}`).toEqual([])
   })
 })
 

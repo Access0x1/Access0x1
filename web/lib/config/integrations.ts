@@ -214,6 +214,20 @@ export const INTEGRATIONS: readonly Integration[] = [
     ],
   },
   {
+    id: 'sealed-keystore',
+    label: 'Sealed keystore (one encrypted file instead of N secrets)',
+    unlocks: 'Ship every key as one encrypted `.env.sealed`; the deploy supplies only this passphrase.',
+    impact: 'optional',
+    where: 'You generate it: `openssl rand -base64 32`. Store it in a password manager — there is NO recovery.',
+    vars: [
+      {
+        name: 'ACCESS0X1_ENV_PASSPHRASE',
+        purpose: 'Unlocks .env.sealed at deploy time (npm run env:open)',
+        secret: true,
+      },
+    ],
+  },
+  {
     id: 'telegram',
     label: 'Telegram payments bot (⏸ DEFERRED)',
     unlocks: 'Chat-native payment links. Deliberately dormant — unset means a clean 503 no-op.',

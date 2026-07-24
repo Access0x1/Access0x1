@@ -353,13 +353,57 @@ value can never enter the payload.
 variables (`required` / `secret`), and where the key comes from. The doctor, the intake prompt, the
 status route, the readiness count, and the operator docs all derive from that single declaration.
 
+#### Deploying: one sealed file instead of N console pastes
+
+Pasting 20+ credentials into a hosting provider's UI is slow and easy to get wrong. Seal them once:
+
+```sh
+npm run env:seal     # .env.local  -> .env.sealed  (AES-256-GCM, scrypt N=2^17)
+npm run env:check    # verify it opens; writes nothing, prints names only
+npm run env:open     # .env.sealed -> .env.local   (at deploy time)
+```
+
+At deploy: `ACCESS0X1_ENV_PASSPHRASE=… npm run env:open && npm start`.
+
+**What this does and does not do.** It turns **N secrets into 1** — the sealed file rides along with
+the deploy and only the passphrase is supplied out of band. It does **not** remove the last secret;
+the passphrase still has to reach the process somehow. Anything claiming otherwise has moved the
+secret, not deleted it.
+
+Because of that, three rules are not optional:
+
+- **Never commit `.env.sealed` to a public repo.** Encrypted-at-rest is not encrypted against someone
+  who has your file and time — it's an offline target with no rate limit and nothing to alert on.
+  (`.env.*` is gitignored, and both scripts refuse to run if that ever stops being true.)
+- **Use a generated passphrase**, never a memorable one — `openssl rand -base64 32`. Sealing rejects
+  anything under 16 characters. There is no recovery if you lose it.
+- **It is not a substitute for a managed store.** No rotation, no revocation, no audit log. For
+  testnet keys that tradeoff is fine; for anything guarding real money, that audit trail is the point
+  — use AWS Secrets Manager / 1Password / Doppler and let it write the env.
+
+A real environment variable always beats a sealed value, so a deploy can override or rotate one key
+without re-sealing everything. Tampering fails loudly (GCM authentication), and a wrong passphrase
+and a modified file produce the *same* error — telling them apart would leak which half was right.
+
+#### It can't go stale
+
 That table is hand-written because meaning can't be scraped from code — no scanner knows what a key
 unlocks or which console issues it. Its **coverage** is enforced, though:
-[`registry-coverage.test.ts`](web/lib/config/__tests__/registry-coverage.test.ts) scans every
-`process.env` read in the app and **fails CI if a credential-shaped variable isn't declared**. When
-that check was first written it caught **15 undeclared credentials** (`WORLD_SIGNING_KEY`,
-`UNLINK_API_KEY`, `OFFRAMP_SERVER_KEY`, …) — each one a key an operator could be missing with nothing
-in the doctor to say so. The list can't silently go stale again.
+[`registry-coverage.test.ts`](web/lib/config/__tests__/registry-coverage.test.ts) closes all three
+places a variable can drift, and fails CI on each:
+
+| Drift | What the test does |
+| --- | --- |
+| Code reads a credential nobody declared | Scans every `process.env` read; fails if a credential-shaped name is undeclared |
+| Registry names a variable the code doesn't read | Fails on declared-but-unused (a typo, or a removed feature) |
+| `.env.example` missing a declared variable | Fails if an operator copying the example would never see the key |
+
+Plus a scan that fails if `.env.example` ever ships a real-looking secret next to a `*_KEY` name.
+
+When first written this caught **15 undeclared credentials** (`WORLD_SIGNING_KEY`, `UNLINK_API_KEY`,
+`OFFRAMP_SERVER_KEY`, …), two registry entries naming RPC variables that **don't exist anywhere in
+the code**, and — immediately after — the new `ACCESS0X1_ENV_PASSPHRASE` the sealed keystore had just
+introduced. The list can't silently go stale again.
 
 ### Build on it — no contracts to write
 
@@ -834,7 +878,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **2,026 green** (Foundry) — unit · attack · invariant — plus 1,777 web/SDK unit tests |
+| Tests | **2,026 green** (Foundry) — unit · attack · invariant — plus 1,792 web/SDK unit tests |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
