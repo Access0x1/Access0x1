@@ -332,18 +332,34 @@ normally. To see what's on, what's off, and exactly what to fill next:
 cd web
 npm run env:demo       # only what a live demo needs (+ what's missing)
 npm run env:doctor     # everything, grouped by impact
+npm run env:set        # add a key, interactively, without it touching your screen
 ```
 
-It reads `web/.env.local` and reports each integration as **configured / partial / off**, naming the
-exact variables still missing and **where to get** each credential. `partial` is the one to watch —
-half-set config that silently stays OFF. The doctor prints **variable names and set/unset booleans
+The doctor reads `web/.env.local` and reports each integration as **configured / partial / off**,
+naming the exact variables still missing and **where to get** each credential. `partial` is the one
+to watch — half-set config that silently stays OFF. It prints **variable names and set/unset booleans
 only, never a value**, so its output is safe to paste into an issue or a chat.
+
+`env:set` is the intake path. It prompts for each variable an integration needs and writes
+`web/.env.local` (gitignored, mode `0600`, atomic). **Secret input is read with echo off**, so a key
+never renders on screen, and it is never printed back or logged. Use it instead of pasting
+credentials into an editor, a chat, or a terminal that keeps history.
+
+`GET /api/integrations` exposes the same state as JSON for a dashboard — names and booleans only, a
+value can never enter the payload.
 
 **Adding a new API is one entry**, not a code hunt: append it to
 [`web/lib/config/integrations.ts`](web/lib/config/integrations.ts) — id, label, what it unlocks, its
-variables (`required` / `secret`), and where the key comes from. The doctor, the readiness count, and
-the operator docs all derive from that single declaration. Mark any credential `secret: true`: those
-are server-only and must never reach a client bundle, a log, or a commit.
+variables (`required` / `secret`), and where the key comes from. The doctor, the intake prompt, the
+status route, the readiness count, and the operator docs all derive from that single declaration.
+
+That table is hand-written because meaning can't be scraped from code — no scanner knows what a key
+unlocks or which console issues it. Its **coverage** is enforced, though:
+[`registry-coverage.test.ts`](web/lib/config/__tests__/registry-coverage.test.ts) scans every
+`process.env` read in the app and **fails CI if a credential-shaped variable isn't declared**. When
+that check was first written it caught **15 undeclared credentials** (`WORLD_SIGNING_KEY`,
+`UNLINK_API_KEY`, `OFFRAMP_SERVER_KEY`, …) — each one a key an operator could be missing with nothing
+in the doctor to say so. The list can't silently go stale again.
 
 ### Build on it — no contracts to write
 
@@ -818,7 +834,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **2,026 green** (Foundry) — unit · attack · invariant — plus 1,764 web/SDK unit tests |
+| Tests | **2,026 green** (Foundry) — unit · attack · invariant — plus 1,777 web/SDK unit tests |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |

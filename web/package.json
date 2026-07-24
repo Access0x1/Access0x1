@@ -11,6 +11,7 @@
     "gen:abis": "node scripts/gen-module-abis.mjs",
     "env:doctor": "tsx scripts/env-doctor.mjs",
     "env:demo": "tsx scripts/env-doctor.mjs --demo",
+    "env:set": "tsx scripts/env-set.mjs",
     "gen:docs": "node scripts/gen-docs-corpus.mjs",
     "build": "next build --webpack",
     "start": "next start",

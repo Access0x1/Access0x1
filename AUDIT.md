@@ -5,7 +5,7 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
-_Last updated: 2026-07-24 (test-count refresh: 2,026 Foundry contract tests + 1,764 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
+_Last updated: 2026-07-24 (test-count refresh: 2,026 Foundry contract tests + 1,777 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
 
 ---
 
