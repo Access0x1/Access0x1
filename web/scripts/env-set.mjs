@@ -89,6 +89,50 @@ function writeEnvFile(updates) {
   chmodSync(ENV_PATH, 0o600)
 }
 
+/**
+ * Normalize a value to the shape the CODE actually compares against, and say so.
+ *
+ * WHY: `AGENT_URL_ALLOWLIST` is checked as `new URL(url).origin` — scheme + host
+ * only. An operator naturally pastes the page they have in the address bar
+ * (`https://site.example/askme`), which can NEVER match, and the failure surfaces
+ * much later as a blanket `400 url not in allowlist` with nothing pointing at the
+ * cause. Accepting a value that cannot work is a bug in this tool, not operator
+ * error, so it is corrected here — loudly, never silently.
+ *
+ * Deliberately narrow: only variables whose exact comparison shape is known are
+ * touched. Everything else is stored verbatim; guessing at a value's intent is
+ * how config tools start corrupting input.
+ *
+ * @returns {{value: string, notes: string[]}} The value to store and what to tell the operator.
+ */
+function normalizeValue(name, raw) {
+  const notes = []
+  if (name !== 'AGENT_URL_ALLOWLIST') return { value: raw, notes }
+
+  const out = []
+  for (const part of raw.split(',').map((s) => s.trim()).filter(Boolean)) {
+    let url
+    try {
+      url = new URL(part)
+    } catch {
+      notes.push(`!  "${part}" is not a URL — the agent compares origins, so this entry can never match.`)
+      notes.push(`   Expected form: https://host.example`)
+      continue
+    }
+    if (url.origin !== part) {
+      notes.push(`~  "${part}" -> "${url.origin}"  (the agent compares ORIGIN only)`)
+    }
+    if (url.protocol === 'http:' && url.hostname !== 'localhost') {
+      notes.push(`!  "${url.origin}" is http:// — a scheme mismatch is a silent deny in production.`)
+    }
+    if (!out.includes(url.origin)) out.push(url.origin)
+  }
+  if (out.length === 0) {
+    notes.push('!  No usable origin — storing blank, which means DENY-ALL.')
+  }
+  return { value: out.join(','), notes }
+}
+
 const rl = () => createInterface({ input: process.stdin, output: process.stdout })
 
 /** Ask a question, echoing what is typed. */
@@ -176,7 +220,11 @@ async function main() {
     console.log(`  (${state}${v.secret ? ', secret: input hidden' : ''})`)
     const prompt = current ? '  new value (Enter = keep current): ' : '  value (Enter = skip): '
     const answer = v.secret ? await askSecret(prompt) : await ask(prompt)
-    if (answer) updates.set(v.name, answer)
+    if (answer) {
+      const { value, notes } = normalizeValue(v.name, answer)
+      for (const n of notes) console.log(`  ${n}`)
+      updates.set(v.name, value)
+    }
     console.log('')
   }
 
