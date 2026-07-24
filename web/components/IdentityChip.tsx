@@ -1,8 +1,9 @@
 'use client'
 
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { usePrimaryEnsName } from '@/lib/ens/usePrimaryEnsName'
+import { getWalletLabel } from '@/lib/walletLabel'
 
 /** Truncate an EVM address for display: 0x1234…abcd. */
 function short(addr: string): string {
@@ -44,6 +45,17 @@ export function IdentityChip(): ReactNode {
   // wallet the hook fetches nothing and returns null.
   const { name: primaryName } = usePrimaryEnsName(primaryWallet?.address)
 
+  // The LOCAL wallet label (e.g. the business name saved at registration).
+  // External wallets never share their account nickname with a site, so without
+  // this a MetaMask user sees only a bare address until they hold a verified
+  // ENS primary name. Read in an effect (SSR-safe); a plain label, never a
+  // verified-identity claim.
+  const [localLabel, setLocalLabel] = useState<string | null>(null)
+  const address_ = primaryWallet?.address
+  useEffect(() => {
+    setLocalLabel(getWalletLabel(address_))
+  }, [address_])
+
   if (!primaryWallet) return null
 
   const address = primaryWallet.address
@@ -51,9 +63,9 @@ export function IdentityChip(): ReactNode {
   const isEmbedded = primaryWallet.connector?.isEmbeddedWallet ?? false
   const connectorName = primaryWallet.connector?.name ?? 'Wallet'
 
-  // The account identity: email/username when the email/social door was used
-  // (the embedded-wallet case), else the truncated address.
-  const account = user?.email ?? user?.username ?? short(address)
+  // The account identity, most-personal first: the user's own local label (their
+  // business name), else email/username (embedded door), else the address.
+  const account = localLabel ?? user?.email ?? user?.username ?? short(address)
 
   return (
     <IdentityChipView
