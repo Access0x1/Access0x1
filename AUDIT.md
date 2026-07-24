@@ -5,19 +5,20 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
-_Last updated: 2026-07-11 (test-count refresh: 1,810 / 126 suites after the Rebates/SponsorRegistry + tokenization-kit + credential-SBT additions)._
+_Last updated: 2026-07-24 (test-count refresh: 2,016 Foundry contract tests + 1,660 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
 
 ---
 
 ## 1. Deployed & verified — the hard proof
 
-**One mirrored address set, live on EIGHT testnets.** Access0x1 deploys via CREATE3 (the
+**One mirrored address set, live on NINE testnets.** Access0x1 deploys via CREATE3 (the
 [CreateX](https://github.com/pcaversaccio/createx) factory), so every contract carries the **same
 address on every chain the mirror is live on** — the `Access0x1Router` proxy an integrator points at is
 [`0xe92244e3368561faf21648146511DeDE3a475EB5`](https://sepolia.basescan.org/address/0xe92244e3368561faf21648146511DeDE3a475EB5)
-**on all eight**: Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia
-(11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Arbitrum Sepolia (421614), and Celo Sepolia
-(11142220). The mirror is **source-verified on seven** of them. Three earlier chains (Ethereum Hoodi
+**on all nine**: Arc (5042002), Base Sepolia (84532), Ethereum Sepolia (11155111), Optimism Sepolia
+(11155420), Avalanche Fuji (43113), Robinhood Chain (46630), Arbitrum Sepolia (421614), Celo Sepolia
+(11142220), and zkSync Sepolia (300). The mirror is **source-verified on seven** of them (Avalanche
+Fuji and zkSync Sepolia deployed, verification pending). Three earlier chains (Ethereum Hoodi
 560048, 0G Galileo 16602, Tempo Moderato 42431) carry **pre-mirror, per-chain** deploys at the older
 address and are being cut over. Every address is read from a committed `broadcast/DeployAll.s.sol/<chainId>/`
 record (law #4 — an address that isn't on-chain isn't claimed) and self-checked against
@@ -38,14 +39,14 @@ record (law #4 — an address that isn't on-chain isn't claimed) and self-checke
   (a reproducible `cast code` vs `forge inspect deployedBytecode` diff, independent of the explorer badge).
 
 **zkSync Sepolia** is one-command ready but not yet broadcast — it needs its dedicated EraVM path (zksolc
-from a clean root; the zkEVM CREATE3 address diverges from the mirror — see `docs/ZKSYNC-TESTING.md`). More
+from a clean root; it deployed at the SAME mirror address `0xe92244e3…`, confirmed in `broadcast/…/300` — see `docs/ZKSYNC-TESTING.md`). More
 EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy-<chain>`) but not yet broadcast.
 
 ---
 
 ## 2. Tested
 
-- **1,810 contract tests, 0 failed, 0 skipped** across **126 suites** (`make test`; I re-ran `forge test`
+- **2,016 contract tests, 0 failed, 0 skipped** (`make test`; the count is CI-enforced against `forge test --list`
   for this update — 1810 passed / 0 failed / 0 skipped). The 3 `test/fork/**` Chainlink-feed tests are
   counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI
   both run green; set `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed.
@@ -142,6 +143,16 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   `web/lib/payout-swap/rails/oneInch.ts` + agent pay-any-token quote `web/lib/agent/anyToken1inch.ts`,
   both unit-tested, env-gated + dormant until `ONEINCH_API_URL`, zero integrator fee),
   **paymaster** (gas sponsorship). We label these as seams everywhere — never as "live."
+- **0G Compute** — agent inference on 0G's decentralized compute (`web/lib/ai/inference.ts` +
+  `web/lib/ai/agentInference.ts`, unit-tested): `AI_INFERENCE_PROVIDER=zerog` routes `/api/ai/infer`
+  and the docs assistant to 0G instead of Anthropic. Two modes — a static-key gateway and a native
+  **broker** (funded operator wallet mints signed per-request billing headers, verified against
+  `@0gfoundation/0g-compute-ts-sdk` 0.9.0). Env-gated + dormant until configured; the SDK is an
+  optional peer, install-on-opt-in. (0G *chain* 16602 is separately deployed — see the deploy tables.)
+- **0G / agent earn→store→own** — `web/lib/agent/stateAnchor.ts` anchors a settled receipt's hash on
+  the ProvenanceRegistry after storing the blob on **Walrus** (not 0G Storage). Dormant unless
+  `AGENT_STATE_ANCHOR=true`; the anchor leg is testnet-allowlisted. Honest outcome states
+  (`stored`/`anchored`) — never a claimed anchor without a mined tx.
 
 **Not built — we do NOT claim these:**
 - LI.FI, Canton, Ledger, Google Cloud / BigQuery, Privy, CCTP, ERC-5570 / ERC-5192 / ERC-1155,
@@ -163,7 +174,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ```bash
 git clone https://github.com/Access0x1/Access0x1 && cd Access0x1
-make test                       # 1,810 contract tests, 0 failed
+make test                       # 2,016 contract tests, 0 failed
 forge coverage --ir-minimum     # the real coverage number
 make halmos                     # the symbolic fee-split + budget proofs
 make anvil && make deploy-local && make drive-local   # real local payment, no keys
