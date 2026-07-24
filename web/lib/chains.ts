@@ -171,9 +171,11 @@ export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [
   blastSepolia,
   unichainSepolia,
   // Sponsor chains (hand-defined; not in viem/chains). Zircuit Garfield already has
-  // a CREATE3 deploy target; Hedera settles USDC priced off a $1 mock feed (no
-  // Chainlink feeds on Hedera). Router/USDC addresses resolve from env, undefined
-  // until deployed+set — listing here makes no on-chain claim (law #4).
+  // a CREATE3 deploy target; Hedera settles USDC priced off a $1 mock feed — NOT
+  // because Hedera lacks Chainlink (it does not; see the CORRECTION above), but
+  // because a USDC/USD feed on 296 is unverified. Router/USDC addresses resolve
+  // from env, undefined until deployed+set — listing here makes no on-chain claim
+  // (law #4).
   zircuitGarfield,
   hederaTestnet,
 ]

@@ -9,10 +9,10 @@
  *
  * Rail assignment (one job per rail, no logo-soup):
  *  - Arc → Circle App Kit Swap (Uniswap has nothing on Arc, our DEFAULT chain).
- *  - Base → Uniswap Trading API (/quote then /order gasless | /swap) — the headline demo.
+ *  - Base → Uniswap Trading API (/quote then /order gasless | /swap).
  *  - zkSync Era → Uniswap classic /swap (App Kit + CCTP do NOT support zkSync).
- *  - Polygon → 1inch aggregator (Fusion gasless | classic /swap) — a chain Uniswap's Trading-API
- *    rail here does not cover; 1inch has deep Polygon liquidity. Dormant until `ONEINCH_API_URL`.
+ *
+ * There is deliberately NO 1inch row — see the note in the table below.
  */
 
 import { baseSepolia, polygonAmoy, zksyncSepoliaTestnet } from 'viem/chains'
@@ -23,6 +23,12 @@ import type { ChainSwapCapability, SwapRail } from './types.js'
 /** The capability table: chainId → its same-chain swap rail. Absent ⇒ not capable. */
 const CAPABILITIES: ReadonlyMap<number, SwapRail> = new Map<number, SwapRail>([
   [arcTestnet.id, 'circle-app-kit'],
+  // Base Sepolia: the Trading API's TESTNET coverage is UNCONFIRMED — FEEDBACK.md
+  // ("Testnet coverage was hard to confirm") says we have the code but not a
+  // confirmed testnet endpoint to point it at. The row stays because the rail is
+  // env-gated and dormant without `UNISWAP_TRADING_API_URL`, so it promises nothing
+  // an operator has not themselves supplied — but it is held to the same standard
+  // that deleted the 1inch row below, and it must not be described as proven.
   [baseSepolia.id, 'uniswap-trading-api'],
   [zksyncSepoliaTestnet.id, 'uniswap-classic'],
   // NO 1inch ENTRY, DELIBERATELY. `polygonAmoy → 'one-inch'` used to live here and it
@@ -34,8 +40,8 @@ const CAPABILITIES: ReadonlyMap<number, SwapRail> = new Map<number, SwapRail>([
   //
   // The 1inch client in rails/oneInch.ts is kept: it is real code for a MAINNET
   // deployment, and its quote leg matches the v6 API. Re-add a mapping here only for a
-  // chain 1inch actually serves, and only once the execute leg has a signer (see
-  // FEEDBACK.md — the current execute path parses a `txHash` the API never returns).
+  // chain 1inch actually serves, and only once the execute leg has a signer — the
+  // current path in rails/oneInch.ts parses a `txHash` the API never returns.
 ])
 
 /**
