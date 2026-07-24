@@ -11,6 +11,15 @@ name: OPSEC
 
 permissions: {}
 
+# MINUTES DISCIPLINE (part 3): supersede, don't stack. Pushing three commits in
+# quick succession previously started three full runs, and the first two tested code
+# that no longer existed by the time they finished. One run per ref at a time; the
+# newest wins. The HEAD commit always gets a complete run, which is the only state a
+# deploy gate actually cares about.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
   pull_request:

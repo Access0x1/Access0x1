@@ -14,6 +14,15 @@ permissions: {}
 # MINUTES DISCIPLINE: push fires on main only (a PR branch push otherwise runs this ~20-min lane
 # twice — push + pull_request events). On PRs the changes job below skips the lane entirely when
 # the diff can't affect contracts; a skipped job satisfies branch protection.
+# MINUTES DISCIPLINE (part 3): supersede, don't stack. Pushing three commits in
+# quick succession previously started three full runs, and the first two tested code
+# that no longer existed by the time they finished. One run per ref at a time; the
+# newest wins. The HEAD commit always gets a complete run, which is the only state a
+# deploy gate actually cares about.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
