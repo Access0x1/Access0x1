@@ -113,8 +113,8 @@ and no intermediary ever holds the funds.
   **Circle USDC is the native gas token**. A buyer paying in USDC there is also paying gas in
   USDC: there is **no separate gas coin to top up and no Paymaster to run** for that leg — it's a
   property of Arc's own gas model, with zero extra contract code on our side. The same
-  `payToken(USDC)` path also runs on Base Sepolia (live); zkSync Sepolia is one-command ready as a
-  bridge target, not yet broadcast.
+  `payToken(USDC)` path also runs on Base Sepolia (live); zkSync Sepolia (300) is deployed at the
+  mirror address (see `broadcast/…/300`), source-verification pending.
   > Note: USDC-as-gas is Arc-specific because it's Arc's native gas token, not something we built.
   > On other chains (Base Sepolia, zkSync, etc.), buyers pay gas in that chain's native token. An
   > optional ERC-7677 paymaster can sponsor gas on other chains if configured.
@@ -204,7 +204,7 @@ src/
 └── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (1,992 tests)
+test/                        # unit · attack · invariant (2,016 tests)
 ```
 
 The full first-party surface is **22 production contracts + 2 libraries** (24 `.sol` files in
@@ -587,8 +587,9 @@ per-contract label, never the `block.chainid`, so the `Access0x1Router` an integ
 [`script/mirror-manifest.sh`](script/mirror-manifest.sh)) and shown below; every per-chain address is
 read straight from the committed broadcast log (`broadcast/DeployAll.s.sol/<chainId>/run-latest.json`),
 **never** hand-entered (law #4: an address that isn't on-chain isn't claimed). The mirror is **live on
-eight testnets** and the `Access0x1Router` proxy is **source-verified on seven of them** (confirmed on
-each chain's own block explorer — all but Avalanche Fuji, whose source-verification is pending):
+nine testnets** and the `Access0x1Router` proxy is **source-verified on seven of them** (confirmed on
+each chain's own block explorer — all but Avalanche Fuji and zkSync Sepolia, whose source-verification
+is pending):
 
 | Chain | Chain ID | `Access0x1Router` proxy — source-verified |
 | --- | --- | --- |
@@ -602,11 +603,12 @@ each chain's own block explorer — all but Avalanche Fuji, whose source-verific
 | Avalanche Fuji | `43113` | deployed — source-verification pending |
 
 Three earlier chains (0G Galileo `16602`, Tempo Moderato `42431`, Ethereum Hoodi `560048`) carry
-**pre-mirror, per-chain** deploys at the older address and are being cut over. **zkSync Sepolia** needs
-its own EraVM path — `forge script --zksync` can't read env inside `HelperConfig`'s constructor (a
-foundry-zksync cheatcode-in-CREATE limit), so a dedicated `DeployAllZkSync` that reads env at the script
-root is required, and the zkEVM CREATE3 address diverges from the mirror (see
-[`docs/ZKSYNC-TESTING.md`](docs/ZKSYNC-TESTING.md)). See [`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md)
+**pre-mirror, per-chain** deploys at the older address and are being cut over. **zkSync Sepolia**
+required its own EraVM path — `forge script --zksync` can't read env inside `HelperConfig`'s constructor
+(a foundry-zksync cheatcode-in-CREATE limit), so a dedicated `DeployAllZkSync` reads env at the script
+root — and it deployed at the **same mirror address** `0xe92244e3…` (confirmed in
+`broadcast/…/300`; see [`docs/ZKSYNC-TESTING.md`](docs/ZKSYNC-TESTING.md)). See
+[`docs/DEPLOY-TESTNETS.md`](docs/DEPLOY-TESTNETS.md)
 and [`docs/MIRROR-CUTOVER.md`](docs/MIRROR-CUTOVER.md) for the full operator guide.
 
 > **Gas:** on Arc, USDC is the native gas token, so checkout needs no separate gas coin — there is
@@ -741,14 +743,8 @@ on-chain before relying on its row here.
 | Robinhood Chain (46630) | `Access0x1Invoices` | [`0x2067238186ee13d9c543742e1bb6be9fe4a1b20b`](https://explorer.testnet.chain.robinhood.com/address/0x2067238186ee13d9c543742e1bb6be9fe4a1b20b) | — |
 | Robinhood Chain (46630) | `Access0x1GiftCards` | [`0xbcb59e981662d26769ff1fe5d75f66e38c68c99b`](https://explorer.testnet.chain.robinhood.com/address/0xbcb59e981662d26769ff1fe5d75f66e38c68c99b) | — |
 | Robinhood Chain (46630) | `Access0x1Nft` | [`0x2ba5411803bc7734652afa292bc97f39ae409f76`](https://explorer.testnet.chain.robinhood.com/address/0x2ba5411803bc7734652afa292bc97f39ae409f76) | — |
-| zkSync Sepolia (300) | `Access0x1Router` | — | — |
-| zkSync Sepolia (300) | `SessionGrant` | — | — |
-| zkSync Sepolia (300) | `HouseTokenFactory` | — | — |
-| zkSync Sepolia (300) | `Access0x1Subscriptions` | — | — |
-| zkSync Sepolia (300) | `Access0x1Bookings` | — | — |
-| zkSync Sepolia (300) | `Access0x1Invoices` | — | — |
-| zkSync Sepolia (300) | `Access0x1GiftCards` | — | — |
-| zkSync Sepolia (300) | `ChainRegistry` | — | — |
+<!-- zkSync Sepolia (300) is a MIRROR chain — its contracts live at the shared mirror address
+     0xe92244e3…, listed in the mirror table above (broadcast/…/300); it is not a pre-mirror deploy. -->
 
 > **Multi-tenant, on-chain.** The Base Sepolia router (`platformFeeBps = 100`, i.e. 1%) already carries
 > a registered merchant (`#1`) — registered with its own payout wallet, fee config, and name hash. A
@@ -787,7 +783,7 @@ deployer is a burner key.
 
 **Clear signing (What-You-See-Is-What-You-Sign).** Access0x1 ships an [ERC-7730 descriptor](clear-signing/README.md)
 for the router — a hardware-wallet customer sees **"Pay $29.00 to merchant #7 (order 0x…)"** instead of
-the blind hex that, unread, drained Bybit (~$1.5B) and Radiant (~$50M). One descriptor covers all eight
+the blind hex that, unread, drained Bybit (~$1.5B) and Radiant (~$50M). One descriptor covers all nine
 mirror chains; an ERC-8213 calldata digest is the cross-device fallback for not-yet-described contracts.
 
 **Readable insight inside MetaMask.** The same clear-signing intent, wallet-side: the
@@ -800,7 +796,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **1,992 green** across 130 suites — unit · attack · invariant |
+| Tests | **2,016 green** (Foundry) — unit · attack · invariant — plus 1,660 web/SDK unit tests |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
@@ -819,7 +815,7 @@ Gas hot-paths are documented in [`docs/GAS.md`](docs/GAS.md).
 ## Stack
 
 Foundry · Solidity 0.8.28 (EVM cancun, `via_ir`, optimizer 200 runs) · OpenZeppelin 5.x ·
-Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed on eight testnets via the CREATE3 mirror (one address `0xe92244e3…` on every chain); source-verified on seven — Arc, Base Sepolia, Ethereum Sepolia, Optimism Sepolia, Arbitrum Sepolia, Celo Sepolia, and Robinhood Chain** (Avalanche Fuji deployed, verification pending); zkSync Sepolia is one-command ready — all **testnets, no mainnet deployments**.
+Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed on nine testnets via the CREATE3 mirror (one address `0xe92244e3…` on every chain); source-verified on seven — Arc, Base Sepolia, Ethereum Sepolia, Optimism Sepolia, Arbitrum Sepolia, Celo Sepolia, and Robinhood Chain** (Avalanche Fuji and zkSync Sepolia deployed, verification pending) — all **testnets, no mainnet deployments**.
 
 ---
 
@@ -832,7 +828,7 @@ no-op, never a blocked payment). The detail for each — file paths and exact be
 | Partner | What they provided | Why it mattered |
 | --- | --- | --- |
 | **Circle + Arc** | USDC as the native gas token (Arc) + the Gateway / x402 settlement seam | No separate gas step for the payer, with **zero Paymaster code** — gas is paid in USDC on Arc, so we wrote a chain config and a pay button |
-| **Zircuit** | Garfield testnet (48898) as a settlement chain, with **AI-secured** sequencer-level transaction screening | The same one-address rail runs on Zircuit — settlement inherits Zircuit's AI transaction-level security for free; deploy target wired (`make deploy-zircuit-garfield`) + in the frontend `SUPPORTED_CHAINS` |
+| **Zircuit** | Garfield testnet (48898) as a settlement chain, with **AI-secured** sequencer-level transaction screening | The same one-address rail is wired for Zircuit — settlement would inherit Zircuit's AI transaction-level security; deploy target ready (`make deploy-zircuit-garfield`) + in the frontend `SUPPORTED_CHAINS`, **not yet broadcast** (no `broadcast/…/48898` record) |
 | **Hedera** | Hedera EVM (testnet 296) via the Hashio JSON-RPC relay as a settlement chain | The rail deploys to Hedera's EVM unchanged; USDC priced off a $1 mock feed (Hedera has no Chainlink feeds, the 0G pattern); deploy target + frontend wired, broadcast pending operator keys |
 | **QuickNode** | Dedicated per-chain RPC endpoints for server-side reads | Point ANY supported chain's checkout quotes / ENS gateway / dashboards at a QuickNode endpoint with one env var (`RPC_URL_<chainId>`) — closes the public-RPC gap for the viem-imported chains; blank ⇒ the chain's own default |
 | **0G** | Galileo testnet (16602) deploy **+ 0G Compute** as an AI inference backend | The rail is deployed on 0G, **and** agent inference can run **on 0G's decentralized compute** — `AI_INFERENCE_PROVIDER=zerog` routes `/api/ai/infer` (and any `lib/ai/inference.ts` caller) to 0G Compute instead of Anthropic; env-gated + fail-soft, the AI-track story |
@@ -843,7 +839,7 @@ no-op, never a blocked payment). The detail for each — file paths and exact be
 | **1inch** | Aggregation/Swap API — Fusion gasless order \| classic `/swap`, plus the agent pay-any-token quote | The **aggregator alternative** for the payout swap (a chain Uniswap's rail doesn't cover, e.g. Polygon) **and** the buyer/agent "what does this cost in token X" quote — both **zero integrator fee**, env-gated + dormant until `ONEINCH_API_URL` |
 | **World ID** | One-tap proof-of-personhood gate before pay | Verified-human checkout that sits **in front of** settlement — a misconfigured gate degrades, never blocks |
 | **OIDC (e.g. Sign in with Google)** | Server-side ID-token verification via `jose` | "Verify for all" — any app from this template inherits an `oidc` method by setting one env var; blank ⇒ OFF |
-| **ENS** | Name → payout-address resolution, ENSIP-19 verified identity, Namestone gasless subnames, **ENSv2 live Payment Resolver** | **The front door of the flow: a business grabs an ENS name + subname first, and Access0x1 becomes its resolver** — so `pay.<business>.eth` is a live, USD-priced payment endpoint, not a static row. Identity shown only on forward==reverse, off the money path |
+| **ENS** | Name → payout-address resolution, ENSIP-19 verified identity, Namestone gasless subnames, **ENSv2 Payment Resolver (built + unit-tested)** | **The front door of the flow: a business grabs an ENS name + subname first, and Access0x1 becomes its resolver** — so `pay.<business>.eth` resolves to live, USD-priced payout state, not a static row (the off-chain gateway serves this today; the on-chain resolver contract is not yet deployed). Identity shown only on forward==reverse, off the money path |
 | **Walrus** | Content-addressed publishing of the checkout page + receipts (Sui) | An un-takedownable checkout — no single origin to pin or take down |
 
 ---
@@ -926,10 +922,12 @@ integration let us *not* build, not a marketing wall.
     (`click.access0x1.*`). The subname **parent is your own ENS name**, read only from `ENS_SUBNAME_PARENT`
     (never hardcoded); with `NAMESTONE_API_KEY` it's live. **Blank ⇒ the whole seam is a clean no-op**
     (no fabricated name, no network call) — fail-soft, like OIDC degrading when unconfigured.
-  - **ENSv2 — the LIVE Payment Resolver (a brand-new ENS shape).** Built on ENSv2's "your name,
-    your registry" model: instead of a **static** text record, `pay.<merchant>.eth` resolves — via
-    a custom resolver — to the merchant's **live** payout + USD-pricing config, read off the router
-    *at query time* (change your payout, the name follows, zero re-issuance).
+  - **ENSv2 — the Payment Resolver (a brand-new ENS shape; built + unit-tested, on-chain contract
+    not yet deployed).** Built on ENSv2's "your name, your registry" model: instead of a **static**
+    text record, `pay.<merchant>.eth` resolves — via a custom resolver — to the merchant's **live**
+    payout + USD-pricing config, read off the router *at query time* (change your payout, the name
+    follows, zero re-issuance). Served today by the off-chain CCIP-Read gateway; the trust-minimized
+    on-chain resolver is authored + tested, pending a testnet broadcast.
     [`src/ens/Access0x1PaymentResolver.sol`](src/ens/Access0x1PaymentResolver.sol) implements the
     standard ENS profile (`addr` · ENSIP-11 multichain `addr` · `text` · ENSIP-10 wildcard
     `resolve`); a name is bound to a seat with owner-consent read live from `router.merchants(id)

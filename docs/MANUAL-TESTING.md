@@ -6,7 +6,7 @@ block, run it, and check the result against the **Expected** line under it.
 
 Everything here runs **locally** against a throwaway [Anvil](https://book.getfoundry.sh/anvil/)
 chain. No real money, no real keys, no testnet, nothing to lose. The same flows
-the automated suite proves (1,810 contract tests across 126 suites + the web gate)
+the automated suite proves (2,016 contract tests across 126 suites + the web gate)
 you will drive by hand, so you can see the money move and the guards bite.
 
 > **Naming note.** This document only uses public, standard names: Anvil, Arc,
@@ -27,7 +27,7 @@ you will drive by hand, so you can see the money move and the guards bite.
   - [B7. SessionGrant — openSession → spend → revoke](#b7-sessiongrant--opensession--spend--revoke)
   - [B8. Nft — list → buy](#b8-nft--list--buy)
 - [C. Web app — onboarding, checkout, verify, dashboard](#c-web-app--onboarding-checkout-verify-dashboard)
-- [D. The test suites (1,810 + web gate)](#d-the-test-suites-1810--web-gate)
+- [D. The test suites (2,016 + web gate)](#d-the-test-suites-2016--web-gate)
 - [E. Pre-walkthrough smoke checklist](#e-pre-walkthrough-smoke-checklist)
 
 ---
@@ -925,12 +925,12 @@ var, so simulate their outage by blocking the RPC host at the network level.)
 
 ---
 
-## D. The test suites (1,810 + web gate)
+## D. The test suites (2,016 + web gate)
 
 The automated suites are the ground truth behind every manual flow above. Run
 them to confirm a clean tree.
 
-### D1. The contract suite — 1,810 tests
+### D1. The contract suite — 2,016 tests
 
 ```bash
 make test          # or: forge test
@@ -965,8 +965,8 @@ This runs, in order: an embed-syntax check, the embed-address verifier, a
 TypeScript `tsc --noEmit` typecheck, and the Vitest unit suite (integration tests
 excluded).
 
-**Expected:** all four steps pass; the Vitest summary reports roughly **965
-passing** across **89 files**. If a suite fails to **load** a module (e.g.
+**Expected:** all four steps pass; the Vitest summary reports roughly **1,660
+passing** across **162 files**. If a suite fails to **load** a module (e.g.
 `Cannot find package 'lucide-react'`), that is a missing dependency, not a logic
 failure — run `cd web && npm install` and re-run the gate.
 
@@ -976,7 +976,7 @@ failure — run `cd web && npm install` and re-run the gate.
 make gate
 ```
 
-**Expected:** contracts build + 1,810 tests + `forge fmt --check`, then the web
+**Expected:** contracts build + 2,016 tests + `forge fmt --check`, then the web
 gate, ending in `==> GATE GREEN`. This is the single command that proves the
 whole repo is healthy before a commit.
 
@@ -993,7 +993,7 @@ fails, stop and fix it before showing anyone.
       green (Section A3).
 - [ ] **Contracts green.** `make test` → `1810 passed; 0 failed` across 126 suites
       (Section D1).
-- [ ] **Web green.** `cd web && npm run gate` → all four steps pass, ~965 tests
+- [ ] **Web green.** `cd web && npm run gate` → all four steps pass, ~1,660 tests
       across 89 files (Section D2).
 - [ ] **Anvil up.** `make anvil` is running in its own terminal, "Listening on
       127.0.0.1:8545" (Section A4).
