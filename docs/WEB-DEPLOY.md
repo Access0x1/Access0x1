@@ -29,6 +29,7 @@ the Unlink payout leg), and the one-tag `public/embed.js`.
 5. [Health-check](#5-health-check)
 6. [Rollback](#6-rollback)
 7. [SRE on-call checklist](#7-sre-on-call-checklist)
+8. [CDN / edge configuration — the locale contract](#8-cdn--edge-configuration--the-locale-contract)
 
 ---
 
@@ -91,6 +92,8 @@ PORT=3000 HOSTNAME=0.0.0.0 node .next/standalone/server.js
 
 Put a TLS-terminating reverse proxy / CDN in front (nginx / ALB / CloudFront).
 HSTS and the `ASK_TRUST_PROXY` IP-trust flag (§3) both assume that proxy.
+**If that CDN caches HTML, read §8 before you point DNS at it** — locale
+resolution depends on signals the CDN must forward *and* vary on.
 
 ### 1.4 The pre-ship gate (must be green before you deploy)
 
@@ -366,3 +369,98 @@ Roll back the binary, then fix forward.
 **mainnet**, rotating/spending a **real key**, a Claude/agent **spend** anomaly
 that needs a billing change, or a **secret leak** (rotate the key immediately,
 then page the owner).
+
+---
+
+## 8. CDN / edge configuration — the locale contract
+
+The marketing pages render in the visitor's language. `resolveLocale()`
+([`web/lib/i18n/pick-locale.ts`](../web/lib/i18n/pick-locale.ts)) takes **three**
+inputs, wired to the request in
+[`web/lib/i18n/locale.ts`](../web/lib/i18n/locale.ts):
+
+| Signal | Kind | Source of truth |
+| --- | --- | --- |
+| `access0x1_lang` | **cookie** | `LOCALE_COOKIE`, [`web/lib/i18n/config.ts`](../web/lib/i18n/config.ts) |
+| `Accept-Language` | request header | the browser |
+| `CloudFront-Viewer-Country` | **CDN-generated** header | added by CloudFront only if the policy enables it |
+
+Precedence: an explicit cookie choice wins; else a stated non-default browser
+language; else geo *fills the gap only*; else `DEFAULT_LOCALE` (`en`). Geo never
+overrides a stated language — it drives an ask-prompt instead.
+
+### 8.1 The cookie name is a deploy-time contract
+
+It is **`access0x1_lang`** — a custom name, so **no AWS *managed* origin-request
+or cache policy covers it**. Both policies must be custom. Renaming the cookie
+without updating the edge config produces no error anywhere; it silently serves
+cached pages in the wrong language. `web/app/api/locale/__tests__/locale.route.test.ts`
+asserts the literal name as a tripwire for exactly that.
+
+### 8.2 Forwarding is only half the job — the cache key is the other half
+
+An **origin request policy** controls what reaches the origin. A **cache policy**
+controls what CloudFront varies its cache on. Getting only the first one right is
+the classic failure: signals reach the app, the app renders Portuguese, CloudFront
+caches that response against the bare URL, and **the next English visitor is served
+the Portuguese page**. Cross-locale cache poisoning, no errors in any log.
+
+Values in the **cache policy are forwarded to the origin automatically**, so put
+the three varying signals there, and use the origin request policy for everything
+else the app needs.
+
+⚠️ **`Accept-Language` is high-cardinality.** Real browsers emit hundreds of
+distinct values (`en-US,en;q=0.9,pt;q=0.8`, …). Putting it raw in the cache key
+gives a near-zero hit ratio — a correct cache that never hits. Pick one:
+
+- **(a) Don't cache locale-varying HTML.** Cache policy = *CachingDisabled* for
+  the pages; cache `/_next/static/*` and `/public/*` normally. Simplest and always
+  correct; the app is a long-lived Node server (§1.1), so origin load is fine.
+  **Recommended unless HTML edge-caching is a measured requirement.**
+- **(b) Normalize at the edge.** A CloudFront Function collapses the three signals
+  into one low-cardinality header (e.g. `x-a0x1-locale: en|pt`) and *only that*
+  goes in the cache key — two variants per URL instead of hundreds. More moving
+  parts; do this only if (a) proves insufficient.
+
+### 8.3 Do NOT forward the `Host` header to a Cloud Run origin
+
+Cloud Run routes by `Host`. Forwarding the *viewer's* host makes the origin see
+the CDN hostname and 404. This app **never reads `Host`** — no `headers().get('host')`,
+no `x-forwarded-host`, no absolute-URL construction from the request — so
+forwarding it has no upside. Omit it and let the CDN send the origin's own host.
+
+### 8.4 Query strings must reach the origin
+
+Checkout links, merchant params and the x402 routes all carry query strings. If
+**neither** policy forwards them the app silently loses every parameter. Set the
+origin request policy's query-string behaviour to **all** — that is independent of
+what the cache varies on.
+
+### 8.5 Verify before pointing DNS
+
+Test on the `*.cloudfront.net` domain first, then cut over Route 53.
+
+```sh
+CF=https://<dist>.cloudfront.net
+
+# 1. Default -> English.
+curl -sI "$CF/" | grep -i 'content-language\|x-cache'
+
+# 2. An explicit pt browser -> Portuguese.
+curl -s -H 'Accept-Language: pt-PT,pt;q=0.9' "$CF/" | grep -o '<html[^>]*lang="[^"]*"'
+
+# 3. The cookie overrides everything.
+curl -s -H 'Cookie: access0x1_lang=pt' -H 'Accept-Language: en-US' "$CF/" \
+  | grep -o '<html[^>]*lang="[^"]*"'
+
+# 4. THE CACHE-POISONING CHECK: pt first, then en. If the second answer is
+#    Portuguese, the cache key is wrong — fix §8.2 before going live.
+curl -s -H 'Accept-Language: pt-PT' "$CF/" >/dev/null
+curl -s -H 'Accept-Language: en-US'  "$CF/" | grep -o '<html[^>]*lang="[^"]*"'
+
+# 5. Query strings survive the edge.
+curl -s "$CF/api/health?probe=1" -o /dev/null -w '%{http_code}\n'
+```
+
+Check **4** is the one that matters. Run it twice — a cold cache can pass by
+accident.
