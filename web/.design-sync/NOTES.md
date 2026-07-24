@@ -51,7 +51,7 @@
   `IdentityChip`, `NetworkBadge`, `RegisterForm`, `SponsorPanel`,
   `BrandingForm`, `CheckoutModeForm`, `ContractPanel`, `SellableForms`,
   `DashboardView`, `JourneyView`, `OnboardView`, `VerificationLevelsPanel`,
-  `VerificationStack`): call `useDynamicContext()`, which throws without a real
+  `VerificationLadder`): call `useDynamicContext()`, which throws without a real
   `DynamicContextProvider`. `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` is **empty** in
   the local `.env`, so `MerchantProviders`' fail-soft path would just show the
   "not configured" placeholder, not the real component — worse than an honest

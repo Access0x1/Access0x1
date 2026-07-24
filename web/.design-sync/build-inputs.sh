@@ -61,7 +61,7 @@ for f in \
   pages/JourneyView.tsx \
   pages/OnboardView.tsx \
   verification/VerificationLevelsPanel.tsx \
-  verification/VerificationStack.tsx \
+  verification/VerificationLadder.tsx \
 ; do
   rm -f "$FILTERED/$f"
 done

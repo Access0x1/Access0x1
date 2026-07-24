@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import { BrandMark } from '@/components/BrandMark'
 import { ConnectButton } from '@/components/ConnectButton'
-import { VerificationStack } from '@/components/verification/VerificationStack'
+import { VerificationLadder } from '@/components/verification/VerificationLadder'
 import { PageHeading } from '@/components/ui/PageHeading'
 import { SectionCard } from '@/components/ui/SectionCard'
 
@@ -21,20 +21,22 @@ export function VerifyView(): ReactNode {
           <BrandMark size={18} />
           <PageHeading eyebrow="Super Verification" title="Get Super Verified" />
         </div>
-        {/* Ghost in the header: when signed out, VerificationStack owns the ONE
+        {/* Ghost in the header: when signed out, VerificationLadder owns the ONE
             primary "Sign in" gate below; when signed in this becomes the
             IdentityChip (single-CTA rule). */}
         <ConnectButton variant="ghost" />
       </header>
 
       <p className="text-sm text-muted-foreground">
-        There are many ways to prove you&apos;re real. Each one you add raises your trust — verify
-        enough and you become <span className="font-medium text-rail">Super Verified</span>, the
-        highest tier. Merchants can choose to accept only verified or Super Verified buyers.
+        Climb three rungs, one step at a time:{' '}
+        <span className="font-medium">○ Connected</span> →{' '}
+        <span className="font-medium">✓ Verified</span> →{' '}
+        <span className="font-medium text-rail">✓✓ Super Verified</span>. We pick your next step —
+        one tap, no menus. Merchants can choose to accept only verified or Super Verified buyers.
       </p>
 
       <SectionCard>
-        <VerificationStack />
+        <VerificationLadder />
       </SectionCard>
 
       <a href="/dashboard" className="text-sm text-rail underline-offset-2 hover:underline">

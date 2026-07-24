@@ -3,7 +3,7 @@
 /**
  * client.ts — typed browser helpers for the Super Verification API.
  *
- * Thin `fetch` wrappers the VerificationStack UI uses. They never throw on a
+ * Thin `fetch` wrappers the VerificationLadder UI uses. They never throw on a
  * non-2xx; they return a discriminated result so the UI can show plain-English
  * copy (non-coder law). The server does every real check; the client only kicks
  * methods off and renders the derived profile/tier.
