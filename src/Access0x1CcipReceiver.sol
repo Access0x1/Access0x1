@@ -229,7 +229,12 @@ contract Access0x1CcipReceiver is ICcipReceiver, IERC165, Ownable2Step, Reentran
     ///         CEI: the replay flag and the pull-map credit are written BEFORE any external call, so
     ///         a token with a transfer hook re-entering here finds the message already processed.
     ///         `nonReentrant` backs that up.
-    function ccipReceive(Any2EVMMessage calldata message) external override onlyCcipRouter nonReentrant {
+    function ccipReceive(Any2EVMMessage calldata message)
+        external
+        override
+        onlyCcipRouter
+        nonReentrant
+    {
         address sender = abi.decode(message.sender, (address));
         address allowed = allowedSenderFor[message.sourceChainSelector];
         if (allowed == address(0) || sender != allowed) {
@@ -360,7 +365,9 @@ contract Access0x1CcipReceiver is ICcipReceiver, IERC165, Ownable2Step, Reentran
     ///         signature this contract does not implement, and claiming it would be a lie the router
     ///         acts on.
     function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-        return interfaceId == type(ICcipReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
+        return
+            interfaceId == type(ICcipReceiver).interfaceId
+                || interfaceId == type(IERC165).interfaceId;
     }
 
     /// @notice Whether a lane is open and, if so, the sender it trusts.

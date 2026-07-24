@@ -86,7 +86,9 @@ contract DeployCcipReceiver is Script {
             console2.log("  -> that address must call acceptOwnership()");
         }
         if (lanes.length == 0) {
-            console2.log("  NOTE: no lanes open - the receiver accepts NOTHING until setSourceLane is called");
+            console2.log(
+                "  NOTE: no lanes open - the receiver accepts NOTHING until setSourceLane is called"
+            );
         }
     }
 }
