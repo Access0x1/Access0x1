@@ -23,7 +23,7 @@ Access0x1 is the umbrella layer everything plugs into — non-custodial payments
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 <!-- The test count is bound to `forge test --list` and CI-ENFORCED: scripts/sync-test-badge.mjs fails CI if this number drifts from the real suite, so it can't go stale silently. The CI badge above is the live green/red "they pass" signal. Update after adding tests: `node scripts/sync-test-badge.mjs --write`. -->
-[![Tests](https://img.shields.io/badge/Tests-1992%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/Tests-2016%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -279,7 +279,7 @@ git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
 make install           # forge submodules + npm (@chainlink) + web + SDK — one command
 make build             # forge build
-make test              # 1,992 tests, all green
+make test              # 2,016 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
@@ -650,7 +650,7 @@ the committed table has drifted — so it can never go stale by hand:
 | 0G Galileo Testnet | `16602` | ⏳ pre-mirror |
 | Tempo Testnet (Moderato) | `42431` | ⏳ pre-mirror |
 | Avalanche Fuji | `43113` | ✅ mirror |
-| Chain 46630 | `46630` | ✅ mirror |
+| Robinhood Chain Testnet | `46630` | ✅ mirror |
 | Base Sepolia | `84532` | ✅ mirror |
 | Arbitrum Sepolia | `421614` | ✅ mirror |
 | Hoodi | `560048` | ⏳ pre-mirror |
@@ -832,13 +832,18 @@ no-op, never a blocked payment). The detail for each — file paths and exact be
 | Partner | What they provided | Why it mattered |
 | --- | --- | --- |
 | **Circle + Arc** | USDC as the native gas token (Arc) + the Gateway / x402 settlement seam | No separate gas step for the payer, with **zero Paymaster code** — gas is paid in USDC on Arc, so we wrote a chain config and a pay button |
+| **Zircuit** | Garfield testnet (48898) as a settlement chain, with **AI-secured** sequencer-level transaction screening | The same one-address rail runs on Zircuit — settlement inherits Zircuit's AI transaction-level security for free; deploy target wired (`make deploy-zircuit-garfield`) + in the frontend `SUPPORTED_CHAINS` |
+| **Hedera** | Hedera EVM (testnet 296) via the Hashio JSON-RPC relay as a settlement chain | The rail deploys to Hedera's EVM unchanged; USDC priced off a $1 mock feed (Hedera has no Chainlink feeds, the 0G pattern); deploy target + frontend wired, broadcast pending operator keys |
+| **QuickNode** | Dedicated per-chain RPC endpoints for server-side reads | Point ANY supported chain's checkout quotes / ENS gateway / dashboards at a QuickNode endpoint with one env var (`RPC_URL_<chainId>`) — closes the public-RPC gap for the viem-imported chains; blank ⇒ the chain's own default |
+| **0G** | Galileo testnet (16602) deploy **+ 0G Compute** as an AI inference backend | The rail is deployed on 0G, **and** agent inference can run **on 0G's decentralized compute** — `AI_INFERENCE_PROVIDER=zerog` routes `/api/ai/infer` (and any `lib/ai/inference.ts` caller) to 0G Compute instead of Anthropic; env-gated + fail-soft, the AI-track story |
 | **Chainlink** | `<token>/USD` Data Feeds read in-transaction (+ CRE for the audit consumer) | The settled price is trusted **on-chain**, not a frontend guess — one in-tx call gave us USD→USDC pricing |
 | **Dynamic** | Email sign-in backed by an embedded wallet | A buyer who has never held a wallet completes a USDC checkout — no seed phrase, no extension |
 | **Unlink** | Confidential-withdrawal seam (`@unlink-xyz/sdk`) | A merchant can shield a settled-USDC payout off the public ledger; absent the SDK it degrades to a standard payout |
 | **Uniswap** | Trading API `/quote` → gasless UniswapX `/order` (Base) \| classic `/swap` (zkSync Era) | The **"receive in any coin"** payout swap: settled USDC → the merchant's token, same-chain, non-custodial, **zero added fee** and off the settlement path; env-gated + dormant until an endpoint is set |
+| **1inch** | Aggregation/Swap API — Fusion gasless order \| classic `/swap`, plus the agent pay-any-token quote | The **aggregator alternative** for the payout swap (a chain Uniswap's rail doesn't cover, e.g. Polygon) **and** the buyer/agent "what does this cost in token X" quote — both **zero integrator fee**, env-gated + dormant until `ONEINCH_API_URL` |
 | **World ID** | One-tap proof-of-personhood gate before pay | Verified-human checkout that sits **in front of** settlement — a misconfigured gate degrades, never blocks |
 | **OIDC (e.g. Sign in with Google)** | Server-side ID-token verification via `jose` | "Verify for all" — any app from this template inherits an `oidc` method by setting one env var; blank ⇒ OFF |
-| **ENS** | Name → payout-address resolution, ENSIP-19 verified identity, Namestone gasless subnames | Brand and payout destination can be a name, not a hex string — identity shown only on forward==reverse, off the money path |
+| **ENS** | Name → payout-address resolution, ENSIP-19 verified identity, Namestone gasless subnames, **ENSv2 live Payment Resolver** | **The front door of the flow: a business grabs an ENS name + subname first, and Access0x1 becomes its resolver** — so `pay.<business>.eth` is a live, USD-priced payment endpoint, not a static row. Identity shown only on forward==reverse, off the money path |
 | **Walrus** | Content-addressed publishing of the checkout page + receipts (Sui) | An un-takedownable checkout — no single origin to pin or take down |
 
 ---
@@ -918,9 +923,21 @@ integration let us *not* build, not a marketing wall.
   - **WRITE — Namestone gasless subnames.** [`web/lib/ens-subnames.ts`](web/lib/ens-subnames.ts) +
     [`web/app/api/ens/subname`](web/app/api/ens/subname) issue `merchant-<id>.<parent>.eth` with **zero
     gas** via Namestone and write the merchant's USD-pricing / settlement config into ENS **text records**
-    (`com.access0x1.*`). The subname **parent is your own ENS name**, read only from `ENS_SUBNAME_PARENT`
+    (`click.access0x1.*`). The subname **parent is your own ENS name**, read only from `ENS_SUBNAME_PARENT`
     (never hardcoded); with `NAMESTONE_API_KEY` it's live. **Blank ⇒ the whole seam is a clean no-op**
     (no fabricated name, no network call) — fail-soft, like OIDC degrading when unconfigured.
+  - **ENSv2 — the LIVE Payment Resolver (a brand-new ENS shape).** Built on ENSv2's "your name,
+    your registry" model: instead of a **static** text record, `pay.<merchant>.eth` resolves — via
+    a custom resolver — to the merchant's **live** payout + USD-pricing config, read off the router
+    *at query time* (change your payout, the name follows, zero re-issuance).
+    [`src/ens/Access0x1PaymentResolver.sol`](src/ens/Access0x1PaymentResolver.sol) implements the
+    standard ENS profile (`addr` · ENSIP-11 multichain `addr` · `text` · ENSIP-10 wildcard
+    `resolve`); a name is bound to a seat with owner-consent read live from `router.merchants(id)
+    .owner`. [`web/lib/ens/ensv2.ts`](web/lib/ens/ensv2.ts) +
+    [`web/app/api/ens/resolve`](web/app/api/ens/resolve) are the off-chain twin / CCIP-Read gateway
+    for mainnet-name → L2-router resolution. Env-gated (`NEXT_PUBLIC_ENSV2_*`) + fail-soft: blank ⇒
+    the ENSv1/Namestone path above. The signed EIP-3668 wrapper is the declared next rung (honest
+    scope). Full write-up: [`docs/ENSV2-PAYMENT-RESOLVER.md`](docs/ENSV2-PAYMENT-RESOLVER.md).
 - **Walrus — an un-takedownable checkout.** [`web/lib/walrus.ts`](web/lib/walrus.ts) publishes the
   checkout page and receipt blobs to Walrus (Sui decentralized storage). Because a blob is
   content-addressed and served by any aggregator on the network, the checkout isn't pinned to one

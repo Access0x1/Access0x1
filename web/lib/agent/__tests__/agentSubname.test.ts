@@ -117,6 +117,17 @@ describe('agentSubnameTexts (pure record builder)', () => {
       }),
     ).toThrow(/\[/)
   })
+
+  it('publishes the inference choice (click.access0x1.inference) only when a provider is set', () => {
+    const withZerog = agentSubnameTexts(identity, ERC8004_MAINNET_REGISTRY, { inferenceProvider: 'zerog' })
+    const byKey = Object.fromEntries(withZerog.map((t) => [t.key, t.value]))
+    expect(byKey[AGENT_SUBNAME_TEXT_KEYS.inference]).toBe('zerog')
+    expect(AGENT_SUBNAME_TEXT_KEYS.inference).toBe('click.access0x1.inference')
+
+    // Unset ⇒ no record at all (an absent record cleanly means "the default backend").
+    const without = agentSubnameTexts(identity, ERC8004_MAINNET_REGISTRY)
+    expect(without.some((t) => t.key === AGENT_SUBNAME_TEXT_KEYS.inference)).toBe(false)
+  })
 })
 
 describe('issueAgentSubname — fail-soft seam contract', () => {

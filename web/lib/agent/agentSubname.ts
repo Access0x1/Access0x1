@@ -12,7 +12,7 @@
  *  2. the ENSIP-25 attestation record `agent-registration[<erc7930-registry>][<agentId>]` = "1"
  *     — leg 2 (the name owner attests the registry binding).
  *  3. optional ENSIP-26 discovery records: `agent-context` and `agent-endpoint[<protocol>]`.
- *  4. `com.access0x1.*` provenance records (full agentId, the granting owner, the name-hash
+ *  4. `click.access0x1.*` provenance records (full agentId, the granting owner, the name-hash
  *     COMMITMENT when present) — same generic namespace the merchant subnames use.
  *
  * Doctrine (inherited, both sides):
@@ -30,18 +30,27 @@ import { isSubnameIssuanceConfigured, issueSubname } from '../ens-subnames'
 import type { AgentIdentity } from './identity'
 import type { AgentRegistry } from './ensIdentity'
 import { AGENT_CONTEXT_KEY, agentEndpointKey, expectedAgentRegistration } from './ensIdentity'
+import { AGENT_INFERENCE_RECORD_KEY } from '../ai/agentInference'
+import type { InferenceProvider } from '../ai/inference'
 
 /**
  * Generic TEXT-record keys for agent provenance on the subname — the agent-side
- * companion to `SUBNAME_TEXT_KEYS` (merchants), same `com.access0x1.*` namespace.
+ * companion to `SUBNAME_TEXT_KEYS` (merchants), same `click.access0x1.*` namespace.
  */
 export const AGENT_SUBNAME_TEXT_KEYS = {
   /** The full bytes32 agentId (the label carries only a 16-hex-char prefix of it). */
-  agentId: 'com.access0x1.agentId',
+  agentId: 'click.access0x1.agentId',
   /** The granting principal — the account that delegated authority to the agent. */
-  agentOwner: 'com.access0x1.agentOwner',
+  agentOwner: 'click.access0x1.agentOwner',
   /** The agent's display-name COMMITMENT (keccak256), when the caller named it. */
-  agentNameHash: 'com.access0x1.agentNameHash',
+  agentNameHash: 'click.access0x1.agentNameHash',
+  /**
+   * The agent's chosen inference backend (`zerog` ⇒ 0G Compute, `anthropic` ⇒ default). Writing
+   * this record is how an ETH-native agent PUBLISHES its decision to join 0G — `agentInference.ts`
+   * (`resolveAgentInferenceProvider`) reads the SAME key back off the name. Set only when a provider
+   * is explicitly chosen, so an unset record cleanly means "the default".
+   */
+  inference: AGENT_INFERENCE_RECORD_KEY,
 } as const
 
 /** How many hex chars of the agentId go into the label (64 bits — see below). */
@@ -53,7 +62,7 @@ const LABEL_ID_HEX_CHARS = 16
  * Why a prefix and not the full hash: an ENS label caps at 63 chars and `agent-` +
  * 64 hex chars is 70. 16 hex chars (64 bits) keeps the label short and readable while
  * making an accidental collision unrealistic at any plausible number of agents; the FULL
- * agentId is still on the name twice over — in the `com.access0x1.agentId` record and
+ * agentId is still on the name twice over — in the `click.access0x1.agentId` record and
  * inside the ENSIP-25 key — so the label is a handle, never the identity itself.
  *
  * @param identity - the agent identity (its `agentId` seeds the label).
@@ -69,12 +78,17 @@ export interface AgentDiscovery {
   context?: string
   /** `agent-endpoint[<protocol>]` values keyed by protocol (e.g. `{ mcp: url, a2a: url }`). */
   endpoints?: Record<string, string>
+  /**
+   * The agent's chosen inference backend, published as `click.access0x1.inference`. When set, the
+   * agent "joins 0G" (or pins Anthropic) via its own ENS identity; unset ⇒ no record ⇒ the default.
+   */
+  inferenceProvider?: InferenceProvider
 }
 
 /**
  * Build the full ENS text-record set for an agent subname — PURE, no network:
  * the ENSIP-25 attestation, any ENSIP-26 discovery records, and the
- * `com.access0x1.*` provenance keys. Exported separately so a caller who issues
+ * `click.access0x1.*` provenance keys. Exported separately so a caller who issues
  * through another writer (or an owner setting records manually) gets the exact
  * same record set the seam would write.
  *
@@ -110,6 +124,10 @@ export function agentSubnameTexts(
     // agentEndpointKey throws on reserved brackets — the caller sees bad_input
     // via issueAgentSubname, or the raw throw when calling this pure builder.
     texts.push({ key: agentEndpointKey(protocol), value })
+  }
+  // The agent's inference choice — publishing this record is how it JOINS 0G via its ENS identity.
+  if (discovery?.inferenceProvider) {
+    texts.push({ key: AGENT_SUBNAME_TEXT_KEYS.inference, value: discovery.inferenceProvider })
   }
   return texts
 }

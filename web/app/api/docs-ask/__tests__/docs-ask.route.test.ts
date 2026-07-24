@@ -119,6 +119,47 @@ describe('happy path (mocked SDK)', () => {
   })
 })
 
+describe('0G Compute path — global switch AI_INFERENCE_PROVIDER=zerog', () => {
+  it('answers the SAME grounded corpus on 0G and tags x-inference-provider: zerog', async () => {
+    vi.stubEnv('AI_INFERENCE_PROVIDER', 'zerog')
+    vi.stubEnv('ZEROG_COMPUTE_ENDPOINT', 'https://compute.0g')
+    vi.stubEnv('ZEROG_COMPUTE_API_KEY', 'k')
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({ model: 'llama-x', choices: [{ message: { content: 'Priced in USD (docs/FAQ.md).' } }] }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await POST(req({ question: 'How is a payment priced?' }))
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/plain')
+    expect(res.headers.get('x-inference-provider')).toBe('zerog')
+    expect(await res.text()).toBe('Priced in USD (docs/FAQ.md).')
+
+    // The 0G call is OpenAI-compatible, with the docs corpus sent as the system message.
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toBe('https://compute.0g/chat/completions')
+    const body = JSON.parse((init as RequestInit).body as string)
+    expect(body.messages[0].role).toBe('system')
+    expect(body.messages[0].content).toContain('===== docs/FAQ.md =====')
+    expect(body.messages[1]).toEqual({ role: 'user', content: 'How is a payment priced?' })
+    expect(streamMock).not.toHaveBeenCalled() // the Anthropic streaming path is untouched
+  })
+
+  it('GET probe reports configured from the 0G env even with no Claude key', async () => {
+    vi.stubEnv('CLAUDE_API_KEY', '')
+    vi.stubEnv('AI_INFERENCE_PROVIDER', 'zerog')
+    vi.stubEnv('ZEROG_COMPUTE_ENDPOINT', 'https://compute.0g')
+    vi.stubEnv('ZEROG_COMPUTE_API_KEY', 'k')
+    const res = await GET()
+    expect(await res.json()).toEqual({ configured: true })
+  })
+})
+
 describe('capability probe (GET) — the UI gates the assistant on this flag', () => {
   it('reports { configured: true } when the key is set — and never leaks the key', async () => {
     const res = await GET()

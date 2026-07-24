@@ -1,6 +1,12 @@
 /**
  * ens-subnames.ts — the WRITE seam: gasless ENS subnames via Namestone.
  *
+ * SEE ALSO — the ENSv2 LIVE twin: this module writes STATIC text records once. Its
+ * live counterpart is the ENSv2 Payment Resolver (`web/lib/ens/ensv2.ts` +
+ * `src/ens/Access0x1PaymentResolver.sol`), which serves the SAME `click.access0x1.*`
+ * schema COMPUTED from the router at query time. {SUBNAME_TEXT_KEYS} below is shared
+ * by both so the static and live issuers never drift. See docs/ENSV2-PAYMENT-RESOLVER.md.
+ *
  * Issues `<label>.<PARENT>.eth` subnames for merchants and writes their
  * USD-pricing / settlement config into ENS TEXT RECORDS, with ZERO gas and no
  * key handling on our side — Namestone is an offchain ENS issuer (CCIP-Read
@@ -179,18 +185,18 @@ export async function issueSubname(input: {
 
 /**
  * Generic TEXT-record key namespace for the config we write onto a merchant
- * subname. GENERIC (no owner/brand name): `com.access0x1.*`. These are the keys a
+ * subname. GENERIC (no owner/brand name): `click.access0x1.*`. These are the keys a
  * resolver/integrator reads back to discover a merchant's pricing/settlement.
  */
 export const SUBNAME_TEXT_KEYS = {
   /** The on-chain / internal merchant id. */
-  merchantId: 'com.access0x1.merchantId',
+  merchantId: 'click.access0x1.merchantId',
   /** The router address that settles this merchant's payments. */
-  router: 'com.access0x1.router',
+  router: 'click.access0x1.router',
   /** The settlement chain id (decimal string). */
-  chainId: 'com.access0x1.chainId',
+  chainId: 'click.access0x1.chainId',
   /** The USD-pricing currency tag (always "USD" for this app's USD-priced router). */
-  pricingCurrency: 'com.access0x1.pricingCurrency',
+  pricingCurrency: 'click.access0x1.pricingCurrency',
 } as const
 
 /**
@@ -199,14 +205,14 @@ export const SUBNAME_TEXT_KEYS = {
  *
  * This is the WRITE-seam entrypoint the onboarding flow calls. It is a thin
  * wrapper over {@link issueSubname} that (a) derives the `merchant-<id>` label
- * and (b) maps the merchant config into the generic `com.access0x1.*` text-key
+ * and (b) maps the merchant config into the generic `click.access0x1.*` text-key
  * namespace. Inherits the fail-soft contract: unconfigured ⇒ `not_configured`
  * NO-OP, no network, no invented name.
  *
  * @param merchant.id       The merchant id (becomes the `merchant-<id>` label).
  * @param merchant.owner    The 0x address the subname resolves to (the operator).
- * @param merchant.router   Optional router address → `com.access0x1.router`.
- * @param merchant.chainId  Optional settlement chain id → `com.access0x1.chainId`.
+ * @param merchant.router   Optional router address → `click.access0x1.router`.
+ * @param merchant.chainId  Optional settlement chain id → `click.access0x1.chainId`.
  * @returns the issued name, or a machine error code (never a throw).
  */
 export async function issueMerchantSubname(merchant: {

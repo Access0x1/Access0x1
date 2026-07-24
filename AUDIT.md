@@ -122,6 +122,11 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 - **Dynamic** — the embedded-wallet layer; every connect/sign/pay/register runs through it.
 - **Chainlink** — USD Data Feed read inside every settlement tx; staleness-guarded.
 - **ENS** — gasless merchant subnames via Namestone + ENSIP-11 (coinType) / ENSIP-19 (verified primary name).
+  Plus the **ENSv2 Payment Resolver** (`src/ens/Access0x1PaymentResolver.sol` + `web/lib/ens/ensv2.ts` +
+  `web/app/api/ens/resolve`, unit-tested): a custom resolver that resolves `pay.<merchant>.eth` to the
+  merchant's LIVE router payout/config at query time. The signed EIP-3668 CCIP-Read wrapper is a declared
+  next rung, NOT claimed live (the on-chain resolver is the source of truth); the ENSv2 registry addresses
+  are alpha/env-gated, blank ⇒ the ENSv1 path.
 - **World ID** — one-tap proof-of-personhood gate; nullifier dedup with replay protection; a Casino-Verified
   vertical that makes the gate mandatory for gaming merchants. (World ID proves a unique human only —
   not age, jurisdiction, or a gambling licence; we state that in-product.)
@@ -133,12 +138,15 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 **Seam (code present, NOT exercised in the live example path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),
-  **Uniswap payout-swap** (receive-in-any-token rail), **paymaster** (gas sponsorship). We label these
-  as seams everywhere — never as "live."
+  **Uniswap payout-swap** (receive-in-any-token rail), **1inch** (aggregator payout-swap rail
+  `web/lib/payout-swap/rails/oneInch.ts` + agent pay-any-token quote `web/lib/agent/anyToken1inch.ts`,
+  both unit-tested, env-gated + dormant until `ONEINCH_API_URL`, zero integrator fee),
+  **paymaster** (gas sponsorship). We label these as seams everywhere — never as "live."
 
 **Not built — we do NOT claim these:**
-- Hedera, LI.FI, Canton, Ledger, 1inch, Google Cloud / BigQuery, Privy, CCTP, ERC-5570 / ERC-5192 / ERC-1155,
-  and cbBTC is **not** in the live `SUPPORTED_PAY_TOKENS` list.
+- LI.FI, Canton, Ledger, Google Cloud / BigQuery, Privy, CCTP, ERC-5570 / ERC-5192 / ERC-1155,
+  and cbBTC is **not** in the live `SUPPORTED_PAY_TOKENS` list. (Hedera moves to a deployed chain and
+  1inch to a seam as those land — see the deploy tables / the Built-on list.)
 
 ---
 

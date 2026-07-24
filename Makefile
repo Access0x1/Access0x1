@@ -35,6 +35,7 @@ GNOSIS_CHIADO_RPC_URL ?= https://rpc.chiadochain.net
 APECHAIN_CURTIS_RPC_URL ?= https://curtis.rpc.caldera.xyz/http
 WORLDCHAIN_SEPOLIA_RPC_URL ?= https://worldchain-sepolia.g.alchemy.com/public
 ZIRCUIT_GARFIELD_RPC_URL ?= https://garfield-testnet.zircuit.com
+HEDERA_TESTNET_RPC_URL ?= https://testnet.hashio.io/api
 CITREA_TESTNET_RPC_URL ?= https://rpc.testnet.citrea.xyz
 FLOW_EVM_TESTNET_RPC_URL ?= https://testnet.evm.nodes.onflow.org
 CELO_SEPOLIA_RPC_URL ?= https://forno.celo-sepolia.celo-testnet.org
@@ -75,7 +76,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         deploy-pick mirror-manifest sync \
         deploy-dry deploy-local drive-local drive-merchant-base drive-merchant-arc drive-merchant-base-dry drive-merchant-arc-dry deploy-arc deploy-base-sepolia deploy-zksync-sepolia deploy-ethereum-sepolia deploy-arbitrum-sepolia deploy-optimism-sepolia \
         deploy-polygon-amoy deploy-avalanche-fuji deploy-bnb-testnet deploy-scroll-sepolia deploy-linea-sepolia deploy-mantle-sepolia deploy-blast-sepolia deploy-unichain-sepolia \
-        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet deploy-hoodi deploy-tempo \
+        deploy-zora-sepolia deploy-filecoin-calibration deploy-gnosis-chiado deploy-apechain-curtis deploy-worldchain-sepolia deploy-zircuit-garfield deploy-hedera-testnet deploy-citrea-testnet deploy-flow-evm-testnet deploy-celo-sepolia deploy-robinhood-testnet deploy-hoodi deploy-tempo \
         verify-robinhood-testnet verify-ethereum-sepolia verify-base-sepolia verify-optimism-sepolia verify-avalanche-fuji verify-arc verify-arbitrum-sepolia verify-polygon-amoy verify-galileo verify-chain verify-all-testnets verify-all-sourcify \
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
         deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
@@ -491,6 +492,9 @@ deploy-worldchain-sepolia: ## Deploy to World Chain Sepolia (chainId 4801, ETH; 
 
 deploy-zircuit-garfield: ## Deploy to Zircuit Garfield testnet (chainId 48898, ETH; sourcify verify)
 	forge script script/DeployAll.s.sol --rpc-url $(ZIRCUIT_GARFIELD_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --verify --verifier sourcify -vvvv
+
+deploy-hedera-testnet: ## Deploy to Hedera testnet (chainId 296, HBAR via Hashio; sourcify verify) — set HEDERA_TESTNET_PLATFORM_TREASURY first; Hedera has no Chainlink feed, run `make deploy-usd-mock-feed RPC=$(HEDERA_TESTNET_RPC_URL)` for $1 USDC pricing
+	forge script script/DeployAll.s.sol --rpc-url $(HEDERA_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --verify --verifier sourcify -vvvv
 
 deploy-citrea-testnet: ## Deploy to Citrea testnet (chainId 5115, cBTC; blockscout verify)
 	forge script script/DeployAll.s.sol --rpc-url $(CITREA_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(CITREA_TESTNET_VERIFIER_URL)) -vvvv

@@ -75,9 +75,53 @@ export const arcTestnet = defineChain({
 })
 
 /**
+ * Zircuit Garfield testnet (48898) — not in `viem/chains`, so hand-defined like
+ * {@link arcTestnet}. Native ETH; the CREATE3 deploy target already exists on the
+ * contract side (`make deploy-zircuit-garfield`). RPC is env-overridable (a
+ * QuickNode endpoint slots in here) with the public default as the fallback — `||`
+ * (not `??`) so a BLANK env value falls back rather than yielding an empty URL.
+ */
+export const zircuitGarfield = defineChain({
+  id: 48898,
+  name: 'Zircuit Garfield Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [process.env.NEXT_PUBLIC_ZIRCUIT_GARFIELD_RPC_URL || 'https://garfield-testnet.zircuit.com'],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Zircuit Explorer', url: 'https://explorer.garfield-testnet.zircuit.com' },
+  },
+  testnet: true,
+})
+
+/**
+ * Hedera testnet (296) — the Hedera EVM via the Hashio JSON-RPC relay; not in
+ * `viem/chains`, so hand-defined like {@link arcTestnet}. Native HBAR (the JSON-RPC
+ * relay exposes 18-dec wei-scaled balances). Hedera has no Chainlink feeds, so USDC
+ * pricing uses a $1 mock feed the deploy provisions (same pattern as 0G Galileo).
+ * RPC is env-overridable (a QuickNode endpoint slots in here).
+ */
+export const hederaTestnet = defineChain({
+  id: 296,
+  name: 'Hedera Testnet',
+  nativeCurrency: { name: 'HBAR', symbol: 'HBAR', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [process.env.NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL || 'https://testnet.hashio.io/api'],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'HashScan', url: 'https://hashscan.io/testnet' },
+  },
+  testnet: true,
+})
+
+/**
  * Every chain checkout-web supports. All the testnets below settle in the
  * canonical 6-dec bridged USDC and pay gas in their OWN native token (ETH / POL /
- * AVAX / tBNB / MNT) — Arc is the one exception, where native USDC is also the
+ * AVAX / tBNB / MNT / HBAR) — Arc is the one exception, where native USDC is also the
  * gas token, so it has no separate gas step (see {@link isGasFree}). The viem
  * chain objects carry each chain's id, native currency, public RPC and explorer;
  * we never re-literalize an id or an explorer URL we'd otherwise invent (law #4).
@@ -106,6 +150,12 @@ export const SUPPORTED_CHAINS: readonly [Chain, ...Chain[]] = [
   mantleSepoliaTestnet,
   blastSepolia,
   unichainSepolia,
+  // Sponsor chains (hand-defined; not in viem/chains). Zircuit Garfield already has
+  // a CREATE3 deploy target; Hedera settles USDC priced off a $1 mock feed (no
+  // Chainlink feeds on Hedera). Router/USDC addresses resolve from env, undefined
+  // until deployed+set — listing here makes no on-chain claim (law #4).
+  zircuitGarfield,
+  hederaTestnet,
 ]
 
 /**
@@ -178,6 +228,9 @@ const USDC_DECIMALS_BY_CHAIN: Readonly<Record<number, number>> = {
   [mantleSepoliaTestnet.id]: 6,
   [blastSepolia.id]: 6,
   [unichainSepolia.id]: 6,
+  // Sponsor chains: both settle in the canonical 6-dec bridged/mock USDC.
+  [zircuitGarfield.id]: 6,
+  [hederaTestnet.id]: 6,
   // MAINNET display decimals (AUDIT-GATED, NOT DEPLOYED). Canonical Circle USDC is the 6-dec ERC-20 on
   // every one of these chains; native gas is the chain's OWN token (ETH / POL / AVAX / BNB / MNT), so
   // none of them skips a separate gas asset. Display-only — the money path always reads decimals() on-chain.
@@ -346,6 +399,8 @@ const ROUTER_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
   [baseSepolia.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_84532 || undefined,
   [sepolia.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_11155111 || undefined,
   [zksyncSepoliaTestnet.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_300 || undefined,
+  [zircuitGarfield.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_48898 || undefined,
+  [hederaTestnet.id]: process.env.NEXT_PUBLIC_ROUTER_ADDRESS_296 || undefined,
 }
 
 const USDC_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
@@ -353,6 +408,8 @@ const USDC_ADDRESS_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
   [baseSepolia.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_84532 || undefined,
   [sepolia.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_11155111 || undefined,
   [zksyncSepoliaTestnet.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_300 || undefined,
+  [zircuitGarfield.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_48898 || undefined,
+  [hederaTestnet.id]: process.env.NEXT_PUBLIC_USDC_ADDRESS_296 || undefined,
 }
 
 /**
@@ -470,8 +527,22 @@ export function getUsdcAddress(chainId: number): Address {
   return addr as Address
 }
 
-/** Resolve a per-chain RPC URL from env (used by server-side public clients). */
+/**
+ * Resolve a per-chain RPC URL for server-side public clients.
+ *
+ * PROVIDER OVERRIDE (QuickNode & friends): an operator can point ANY supported chain's
+ * server-side reads at a dedicated endpoint by setting `RPC_URL_<chainId>` (e.g. a
+ * QuickNode URL like `https://<name>.<network>.quiknode.pro/<token>/`). This closes the
+ * gap the `defineChain` chains already had (Arc/Zircuit/Hedera read a `NEXT_PUBLIC_*_RPC_URL`
+ * in their definition) for the chains imported straight from `viem/chains`, which otherwise
+ * fall back to viem's shared public RPC. Server-only (a computed key is never inlined into
+ * the browser bundle), read via the non-literal form and guarded on `typeof window`; a blank
+ * value falls through to the chain's own default (never an empty URL).
+ */
 export function getRpcUrl(chainId: number): string {
+  const override =
+    typeof window === 'undefined' ? (process.env[`RPC_URL_${chainId}`] || '').trim() : ''
+  if (override.length > 0) return override
   const chain = getChain(chainId)
   return chain.rpcUrls.default.http[0]
 }

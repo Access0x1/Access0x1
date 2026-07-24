@@ -53,6 +53,9 @@ export function DocsAssistant({
   const [answer, setAnswer] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // Which backend served the current answer (from the response's x-inference-provider header):
+  // 'zerog' ⇒ 0G Compute, 'anthropic' ⇒ Claude. Drives the "computed on" badge.
+  const [provider, setProvider] = useState<string | null>(null)
   // Guard against overlapping requests (double-submit / Enter spam).
   const inFlight = useRef(false)
 
@@ -81,6 +84,7 @@ export function DocsAssistant({
     setLoading(true)
     setError(null)
     setAnswer('')
+    setProvider(null)
 
     try {
       const res = await fetch('/api/docs-ask', {
@@ -88,6 +92,9 @@ export function DocsAssistant({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ question: trimmed }),
       })
+
+      // The backend that served this answer (0G Compute vs Claude) — surfaced as a badge.
+      setProvider(res.headers.get('x-inference-provider'))
 
       if (!res.ok || !res.body) {
         let msg = 'The assistant could not answer right now.'
@@ -210,7 +217,19 @@ export function DocsAssistant({
           ) : error ? (
             <p className="text-destructive">{error}</p>
           ) : answer ? (
-            <p className="whitespace-pre-wrap">{answer}</p>
+            <div className="flex flex-col gap-2">
+              <p className="whitespace-pre-wrap">{answer}</p>
+              {provider && (
+                <span
+                  data-testid="docs-inference-provider"
+                  data-provider={provider}
+                  className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                >
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-rail" />
+                  {provider === 'zerog' ? 'Computed on 0G Compute' : 'Answered by Claude'}
+                </span>
+              )}
+            </div>
           ) : (
             <p className="text-muted-foreground">
               {loading ? 'Thinking…' : 'The answer will stream in here.'}
