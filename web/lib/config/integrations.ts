@@ -40,6 +40,17 @@ export interface EnvVarSpec {
   readonly secret?: boolean
   /** True when a sane default applies if unset (so "missing" isn't a problem). */
   readonly hasDefault?: boolean
+  /**
+   * Set when the value is NOT chosen by the operator — it is minted by a system
+   * and copied in afterwards.
+   *
+   * WHY THIS EXISTS: `AGENT_WALLET_ID` is `required: true` and prints "REQUIRED,
+   * not set", which reads as "type something here". There is nothing to type —
+   * the id does not exist until Dynamic mints it on first agent boot. Operators
+   * repeatedly tried to fill it, and a guessed id points the agent at no wallet.
+   * A required field with no answerable question needs to say so at the prompt.
+   */
+  readonly mintedBy?: string
 }
 
 /** One external API / capability the app can be configured with. */
@@ -251,7 +262,14 @@ export const INTEGRATIONS: readonly Integration[] = [
     impact: 'demo',
     where: 'Set after the Dynamic wallet exists; caps/allowlist are yours to choose.',
     vars: [
-      { name: 'AGENT_WALLET_ID', purpose: 'The agent MPC wallet id', required: true },
+      {
+        name: 'AGENT_WALLET_ID',
+        purpose: 'The agent MPC wallet id',
+        required: true,
+        mintedBy:
+          'Dynamic, on first agent boot — it is printed to the server log. Leave BLANK now, ' +
+          'then re-run this and paste it. A guessed id points the agent at a wallet that does not exist.',
+      },
       { name: 'AGENT_DAILY_USD_CAP', purpose: 'Hard daily spend ceiling (0 blocks everything)', required: true },
       { name: 'AGENT_URL_ALLOWLIST', purpose: 'Comma-separated origins the agent may pay (deny-all when blank)', required: true },
       // REQUIRED, not optional: /api/agent/pay FAILS CLOSED with 503 not_configured when this is

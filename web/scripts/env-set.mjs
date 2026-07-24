@@ -218,7 +218,14 @@ async function main() {
     const state = current ? 'already set' : v.required ? 'REQUIRED, not set' : 'optional, not set'
     console.log(`${v.name} — ${v.purpose}`)
     console.log(`  (${state}${v.secret ? ', secret: input hidden' : ''})`)
-    const prompt = current ? '  new value (Enter = keep current): ' : '  value (Enter = skip): '
+    // A value the operator cannot invent must say so BEFORE the cursor blinks —
+    // "REQUIRED, not set" otherwise reads as an instruction to type something.
+    if (v.mintedBy) console.log(`  ↳ NOT yours to choose — minted by ${v.mintedBy}`)
+    const prompt = v.mintedBy && !current
+      ? '  press Enter to skip (nothing to type yet): '
+      : current
+        ? '  new value (Enter = keep current): '
+        : '  value (Enter = skip): '
     const answer = v.secret ? await askSecret(prompt) : await ask(prompt)
     if (answer) {
       const { value, notes } = normalizeValue(v.name, answer)
