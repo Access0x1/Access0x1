@@ -32,29 +32,42 @@ import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const WEB_ROOT = resolve(HERE, '..')
+const REPO_ROOT = resolve(WEB_ROOT, '..')
+/** The default target; the deploy integration overrides this to the repo-root .env. */
 const ENV_PATH = join(WEB_ROOT, '.env.local')
+
+/** Resolve an integration's repo-root-relative envFile to an absolute path. */
+function envPathFor(integration) {
+  const rel = integration?.envFile ?? 'web/.env.local'
+  return resolve(REPO_ROOT, rel)
+}
 
 const ARGS = process.argv.slice(2)
 const LIST_ONLY = ARGS.includes('--list')
 const TARGET = ARGS.find((a) => !a.startsWith('-'))
 
-/** Refuse to touch .env.local unless git is genuinely ignoring it. */
-function assertGitignored() {
+/**
+ * Refuse to touch a target env file unless git is genuinely ignoring it. This is
+ * the guard that makes writing to the repo-root `.env` (deploy secrets) as safe as
+ * writing to web/.env.local — both must be gitignored, and the tool proves it
+ * before writing a single byte, rather than trusting the path.
+ */
+function assertGitignored(path = ENV_PATH) {
   try {
-    execFileSync('git', ['check-ignore', '-q', ENV_PATH], { cwd: WEB_ROOT, stdio: 'ignore' })
+    execFileSync('git', ['check-ignore', '-q', path], { cwd: REPO_ROOT, stdio: 'ignore' })
   } catch {
     console.error(
-      '\nREFUSING TO WRITE: web/.env.local is not gitignored.\n' +
+      `\nREFUSING TO WRITE: ${path} is not gitignored.\n` +
         'Writing secrets to a tracked file risks committing them. Fix .gitignore first.\n',
     )
     process.exit(1)
   }
 }
 
-/** Parse `.env.local` into {order, map} so a rewrite preserves layout. */
-function readEnvFile() {
-  if (!existsSync(ENV_PATH)) return { lines: [], map: new Map() }
-  const lines = readFileSync(ENV_PATH, 'utf8').split('\n')
+/** Parse an env file into {order, map} so a rewrite preserves layout. */
+function readEnvFile(path = ENV_PATH) {
+  if (!existsSync(path)) return { lines: [], map: new Map() }
+  const lines = readFileSync(path, 'utf8').split('\n')
   const map = new Map()
   lines.forEach((line, i) => {
     const trimmed = line.trim()
@@ -72,9 +85,9 @@ function formatValue(value) {
   return /[\s#"']/.test(clean) ? `"${clean.replace(/(["\\])/g, '\\$1')}"` : clean
 }
 
-/** Atomically write updates, preserving unrelated lines and comments. */
-function writeEnvFile(updates) {
-  const { lines, map } = readEnvFile()
+/** Atomically write updates to `path`, preserving unrelated lines and comments. */
+function writeEnvFile(updates, path = ENV_PATH) {
+  const { lines, map } = readEnvFile(path)
   const out = [...lines]
   for (const [name, value] of updates) {
     const line = `${name}=${formatValue(value)}`
@@ -83,10 +96,10 @@ function writeEnvFile(updates) {
     else out.push(line)
   }
   while (out.length && out[out.length - 1].trim() === '') out.pop()
-  const tmp = `${ENV_PATH}.tmp`
+  const tmp = `${path}.tmp`
   writeFileSync(tmp, out.join('\n') + '\n', { mode: 0o600 })
-  renameSync(tmp, ENV_PATH)
-  chmodSync(ENV_PATH, 0o600)
+  renameSync(tmp, path)
+  chmodSync(path, 0o600)
 }
 
 /**
@@ -169,18 +182,28 @@ function askSecret(question) {
   })
 }
 
+/** Read a single value out of a parsed env file's line map. */
+function valueFromMap(path, map, name) {
+  if (!map.has(name)) return undefined
+  return readFileSync(path, 'utf8').split('\n')[map.get(name).index].split('=').slice(1).join('=').trim()
+}
+
 async function main() {
-  assertGitignored()
   // `isPlaceholder` comes from the registry rather than being re-implemented here:
   // two copies of "what counts as unfilled" would drift, and the doctor and this
   // tool disagreeing about whether a value is real is the worst possible outcome.
   const { INTEGRATIONS, statusOf, isPlaceholder } = await import('../lib/config/integrations.ts')
 
-  const { map } = readEnvFile()
-  const lookup = (n) =>
-    process.env[n] !== undefined && process.env[n] !== '' ? process.env[n] : (
-      map.has(n) ? readFileSync(ENV_PATH, 'utf8').split('\n')[map.get(n).index].split('=').slice(1).join('=').trim() : undefined
-    )
+  // A value can live in web/.env.local (app) or the repo-root .env (deploy). Read
+  // BOTH so the status of every integration is correct regardless of its file.
+  const LOCAL_PATH = join(WEB_ROOT, '.env.local')
+  const ROOT_ENV = resolve(REPO_ROOT, '.env')
+  const local = readEnvFile(LOCAL_PATH)
+  const root = readEnvFile(ROOT_ENV)
+  const lookup = (n) => {
+    if (process.env[n] !== undefined && process.env[n] !== '') return process.env[n]
+    return valueFromMap(LOCAL_PATH, local.map, n) ?? valueFromMap(ROOT_ENV, root.map, n)
+  }
 
   if (LIST_ONLY) {
     for (const i of INTEGRATIONS) console.log(`${i.id}\t${i.label}`)
@@ -211,9 +234,17 @@ async function main() {
     if (!chosen) { console.error('no such option.'); process.exit(2) }
   }
 
+  // Write to the file this integration's consumer actually reads. The deploy
+  // integration targets the repo-root .env (Foundry + Make); everything else the
+  // web app's .env.local. The gitignore guard runs against THAT file before any write.
+  const targetPath = envPathFor(chosen)
+  const targetRel = chosen.envFile ?? 'web/.env.local'
+  assertGitignored(targetPath)
+
   console.log(`\n── ${chosen.label}`)
   console.log(`   ${chosen.unlocks}`)
-  console.log(`   Where to get it: ${chosen.where}\n`)
+  console.log(`   Where to get it: ${chosen.where}`)
+  console.log(`   Writes to: ${targetRel}\n`)
 
   // ONLY ASK FOR WHAT IS ACTUALLY MISSING. Walking an operator past fields they
   // already filled — each one needing an Enter to leave alone — trains them to
@@ -265,9 +296,9 @@ async function main() {
     return
   }
 
-  writeEnvFile(updates)
+  writeEnvFile(updates, targetPath)
   // Names only — printing a value here would defeat the hidden prompt.
-  console.log(`Wrote ${updates.size} value(s) to web/.env.local (mode 0600): ${[...updates.keys()].join(', ')}`)
+  console.log(`Wrote ${updates.size} value(s) to ${targetRel} (mode 0600): ${[...updates.keys()].join(', ')}`)
   console.log('Verify with:  npm run env:doctor\n')
 }
 

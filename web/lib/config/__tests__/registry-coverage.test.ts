@@ -23,10 +23,19 @@ import { INTEGRATIONS, allKnownVarNames } from '../integrations'
 import { coverageReport, isCredentialName, scanEnvUsage } from '../envScan'
 
 const WEB_ROOT = resolve(__dirname, '../../..')
+const REPO_ROOT = resolve(WEB_ROOT, '..')
 const ROOTS = ['app', 'lib', 'components', 'scripts'].map((d) => resolve(WEB_ROOT, d))
 
+// The scanner reads web/ TypeScript. Deploy-tier vars (envFile === '.env') are
+// read by the Makefile + forge + shell, NOT web code, so they legitimately never
+// appear in the web scan. Split them out: web-scoped checks run against web vars,
+// and the deploy vars get their own root-.env.example check below.
+const isDeployVar = (name: string): boolean =>
+  INTEGRATIONS.some((i) => i.envFile === '.env' && i.vars.some((v) => v.name === name))
+const webVarNames = allKnownVarNames().filter((n) => !isDeployVar(n))
+
 const used = scanEnvUsage(ROOTS)
-const report = coverageReport(used, allKnownVarNames())
+const report = coverageReport(used, webVarNames)
 
 describe('env scanner', () => {
   it('finds real env reads across the app (sanity — a broken scanner must not pass silently)', () => {
@@ -81,11 +90,27 @@ describe('.env.example stays in sync', () => {
     [...exampleText.matchAll(/^#?\s*([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1] as string),
   )
 
-  it('every declared variable appears in .env.example (commented or not)', () => {
-    const missing = allKnownVarNames().filter((v) => !inExample.has(v))
+  it('every web-scoped declared variable appears in web/.env.example', () => {
+    const missing = webVarNames.filter((v) => !inExample.has(v))
     expect(
       missing,
       `Declared in INTEGRATIONS but absent from web/.env.example:\n  ${missing.join('\n  ')}`,
+    ).toEqual([])
+  })
+
+  it('every deploy-scoped variable appears in the repo-root .env.example', () => {
+    // Deploy vars belong in the root .env.example — the file a contract deployer
+    // copies — not web/.env.example. A deployer who never sees ETHERSCAN_API_KEY
+    // there cannot know to set it, which is the whole gap this integration closes.
+    const rootExample = readFileSync(resolve(REPO_ROOT, '.env.example'), 'utf8')
+    const inRoot = new Set(
+      [...rootExample.matchAll(/^#?\s*([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1] as string),
+    )
+    const deployVars = allKnownVarNames().filter(isDeployVar)
+    const missing = deployVars.filter((v) => !inRoot.has(v))
+    expect(
+      missing,
+      `Declared as deploy-tier but absent from root .env.example:\n  ${missing.join('\n  ')}`,
     ).toEqual([])
   })
 

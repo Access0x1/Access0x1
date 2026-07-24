@@ -69,11 +69,16 @@ async function main() {
   const mod = await import('../lib/config/integrations.ts')
   const { INTEGRATIONS, statusOf } = mod
 
-  const fileEnv = parseEnvFile(join(WEB_ROOT, '.env.local'))
-  const lookup = (name) =>
-    process.env[name] !== undefined && process.env[name] !== ''
-      ? process.env[name]
-      : fileEnv[name]
+  // A value lives in ONE of two files: web/.env.local (the app) or the repo-root
+  // .env (the deploy toolchain — Foundry + Make read only that one). Read both, so
+  // the deploy integration reports correctly instead of always showing OFF.
+  const localEnv = parseEnvFile(join(WEB_ROOT, '.env.local'))
+  const rootEnv = parseEnvFile(resolve(WEB_ROOT, '..', '.env'))
+  const lookup = (name) => {
+    if (process.env[name] !== undefined && process.env[name] !== '') return process.env[name]
+    // web/.env.local wins ties, but a deploy-only var only exists in the root .env.
+    return localEnv[name] !== undefined && localEnv[name] !== '' ? localEnv[name] : rootEnv[name]
+  }
 
   let list = INTEGRATIONS.map((i) => ({ integration: i, status: statusOf(i, lookup) }))
   if (CORE_ONLY) list = list.filter((r) => r.integration.impact === 'core')
@@ -87,7 +92,11 @@ async function main() {
     console.log(JSON.stringify(list.map((r) => r.status), null, 2))
   } else {
     const envPath = join(WEB_ROOT, '.env.local')
-    console.log(`\nAccess0x1 env doctor — ${existsSync(envPath) ? 'reading web/.env.local' : 'NO web/.env.local found (using process env)'}`)
+    const rootEnvPath = resolve(WEB_ROOT, '..', '.env')
+    const reading = [existsSync(envPath) && 'web/.env.local', existsSync(rootEnvPath) && '.env (deploy)']
+      .filter(Boolean)
+      .join(' + ')
+    console.log(`\nAccess0x1 env doctor — ${reading ? `reading ${reading}` : 'NO env file found (using process env)'}`)
     console.log('(names + set/unset only — no secret value is ever printed)\n')
 
     let lastImpact = null

@@ -65,8 +65,22 @@ export interface Integration {
   readonly impact: IntegrationImpact
   /** Where an operator gets the credentials (official source — never a guess). */
   readonly where: string
+  /**
+   * Which env file this integration's vars live in, RELATIVE TO THE REPO ROOT.
+   * Defaults to the web app's runtime env. The contract-deploy toolchain (Foundry
+   * + the Makefile) reads the repo-root `.env`, NOT `web/.env.local`, so a value
+   * pasted into the wrong file is silently invisible to its consumer. Declaring
+   * the file here lets `env:set` write it where it will actually be read, and lets
+   * `env:doctor` look for it there.
+   */
+  readonly envFile?: 'web/.env.local' | '.env'
   /** The variables this integration reads. */
   readonly vars: readonly EnvVarSpec[]
+}
+
+/** The env file an integration's values belong in (repo-root-relative). */
+export function envFileFor(integration: Integration): string {
+  return integration.envFile ?? 'web/.env.local'
 }
 
 /**
@@ -301,6 +315,20 @@ export const INTEGRATIONS: readonly Integration[] = [
       { name: 'AGENT_ANCHOR_REGISTRY', purpose: 'ProvenanceRegistry address (from broadcast/)' },
       { name: 'AGENT_ANCHOR_PRIVATE_KEY', purpose: 'Testnet key that submits the anchor tx', secret: true },
       { name: 'WALRUS_PUBLISHER', purpose: 'Walrus publisher base URL', hasDefault: true },
+    ],
+  },
+  {
+    id: 'deploy',
+    label: 'Contract deploy + verify (Foundry)',
+    unlocks: 'Verifying deployed contracts on every Etherscan-family explorer, in one key.',
+    impact: 'core',
+    // These are read by the Makefile + forge, which load the REPO-ROOT .env — not
+    // web/.env.local. env:set writes them there so the deploy actually sees them.
+    envFile: '.env',
+    where: 'etherscan.io/myapikey (one V2 key verifies every explorer). DEPLOYER is the ADDRESS your `cast wallet import` keystore controls — the private key stays in the keystore, never here.',
+    vars: [
+      { name: 'ETHERSCAN_API_KEY', purpose: 'Etherscan V2 key — verifies contracts on all explorers', required: true, secret: true },
+      { name: 'DEPLOYER', purpose: 'The public deployer address (--sender). NOT a private key.', required: true },
     ],
   },
   {
