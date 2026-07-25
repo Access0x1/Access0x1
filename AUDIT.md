@@ -5,6 +5,14 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
+> **Who did this review — stated plainly.** This is a **first-party self-audit by the founder**:
+> the project's own maintainer reviewed the contracts against `audit/CHECKLIST.md` — static
+> analysis (Slither + Aderyn, every result triaged), the full test + fuzz-invariant + symbolic
+> suite, and manual review. It is **not** an independent third-party audit, and **no external
+> audit has been performed**. We say "self-audit," never "audited," because the difference is
+> real and a reader deserves to know which one this is. An external audit is welcome but not a
+> gate we impose (see [`audit/first-party-auditor/`](audit/first-party-auditor/)).
+
 _Last updated: 2026-07-25 (test-count refresh: 2,068 Foundry contract tests + 1,909 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300; the v4 SwapReceiptHook + ENS PaymentResolver deployed + source-verified on Ethereum Sepolia)._
 
 ---
