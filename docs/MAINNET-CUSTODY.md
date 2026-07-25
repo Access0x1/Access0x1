@@ -8,7 +8,7 @@ This document is the checklist behind the Makefile's `MAINNET_CONFIRM=yes`
 deploy confirmation. The deploy command itself is boring by design — custody is
 the part that has to be true first. (An external audit is available and welcome
 but not a required gate; the operator owns that decision — see
-`audit/nfteria-auditor/`.)
+`audit/first-party-auditor/`.)
 
 ---
 
@@ -86,7 +86,7 @@ ROUTER_OWNER=<your-mainnet-safe> MAINNET_CONFIRM=yes make deploy-ethereum-mainne
 
 ## 5. The full checklist, in order
 
-1. Security review done: first-party review (the nfteria auditor + the
+1. Security review done: first-party review (the first-party auditor + the
    operator's experience) complete, findings resolved. An external audit is
    **optional and welcome** — not a required gate — and `audit/` is the
    ready-to-hand package if one is sought (slither/aderyn dispositions, coverage
