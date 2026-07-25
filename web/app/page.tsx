@@ -71,7 +71,8 @@ export default async function Home(): Promise<ReactNode> {
       {/* Minimal footer: the brand lockup + localized links + language switcher. */}
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
-          <BrandMark size={20} />
+          {/* Inert here: this IS the start page, so a link home is a link to itself. */}
+          <BrandMark size={20} href={null} />
           <p className="text-xs text-muted-foreground">
             <Link href="/vision" className="text-primary hover:underline">
               {dict.landing.footer.vision}

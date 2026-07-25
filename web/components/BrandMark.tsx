@@ -13,6 +13,7 @@
  * per-merchant white-label still themes their own checkout via `brandColor`
  * (SlugCheckoutView / BrandPreview) — this mark is not used there.
  */
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
@@ -29,6 +30,16 @@ export interface BrandMarkProps {
   size?: number
   /** Extra classes on the wrapping element. */
   className?: string
+  /**
+   * Where the mark navigates. Defaults to the start page; pass `null` to render
+   * inert (the landing page's own header, where a link home means nothing).
+   *
+   * It defaults to a LINK because the app has no global navigation: the mark is the
+   * only brand element on every inner page, and it was inert everywhere. A visitor
+   * who opened /deployments or /vision directly — the pages worth landing on — had
+   * no way back to the product except editing the URL.
+   */
+  href?: string | null
 }
 
 /** The access-plug glyph on its own — no wordmark, square. */
@@ -75,9 +86,10 @@ export function BrandMark({
   withWordmark = true,
   size = 20,
   className,
+  href = '/',
 }: BrandMarkProps): ReactNode {
-  return (
-    <span className={cn('inline-flex items-center gap-2 align-middle', className)}>
+  const inner = (
+    <>
       <BrandGlyph size={size} />
       {withWordmark ? (
         <span
@@ -87,7 +99,27 @@ export function BrandMark({
           Access0x1
         </span>
       ) : null}
-    </span>
+    </>
+  )
+
+  if (href === null) {
+    return (
+      <span className={cn('inline-flex items-center gap-2 align-middle', className)}>{inner}</span>
+    )
+  }
+
+  return (
+    <Link
+      href={href}
+      aria-label="Access0x1 — start page"
+      className={cn(
+        'inline-flex items-center gap-2 align-middle rounded-sm transition-opacity hover:opacity-80',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rail',
+        className,
+      )}
+    >
+      {inner}
+    </Link>
   )
 }
 

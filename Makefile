@@ -263,6 +263,12 @@ deploy-pick: ## Interactive: pick which chains to mirror-deploy (shows gas + mir
 mirror-manifest: ## Compute every contract's CREATE3 mirror address from its salt (no deploy) -> script/mirror-manifest.json
 	@./script/mirror-manifest.sh
 
+prune-branches: ## List remote branches that no longer carry work (dry-run; --confirm to delete)
+	@bash scripts/prune-merged-branches.sh
+
+deploy-inventory: ## What is deployed, what is dead, and is anything deployed twice?
+	@node scripts/deploy-inventory.mjs
+
 sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status + deployed ABIs + test-count badge
 	@node web/scripts/gen-deployments.mjs
 	@node web/scripts/sync-readme-status.mjs
