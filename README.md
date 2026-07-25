@@ -171,7 +171,7 @@ flowchart TB
     Subs -.->|"renew debits budget"| Session
 ```
 
-The audited, zero-custody money path is `OracleLib` (staleness guard, `internal`/inlined) →
+The self-audited, zero-custody money path is `OracleLib` (staleness guard, `internal`/inlined) →
 `Access0x1Router`. Everything else is a deliberate sidecar that the router never blocks on:
 a `PaymentLanes` credit is an append-only post-settlement leg, the CRE audit write is fire-and-forget,
 and `SessionGrant` / `ChainRegistry` hold no value path at all.
@@ -207,8 +207,8 @@ script/                      # DeployAccess0x1Router · DeployAll · DeployChain
 test/                        # unit · attack · invariant (2,059 tests)
 ```
 
-The full first-party surface is **22 production contracts + 2 libraries** (24 `.sol` files in
-`src/`, plus 20 interfaces): the money spine (`Access0x1Router`), the receipt
+The full first-party surface is **39 production contracts + 2 libraries** (41 `.sol` files in
+`src/` excluding interfaces, plus 35 interfaces): the money spine (`Access0x1Router`), the receipt
 ledger (`PaymentLanes`), the agent-auth ledger (`SessionGrant`), the per-chain reference
 (`ChainRegistry`), the CRE audit consumer (`Access0x1Receiver`), the house-token factory +
 its `HouseToken`, the five commerce primitives (subscriptions · bookings · invoices · gift cards ·
@@ -239,7 +239,7 @@ deployed once per chain by `DeployChainRegistry` and carried in as config).
 | [`GaslessPayIn`](src/GaslessPayIn.sol) | **Gasless "first-dollar" pay-in**: a buyer pays a merchant in ONE tx from an off-chain signature — no prior approve, no opened session — via **EIP-2612** permit, **ERC-7597** (smart-account permit), or **EIP-3009** `transferWithAuthorization` (USDC-native). The pulled token is routed through `Router.payToken` (USD-priced, fee-split); the contract retains ZERO balance (asserted inline). |
 | [`PriceOracleAdapter`](src/PriceOracleAdapter.sol) | A thin **swappable price oracle** behind the **ERC-7726** `getQuote(baseAmount, base, quote)` surface, so the router (and every primitive) can stop hard-binding `AggregatorV3Interface`. Wraps a Chainlink feed through OracleLib's staleness guard today; a future TWAP / Data-Streams source is a new impl behind the same interface — zero churn at the call site. Pure infra, no custody. |
 
-**The commerce set** — vertical-agnostic primitives that **compose** the spine above (Router + SessionGrant) rather than re-implementing it. Each owns lifecycle/eligibility ONLY; every money leg routes through `Access0x1Router.payToken`/`payNative` (so `net + fee == gross` is the router's audited invariant, never re-derived) and every USD→token price is read in-tx through `Access0x1Router.quote` (the OracleLib staleness guard). They need NO router-side registration — the router's merchant registry is their single source of truth for owner-authorization. (`Access0x1Nft`, the newest of the five, is built and tested and wired into `DeployAll`; the formal audit pass in [`audit/`](audit/) currently scopes the original four — it is reviewed there before any mainnet claim.)
+**The commerce set** — vertical-agnostic primitives that **compose** the spine above (Router + SessionGrant) rather than re-implementing it. Each owns lifecycle/eligibility ONLY; every money leg routes through `Access0x1Router.payToken`/`payNative` (so `net + fee == gross` is the router's fuzz-proven invariant, never re-derived) and every USD→token price is read in-tx through `Access0x1Router.quote` (the OracleLib staleness guard). They need NO router-side registration — the router's merchant registry is their single source of truth for owner-authorization. (`Access0x1Nft`, the newest of the five, is built and tested and wired into `DeployAll`; the formal audit pass in [`audit/`](audit/) currently scopes the original four — it is reviewed there before any mainnet claim.)
 
 | Contract | One-liner |
 | --- | --- |
@@ -593,7 +593,7 @@ verified chain is a clean no-op).
 the same broadcast — the `Access0x1Router` money spine, the `SessionGrant` agent-auth ledger, the
 `HouseTokenFactory`, the five commerce primitives (`Subscriptions` / `Bookings` / `Invoices` /
 `GiftCards` / `Access0x1Nft`, each constructed against the freshly deployed Router + SessionGrant so they compose the
-audited spine), and the price-feed + USDC allowlist wiring — plus, when configured,
+self-audited spine), and the price-feed + USDC allowlist wiring — plus, when configured,
 the optional `PaymentLanes` ledger (`DEPLOY_PAYMENT_LANES=true`) and the off-money-path
 `Access0x1Receiver` CRE consumer (`<chain>_CRE_FORWARDER`). `HelperConfig` reads the right env block
 from a `block.chainid` ladder, so the same script targets every chain just by switching `--rpc-url`,
@@ -878,7 +878,7 @@ mirror (e.g. zkSync Sepolia, `300`) do not appear at all.
 
 ## The owned ERCs
 
-Access0x1 doesn't just *use* the standards — it ships its own minimal, audited implementations of three
+Access0x1 doesn't just *use* the standards — it ships its own minimal, self-audited implementations of three
 that compose into the payments + auth + agents story:
 
 - **ERC-6909 — multi-token receipts** ([`PaymentLanes`](src/PaymentLanes.sol)). A lane is a
@@ -918,7 +918,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **2,059 green** (Foundry) — unit · attack · invariant — plus 1,797 web/SDK unit tests |
+| Tests | **2,059 green** (Foundry) — unit · attack · invariant — plus 1,816 web/SDK unit tests |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |

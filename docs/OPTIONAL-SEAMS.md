@@ -12,7 +12,7 @@ you set · where the value comes from · how to confirm it's live · what "off" 
 
 > **Secrets stay out of the repo.** `.env.example` holds NAMES only. Put real values
 > in `.env` (gitignored) or your deploy secrets — never in a commit
-> ([security.md](../.claude/rules/security.md)). `NEXT_PUBLIC_*` vars are inlined into
+> ([SECURITY.md](../SECURITY.md)). `NEXT_PUBLIC_*` vars are inlined into
 > the browser bundle and are **not secret** (public ids/urls only); everything else is
 > server-only.
 

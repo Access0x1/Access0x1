@@ -26,12 +26,12 @@ action. The agents are an accelerant, not the author of the project.
   "Ask Access0x1" Q&A assistant) — that is a shipped capability, separate from the
   build-time tooling described here. It runs behind a backend route with its own
   spend-capped key; the key is never in the repo (see
-  [`.claude/rules/security.md`](./.claude/rules/security.md)).
+  [`SECURITY.md`](./SECURITY.md)).
 
 ## The model policy — who did what
 
 A three-tier split, defined once in
-[`.claude/rules/model-policy.md`](./.claude/rules/model-policy.md) and enforced
+`.claude/rules/model-policy.md` (local-only, see below) and enforced
 across the build:
 
 | Tier | Role | Touched |
@@ -87,7 +87,7 @@ honest claim, not a list of carve-outs. Concretely:
 
 The discipline reserves the genuine gates for the owner; the agents never crossed
 them (see the "decide vs ask" rule in [`CLAUDE.md`](./CLAUDE.md) §6 and
-[`.claude/rules/accounts.md`](./.claude/rules/accounts.md)):
+`.claude/rules/accounts.md`):
 
 - **Scope and architecture** — the product idea (one shared no-custody router, the
   O(1) hash-map chain registry, ERC-6909 PaymentLanes), the chains, and the integration
@@ -105,7 +105,7 @@ them (see the "decide vs ask" rule in [`CLAUDE.md`](./CLAUDE.md) §6 and
 ## Build-time proof — the git log
 
 The strongest evidence of *how* this was built is the public history itself, which
-the discipline ([`.claude/rules/git-workflow.md`](./.claude/rules/git-workflow.md))
+the discipline ([`CONTRIBUTING.md`](./CONTRIBUTING.md))
 makes legible:
 
 - **One idea per commit**, ~20–80 lines, messages that narrate intent — so the log
@@ -135,9 +135,12 @@ first dozen commits.
 
 ## Verifying these claims
 
+> **A note on `.claude/`.** The harness that directed the AI lives there, and it is
+> **gitignored** (`.gitignore`) — it holds operator-local settings, so it is not part of
+> the clone. References to `.claude/rules/*` above name files on the maintainer's machine,
+> not files you can open here. Everything below IS in the repo and is checkable.
+
 ```sh
-# the harness that directed the AI (in the repo on purpose)
-ls .claude/rules .claude/hooks .claude/skills
 
 # the spec-driven trail
 ls specs/

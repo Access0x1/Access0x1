@@ -5,7 +5,7 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
-_Last updated: 2026-07-24 (test-count refresh: 2,059 Foundry contract tests + 1,797 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
+_Last updated: 2026-07-24 (test-count refresh: 2,059 Foundry contract tests + 1,816 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
 
 ---
 
@@ -143,6 +143,13 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   Built + unit-tested; NOT deployed (a live deploy needs the CREATE2 address-mining step so the
   address carries the AFTER_SWAP flag — claimed only when a broadcast record exists).
 
+- **Tokenization kit (ERC-5192 + ERC-1155)** — `src/CredentialSbt.sol` implements `IERC5192`
+  (soulbound ERC-721, ERC-165 id `0xb45a3c0e` pinned) and `src/tokens/ReceiptToken.sol` +
+  `MembershipToken.sol` are ERC-1155, each with a unit suite (`test/unit/CredentialSbt.t.sol`,
+  `test/unit/tokens/ReceiptToken.t.sol`). Built + unit-tested; NOT in `DeployAll`, so no chain
+  carries them and no address is claimed. These were listed under "not built" until 2026-07-25 —
+  an undercount that contradicted `docs/TOKENIZATION-KIT.md`, which documents them as presets.
+
 **Seam (code present, NOT exercised in the live example path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),
   **Uniswap payout-swap** (receive-in-any-token rail), **1inch** (aggregator payout-swap rail
@@ -161,7 +168,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   (`stored`/`anchored`) — never a claimed anchor without a mined tx.
 
 **Not built — we do NOT claim these:**
-- LI.FI, Canton, Ledger, Google Cloud / BigQuery, Privy, CCTP, ERC-5570 / ERC-5192 / ERC-1155,
+- LI.FI, Canton, Ledger, Google Cloud / BigQuery, Privy, CCTP, ERC-5570,
   and cbBTC is **not** in the live `SUPPORTED_PAY_TOKENS` list. (Hedera moves to a deployed chain and
   1inch to a seam as those land — see the deploy tables / the Built-on list.)
 

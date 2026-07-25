@@ -23,7 +23,7 @@ you will drive by hand, so you can see the money move and the guards bite.
   - [B3. Bookings — reserve → confirm → complete (+ late-cancel refund)](#b3-bookings--reserve--confirm--complete--late-cancel-refund)
   - [B4. Invoices — createInvoice → pay once (second pay reverts)](#b4-invoices--createinvoice--pay-once-second-pay-reverts)
   - [B5. GiftCards — issue → redeem → never-negative](#b5-giftcards--issue--redeem--never-negative)
-  - [B6. PaymentLanes — credit → claim](#b6-paymentlanes--credit--claim)
+  - [B6. PaymentLanes — claim](#b6-paymentlanes--claim)
   - [B7. SessionGrant — openSession → spend → revoke](#b7-sessiongrant--opensession--spend--revoke)
   - [B8. Nft — list → buy](#b8-nft--list--buy)
 - [C. Web app — onboarding, checkout, verify, dashboard](#c-web-app--onboarding-checkout-verify-dashboard)
@@ -961,12 +961,15 @@ make test-scenario     # forge test --match-path 'test/scenario/*'
 cd web && npm run gate
 ```
 
-This runs, in order: an embed-syntax check, the embed-address verifier, a
-TypeScript `tsc --noEmit` typecheck, and the Vitest unit suite (integration tests
-excluded).
+This runs, in order: an embed-syntax check, the embed-address verifier, the
+module-ABI drift check (`gen-module-abis.mjs --check`), the docs-corpus drift
+check (`gen-docs-corpus.mjs --check`), a TypeScript `tsc --noEmit` typecheck, and
+the Vitest unit suite (integration tests excluded). The two drift checks were
+missing from this list — the docs-corpus one is the gate that must pass after any
+`docs/*.md` edit, so omitting it sent people to a red CI.
 
-**Expected:** all four steps pass; the Vitest summary reports roughly **1,660
-passing** across **162 files**. If a suite fails to **load** a module (e.g.
+**Expected:** all six steps pass; the Vitest summary reports roughly **1,816
+passing** across **176 files**. If a suite fails to **load** a module (e.g.
 `Cannot find package 'lucide-react'`), that is a missing dependency, not a logic
 failure — run `cd web && npm install` and re-run the gate.
 
@@ -991,10 +994,10 @@ fails, stop and fix it before showing anyone.
       all print (Section A1).
 - [ ] **Deps installed.** `make install` completed; a bare `make build` exits
       green (Section A3).
-- [ ] **Contracts green.** `make test` → `2026 passed; 0 failed`
+- [ ] **Contracts green.** `make test` → `2059 passed; 0 failed`
       (Section D1).
-- [ ] **Web green.** `cd web && npm run gate` → all four steps pass, ~1,660 tests
-      across 89 files (Section D2).
+- [ ] **Web green.** `cd web && npm run gate` → all six steps pass, ~1,816 tests
+      across 176 files (Section D2).
 - [ ] **Anvil up.** `make anvil` is running in its own terminal, "Listening on
       127.0.0.1:8545" (Section A4).
 - [ ] **Suite deployed.** `make deploy-local` ended with `ONCHAIN EXECUTION

@@ -79,8 +79,8 @@ export function RailModulesCard({
           Merchant #{merchantId} on {chainDisplayName(chainId)}
         </h3>
         <p className="text-xs text-muted-foreground">
-          Your seat lives on the shared rail below — the same audited contracts every business on
-          this network uses.
+          Your seat lives on the shared rail below — the same contracts every business on this
+          network uses. Testnet only, and not third-party audited.
         </p>
       </div>
       {modules.length > 0 ? (

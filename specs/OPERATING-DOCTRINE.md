@@ -15,7 +15,7 @@ ONE open-source, on-chain layer for **payments + auth + agents**:
 - Deployed via **one shared router** (not N deploys), addressed by an **O(1)
   hash-map chain registry**. The original target was **Arc + Base + zkSync**
   testnets; in practice this became a CREATE3 mirror (one address on every chain)
-  live on eight testnets, with zkSync Sepolia still on its dedicated EraVM path —
+  live on nine testnets, including zkSync Sepolia via its dedicated EraVM path —
   see the README Deployments table for the live, broadcast-derived source of truth.
 - Web2-easy DX: drop-in SDK, one link, no contract code — droppable in five minutes
   by any developer. Integrators are customers reached through one public interface.

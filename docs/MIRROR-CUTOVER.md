@@ -66,10 +66,10 @@ addresses — **don't trust this table, re-derive it** (see *How to read the liv
 | 0G Galileo (16602) | ✅ | ⏳ pre-mirror | pre-mirror table |
 | Ethereum Hoodi (560048) | ✅ partial (pre-mirror set) | ⏳ pre-mirror | README MIRROR-STATUS (pre-mirror) |
 | Tempo (42431) | ✅ partial (pre-mirror set) | ⏳ pre-mirror | README MIRROR-STATUS (pre-mirror) |
-| zkSync Sepolia (300) | ⏳ not broadcast | — | — |
+| zkSync Sepolia (300) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
 
 Per-chain **source-verification** status lives in the README Deployments section (seven of the
-eight mirrored chains are explorer-verified as of 2026-07-01); this table tracks deploy/mirror
+nine mirrored chains are explorer-verified as of 2026-07-01); this table tracks deploy/mirror
 state only.
 
 The mirror is **rolling out across the testnets** — the `MIRROR-STATUS` table in the README (regenerated

@@ -36,7 +36,7 @@ You can — it's MIT and the source is right here. What this saves you is the pa
 that's easy to get subtly wrong: exact fee math (`net + fee == gross`, always),
 the Chainlink staleness + L2-sequencer-uptime guards, fee-on-transfer-token
 rejection, the never-blockable refund leg in [Bookings](../src/Access0x1Bookings.sol),
-and a test suite + audit pass over all of it (see the
+and a test suite + internal audit pass (a self-assessment, not a third-party audit) over all of it (see the
 [security posture](../README.md#security-posture) and [audit/](../audit)). The
 [ARCHITECTURE.md](./ARCHITECTURE.md) walk-through exists precisely so you can read
 every line before you trust it.

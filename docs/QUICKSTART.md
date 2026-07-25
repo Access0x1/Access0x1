@@ -80,10 +80,10 @@ npm install   # also add your peers if you haven't: npm install viem wagmi
 ### Drop in `<PayButton>`
 
 One component, two required business facts — your `merchantId` and the **deployed router address
-on your settlement chain** (from the [Deployments](#deployed-routers--the-address-you-point-at)
+on your settlement chain** (from the [Deployments](#the-router-address-you-point-at)
 table below). The integrator never touches a raw token address.
 
-> ⚠️ **The addresses in the snippets below are Base Sepolia examples.** Swap `routerAddress` (and `token`) for **your** settlement chain from [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) / the [Deployments](#deployed-routers--the-address-you-point-at) table before shipping — the router differs per chain. The SDK itself **never** hardcodes an address (LAW #4); you always pass your chain's router in.
+> ⚠️ **The addresses in the snippets below are Base Sepolia examples.** Swap `routerAddress` (and `token`) for **your** settlement chain from [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) / the [Deployments](#the-router-address-you-point-at) table before shipping — the router differs per chain. The SDK itself **never** hardcodes an address (LAW #4); you always pass your chain's router in.
 
 ```tsx
 import { PayButton, clientFromViem } from '@access0x1/react';
@@ -369,12 +369,12 @@ Chainlink feed address on every chain** (each re-verified on-chain on 2026-06-17
 | --- | --- | --- | --- |
 | **Arc Testnet** | `5042002` | `0x3600…0000` (native) | USDC **is** the native gas token — a settlement and gas asset are the same token here. Source-verified. |
 | **Base Sepolia** | `84532` | `0x036CbD…dCF7e` | The primary EVM example chain. Source-verified. Carries the live example merchant. |
-| **zkSync Sepolia** | `300` | see [CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) | One-command deploy-ready via the EraVM path; not yet broadcast at time of writing. |
+| **zkSync Sepolia** | `300` | see [CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) | Deployed via the dedicated EraVM path at the shared mirror address; source-verification pending. |
 
-Beyond these three, the **CREATE3 mirror** (one address — see below) is live on a total of **eight
+Beyond these three, the **CREATE3 mirror** (one address — see below) is live on a total of **nine
 testnets**: Arc, Base Sepolia, **Ethereum Sepolia (11155111)**, **Optimism Sepolia (11155420)**,
-**Avalanche Fuji (43113)**, **Robinhood Chain (46630)**, **Arbitrum Sepolia (421614)**, and **Celo
-Sepolia (11142220)** — source-verified on seven of them. Three earlier chains (**Ethereum Hoodi
+**Avalanche Fuji (43113)**, **Robinhood Chain (46630)**, **Arbitrum Sepolia (421614)**, **Celo
+Sepolia (11142220)**, and **zkSync Sepolia (300)** — source-verified on seven of them. Three earlier chains (**Ethereum Hoodi
 (560048)**, **0G Galileo (16602)**, **Tempo (42431)**) carry **pre-mirror** per-chain deploys, with
 ~30 more testnets one-command deploy-ready. The per-chain USDC token and Chainlink feed addresses for
 all of them live in [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) — the single source of truth for

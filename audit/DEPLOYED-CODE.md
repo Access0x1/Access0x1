@@ -51,7 +51,7 @@ and compiler settings are byte-identical to this tree.
 
 ## Conclusion
 
-The live deployment is this repo's audited source — the no-immutable contracts match exactly, and the
+The live deployment is this repo's source — the no-immutable contracts match exactly, and the
 rest differ only in the addresses they were wired to at deploy. Whatever a judge audits here is what is
 running on Arc and Base Sepolia. Addresses + tx hashes: [`../README.md` → Deployments](../README.md);
 raw broadcast proof: [`../broadcast/DeployAll.s.sol/`](../broadcast/DeployAll.s.sol/).

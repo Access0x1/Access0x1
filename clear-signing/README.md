@@ -12,7 +12,7 @@ and Radiant (~$50M) drains. This folder is Access0x1's contribution to fixing it
 
 | File | What it is |
 | --- | --- |
-| [`erc7730-access0x1-router.json`](erc7730-access0x1-router.json) | The [ERC-7730](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-7730.md) descriptor: maps every user/admin function of `Access0x1Router` to a human-readable intent + per-field format. One descriptor binds all eight CREATE3-mirror chains via `context.contract.deployments[]` (one address, `0xe92244e3…`, on every `✅ mirror` chain). |
+| [`erc7730-access0x1-router.json`](erc7730-access0x1-router.json) | The [ERC-7730](https://github.com/ethereum/ERCs/blob/master/ERCS/erc-7730.md) descriptor: maps every user/admin function of `Access0x1Router` to a human-readable intent + per-field format. One descriptor binds all nine CREATE3-mirror chains via `context.contract.deployments[]` (one address, `0xe92244e3…`, on every `✅ mirror` chain). |
 | [`abi/Access0x1Router.abi.json`](abi/Access0x1Router.abi.json) | The flat implementation ABI the descriptor's `context.contract.abi` points at. Generated from the compiled artifact — **never hand-edit**: re-run `forge build` then `jq '.abi' out/Access0x1Router.sol/Access0x1Router.json` after any signature change. |
 
 ## The field formats that matter (why a generic decode is not enough)

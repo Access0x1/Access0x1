@@ -257,6 +257,7 @@ sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web
 	@node web/scripts/gen-premirror-table.mjs
 	@node scripts/sync-deployed-abis.mjs --write
 	@node scripts/sync-test-badge.mjs --write
+	@node web/scripts/sync-web-test-badge.mjs --write
 
 sync-test-badge: build ## Regenerate the README test-count badge from `forge test --list`, then drift-check it
 	@node scripts/sync-test-badge.mjs --write

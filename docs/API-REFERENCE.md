@@ -89,13 +89,13 @@ plain EOA — the protocol holds zero custody.
 | [`GET /api/quote`](#get-apiquote) | none | USD→token quote via `router.quote()`. |
 | [`GET /api/branding/{slug}`](#get-apibrandingslug) | none (public) | Public branding by checkout slug — never includes a payout address. |
 | [`GET /api/branding/by-merchant/{id}`](#get-apibrandingby-merchantid) | none (public) | Public branding by on-chain merchant id. |
-| [`GET /api/branding`](#get-apibranding-post-apibranding) | Dynamic JWT (read), `tenantId` query | Tenant's own branding row (verification fields gated). |
-| [`POST /api/branding`](#get-apibranding-post-apibranding) | Dynamic JWT | Save branding + get a checkout slug. |
+| [`GET /api/branding`](#get-apibranding--post-apibranding) | Dynamic JWT (read), `tenantId` query | Tenant's own branding row (verification fields gated). |
+| [`POST /api/branding`](#get-apibranding--post-apibranding) | Dynamic JWT | Save branding + get a checkout slug. |
 | [`GET /api/branding/check-slug`](#get-apibrandingcheck-slug) | none | Live slug availability + suggestions. |
 | [`POST /api/branding/logo`](#post-apibrandinglogo) | Dynamic JWT | Sanitize a logo into an inline SVG. |
 | [`POST /api/branding/checkout-mode`](#post-apibrandingcheckout-mode) | Dynamic JWT | Save the "who can pay you?" choice. |
 | [`POST /api/branding/operator-verify`](#post-apibrandingoperator-verify) | Dynamic JWT + World ID | Record the operator's World ID badge. |
-| [`GET /api/verify`](#get-apiverify-post-apiverify) · [`POST /api/verify`](#get-apiverify-post-apiverify) | none | Read a trust profile / verify one method (World ID, ENS, Dynamic, OIDC, on-chain). |
+| [`GET /api/verify`](#get-apiverify--post-apiverify) · [`POST /api/verify`](#get-apiverify--post-apiverify) | none | Read a trust profile / verify one method (World ID, ENS, Dynamic, OIDC, on-chain). |
 | [`POST /api/oidc/verify`](#post-apioidcverify) · [`GET`](#post-apioidcverify) | none | Verify an OIDC ID token and record the `oidc` method. |
 | [`POST /api/world/verify`](#post-apiworldverify) | none | Verify an IDKit proof + one-human-per-action. |
 | [`GET /api/world/sign`](#get-apiworldsign) | none | Mint the RP context the IDKit widget needs. |
@@ -104,8 +104,8 @@ plain EOA — the protocol holds zero custody.
 | [`POST /api/gateway/withdraw`](#post-apigatewaywithdraw) | Dynamic JWT (= seller) | Withdraw accrued USDC from the Gateway balance. |
 | [`POST /api/payout`](#post-apipayout) | none | Private payout leg (shield + withdraw to a fresh EOA). |
 | [`POST /api/payout-swap`](#post-apipayout-swap) | internal secret | Off-CEI "receive in any coin" same-chain swap. |
-| [`POST /api/onramp/session`](#post-apionrampsession-post-apiofframpsession) | none | Build a hosted fiat on-ramp checkout URL. |
-| [`POST /api/offramp/session`](#post-apionrampsession-post-apiofframpsession) | none | Build a hosted fiat off-ramp ("cash out") URL. |
+| [`POST /api/onramp/session`](#post-apionrampsession--post-apiofframpsession) | none | Build a hosted fiat on-ramp checkout URL. |
+| [`POST /api/offramp/session`](#post-apionrampsession--post-apiofframpsession) | none | Build a hosted fiat off-ramp ("cash out") URL. |
 | [`GET /api/premium/quote`](#priced-example-endpoints) · [`GET /api/premium/dataset`](#priced-example-endpoints) · [`POST /api/premium/compute`](#priced-example-endpoints) | x402 | Priced example endpoints proving the x402 settle path (payer signs off-chain, Circle submits the tx). |
 
 ---

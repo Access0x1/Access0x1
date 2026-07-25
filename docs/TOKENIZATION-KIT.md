@@ -19,7 +19,7 @@ Access0x1 ships two layers that compose cleanly:
 
 - **The money spine** — the shared, multi-tenant, zero-custody `Access0x1Router` (prices
   USD→token via a Chainlink feed *inside* the pay tx, splits an exact fee, pushes
-  net→merchant + fee→treasury) plus its audited escrow / subscription / invoice ledgers.
+  net→merchant + fee→treasury) plus its self-audited escrow / subscription / invoice ledgers.
 - **The tokenization kit** (this doc) — cloneable **token artifacts** the commerce flow mints:
   a reservation NFT, an event ticket, a purchase receipt, a membership, an invoice, a deed.
   Each is its own independently-deployable contract, **vanilla Solidity, MIT, param-first**

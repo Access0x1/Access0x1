@@ -529,9 +529,9 @@ contract or change settlement, which remains the router's atomic zero-custody pa
 
 This section is intentionally conservative.
 
-- **Status at the event: testnet-only.** The CREATE3 mirror is live on eight
+- **Status at the event: testnet-only.** The CREATE3 mirror is live on nine
   **testnets** (Arc, Base Sepolia, Ethereum Sepolia, Optimism Sepolia, Avalanche
-  Fuji, Robinhood Chain, Arbitrum Sepolia, Celo Sepolia) with testnet USDC/EURC and
+  Fuji, Robinhood Chain, Arbitrum Sepolia, Celo Sepolia, zkSync Sepolia) with testnet USDC/EURC and
   testnet Chainlink feeds; three earlier chains carry pre-mirror per-chain deploys.
   **No mainnet deployment ships at the event, and we make no mainnet claim.**
 - **This is not a third-party audit.** It is an internal engineering audit backed
