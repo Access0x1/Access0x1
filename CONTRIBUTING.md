@@ -158,7 +158,7 @@ make analyze           # umbrella: 4naly3er + aderyn + slither
   before committing.
 - **Config is one registry entry.** Every env var the web app reads is declared in
   `web/lib/config/integrations.ts` — that one table drives `env:doctor`, the status
-  probe, **and the deploy** (`web/scripts/deploy-env.mjs` derives the Cloud Run env
+  probe, **and the deploy** (`web/scripts/doctor/deploy-env.mjs` derives the Cloud Run env
   from it). A var read by code but **not** declared is invisible to the doctor and is
   silently dropped at deploy, so the feature ships dark even when the operator set it.
   When you read a new `process.env.X`: (1) add it to `integrations.ts` — `secret: true`

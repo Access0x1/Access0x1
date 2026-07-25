@@ -26,15 +26,15 @@
  * output files, which the deploy script writes with tight permissions and deletes after.
  *
  * Usage (invoked by scripts/deploy-web.sh; runnable alone to preview):
- *   node web/scripts/deploy-env.mjs                    # summary only
- *   node web/scripts/deploy-env.mjs --public-out P --runtime-out R
+ *   node web/scripts/doctor/deploy-env.mjs                    # summary only
+ *   node web/scripts/doctor/deploy-env.mjs --public-out P --runtime-out R
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const WEB_ROOT = resolve(HERE, '..')
+const WEB_ROOT = resolve(HERE, '../..')
 const REPO_ROOT = resolve(WEB_ROOT, '..')
 
 /** Minimal dotenv parse — KEY=value, ignoring blanks/comments, stripping matched quotes. */
@@ -69,7 +69,7 @@ function isPlaceholder(v) {
 }
 
 async function main() {
-  const { INTEGRATIONS, statusOf } = await import('../lib/config/integrations.ts')
+  const { INTEGRATIONS, statusOf } = await import('../../lib/config/integrations.ts')
 
   // Values live in ONE of two files: web/.env.local (app) or repo-root .env (deploy
   // toolchain). Process env wins for anything an operator exported for this run.
