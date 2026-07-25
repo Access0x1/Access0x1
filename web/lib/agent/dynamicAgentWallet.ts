@@ -160,19 +160,19 @@ let accountPromise: Promise<AgentAccount> | null = null;
  * @throws {ConfigMissing} if `DYNAMIC_ENVIRONMENT_ID` or `DYNAMIC_AUTH_TOKEN` is unset.
  */
 export async function getAgentClient(): Promise<DynamicEvmWalletClient> {
-  if (client) {
-    return client;
+  if (state.client) {
+    return state.client;
   }
-  if (!authPromise) {
+  if (!state.authPromise) {
     const environmentId = requireEnv("DYNAMIC_ENVIRONMENT_ID");
     const authToken = requireEnv("DYNAMIC_AUTH_TOKEN");
-    const fresh = clientFactory(environmentId);
-    authPromise = fresh.authenticateApiToken(authToken).then(() => {
-      client = fresh;
+    const fresh = state.clientFactory(environmentId);
+    state.authPromise = fresh.authenticateApiToken(authToken).then(() => {
+      state.client = fresh;
       return fresh;
     });
   }
-  return authPromise;
+  return state.authPromise;
 }
 
 /**
