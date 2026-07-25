@@ -813,7 +813,9 @@ contract Access0x1RebatesPauseSplitTest is Access0x1RebatesTest {
         rebates.payWithRebate(merchantId, address(usdc), USD, orderId);
 
         vm.expectRevert(
-            abi.encodeWithSelector(IAccess0x1Rebates.Access0x1Rebates__OrderAlreadyClaimed.selector, orderId)
+            abi.encodeWithSelector(
+                IAccess0x1Rebates.Access0x1Rebates__OrderAlreadyClaimed.selector, orderId
+            )
         );
         vm.prank(buyer);
         rebates.payWithRebate(merchantId, address(usdc), USD, orderId);
