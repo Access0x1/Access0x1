@@ -484,6 +484,12 @@ upgrade-all-base-sepolia: upgrade-guard out/upgrade-set.json ## Upgrade ALL live
 upgrade-all-arc: upgrade-guard out/upgrade-set.json ## Upgrade ALL live modules on Arc testnet (one broadcast)
 	@DEPLOYER=$(DEPLOYER) UPGRADE_SET=out/upgrade-set.json forge script script/UpgradeAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
 
+# 0G note: the CREATE3 mirror set answers live on Galileo (verify: `cast call` the manifest
+# addresses) but its original deploy broadcast was never committed — THIS run writes the fresh,
+# committed, dated record against those same mirror addresses. 2 gwei priority per deploy-galileo.
+upgrade-all-galileo: upgrade-guard out/upgrade-set.json ## Upgrade ALL live modules on 0G Galileo (one broadcast)
+	@DEPLOYER=$(DEPLOYER) UPGRADE_SET=out/upgrade-set.json forge script script/UpgradeAll.s.sol --rpc-url $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --priority-gas-price 2000000000 -vvvv
+
 # ── More test networks (keystore `deployer`; set each RPC + *SCAN_API_KEY in .env) ──
 deploy-ethereum-sepolia: ## Deploy to Ethereum Sepolia (etherscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
