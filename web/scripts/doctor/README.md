@@ -10,6 +10,7 @@ and the deploy. Nothing in this folder hardcodes a variable name.
 | Command | What it does |
 | --- | --- |
 | `npm run env:doctor` | The report: every integration, set/unset **by name only** — no value is ever printed. `--core` shows only what going live needs; `--strict` exits 1 for CI. |
+| `npm run env:doctor -- --tools` | The registry by provenance: **built in-house** vs **partner tools we use** — partners listed with the standing note that we like them and use them either way, sponsoring or not. |
 | `npm run env:set` | The intake: walks every integration still missing keys and prompts for each (echo **off**), or `-- <id>` for one. Writes the right file by itself. |
 | `npm run env:scaffold` | Writes a blank, annotated slot for every registry var, so the file documents itself. |
 | `npm run env:seal` / `env:open` / `env:check` | One encrypted `.env.sealed` instead of N secrets — carry a single passphrase to a new machine. |

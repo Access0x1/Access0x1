@@ -14,6 +14,7 @@
  *   node scripts/doctor/env-doctor.mjs              # full report
  *   node scripts/doctor/env-doctor.mjs --core       # only what going live needs
  *   node scripts/doctor/env-doctor.mjs --json       # machine-readable (no values)
+ *   node scripts/doctor/env-doctor.mjs --tools      # the registry by provenance: built in-house vs partner tools we use
  *   node scripts/doctor/env-doctor.mjs --strict     # exit 1 if any `core` integration isn't ready
  */
 import { readFileSync, existsSync } from 'node:fs'
@@ -27,6 +28,7 @@ const ARGS = process.argv.slice(2)
 const JSON_OUT = ARGS.includes('--json')
 const CORE_ONLY = ARGS.includes('--core')
 const STRICT = ARGS.includes('--strict')
+const TOOLS = ARGS.includes('--tools')
 
 /**
  * Parse a dotenv file into a plain object. Deliberately minimal: `KEY=value`,
@@ -80,6 +82,31 @@ async function main() {
   }
 
   let list = INTEGRATIONS.map((i) => ({ integration: i, status: statusOf(i, lookup) }))
+
+  // --tools: the same registry read as TWO families — what we built vs whose product
+  // we integrate. Configuration state still shows (✅/⚠️/·), but the point of this
+  // view is provenance, not readiness.
+  if (TOOLS) {
+    const family = (origin, title, note) => {
+      const rows = list.filter((r) => r.integration.origin === origin)
+      console.log(`\n── ${title} ─ ${rows.length} ────────────────────────────`)
+      if (note) console.log(`   ${note}`)
+      for (const r of rows.sort((a, b) => a.integration.label.localeCompare(b.integration.label))) {
+        console.log(`${ICON[r.status.state]} ${r.integration.label}`)
+        console.log(`     ${r.integration.unlocks}`)
+      }
+    }
+    console.log('\nAccess0x1 tools — the registry by provenance')
+    family('ours', 'BUILT IN-HOUSE (we created these)')
+    family(
+      'partner',
+      'PARTNER TOOLS WE USE',
+      'Not all of these sponsor every event we build at — we like them, we use them either way.',
+    )
+    console.log('')
+    return
+  }
+
   if (CORE_ONLY) list = list.filter((r) => r.integration.impact === 'core')
   list.sort(
     (a, b) =>
