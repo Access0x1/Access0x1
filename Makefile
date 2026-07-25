@@ -283,10 +283,15 @@ prune-branches: _prune-fresh ## List remote branches that no longer carry work (
 	@bash scripts/prune-merged-branches.sh
 
 prune-branches-confirm: _prune-fresh ## DELETE the git-proven-merged remote branches (asks first)
-	@bash scripts/prune-merged-branches.sh
+	@bash scripts/prune-merged-branches.sh | tee /tmp/access0x1-prune.txt
+	@if grep -q '^DRY RUN — nothing deleted. 0 branch' /tmp/access0x1-prune.txt; then \
+		echo; echo "Nothing to prune — every merged branch is already gone."; \
+		rm -f /tmp/access0x1-prune.txt; exit 0; \
+	fi
 	@echo
 	@printf 'Delete the TIER A branches listed above? Type yes to proceed: '
-	@read -r reply; [ "$$reply" = "yes" ] || { echo "aborted — nothing deleted."; exit 1; }
+	@read -r reply; [ "$$reply" = "yes" ] || { echo "aborted — nothing deleted."; rm -f /tmp/access0x1-prune.txt; exit 1; }
+	@rm -f /tmp/access0x1-prune.txt
 	@bash scripts/prune-merged-branches.sh --confirm
 
 deploy-inventory: ## What is deployed, what is dead, and is anything deployed twice?

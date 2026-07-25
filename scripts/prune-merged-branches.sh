@@ -83,6 +83,24 @@ if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
              --jq '.[].name' 2>/dev/null || true)
 fi
 
+# RULESETS are a SECOND, newer protection system and `branches?protected=true` does
+# NOT report them. That gap deleted a ruleset-protected `staging` on this repo: GitHub
+# answered "Bypassed rule violations … Cannot delete this branch" and then deleted it
+# anyway, because the operator holds admin bypass. A tool that quietly spends your
+# bypass privilege is worse than one that fails — the rule existed precisely to stop
+# that branch going away.
+#
+# Checked per candidate rather than up front: the rules API is per-branch, and the only
+# branches that matter are the ones about to be deleted.
+is_rule_protected() {
+  local b="$1"
+  command -v gh >/dev/null 2>&1 || return 1
+  gh auth status >/dev/null 2>&1 || return 1
+  gh api "repos/{owner}/{repo}/rules/branches/$b" --jq '.[].type' 2>/dev/null \
+    | grep -qx 'deletion' && return 0
+  return 1
+}
+
 # Escape hatch, so keeping a branch never means editing this file:
 #   PROTECT="dev,staging" bash .claude/prune-merged-branches.sh
 # Worth using without `gh`, since remote protection rules can't be read then —
@@ -205,6 +223,22 @@ if [[ "$CONFIRM" != "1" ]]; then
 fi
 
 [[ ${#TARGETS[@]} -eq 0 ]] && { echo "nothing to delete."; exit 0; }
+
+# Last gate before anything is destroyed: drop any branch a ruleset says must not be
+# deleted, even though we could force it through with bypass.
+KEPT_BY_RULE=()
+FINAL=()
+for b in ${TARGETS[@]+"${TARGETS[@]}"}; do
+  if is_rule_protected "$b"; then KEPT_BY_RULE+=("$b"); else FINAL+=("$b"); fi
+done
+if [[ ${#KEPT_BY_RULE[@]} -gt 0 ]]; then
+  echo "skipping ${#KEPT_BY_RULE[@]} branch(es) a repository ruleset protects from deletion:"
+  printf '  %s\n' ${KEPT_BY_RULE[@]+"${KEPT_BY_RULE[@]}"}
+  echo "  (your admin bypass could override these — this script will not do it for you.)"
+  echo
+fi
+TARGETS=(${FINAL[@]+"${FINAL[@]}"})
+[[ ${#TARGETS[@]} -eq 0 ]] && { echo "nothing left to delete."; exit 0; }
 
 for b in ${TARGETS[@]+"${TARGETS[@]}"}; do
   echo "deleting: $b"
