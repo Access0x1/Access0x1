@@ -146,11 +146,6 @@ function requireEnv(name: string): string {
   return value;
 }
 
-let client: DynamicEvmWalletClient | null = null;
-let authPromise: Promise<DynamicEvmWalletClient> | null = null;
-let account: AgentAccount | null = null;
-let accountPromise: Promise<AgentAccount> | null = null;
-
 /**
  * Get the authenticated Dynamic client, authenticating exactly once per process
  * (design decision #1). Concurrent callers await the same in-flight auth promise, so
@@ -186,22 +181,22 @@ export async function getAgentClient(): Promise<DynamicEvmWalletClient> {
  * @throws {ConfigMissing} if `WALLET_PASSWORD` (or any auth env var) is unset.
  */
 export async function getOrCreateAgentAccount(): Promise<AgentAccount> {
-  if (account) {
-    return account;
+  if (state.account) {
+    return state.account;
   }
-  if (!accountPromise) {
-    accountPromise = (async () => {
+  if (!state.accountPromise) {
+    state.accountPromise = (async () => {
       const c = await getAgentClient();
       const password = requireEnv("WALLET_PASSWORD");
       const walletId = process.env.AGENT_WALLET_ID;
       const acct = walletId
         ? await c.getWalletAccount({ walletId, password })
         : await c.createWalletAccount({ password });
-      account = acct;
+      state.account = acct;
       return acct;
     })();
   }
-  return accountPromise;
+  return state.accountPromise;
 }
 
 /**
@@ -222,8 +217,8 @@ export async function agentAddress(): Promise<Hex> {
  * @returns void
  */
 export function __resetWalletForTests(): void {
-  client = null;
-  authPromise = null;
-  account = null;
-  accountPromise = null;
+  state.client = null;
+  state.authPromise = null;
+  state.account = null;
+  state.accountPromise = null;
 }
