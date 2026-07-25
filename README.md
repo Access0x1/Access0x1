@@ -6,7 +6,7 @@
 
 **The open-source rail for onchain identity + USD-priced payments in USDC. One link, no code, no contract, no gas. Apps build on it.**
 
-Access0x1 is the umbrella layer everything plugs into — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), tokenization (ERC-7943 uRWA compliant assets · ERC-6551 token bound accounts), and identity, white-label for non-coders and agent-native. One shared rail per chain; apps build on top, no per-app contract code.
+Access0x1 is the umbrella layer everything plugs into — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), tokenization ([ERC-7943 uRWA compliant assets · ERC-6551 token bound accounts](docs/TOKENIZATION-KIT.md) — built and unit-tested, deployed on no chain), and identity, white-label for non-coders and agent-native. One shared rail per chain; apps build on top, no per-app contract code.
 
 🏆 **Verified ETHGlobal Hacker Pack holder** — the Hacker Pack is an on-chain credential ([`EG-HACKER`](https://optimistic.etherscan.io/token/0x32382a82d9faDc55f971f33DaEeE5841cfbADbE0) · contract `0x32382a82d9faDc55f971f33DaEeE5841cfbADbE0` · balance 1 on Optimism).
 

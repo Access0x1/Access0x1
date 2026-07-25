@@ -143,12 +143,24 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   Built + unit-tested; NOT deployed (a live deploy needs the CREATE2 address-mining step so the
   address carries the AFTER_SWAP flag — claimed only when a broadcast record exists).
 
+- **Tokenization kit — uRWA assets (ERC-7943)** — `src/Access0x1RwaToken.sol` implements the full
+  `IERC7943NonFungible` surface (per-token freeze, authorized `forcedTransfer`, `canSend`/
+  `canReceive` gates at the single `_update` choke-point), `src/tokens/DeedToken.sol` inherits it
+  and adds deed metadata plus a fractionalization LOCK, and `src/RwaShareVault.sol` is an ERC-4626
+  share vault whose pause is deposit-side only so redemption can never be blocked. Each has a unit
+  suite (`test/unit/Access0x1RwaToken.t.sol`, `test/unit/tokens/DeedToken.t.sol`,
+  `test/unit/RwaShareVault.t.sol`). **NOT in `DeployAll` — no chain carries them, no address is
+  claimed.** Three limits we state rather than let a reader assume: the compliance decision is an
+  **allowlist, not KYC**; the fractionalizer `DeedToken` locks a deed into **does not exist in this
+  repo** (it is an address parameter); and `RwaShareVault` shares are an **ungated ERC-20** with no
+  USD pricing and **no income-distribution mechanism**. `docs/TOKENIZATION-KIT.md` walks the one
+  flow that does compose today (a deed sold for USD-priced USDC through `Access0x1Nft`).
 - **Tokenization kit (ERC-5192 + ERC-1155)** — `src/CredentialSbt.sol` implements `IERC5192`
   (soulbound ERC-721, ERC-165 id `0xb45a3c0e` pinned) and `src/tokens/ReceiptToken.sol` +
   `MembershipToken.sol` are ERC-1155, each with a unit suite (`test/unit/CredentialSbt.t.sol`,
   `test/unit/tokens/ReceiptToken.t.sol`). Built + unit-tested; NOT in `DeployAll`, so no chain
   carries them and no address is claimed. These were listed under "not built" until 2026-07-25 —
-  an undercount that contradicted `docs/TOKENIZATION-KIT.md`, which documents them as presets.
+  an undercount that contradicted `docs/TOKENIZATION-KIT.md`, which documents them as presets. `CredentialSbt` is issued and validated but **has no consumer in this repo** — no contract reads `hasValidCredential`, so it is an attestation registry, not yet a gate.
 
 **Seam (code present, NOT exercised in the live example path / booth-SDK-gated):**
 - **Walrus** (decentralized storage), **Unlink** (private payout), **Blink** (one-tap funding),

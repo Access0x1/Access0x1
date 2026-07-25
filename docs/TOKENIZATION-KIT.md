@@ -30,6 +30,97 @@ Access0x1 ships two layers that compose cleanly:
 parameters, so the base stays usable exactly as we use it *and* configurable so anyone clones it
 and runs it their way. Testnets only (mainnet is owner-gated, post-audit).
 
+## Who this is for — and what actually works today
+
+Two audiences ask for this kit. Both get an honest answer here, because the difference between
+"the contracts exist" and "the flow works end to end" is exactly where a tokenization pitch
+usually stops being true.
+
+**Nothing in this kit is deployed on any chain.** None of these contracts is in
+`script/DeployAll.s.sol`, so no `broadcast/` record carries them and **no address is claimed for
+any of them** (law #3). `HouseTokenFactory` is the one asset-adjacent contract that IS deployed,
+and it is a plain loyalty/store-credit ERC-20 factory, not an RWA contract. You deploy the kit
+yourself, wire the roles yourself, and it costs you a `forge script` — that is the whole model.
+
+### 1. A business that wants to sell an asset to people
+
+**This works today, and it is composed, not built-in.** The deed is a token; the sale is the
+same USD-priced router settlement every other payment uses. `Access0x1Nft` is a generic,
+zero-custody, USD-priced ERC-721 marketplace, and it accepts **any** collection — including a
+uRWA-compliant one.
+
+```
+1.  deploy DeedToken(name, symbol, admin)          # not in DeployAll — deploy it yourself
+2.  grantRole(MINTER_ROLE, issuer); grantRole(WHITELIST_ROLE, compliance)
+3.  setWhitelisted(seller, true)
+    setWhitelisted(buyer,  true)
+    setWhitelisted(address(access0x1Nft), true)    # ← the trap. see below.
+4.  mintDeed(seller, tokenId, registryRef, uri)
+5.  router.registerMerchant(payout, feeRecipient, feeBps, nameHash)
+6.  deedToken.approve(address(access0x1Nft), tokenId)
+7.  access0x1Nft.list(merchantId, address(deedToken), tokenId, USDC, priceUsd8)
+8.  access0x1Nft.buy(listingId, maxPriceUsd8, maxTokenAmount)
+```
+
+> **The trap in step 3.** `Access0x1Nft` escrows the token while it is listed, so the
+> **marketplace contract itself** must pass `canReceive`. Miss it and step 7 reverts
+> `ERC7943CannotReceive` — on the escrow leg, which reads like the seller is non-compliant. This
+> is the single thing that will cost you an afternoon.
+>
+> A second-order note: in `buy`, the router settlement happens **before** the token is
+> delivered. A non-whitelisted buyer therefore reverts the whole transaction — no money is
+> lost, the payment rolls back with it — but there is no friendly pre-flight check, so the buyer
+> sees a raw revert rather than "you are not cleared to hold this asset."
+
+**Honest gaps in this flow:** no deploy script, no SDK/ABI (`DeedToken` is not in
+`web/lib/generated/module-abis.ts`), no UI, and no test yet combines a uRWA token with
+`Access0x1Nft` — the marketplace suite uses a plain `MockERC721`. The composition is sound and
+each half is tested; the seam between them is not.
+
+**Compliance here is an allowlist, not KYC.** `canSend`/`canReceive` read a `WHITELIST_ROLE`
+map. `CredentialSbt` can issue and validate a real credential — but **nothing in the repo reads
+it**, so a credential-gated asset needs a ~20-line subclass overriding `canSend`/`canReceive` to
+call `hasValidCredential`. The override pattern is proven in
+`test/unit/Access0x1RwaToken.t.sol` against a mock registry; the `CredentialSbt`-backed version
+does not exist yet.
+
+### 2. Taking money for property — deposits, rent, invoices
+
+**This is the part that needs no new code at all**, and it is deployed on nine testnets today:
+
+- **`Access0x1Bookings`** — a USD-priced, refundable holding deposit with an immutable
+  cancellation policy snapshot and a refund the merchant can never block.
+- **`Access0x1Subscriptions`** — recurring USD rent with dunning, renewed by a permissionless
+  keeper.
+- **`Access0x1Invoices`** — a one-shot USD invoice, settled through the same fee split.
+- **`SplitSettler`** — fan one settled USD payment out to N payees by basis points.
+
+None of these touch the RWA tokens. They settle against a merchant id, which is why they work
+now: the money path never needed the asset layer.
+
+### 3. An AI agent acting on an owner's behalf
+
+Be precise here, because there are **two separate budget systems and they are not connected**:
+
+- **On-chain `SessionGrant`** — a real, revocable, budget-capped spend mandate. But
+  `sessionGrant.spend` has exactly **one caller in the entire codebase**
+  (`Access0x1Subscriptions`). An on-chain mandate can renew a subscription. It **cannot** buy an
+  NFT, mint a deed, or deposit into a vault.
+- **The off-chain agent meter** (`web/lib/agent/**`) — a durable daily USD cap over x402 /
+  EIP-3009 micro-payments. It pays a **URL**, not a contract. It never touches `SessionGrant`.
+
+**So what an agent can genuinely do today:** pay for inference, data, or a valuation feed under a
+daily cap; sign a human up for recurring payments that then renew autonomously under an on-chain,
+revocable, budget-capped mandate; cancel a booking under a two-gate consent check. That is a real
+"agent with a mandate" story — and it is a **rent and subscription** story, not an
+asset-purchase one.
+
+**What an agent cannot do today, stated plainly:** buy a tokenized asset under a spend mandate.
+The missing piece is one function — a `buyWithSession` on `Access0x1Nft` that calls
+`sessionGrant.spend` before `router.payToken`, exactly as `Access0x1Subscriptions` already does.
+Until that exists, an "AI agent buys property" claim would be an overclaim, and this page will
+not make it.
+
 ## The map — sector → contract → use case
 
 | Sector | Contract | Standard | Composes the router? | Use case |
@@ -42,6 +133,7 @@ and runs it their way. Testnets only (mainnet is owner-gated, post-audit).
 | Creator platforms / subscriptions | [`MembershipToken`](../src/tokens/MembershipToken.sol) | ERC-1155 | declares the split | Tiered memberships with **time-boxed validity** (renew extends, lapse restarts), soulbound-optional tiers, and a param'd platform-fee split (`quoteSplit` mirrors the router's floor-bps math to the wei). |
 | Invoicing / B2B | [`InvoiceToken`](../src/tokens/InvoiceToken.sol) | ERC-721 | **yes** (settlement leg) | A USD invoice as an NFT settled **once, gaslessly** off a single EIP-3009 authorization any relayer submits — bound to the exact merchant/amount/invoice by a structured nonce, so a relayer can't redirect it. Routes through the fee-split. |
 | RWA deeds / titles | [`DeedToken`](../src/tokens/DeedToken.sol) | ERC-721 + ERC-7943 (uRWA) | no | A titled asset on the uRWA base (inherits all compliance) with deed metadata + an optional, param'd **fractionalization hook** (an external ERC-20 wrapper factory the clone chooses). |
+| Fractional shares | [`RwaShareVault`](../src/RwaShareVault.sol) | ERC-4626 | no | A share vault over any ERC-20 asset: deposit mints shares, redeem returns the underlying pro-rata. Pause is **deposit-side only** — `_withdraw` is deliberately not overridden, so redemption can never be blocked. **Read the honest limits below before using it for an RWA:** the shares are an ungated ERC-20 (no compliance, no allowlist), there is no USD pricing, and there is no income-distribution mechanism. |
 
 ## Deploy params — what each preset takes
 
@@ -176,10 +268,20 @@ before the mint, so a re-entrant claim on the same voucher reverts.
 
 ## Tests
 
-Every preset has a dedicated suite under [`test/unit/tokens/`](../test/unit/tokens/): happy paths,
-revert paths, access control, fee/royalty rounding (fuzzed), the refund-never-blocked invariant,
-escrow conservation (fuzzed), and — for `InvoiceToken` — explicit relayer-redirect red-team cases.
-Run them with `forge test --match-path 'test/unit/tokens/*'`.
+Every preset has a dedicated suite: happy paths, revert paths, access control, fee/royalty
+rounding (fuzzed), the refund-never-blocked invariant, escrow conservation (fuzzed), and — for
+`InvoiceToken` — explicit relayer-redirect red-team cases.
+
+They do **not** all live in one directory, and the command this page used to give
+(`--match-path 'test/unit/tokens/*'`) silently skipped three of them — the uRWA base, the
+credential, and the vault, which sit in `test/unit/`. Run the kit with both paths:
+
+```sh
+forge test --match-path 'test/unit/tokens/*'
+forge test --match-path 'test/unit/{Access0x1RwaToken,CredentialSbt,RwaShareVault}.t.sol'
+```
+
+`make test` runs the whole tree and is the honest single command.
 
 The attestation primitives keep their own suites at the repo root:
 [`test/unit/CredentialSbt.t.sol`](../test/unit/CredentialSbt.t.sol) — the full lifecycle (direct issue,
