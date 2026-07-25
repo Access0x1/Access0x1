@@ -135,6 +135,23 @@ export async function resolveVerifiedTenantForWrite(
 ): Promise<string> {
   const { tenantId, verified } = await resolveVerifiedTenant(request, body)
   if (!verified && requireVerifiedWrites()) {
+    // Two very different causes land here, and telling a signed-in person "you
+    // need to sign in" when the SERVER is the thing that is misconfigured sends
+    // them round a loop they cannot exit — they re-authenticate, nothing changes.
+    //
+    // `NEXT_PUBLIC_*` is inlined into the client bundle at BUILD time but read
+    // from the process env at RUNTIME on the server. A deployment that supplies
+    // the id only at build therefore signs users in perfectly in the browser
+    // while the server cannot verify a single token — which is exactly this
+    // branch, and it looks like a user problem from the outside.
+    if (!isJwtVerificationConfigured()) {
+      throw new TenantAuthError(
+        'This deployment cannot verify sign-ins: the server has no ' +
+          'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID at runtime (a build-time-only value does not ' +
+          'reach the server). Set it in the runtime environment, or set ' +
+          'BRANDING_REQUIRE_VERIFIED_WRITES=false for a non-production deploy.',
+      )
+    }
     throw new TenantAuthError('A verified sign-in is required for this action.')
   }
   return tenantId

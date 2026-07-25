@@ -20,6 +20,7 @@ import {
   isJwtVerificationConfigured,
   resolveTenantId,
   resolveVerifiedTenant,
+  resolveVerifiedTenantForWrite,
   resolveVerifiedUserId,
   __resetTenantJwksForTests,
 } from '../tenant'
@@ -237,5 +238,53 @@ describe('resolveVerifiedUserId (Dynamic JWT sub — money-path IDOR guard)', ()
   it('fallback with NO token and NO body userId is rejected', async () => {
     delete process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID
     await expect(resolveVerifiedUserId(reqWith(), {})).rejects.toBeInstanceOf(TenantAuthError)
+  })
+})
+
+describe('a signed-in person is never told to sign in when the SERVER is misconfigured', () => {
+  // The trap this pins: NEXT_PUBLIC_* is inlined into the client bundle at BUILD
+  // time but read from the process env at RUNTIME on the server. A deploy that
+  // supplies the id only at build signs users in flawlessly in the browser and
+  // then cannot verify a single token — so every write is rejected, and the old
+  // message told the user to do the one thing that cannot possibly help.
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  /** Force the production policy explicitly, so the test never depends on NODE_ENV. */
+  function enforceProduction(): void {
+    vi.stubEnv('BRANDING_REQUIRE_VERIFIED_WRITES', 'true')
+  }
+
+  it('names the server-side variable when verification is impossible', async () => {
+    enforceProduction()
+    vi.stubEnv('NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID', '')
+    const req = new Request('http://x/api/branding', { method: 'POST' })
+
+    await expect(
+      resolveVerifiedTenantForWrite(req, { tenantId: '0x' + '1'.repeat(40) }),
+    ).rejects.toThrowError(/NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID/)
+  })
+
+  it('does NOT blame the user in that case', async () => {
+    enforceProduction()
+    vi.stubEnv('NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID', '')
+    const req = new Request('http://x/api/branding', { method: 'POST' })
+
+    const err = await resolveVerifiedTenantForWrite(req, {
+      tenantId: '0x' + '1'.repeat(40),
+    }).catch((e: Error) => e)
+    // "sign in again" to someone already signed in is the loop we removed.
+    expect((err as Error).message).not.toMatch(/sign in again/i)
+  })
+
+  it('still asks for a sign-in when the server CAN verify and no token came', async () => {
+    enforceProduction()
+    vi.stubEnv('NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID', 'env-abc-123')
+    const req = new Request('http://x/api/branding', { method: 'POST' })
+
+    await expect(
+      resolveVerifiedTenantForWrite(req, { tenantId: '0x' + '1'.repeat(40) }),
+    ).rejects.toThrowError(/verified sign-in is required/i)
   })
 })

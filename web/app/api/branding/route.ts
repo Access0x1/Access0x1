@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import {
+  isJwtVerificationConfigured,
+  requireVerifiedWrites,
   resolveTenantId,
   resolveVerifiedTenant,
   resolveVerifiedTenantForWrite,
@@ -54,6 +56,30 @@ function issueSubnameInBackground(row: TenantBranding): void {
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url)
   const queryTenantId = searchParams.get('tenantId') ?? undefined
+
+  // `?probe=auth` — can THIS server verify a sign-in at all? Names and booleans
+  // only, never a value, so it is safe to curl from anywhere.
+  //
+  // It exists because the failure it diagnoses is invisible from the browser: a
+  // deployment that has NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID at build time but not
+  // in the server's runtime environment signs users in flawlessly and then
+  // rejects every write. Without this you cannot tell that apart from a genuine
+  // session problem without shell access to the box.
+  if (searchParams.get('probe') === 'auth') {
+    const canVerify = isJwtVerificationConfigured()
+    const enforcing = requireVerifiedWrites()
+    return NextResponse.json(
+      {
+        canVerifySignIns: canVerify,
+        requiresVerifiedWrites: enforcing,
+        // The only combination in which a signed-in user is rejected no matter
+        // what they do. If this is true, it is the server, not the person.
+        writesBlockedByServerConfig: enforcing && !canVerify,
+        missing: canVerify ? [] : ['NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID (server runtime)'],
+      },
+      { headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
 
   // Always shape-check the query tenant id (so a junk address is a clean 401).
   let tenantId: string
