@@ -425,7 +425,9 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
   },
   {
     "chainId": 46630,
-    "name": "Chain 46630",
+    "name": "Robinhood Chain Testnet",
+    "explorer": "https://explorer.testnet.chain.robinhood.com",
+    "rpc": "https://rpc.testnet.chain.robinhood.com",
     "deployments": [
       {
         "contractName": "Access0x1Bookings.impl",

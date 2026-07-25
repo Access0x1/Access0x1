@@ -82,9 +82,44 @@ export class ConfigMissing extends Error {
  * and tests inject a mock. Keeping the default a throw (rather than a half-real client)
  * makes a missing wiring loud instead of silent.
  */
-let clientFactory: DynamicClientFactory = () => {
+const defaultClientFactory: DynamicClientFactory = () => {
   throw new ConfigMissing("DYNAMIC_CLIENT_FACTORY");
 };
+
+/**
+ * Design decision #2 (globalThis-backed latch): dev bundlers compile
+ * `instrumentation.ts` and each route as SEPARATE compilations, so this module
+ * exists as two live instances in one Node process — boot wires copy A's
+ * factory, the route reads copy B's default throw, and `/api/agent/pay`
+ * answers 503 `not_configured` despite a successful wiring (webpack `next dev`,
+ * verified 2026-07-25). Module state is per-INSTANCE; the latch must be
+ * per-PROCESS, so all mutable state lives on `globalThis` under a
+ * `Symbol.for` key every copy resolves to the same slot (HMR-safe too: a
+ * rebuilt module re-attaches to the same store instead of orphaning the
+ * wiring). Prod semantics are unchanged — one process, one latch, auth still
+ * happens at most once.
+ */
+interface WalletModuleState {
+  clientFactory: DynamicClientFactory;
+  client: DynamicEvmWalletClient | null;
+  authPromise: Promise<DynamicEvmWalletClient> | null;
+  account: AgentAccount | null;
+  accountPromise: Promise<AgentAccount> | null;
+}
+
+const STATE_KEY = Symbol.for("access0x1.agent.dynamicWalletState");
+
+const globalStore = globalThis as Record<symbol, unknown>;
+if (globalStore[STATE_KEY] === undefined) {
+  globalStore[STATE_KEY] = {
+    clientFactory: defaultClientFactory,
+    client: null,
+    authPromise: null,
+    account: null,
+    accountPromise: null,
+  } satisfies WalletModuleState;
+}
+const state = globalStore[STATE_KEY] as WalletModuleState;
 
 /**
  * Inject the Dynamic client factory. Called once at app boot with the real
@@ -95,13 +130,11 @@ let clientFactory: DynamicClientFactory = () => {
  * @returns void
  */
 export function setDynamicClientFactory(factory: DynamicClientFactory | null): void {
-  clientFactory = factory ?? (() => {
-    throw new ConfigMissing("DYNAMIC_CLIENT_FACTORY");
-  });
-  client = null;
-  authPromise = null;
-  account = null;
-  accountPromise = null;
+  state.clientFactory = factory ?? defaultClientFactory;
+  state.client = null;
+  state.authPromise = null;
+  state.account = null;
+  state.accountPromise = null;
 }
 
 /** Read a required server env var or throw {@link ConfigMissing}. */

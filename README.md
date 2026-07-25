@@ -746,7 +746,7 @@ the committed table has drifted — so it can never go stale by hand:
 | Chain | Chain ID | CREATE3 mirror |
 | --- | --- | --- |
 | ZKsync Sepolia Testnet | `300` | ✅ mirror |
-| 0G Galileo Testnet | `16602` | ⏳ pre-mirror |
+| 0G Galileo Testnet | `16602` | ✅ mirror |
 | Tempo Testnet (Moderato) | `42431` | ⏳ pre-mirror |
 | Avalanche Fuji | `43113` | ✅ mirror |
 | Robinhood Chain Testnet | `46630` | ✅ mirror |
