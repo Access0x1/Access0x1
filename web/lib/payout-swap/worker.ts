@@ -101,6 +101,7 @@ export async function runPayoutSwap(
       swapped: true,
       rail: exec.rail,
       txHash: exec.txHash,
+      unsignedTx: exec.unsignedTx,
       amountOut: quote.amountOut,
       reason: 'none',
     }
