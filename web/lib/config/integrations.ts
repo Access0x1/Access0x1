@@ -91,9 +91,12 @@ export function envFileFor(integration: Integration): string {
 export const INTEGRATIONS: readonly Integration[] = [
   {
     id: 'uniswap',
+    // Was 'core'. The rail is dormant without an endpoint, and FEEDBACK.md records
+    // that its TESTNET coverage was never confirmed — so it cannot be a prerequisite
+    // for going live on testnets.
     label: 'Uniswap Trading API',
     unlocks: 'Receive-in-any-coin payout swaps (gasless / classic / smart-account) off the money path.',
-    impact: 'core',
+    impact: 'feature',
     where: 'hub.uniswap.org — create an app, copy the Trading API key.',
     vars: [
       { name: 'UNISWAP_TRADING_API_URL', purpose: 'Trading API base URL', required: true },
@@ -102,9 +105,13 @@ export const INTEGRATIONS: readonly Integration[] = [
   },
   {
     id: 'oneinch',
+    // Was 'core', which made `env:doctor` demand a key for a rail this repo cannot
+    // reach: 1inch serves no testnets, and `lib/payout-swap/capabilities.ts` maps no
+    // chain to it for exactly that reason. Asking for a credential that cannot be used
+    // trains an operator to ignore the doctor, which is worse than not asking.
     label: '1inch Swap API',
     unlocks: 'The 1inch payout rail + the agent pay-any-token quote (mainnets only — read-only on testnets).',
-    impact: 'core',
+    impact: 'optional',
     where: 'portal.1inch.dev — free Dev plan, copy the API key.',
     vars: [
       { name: 'ONEINCH_API_URL', purpose: 'Swap API base URL including the chain segment', required: true },
