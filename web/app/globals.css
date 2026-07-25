@@ -40,7 +40,15 @@
 
   /* dark is the default Access0x1 theme — shadcn CSS variables */
   --background: 225 47% 7%; /* #0B1020 ink / night water */
-  --foreground: 222 40% 97%; /* #F5F7FB */
+  /* Body text sits a notch below the brand's paper-white #F5F7FB. At 97% L the
+     contrast against the ink background is 17.5:1 — well past AA/AAA and into
+     GLARE: on a dark chassis, near-maximum-luminance text haloes against the
+     background and tires the eye over a long merchant session. 91% L holds
+     ~14.7:1, still comfortably above the 7:1 AAA bar, so nothing gets harder to
+     read — it just stops shouting. --card-foreground deliberately KEEPS 97%:
+     cards are a lighter surface (#11162A), so their text needs the extra step
+     to sit at the same perceived weight as body copy on the ink. */
+  --foreground: 222 33% 91%;
   --card: 228 42% 12%; /* #11162A surface */
   --card-foreground: 222 40% 97%;
   --popover: 228 42% 12%;
@@ -141,6 +149,13 @@ select {
   0% {
     background-position: 200% 0;
   }
+  /* The sweep finishes a QUARTER of the way through the cycle and then holds.
+     A 3s loop that swept for its whole duration read as perpetual motion — the
+     badge never settled, so a static page always had something moving in the
+     corner of the eye and the sheen stopped meaning anything. Landing the
+     travel in the first 2s of an 8s cycle turns it into ONE glint every eight
+     seconds: still alive, no longer a metronome. */
+  25%,
   100% {
     background-position: -200% 0;
   }
@@ -148,7 +163,7 @@ select {
 
 .ax1-shimmer {
   background-size: 200% 100%;
-  animation: ax1-shimmer 3s linear infinite;
+  animation: ax1-shimmer 8s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

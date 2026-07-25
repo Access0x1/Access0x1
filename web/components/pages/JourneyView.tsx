@@ -284,6 +284,12 @@ export function JourneyLadder({
       </div>
       <ol className="flex flex-col gap-3">
         {steps.map((step, i) => (
+          // A locked step is signalled STRUCTURALLY — the faded border, the flat
+          // background, and the grey number chip below — never by fading the whole
+          // card. `opacity-70` used to multiply through to the step's title and its
+          // lockedReason, dropping the one sentence that explains HOW to unlock it
+          // from roughly 8:1 to 5.6:1 and making the instruction the hardest text on
+          // the page to read.
           <li
             key={step.key}
             data-journey-step={step.key}
@@ -293,7 +299,7 @@ export function JourneyLadder({
                 ? 'border-rail/50 bg-card'
                 : step.status === 'done'
                   ? 'border-border bg-card'
-                  : 'border-border/60 bg-background opacity-70'
+                  : 'border-border/60 bg-background'
             }`}
           >
             <div className="flex items-center gap-3">
@@ -315,7 +321,11 @@ export function JourneyLadder({
               </div>
             </div>
             {step.status === 'locked' && step.lockedReason ? (
-              <p className="mt-2 pl-10 text-xs text-amber-600" data-testid="locked-reason">
+              // amber-400, not amber-600: the 600 weight is a LIGHT-mode caution
+              // colour (#D97706), and on the ink chassis it drops to roughly 3.9:1
+              // — under AA for this 12px text. The 400 weight (#FBBF24) reads the
+              // same "caution, not error" note at ~10:1.
+              <p className="mt-2 pl-10 text-xs text-amber-400" data-testid="locked-reason">
                 {step.lockedReason}
               </p>
             ) : null}
