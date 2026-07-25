@@ -128,11 +128,21 @@ the in-code `@warn` is now an `@verified`). Scoring my own request list:
 
 ## Status: honest scope
 
-The **quote leg is live-verified** on Base mainnet, Ethereum mainnet, and — the one that
-matters for a testnet-only build — **Ethereum Sepolia**, all read-only (the offline suite
-pins the verified shapes). The **execute leg is wired to the documented flow but has sent no
-live transaction yet**; with Ethereum Sepolia served, the first real testnet swap needs only
-a faucet-funded burner — the capture script drives it through the exact production wiring
-and this document gets the tx hash the moment it lands. Both rails stay env-gated and
-fail-soft; absent env, the payout worker degrades to a clean no-op and the merchant keeps
-their settled USDC.
+**The full loop is live-proven on Ethereum Sepolia (2026-07-25).** Through the exact
+production wiring — `buildPayoutSwapDeps()` → the Trading API rail → `runPayoutSwap()` →
+the wallet-owner leg — a real 1-USDC → WETH swap landed:
+[`0x936acc13…a24e69`](https://sepolia.etherscan.io/tx/0x936acc13fd35032da86aa7075608131f3c39addb9198d7d5877e54ff51a24e69),
+with the fill matching the quoted `amountOut` **to the wei** (533936675387574). Quote legs
+are additionally verified read-only on Base + Ethereum mainnet.
+
+One more integration lesson the live run taught, worth a docs sentence: `/check_approval`
+covers only the ERC20→Permit2 leg. A funded, ERC20-approved wallet still reverts at the
+Universal Router unless the **Permit2→Router** grant exists — normally the signed
+`permitData`. For integrators whose signing seam is transaction-based,
+`generatePermitAsTransaction: true` on `/quote` returns that grant as a ready-to-sign
+`permitTransaction` — landing it before the swap fixed our revert on the first try. The
+docs describe the field; connecting it to that exact revert would save the next integrator
+the debugging session.
+
+Both rails stay env-gated and fail-soft; absent env, the payout worker degrades to a clean
+no-op and the merchant keeps their settled USDC.
