@@ -99,21 +99,28 @@ fi
 # the default branch and the branch you are standing on are usually both `main` —
 # so collapse it before use. Matters for the printed line more than the matching,
 # but a list that says "main main" reads like a bug in a script that deletes things.
+#
+# PORTABILITY: every array expansion below uses the `${arr[@]+"${arr[@]}"}` guard.
+# macOS ships bash 3.2, where `set -u` treats expanding an EMPTY array as an unbound
+# variable and aborts; bash 4.4+ does not. This script runs under `set -euo pipefail`,
+# so an unguarded `"${empty[@]}"` is a hard crash on a Mac and completely invisible on
+# Linux — which is exactly how it shipped. Do not remove the guards.
 dedup_protected() {
-  local -a seen=()
-  local p q found
-  for p in "${PROTECTED[@]}"; do
+  local -a out=()
+  local p
+  for p in ${PROTECTED[@]+"${PROTECTED[@]}"}; do
     [[ -z "$p" ]] && continue
-    found=0
-    for q in "${seen[@]}"; do [[ "$p" == "$q" ]] && { found=1; break; }; done
-    [[ $found -eq 0 ]] && seen+=("$p")
+    # Membership via the flattened string: no inner loop, and `${out[*]-}` is safe
+    # to expand when `out` is still empty.
+    case " ${out[*]-} " in *" $p "*) continue ;; esac
+    out+=("$p")
   done
-  PROTECTED=("${seen[@]}")
+  PROTECTED=(${out[@]+"${out[@]}"})
 }
 
 is_protected() {
   local b="$1"
-  for p in "${PROTECTED[@]}"; do [[ "$b" == "$p" ]] && return 0; done
+  for p in ${PROTECTED[@]+"${PROTECTED[@]}"}; do [[ "$b" == "$p" ]] && return 0; done
   return 1
 }
 
@@ -182,11 +189,14 @@ echo
 echo "KEEP — carries content main does not have (${#KEEP[@]})"
 printf '  %s\n' "${KEEP[@]:-<none>}"
 echo
-echo "protected: ${PROTECTED[*]}"
+echo "protected: ${PROTECTED[*]-}"
 echo
 
-TARGETS=("${TIER_A[@]}")
-[[ "$INCLUDE_REBASED" == "1" ]] && TARGETS+=("${TIER_B[@]}")
+# Same bash-3.2 guard as above. TIER_B is legitimately empty on a repo with no
+# rebase-merged branches, so `--confirm --include-rebased` would have aborted here
+# on a Mac before deleting anything — a crash, not a no-op.
+TARGETS=(${TIER_A[@]+"${TIER_A[@]}"})
+[[ "$INCLUDE_REBASED" == "1" ]] && TARGETS+=(${TIER_B[@]+"${TIER_B[@]}"})
 
 if [[ "$CONFIRM" != "1" ]]; then
   echo "DRY RUN — nothing deleted. ${#TARGETS[@]} branch(es) would be removed."
@@ -196,7 +206,7 @@ fi
 
 [[ ${#TARGETS[@]} -eq 0 ]] && { echo "nothing to delete."; exit 0; }
 
-for b in "${TARGETS[@]}"; do
+for b in ${TARGETS[@]+"${TARGETS[@]}"}; do
   echo "deleting: $b"
   git push origin --delete "$b" || echo "  (skip: $b — already gone or protected)"
 done
