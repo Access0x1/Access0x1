@@ -136,7 +136,11 @@ fi
 # the four live-chain values ABORTS the deploy — loud beats dormant. The zkSync
 # pair is optional (chain never broadcast; its USD-only fallback is the honest
 # state until an EraVM broadcast exists).
-embed_var() { grep "^${1}=" "$REPO_ROOT/web/.env.local" | head -1 | cut -d= -f2-; }
+# `|| true` because a var that is legitimately absent (the optional zkSync pair)
+# makes grep exit 1 — under `set -euo pipefail` that killed the whole deploy
+# silently right after secret-vaulting. Absent stays absent; the gate below
+# decides which ones are allowed to be.
+embed_var() { grep "^${1}=" "$REPO_ROOT/web/.env.local" | head -1 | cut -d= -f2- || true; }
 ROUTER_ARC="$(embed_var NEXT_PUBLIC_ROUTER_ARC)"
 USDC_ARC="$(embed_var NEXT_PUBLIC_USDC_ARC)"
 ROUTER_BASE="$(embed_var NEXT_PUBLIC_ROUTER_BASE_SEPOLIA)"
