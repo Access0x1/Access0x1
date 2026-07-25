@@ -218,15 +218,38 @@ export const INTEGRATIONS: readonly Integration[] = [
   },
   {
     id: 'fiat-ramp',
-    label: 'Fiat on/off-ramp + funding flow',
-    unlocks: 'Card→USDC top-up and cash-out. Blank ⇒ the ramp buttons stay hidden, payments still work.',
+    label: 'Fiat on/off-ramp + one-tap deposit funding',
+    unlocks:
+      'Card/bank→USDC top-up and cash-out, plus one-tap deposit (Blink) into the connected wallet. ' +
+      'Blank ⇒ the ramp + funding buttons stay hidden, payments still work.',
     impact: 'optional',
-    where: "Your ramp provider's dashboard — a server key per leg. Never NEXT_PUBLIC_.",
+    where:
+      "Ramp provider's dashboard for the server keys (never NEXT_PUBLIC_); the deposit provider's " +
+      'console for the public app id. See lib/funding/blink.ts + lib/onramp/config.ts.',
     vars: [
       { name: 'ONRAMP_SERVER_KEY', purpose: 'Signs the on-ramp session before redirect', secret: true },
       { name: 'OFFRAMP_SERVER_KEY', purpose: 'Signs the off-ramp session before redirect', secret: true },
       { name: 'FLOW_SERVER_KEY', purpose: 'Signs the funding-flow session before redirect', secret: true },
+      // One-tap deposit (Blink). BLINK_ENABLED is the server switch read at RUNTIME —
+      // it MUST reach the running service (Secret Manager is for secrets; this is a
+      // non-secret flag that goes in the plain runtime env). Without it the deposit
+      // route returns not_configured even when the client shows the button. The two
+      // NEXT_PUBLIC_ vars are inlined into the client bundle at build AND read by the
+      // server at runtime, so they travel by both roads.
+      {
+        name: 'BLINK_ENABLED',
+        purpose: 'Server switch for one-tap deposit ("true"/"1"/"yes"/"on"). Blank ⇒ OFF (fail-soft)',
+      },
+      {
+        name: 'NEXT_PUBLIC_BLINK_APP_ID',
+        purpose: 'Public app/client id the deposit widget starts with. Blank ⇒ the funding option is hidden',
+      },
       { name: 'NEXT_PUBLIC_BLINK_TOKEN', purpose: 'Asset for one-tap deposit funding (defaults to USDC)', hasDefault: true },
+      {
+        name: 'NEXT_PUBLIC_BLINK_CHAIN_ID',
+        purpose: "Default destination chain for the deposit (falls back to the app's default chain)",
+        hasDefault: true,
+      },
     ],
   },
   {
