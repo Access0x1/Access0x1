@@ -110,8 +110,10 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   order (e.g. a second checkout tab) could otherwise resolve the hook with the wrong receipt. The watch is
   also raced against a **120s timeout** so a missing or undecodable event fails loud instead of hanging the
   pay flow forever (the watcher is torn down either way). Covered by `usePayment-timeout.test.ts`.
-- **Honest limitation:** **no third-party audit yet.** Mainnet is blocked in code behind
-  `MAINNET_AUDITED=yes` — that gate is deliberate and protects users until an external audit lands.
+- **Honest status:** **no third-party audit yet.** The security posture is first-party review (the
+  nfteria auditor + the operator's experience); an external audit is available/welcome but not a
+  self-imposed blocker. Mainnet requires a deliberate `MAINNET_CONFIRM=yes` (real-funds fat-finger
+  protection, no undo) — the operator owns the go decision and its risk.
 - Secrets are env-only; signing is keystore-only (`--account`, never `--private-key`). No hardcoded
   contract addresses in the deploy path.
 

@@ -10,9 +10,10 @@ this tracked charter is what it derives from and what other engineers review.
 own code. That is self-review, not independent review, however rigorous the
 rubric; the operator's security experience strengthens it but does not make it
 independent. Every report this agent writes MUST carry that disclosure in its
-footer (see below) and MUST NOT be presented as a third-party audit. A genuinely
-independent third-party audit remains the hard requirement before real funds
-(`docs/MAINNET-CUSTODY.md` §5) — nothing this agent produces changes that gate.
+footer (see below) and MUST NOT be presented as a third-party audit. An
+independent third-party audit is **available and welcome**, not a self-imposed
+blocker — the operator owns the decision to seek one and the risk of shipping on
+first-party review.
 
 ---
 
