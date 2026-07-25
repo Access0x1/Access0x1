@@ -659,7 +659,7 @@ deploy-tempo: ## Deploy to Tempo Moderato (chainId 42431; TIP-20 stablecoin fees
 #  claim. The targets below exist ONLY so each chain has a mainnet PROFILE alongside its testnet one
 #  (config/readiness). They move REAL money on a LIVE chain, with no undo. The operator owns the
 #  security posture (an external audit is available/welcome but NOT a required gate — see
-#  audit/nfteria-auditor/ + docs/MAINNET-CUSTODY.md). Each recipe deliberately STOPS with a
+#  audit/first-party-auditor/ + docs/MAINNET-CUSTODY.md). Each recipe deliberately STOPS with a
 #  real-funds confirm gate (`MAINNET_CONFIRM=yes`) so an accidental `make deploy-<chain>-mainnet`
 #  is a no-op, never a fat-fingered broadcast. HelperConfig reads every address from
 #  `<CHAIN>_MAINNET_*` env (default address(0) ⇒ skipped); NOTHING is hardcoded. Verifier per chain
@@ -677,7 +677,7 @@ define MAINNET_GATE
 		echo "⛔ MAINNET deploy BLOCKED — real funds on a live chain."; \
 		echo "   This deploys to mainnet with REAL money. There is no undo."; \
 		echo "   The operator is responsible for the security posture (an external audit is"; \
-		echo "   available but NOT required — see audit/nfteria-auditor/ + docs/MAINNET-CUSTODY.md)."; \
+		echo "   available but NOT required — see audit/first-party-auditor/ + docs/MAINNET-CUSTODY.md)."; \
 		echo "   To proceed deliberately, re-run with: MAINNET_CONFIRM=yes"; \
 		exit 1; \
 	fi
