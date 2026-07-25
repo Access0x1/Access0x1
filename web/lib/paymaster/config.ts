@@ -142,8 +142,26 @@ export function isPaymasterPublicConfigured(): boolean {
  * confirm. Pass the active checkout `chainId` directly from the page props.
  */
 export function isPaymasterActiveForChain(chainId: number): boolean {
-  return isPaymasterPublicConfigured() && paymasterChainId() === chainId
+  return PAYMASTER_WIRED_INTO_PAY_PATH && isPaymasterPublicConfigured() && paymasterChainId() === chainId
 }
+
+/**
+ * Is the paymaster actually ON the pay path yet? **No.**
+ *
+ * `paymasterCapability()` below builds a correct ERC-7677 capability object, and it is
+ * exported, tested — and called by nothing. `lib/contracts.ts payToken` sends a plain
+ * `walletClient.writeContract`: no `wallet_sendCalls`, no capabilities. So the buyer pays
+ * full gas.
+ *
+ * That made the "Gas sponsored — you pay $0 in network fees" badge a false claim about
+ * money, shown to the person paying, discoverable by anyone who paid once and looked at
+ * their wallet. Exactly what law #4 forbids, and a config flag being set does not make it
+ * true — configuring a paymaster URL is not the same as USING it.
+ *
+ * This constant is the honest gate. Flip it to `true` in the SAME change that makes
+ * `payToken` send the capability, never before.
+ */
+const PAYMASTER_WIRED_INTO_PAY_PATH = false
 
 // ---------------------------------------------------------------------------
 // EIP-5792 capability object

@@ -164,8 +164,14 @@ describe('fully configured — seam is ON', () => {
     expect(paymasterChainId()).toBe(BASE_SEPOLIA_CHAIN_ID)
   })
 
-  it('isPaymasterActiveForChain() is true for the matching chain', () => {
-    expect(isPaymasterActiveForChain(BASE_SEPOLIA_CHAIN_ID)).toBe(true)
+  it('isPaymasterActiveForChain() stays FALSE until the pay path actually sponsors', () => {
+    // Config alone is not sponsorship. `paymasterCapability()` is built, exported and
+    // called by nothing — `payToken` sends a plain writeContract — so the buyer pays
+    // full gas. While that is true, "gas sponsored" is a false claim about money made
+    // to the person paying it, and no env var may switch it on.
+    // Flip PAYMASTER_WIRED_INTO_PAY_PATH in the same change that wires the capability,
+    // and this expectation becomes `true`.
+    expect(isPaymasterActiveForChain(BASE_SEPOLIA_CHAIN_ID)).toBe(false)
   })
 
   it('isPaymasterActiveForChain() is false for a DIFFERENT chain (truth-in-copy law)', () => {

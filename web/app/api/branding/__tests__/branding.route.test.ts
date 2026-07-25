@@ -61,6 +61,9 @@ describe('GET /api/branding/{slug}', () => {
       name: "Joe's Barbershop",
       description: 'Fresh cuts in Brooklyn',
       logoSvg: '<svg><rect/></svg>',
+      // No price was saved above, so the payload says so rather than carrying a
+      // number the merchant never chose (this used to be a hardcoded 29.00 in the view).
+      priceUsd: null,
       brandColor: '#123456',
       merchantId: null,
       router: '0xRouter0000000000000000000000000000000099',

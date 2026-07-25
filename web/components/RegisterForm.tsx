@@ -3,7 +3,8 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { isAddress, keccak256, toHex, type Address, type Hash } from 'viem'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
-import { getDefaultChainId } from '@/lib/chains'
+import { altFaucetUrlFor, faucetUrlFor, getDefaultChainId } from '@/lib/chains'
+import { chainDisplayName } from '@/components/RailModulesCard'
 import { ensureChain, useLiveChain } from '@/lib/live-chain'
 import { NetworkBadge } from '@/components/NetworkBadge'
 import { registerMerchant } from '@/lib/contracts'
@@ -289,7 +290,49 @@ export function RegisterForm({
         </label>
       </details>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? (
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-red-600">{error}</p>
+          {/* The gas cliff is the merchant path's dead end: someone who signed in with
+              email or Google holds a fresh embedded wallet with a zero balance, and the
+              fix is entirely OUTSIDE the app. Naming the chain and linking its faucet is
+              the difference between "try again" and a way forward. */}
+          {/gas|faucet|insufficient funds/i.test(error) && live.chainId !== null ? (
+            <p className="text-sm text-muted-foreground">
+              You need test funds on{' '}
+              <strong>{chainDisplayName(live.chainId)}</strong>.{' '}
+              {faucetUrlFor(live.chainId) ? (
+                <>
+                  <a
+                    href={faucetUrlFor(live.chainId) as string}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-rail underline-offset-2 hover:underline"
+                  >
+                    Open a faucet
+                  </a>
+                  {altFaucetUrlFor(live.chainId) ? (
+                    <>
+                      {' or '}
+                      <a
+                        href={altFaucetUrlFor(live.chainId) as string}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-rail underline-offset-2 hover:underline"
+                      >
+                        try another
+                      </a>
+                    </>
+                  ) : null}
+                  , then press the button again.
+                </>
+              ) : (
+                <>This deployment has no faucet link configured for that chain.</>
+              )}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {primaryWallet ? (
         <div className="flex flex-col gap-2">

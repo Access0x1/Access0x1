@@ -146,6 +146,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   const displayName = typeof b.displayName === 'string' ? b.displayName : ''
   const description = typeof b.description === 'string' ? b.description : undefined
   const checkoutSlug = typeof b.checkoutSlug === 'string' ? b.checkoutSlug : undefined
+  // The merchant's own price. Sanitized in the store (a junk value becomes "no price
+  // set", never a number nobody chose) — `undefined` here means "leave it alone".
+  const priceUsd =
+    typeof b.priceUsd === 'string' || typeof b.priceUsd === 'number' || b.priceUsd === null
+      ? (b.priceUsd as string | number | null)
+      : undefined
   const brandColor = normalizeBrandColor(
     typeof b.brandColor === 'string' ? b.brandColor : DEFAULT_BRAND_COLOR,
   )
@@ -172,6 +178,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       description,
       brandColor,
       checkoutSlug,
+      priceUsd,
       logoSvgInline,
     })
     // Best-effort gasless ENS subname for the merchant (WRITE seam). Fire-and-

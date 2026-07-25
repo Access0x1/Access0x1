@@ -120,6 +120,8 @@ export async function saveBranding(input: {
   description?: string
   brandColor?: string
   checkoutSlug?: string
+  /** The merchant's price in USD ("12.34"). Omit to leave any existing price alone. */
+  priceUsd?: string
   logoSvgInline?: string
 }): Promise<{ ok: true; branding: ClientBranding } | { ok: false; error: string; code?: string }> {
   try {

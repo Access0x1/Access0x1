@@ -28,7 +28,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
  * but not yet registered, we show the branded card honestly and say payments
  * aren't switched on yet (no fake checkout, law #4).
  *
- * URL params: ?amount=29.00 (price), ?order=, ?return_url= (passed through to
+ * URL params: ?amount=12.34 (price; falls back to the merchant's saved price), ?order=, ?return_url= (passed through to
  * the existing CheckoutCard).
  */
 export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
@@ -82,7 +82,10 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
     }
   }, [slug])
 
-  const amount = searchParams.get('amount') ?? '29.00'
+  // Explicit ?amount= wins (a per-item link); otherwise the merchant's OWN saved price.
+  // There is deliberately no hardcoded fallback: this line used to read `?? '29.00'`,
+  // so a merchant who never set a price handed out a link that charged $29.
+  const amount = searchParams.get('amount') ?? branding?.priceUsd ?? null
   const orderParam = searchParams.get('order') ?? undefined
   // Validate at the source: only an https: URL survives; a javascript:/data:/http:
   // /evil-origin value is dropped to undefined (no link rendered) — red-report C-1.
@@ -130,7 +133,7 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
             </div>
           </div>
 
-          {branding.merchantId && merchant ? (
+          {branding.merchantId && merchant && amount ? (
             <CheckoutCard
               chainId={slugSettlementChainId(branding)}
               merchantId={BigInt(branding.merchantId)}
@@ -149,6 +152,13 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
                 return { checkoutMode: gate.mode, humanVerifier: gate.verifier }
               })()}
             />
+          ) : branding.merchantId && merchant && !amount ? (
+            // Payments ARE on, but no price is set and the link carries no ?amount=.
+            // Saying so is the only honest option: the alternative this replaced was a
+            // hardcoded $29.00, i.e. charging a customer a number the merchant never chose.
+            <div className="rounded-xl border border-border bg-secondary p-4 text-sm text-muted-foreground">
+              {branding.name} hasn&apos;t set a price for this link yet.
+            </div>
           ) : (
             <div className="rounded-xl border border-border bg-secondary p-4 text-sm text-muted-foreground">
               {branding.name} hasn&apos;t switched on payments yet. Check back soon.

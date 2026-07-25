@@ -134,6 +134,16 @@ export interface TenantBranding {
   brandColor: string;
   /** The readable link tail. UNIQUE across tenants. */
   checkoutSlug: string;
+  /**
+   * The merchant's own price in USD, as a plain "12.34" string, or null when they
+   * have not set one.
+   *
+   * It exists because the done-screen link and embed used to hardcode `29.00` — a
+   * merchant selling a $25 haircut handed out a QR that charged $29, and there was
+   * no field anywhere in the product to change it. A price nobody typed is not a
+   * default, it is a wrong charge.
+   */
+  priceUsd: string | null;
   /** On-chain merchant id, or null until they register on the Router. */
   merchantId: string | null;
   /**
@@ -193,6 +203,8 @@ export interface BrandingInput {
   brandColor?: string;
   /** Desired checkout slug; auto-derived from the name when omitted/blank. */
   checkoutSlug?: string;
+  /** The merchant's price in USD ("12.34"); null/'' clears it. Sanitized on write. */
+  priceUsd?: string | number | null;
   /** Optional on-chain anchors (attached later by the Snap/Walrus seams). */
   merchantId?: string | null;
   /** The chain the merchant registered `merchantId` on (validated caller-usable chain). */
@@ -366,6 +378,23 @@ function store(): BrandingStore {
  * @returns the persisted row.
  * @throws {BrandingError} on an empty name or a slug collision with a DIFFERENT tenant.
  */
+/**
+ * Normalize a USD price to a plain "12.34" string, or null when absent/unusable.
+ *
+ * Rejects rather than coerces: a non-finite, negative or zero price becomes null (no
+ * price set) instead of silently becoming some number the merchant never chose. The
+ * cap mirrors what the router can quote sensibly and keeps a fat-fingered
+ * "999999999999" out of a customer-facing link.
+ */
+export function sanitizePriceUsd(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const raw = typeof value === 'number' ? String(value) : String(value).trim();
+  if (raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0 || n > 1_000_000) return null;
+  return n.toFixed(2);
+}
+
 export function upsertBranding(input: BrandingInput): TenantBranding {
   const s = store();
   const tenantId = (input.tenantId ?? '').trim();
@@ -479,6 +508,10 @@ export function upsertBranding(input: BrandingInput): TenantBranding {
     logoSvgInline,
     brandColor,
     checkoutSlug: slug,
+    priceUsd:
+      input.priceUsd !== undefined
+        ? sanitizePriceUsd(input.priceUsd)
+        : (existing?.priceUsd ?? null),
     merchantId:
       input.merchantId !== undefined ? input.merchantId : (existing?.merchantId ?? null),
     merchantChainId:

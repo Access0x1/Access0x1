@@ -627,3 +627,59 @@ export function explorerTxUrl(chainId: number, hash: string): string | undefined
   if (!base) return undefined
   return `${base}/tx/${hash}`
 }
+
+/**
+ * A faucet URL for a chain's gas token, or null when none is configured.
+ *
+ * WHY THIS EXISTS. Registering a merchant is a real signed transaction, so a person who
+ * signed in with email or Google is holding a brand-new embedded wallet with a zero
+ * balance. The only guidance the app gave them was "top it up from a testnet faucet" —
+ * `grep -rn faucet` over the whole app returned that one string, with no link and without
+ * even naming the chain. That is the terminal dead end of the merchant path.
+ *
+ * NO URL IS INVENTED HERE (law #3). The single default is Arc's, because this repo already
+ * documents it in `docs/ARC-DEPLOY.md` ("Arc gas is paid in USDC (native). Get testnet USDC
+ * at https://faucet.circle.com"). Every other chain reads
+ * `NEXT_PUBLIC_FAUCET_URL_<chainId>`; unset means we say which chain needs funding and
+ * stop, rather than sending someone to a guessed address.
+ *
+ * @param chainId The chain whose gas the wallet is short of.
+ * @returns The faucet URL, or null when this deployment has not been told one.
+ */
+export function faucetUrlFor(chainId: number): string | null {
+  const override = (process.env[`NEXT_PUBLIC_FAUCET_URL_${chainId}`] ?? '').trim()
+  if (override) return override
+  return DEFAULT_FAUCETS[chainId] ?? null
+}
+
+/**
+ * Per-chain faucet defaults. Each one is a faucet this project actually uses — Circle's
+ * for Arc (documented in `docs/ARC-DEPLOY.md`), and Alchemy's / Google Cloud's for the
+ * ETH testnets — never a URL guessed from a pattern. A chain absent from this table
+ * yields null, and the UI names the chain instead of linking somewhere invented.
+ */
+const DEFAULT_FAUCETS: Readonly<Record<number, string>> = {
+  // Arc gas is native USDC; Circle issues it.
+  [ARC_TESTNET_ID]: 'https://faucet.circle.com',
+  [sepolia.id]: 'https://www.alchemy.com/faucets/ethereum-sepolia',
+  [baseSepolia.id]: 'https://www.alchemy.com/faucets/base-sepolia',
+  [polygonAmoy.id]: 'https://www.alchemy.com/faucets/polygon-amoy',
+  [avalancheFuji.id]: 'https://www.alchemy.com/faucets/avalanche-fuji',
+  [scrollSepolia.id]: 'https://www.alchemy.com/faucets/scroll-sepolia',
+  [lineaSepolia.id]: 'https://www.alchemy.com/faucets/linea-sepolia',
+  [blastSepolia.id]: 'https://www.alchemy.com/faucets/blast-sepolia',
+  [unichainSepolia.id]: 'https://www.alchemy.com/faucets/unichain-sepolia',
+}
+
+/**
+ * A second, independent faucet for a chain, or null. Faucets rate-limit and go down,
+ * and a booth full of people hitting one at once is the case that matters — so where a
+ * documented alternative exists we offer it rather than leaving someone stuck.
+ */
+export function altFaucetUrlFor(chainId: number): string | null {
+  const override = (process.env[`NEXT_PUBLIC_FAUCET_URL_ALT_${chainId}`] ?? '').trim()
+  if (override) return override
+  // Google Cloud's Web3 faucet covers Ethereum Sepolia.
+  if (chainId === sepolia.id) return 'https://cloud.google.com/application/web3/faucet/ethereum/sepolia'
+  return null
+}

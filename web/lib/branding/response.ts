@@ -48,6 +48,14 @@ export interface PublicBranding {
   description: string;
   /** The logo as an inline SVG string (what the Snap's `Image` needs). */
   logoSvg: string;
+  /**
+   * The merchant's own price in USD ("12.34"), or null when unset.
+   *
+   * Public on purpose: the branded checkout has to know what to charge, and the
+   * alternative it replaced was a hardcoded 29.00 in the view. A price is not a
+   * secret — the customer is about to be shown it.
+   */
+  priceUsd: string | null;
   /** The validated 6/8-char hex brand color. */
   brandColor: string;
   /** On-chain merchant id as a string, or null if not registered yet. */
@@ -124,6 +132,7 @@ export function toPublicBranding(row: TenantBranding): PublicBranding {
     name: row.displayName,
     description: row.description,
     logoSvg: row.logoSvgInline,
+    priceUsd: row.priceUsd ?? null,
     brandColor: row.brandColor,
     merchantId: row.merchantId,
     router,

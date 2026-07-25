@@ -44,6 +44,9 @@ export function BrandingForm({
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  /** The merchant's price. Empty = no price set; the link then says so rather than
+   *  charging a number nobody chose (this used to be a hardcoded 29.00). */
+  const [priceUsd, setPriceUsd] = useState('')
   const [brandColor, setBrandColor] = useState(DEFAULT_BRAND_COLOR)
   const [slug, setSlug] = useState('') // the editable readable tail
   const [slugTouched, setSlugTouched] = useState(false)
@@ -75,6 +78,7 @@ export function BrandingForm({
       if (cancelled || !row) return
       setName(row.displayName)
       setDescription(row.description)
+      setPriceUsd(row.priceUsd ?? '')
       setBrandColor(row.brandColor)
       setSlug(row.checkoutSlug)
       setSlugTouched(true)
@@ -149,6 +153,7 @@ export function BrandingForm({
       tenantId,
       displayName: name,
       description,
+      priceUsd: priceUsd.trim() || undefined,
       brandColor,
       checkoutSlug: effectiveSlug || undefined,
       logoSvgInline: logoSvg,
@@ -285,6 +290,29 @@ export function BrandingForm({
         />
       </label>
 
+      {/* Price. The one field the onboarding flow was missing: without it the
+          done-screen link and embed carried a hardcoded $29.00, so a merchant
+          selling a $25 haircut handed out a QR that charged $29. */}
+      <label className="flex flex-col gap-1">
+        <span className="font-medium text-ink">What do you charge?</span>
+        <span className="text-sm text-muted-foreground">
+          The price your checkout link asks for, in USD. Leave it blank if each link will
+          carry its own price — your page will say no price is set rather than guess one.
+        </span>
+        <input
+          type="number"
+          id="branding-price-usd"
+          name="price-usd"
+          inputMode="decimal"
+          min="0.01"
+          step="0.01"
+          value={priceUsd}
+          onChange={(e) => setPriceUsd(e.target.value)}
+          placeholder="25.00"
+          className="mt-1 rounded-lg border border-input px-3 py-2 outline-none focus:border-rail"
+        />
+      </label>
+
       {/* 3) Logo + brand color */}
       <div className="flex flex-col gap-2">
         <span className="font-medium text-ink">Add your logo.</span>
@@ -393,9 +421,19 @@ function DoneScreen({
   // the same truthful base as the editing prefix (never a hardcoded brand host).
   const [origin, setOrigin] = useState('')
   useEffect(() => setOrigin(checkoutOrigin()), [])
-  const link = origin ? `${origin}/c/${branding.checkoutSlug}` : ''
+  // Both artifacts carry the merchant's OWN price. They used to carry a hardcoded
+  // 29.00 — `lib/checkout/paymentLink.ts` warns about exactly this ("every buyer who
+  // scans it gets charged the generic fallback instead of the price the merchant just
+  // set"); the warning was heeded for /m/ links and never for these. With no price
+  // set we omit the amount entirely rather than invent one: the checkout then says so.
+  const price = branding.priceUsd ?? null
+  const link = origin
+    ? `${origin}/c/${branding.checkoutSlug}${price ? `?amount=${price}` : ''}`
+    : ''
   const embed = origin
-    ? `<script src="${origin}/embed.js" data-slug="${branding.checkoutSlug}" data-amount-usd="29.00"></script>`
+    ? `<script src="${origin}/embed.js" data-slug="${branding.checkoutSlug}"${
+        price ? ` data-amount-usd="${price}"` : ''
+      }></script>`
     : ''
 
   return (
