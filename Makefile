@@ -263,8 +263,31 @@ deploy-pick: ## Interactive: pick which chains to mirror-deploy (shows gas + mir
 mirror-manifest: ## Compute every contract's CREATE3 mirror address from its salt (no deploy) -> script/mirror-manifest.json
 	@./script/mirror-manifest.sh
 
-prune-branches: ## List remote branches that no longer carry work (dry-run; --confirm to delete)
+# The tool is only as good as the copy you are running. Three separate sessions were
+# lost to a stale local script — two bugs were fixed and pushed, and the same crash
+# kept reappearing because the fix had never been pulled. So the target refuses to run
+# a script that differs from origin/main rather than trusting the working tree.
+_prune-fresh:
+	@git fetch --quiet origin main
+	@if ! git diff --quiet origin/main -- scripts/prune-merged-branches.sh; then \
+		echo "prune: your copy of scripts/prune-merged-branches.sh differs from origin/main."; \
+		echo "  This is the failure that has bitten three times — a fixed script that was"; \
+		echo "  never pulled. Refusing to run it against 41 remote branches."; \
+		echo; \
+		echo "  Take the remote version:  git checkout origin/main -- scripts/prune-merged-branches.sh"; \
+		echo "  Or keep yours on purpose: bash scripts/prune-merged-branches.sh"; \
+		exit 1; \
+	fi
+
+prune-branches: _prune-fresh ## List remote branches that no longer carry work (dry run — deletes nothing)
 	@bash scripts/prune-merged-branches.sh
+
+prune-branches-confirm: _prune-fresh ## DELETE the git-proven-merged remote branches (asks first)
+	@bash scripts/prune-merged-branches.sh
+	@echo
+	@printf 'Delete the TIER A branches listed above? Type yes to proceed: '
+	@read -r reply; [ "$$reply" = "yes" ] || { echo "aborted — nothing deleted."; exit 1; }
+	@bash scripts/prune-merged-branches.sh --confirm
 
 deploy-inventory: ## What is deployed, what is dead, and is anything deployed twice?
 	@node scripts/deploy-inventory.mjs
