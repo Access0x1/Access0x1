@@ -202,6 +202,59 @@ export const INTEGRATIONS: readonly Integration[] = [
       { name: 'NEXT_PUBLIC_WORLD_APP_ID', purpose: 'World app id (client)', required: true },
       { name: 'WORLD_ACTION', purpose: 'The action string the buyer gate verifies', hasDefault: true },
       { name: 'WORLD_SIGNING_KEY', purpose: 'Server-only key that signs the World payload', secret: true },
+      // Per-surface action overrides. Each defaults to a baked-in action string, so
+      // leaving them blank is fine — but an operator who set a CUSTOM action in their
+      // World dashboard needs it deployed, or the gate verifies the wrong action and
+      // silently reverts to the default. Declared so the doctor shows them.
+      { name: 'WORLD_OPERATOR_ACTION', purpose: 'Action for the operator gate (default verified-operator)', hasDefault: true },
+      { name: 'WORLD_AGENT_ACTION', purpose: 'Action for the agent trial-unlock gate (default agent-trial-unlock)', hasDefault: true },
+      { name: 'WORLD_AGENTKIT_ACTION', purpose: 'Action for the human-backed-agent gate (default agentkit-human-backed)', hasDefault: true },
+      { name: 'WORLD_RP_ID', purpose: 'Relying-party id for the World request (blank ⇒ derived)', hasDefault: true },
+    ],
+  },
+  {
+    id: 'oidc',
+    label: 'OIDC sign-in / agent identity (verify)',
+    unlocks: 'The /api/oidc/verify seam — a Google (or any OIDC) token proves a human or agent identity.',
+    impact: 'feature',
+    where:
+      'Your OIDC provider console (Google by default). Issuer + JWKS default to Google; the audience ' +
+      'is your client id. See lib/oidc/config.ts. Blank audience ⇒ verify reports not_configured.',
+    vars: [
+      // Audience is the real switch: no audience ⇒ the route fails soft (never accepts an
+      // unaudienced token). Issuer + JWKS have Google defaults; the client id doubles as
+      // the audience when OIDC_AUDIENCE is unset.
+      { name: 'NEXT_PUBLIC_OIDC_CLIENT_ID', purpose: 'Public OIDC client id (doubles as the audience)' },
+      { name: 'OIDC_AUDIENCE', purpose: 'Override the expected token audience (blank ⇒ the client id)', hasDefault: true },
+      { name: 'OIDC_ISSUER', purpose: 'Token issuer (default Google accounts.google.com)', hasDefault: true },
+      { name: 'OIDC_JWKS_URL', purpose: 'JWKS signing-keys endpoint (default Google certs)', hasDefault: true },
+      { name: 'OIDC_AGENT_CLAIM', purpose: 'Claim that marks a token as an agent identity (blank ⇒ off)', hasDefault: true },
+    ],
+  },
+  {
+    id: 'paymaster',
+    label: 'Gasless (ERC-7677 paymaster)',
+    unlocks: 'Sponsored gas — the buyer pays no native token. Blank ⇒ the gasless path is hidden (fail-soft).',
+    impact: 'feature',
+    where:
+      'Your ERC-7677 paymaster provider (the JSON-RPC sponsorship URL). See lib/paymaster/config.ts. ' +
+      'PAYMASTER_ENABLED is a server-only switch read at runtime — it must reach the deployed env.',
+    vars: [
+      { name: 'PAYMASTER_ENABLED', purpose: 'Server switch for gas sponsorship ("true"). Blank ⇒ OFF (fail-soft)' },
+      { name: 'NEXT_PUBLIC_PAYMASTER_URL', purpose: 'ERC-7677 JSON-RPC sponsorship URL (public)' },
+      { name: 'NEXT_PUBLIC_PAYMASTER_CHAIN_ID', purpose: 'Chain id the paymaster sponsors on (public)' },
+    ],
+  },
+  {
+    id: 'hardening',
+    label: 'Production hardening (opt-in policy flags)',
+    unlocks: 'Tighteners that are OFF by default and SET in production to fail closed. Blank ⇒ the safe dev default.',
+    impact: 'feature',
+    where: 'You choose these per deployment — no external console. Each is a boolean/flag read at runtime.',
+    vars: [
+      { name: 'BRANDING_REQUIRE_VERIFIED_WRITES', purpose: 'Require a verified Dynamic JWT for branding writes (prod: on)', hasDefault: true },
+      { name: 'VERIFY_REQUIRE_DURABLE_STORE', purpose: 'Require a durable replay store for verify routes (prod: on)', hasDefault: true },
+      { name: 'ASK_TRUST_PROXY', purpose: 'Trust the proxy IP header for the Ask/infer rate limiter (only behind a trusted proxy)', hasDefault: true },
     ],
   },
   {
@@ -240,6 +293,13 @@ export const INTEGRATIONS: readonly Integration[] = [
       { name: 'OFFRAMP_PROVIDER', purpose: 'Off-ramp selector (moonpay|transak|coinbase). Blank ⇒ off' },
       { name: 'ONRAMP_SERVER_KEY', purpose: 'Signs the on-ramp session before redirect', secret: true },
       { name: 'OFFRAMP_SERVER_KEY', purpose: 'Signs the off-ramp session before redirect', secret: true },
+      // Pay-in-any-token funding flow. NEXT_PUBLIC_FLOW_ENABLED is the client switch;
+      // FLOW_PROVIDER is the server-only aggregator selector — both undeclared meant the
+      // whole flow shipped dark even when configured. The app id + settle asset are public.
+      { name: 'NEXT_PUBLIC_FLOW_ENABLED', purpose: 'Client switch for the pay-in-any-token flow. Blank ⇒ hidden' },
+      { name: 'FLOW_PROVIDER', purpose: 'Aggregator selector (lifi|uniswap|oneinch|paraswap|0x). Blank ⇒ off' },
+      { name: 'NEXT_PUBLIC_FLOW_APP_ID', purpose: 'Public app/api id from the swap provider' },
+      { name: 'NEXT_PUBLIC_FLOW_SETTLE_ASSET', purpose: 'Asset the flow settles into (defaults to USDC)', hasDefault: true },
       { name: 'FLOW_SERVER_KEY', purpose: 'Signs the funding-flow session before redirect', secret: true },
       // One-tap deposit (Blink). BLINK_ENABLED is the server switch read at RUNTIME —
       // it MUST reach the running service (Secret Manager is for secrets; this is a
@@ -337,6 +397,10 @@ export const INTEGRATIONS: readonly Integration[] = [
       // dropping them at deploy silently returns no quote even when configured.
       { name: 'AGENT_QUOTE_CHAIN_ID', purpose: 'Settlement chain id for the agent any-token quote (blank ⇒ no quote)' },
       { name: 'AGENT_QUOTE_USDC', purpose: 'USDC address the any-token quote targets (blank ⇒ no quote)' },
+      // Opt-in agent policy tighteners (off by default). Set in production to require a
+      // World-verified human behind the agent and to enforce the per-session spend cap.
+      { name: 'AGENT_REQUIRE_HUMAN', purpose: 'Require a World-verified human behind the agent (default off)', hasDefault: true },
+      { name: 'AGENT_SESSION_CAP_ENFORCED', purpose: 'Enforce the per-session spend cap (default off)', hasDefault: true },
       // REQUIRED, not optional: /api/agent/pay FAILS CLOSED with 503 not_configured when this is
       // unset (route.ts callerAuthFailure). Labelling a secret that gates a money route "optional"
       // reads as "safe to skip" — it is safe, but it silently disables the agent pay path.
