@@ -270,6 +270,12 @@ async function main(): Promise<void> {
     return
   }
 
+  // The Permit2 grant lands FIRST when the API handed one back (permit-as-transaction):
+  // the swap's Universal Router pull relies on it — the live lesson behind PR #300.
+  if (result.permitTx) {
+    await signAndLand('permit2', result.permitTx as UnsignedSwapTx, wallet, reader)
+  }
+
   // Two honest endings: a rail that submitted (txHash) or one that prepared (unsignedTx) —
   // the Trading API does the latter; the burner completes it the way the merchant wallet would.
   let landed: Hex
