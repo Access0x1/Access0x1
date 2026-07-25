@@ -68,10 +68,28 @@ export interface RailQuote {
   readonly amountOut: bigint
 }
 
-/** The result of executing a swap on a rail (a submitted/landed tx). */
+/**
+ * A ready-to-sign swap transaction returned by a rail that PREPARES (never signs) the swap.
+ * The Trading API's `/swap` responds with exactly this shape — the merchant wallet signs and
+ * submits it; this seam never holds a key (live-verified against the real API 2026-07-25).
+ */
+export interface UnsignedSwapTx {
+  readonly to: string
+  readonly data: string
+  readonly value?: string
+  readonly chainId?: number
+  readonly gasLimit?: string
+}
+
+/**
+ * The result of executing a swap on a rail: a landed tx (`txHash`), or a prepared one
+ * awaiting the merchant's signature (`unsignedTx`) — exactly one is present.
+ */
 export interface RailExecution {
-  /** The swap transaction hash, for the merchant's records / explorer link. */
-  readonly txHash: string
+  /** The landed swap transaction hash, when the rail submitted it. */
+  readonly txHash?: string
+  /** The ready-to-sign swap tx, when the rail prepares but never signs (Trading API `/swap`). */
+  readonly unsignedTx?: UnsignedSwapTx
   /** The rail that executed it (for telemetry). */
   readonly rail: SwapRail
 }
@@ -123,12 +141,17 @@ export type SwapSkipReason =
  * always means "the merchant still holds settled USDC", which is a safe, valid end state.
  */
 export interface PayoutSwapResult {
-  /** True only when a swap executed and met the slippage floor. */
+  /**
+   * True when the rail leg completed within the slippage floor — either landed (`txHash`)
+   * or fully prepared awaiting the merchant's signature (`unsignedTx`).
+   */
   readonly swapped: boolean
   /** The rail used (present iff `swapped`). */
   readonly rail?: SwapRail
-  /** The swap tx hash (present iff `swapped`). */
+  /** The landed swap tx hash (when the rail submitted it). */
   readonly txHash?: string
+  /** The ready-to-sign swap tx (when the rail prepares but never signs — the wallet submits). */
+  readonly unsignedTx?: UnsignedSwapTx
   /** The quoted/landed output amount (present iff `swapped`). */
   readonly amountOut?: bigint
   /** Why no swap happened (`none` iff `swapped`). */
