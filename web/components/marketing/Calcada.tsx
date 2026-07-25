@@ -48,8 +48,11 @@ function CalcadaDefs({ idPrefix }: { idPrefix: string }): ReactNode {
         <rect x="14" y="14" width="12" height="12" rx="2" fill="currentColor" />
       </pattern>
 
-      {/* Vignette so the field fades out toward the edges (laid, not tiled). */}
-      <radialGradient id={`${idPrefix}-fade`} cx="50%" cy="42%" r="62%">
+      {/* Vignette so the field fades out toward the edges (laid, not tiled).
+          Biased LOW (cy 68%) so the cobbles read as ground under the copy and
+          thin out toward the sky — a pavement, not wallpaper: the field meets
+          the moonlight band at the fold's bottom and fades upward. */}
+      <radialGradient id={`${idPrefix}-fade`} cx="50%" cy="68%" r="70%">
         <stop offset="0%" stopColor="white" stopOpacity="1" />
         <stop offset="70%" stopColor="white" stopOpacity="0.55" />
         <stop offset="100%" stopColor="white" stopOpacity="0" />
