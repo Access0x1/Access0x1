@@ -67,21 +67,44 @@ TAG="$(git rev-parse --short HEAD)"
 IMAGE="${REGION}-docker.pkg.dev/${PROJ}/access0x1/web:${TAG}"
 echo "    project=${PROJ}  commit=${TAG}"
 
-# ── 2. Build the image ───────────────────────────────────────────────────────
-echo "==> building ${IMAGE}"
 cd "$REPO_ROOT/web"
+
+# ── 2. Derive EVERY configured integration's env from the registry ───────────
+# The deploy used to wire only Dynamic; every other sponsor key sat in .env.local
+# and never reached the running service. This reads the registry + .env.local and
+# writes a Cloud Run env-vars file covering all of them — Walrus, 0G, Namestone,
+# Unlink, Claude, World's signing key, the agent config, and whatever is added to
+# the registry next. It prints a NAMES-ONLY summary so you can see the full list
+# and fill any blanks with `npm run env:set` before shipping.
+RUNTIME_ENV="$(mktemp -t access0x1-runtime.XXXXXX.yaml)"
+trap 'rm -f "$RUNTIME_ENV"' EXIT
+node scripts/deploy-env.mjs --runtime-out "$RUNTIME_ENV"
+# These two must exist at runtime regardless of what .env.local held: the commit so
+# /api/health can name the live build, and the Dynamic env id so the server can
+# verify a sign-in (the whole "verified login" bug). Appended, so they win.
+{
+  echo "NEXT_PUBLIC_BUILD_COMMIT: '${TAG}'"
+  [[ -n "${DYN_ENV:-}" ]] && echo "NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: '${DYN_ENV}'"
+} >> "$RUNTIME_ENV"
+
+# ── 3. Build the image ───────────────────────────────────────────────────────
+# Public NEXT_PUBLIC_* vars are inlined at build from .env.local (copied into the
+# context) plus the substitutions below; server vars are set at runtime in step 4.
+echo "==> building ${IMAGE}"
 gcloud builds submit --config cloudbuild.yaml \
   --substitutions="_IMAGE=${IMAGE},_DYNAMIC_ENV=${DYN_ENV},_DEFAULT_CHAIN_ID=${DEFAULT_CHAIN_ID}" \
   .
 
-# ── 3. Actually deploy it, WITH the runtime env ──────────────────────────────
-# `--update-env-vars` is the half that a build arg cannot do. Without it the server
-# cannot verify a Dynamic token no matter how correct the browser bundle is.
-echo "==> deploying to Cloud Run service '${SERVICE}' (${REGION})"
+# ── 4. Deploy it, WITH every integration's runtime env ───────────────────────
+# `--env-vars-file` sets the service's env to exactly this derived set — the single
+# source of truth is the registry + .env.local, so the live service matches what
+# `env:set` collected. Values travel in the file, never in argv (no secret in shell
+# history or `ps`). A blank integration simply isn't in the file, so it stays OFF.
+echo "==> deploying to Cloud Run service '${SERVICE}' (${REGION}) with all configured integrations"
 gcloud run deploy "$SERVICE" \
   --region "$REGION" \
   --image "$IMAGE" \
-  --update-env-vars "NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=${DYN_ENV},NEXT_PUBLIC_BUILD_COMMIT=${TAG}" \
+  --env-vars-file "$RUNTIME_ENV" \
   --quiet
 
 # ── 4. Prove the live site is the build we just made ─────────────────────────
