@@ -565,8 +565,34 @@ export function getRpcUrl(chainId: number): string {
   const override =
     typeof window === 'undefined' ? (process.env[`RPC_URL_${chainId}`] || '').trim() : ''
   if (override.length > 0) return override
+  // In the BROWSER the computed key above cannot work — Next inlines `NEXT_PUBLIC_*`
+  // by literal text at build time, so a template-literal lookup finds nothing. Without
+  // this table every client-side read (the checkout's merchant lookup, the dashboard,
+  // the slug page) went to viem's shared public endpoint no matter what the operator
+  // configured, which under demo load is a rate-limit lottery whose loss shows up as a
+  // failed checkout. Literal keys, so the bundler can substitute them.
+  const publicOverride = (PUBLIC_RPC_BY_CHAIN[chainId] ?? '').trim()
+  if (publicOverride.length > 0) return publicOverride
   const chain = getChain(chainId)
   return chain.rpcUrls.default.http[0]
+}
+
+/**
+ * Client-readable RPC overrides, one literal key per chain so Next can inline them.
+ *
+ * Deliberately a small table rather than every supported chain: these are the chains a
+ * BUYER's browser actually reads from (the settlement chains a checkout link can name).
+ * A chain absent here still works — it falls through to its own public default, exactly
+ * as before. Set the matching `NEXT_PUBLIC_RPC_URL_<id>` to point a paid endpoint
+ * (QuickNode or any provider) at the client reads too, not just the server ones.
+ */
+const PUBLIC_RPC_BY_CHAIN: Readonly<Partial<Record<number, string>>> = {
+  [ARC_TESTNET_ID]: process.env.NEXT_PUBLIC_RPC_URL_5042002,
+  [baseSepolia.id]: process.env.NEXT_PUBLIC_RPC_URL_84532,
+  [sepolia.id]: process.env.NEXT_PUBLIC_RPC_URL_11155111,
+  [zksyncSepoliaTestnet.id]: process.env.NEXT_PUBLIC_RPC_URL_300,
+  [avalancheFuji.id]: process.env.NEXT_PUBLIC_RPC_URL_43113,
+  [polygonAmoy.id]: process.env.NEXT_PUBLIC_RPC_URL_80002,
 }
 
 /**

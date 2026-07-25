@@ -342,6 +342,14 @@ export const INTEGRATIONS: readonly Integration[] = [
       { name: 'NEXT_PUBLIC_ZIRCUIT_GARFIELD_RPC_URL', purpose: 'Zircuit Garfield RPC', hasDefault: true },
       { name: 'NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL', purpose: 'Hedera Testnet (Hashio) RPC', hasDefault: true },
       { name: 'NEXT_PUBLIC_MAINNET_RPC_URL', purpose: 'Ethereum mainnet RPC — ENS reads only, never settlement', hasDefault: true },
+      // The per-chain BROWSER override. The server-side `RPC_URL_<id>` form is read
+      // through a computed key, so it is deliberately NOT declared here — the registry
+      // holds literal names the code literally reads, and the coverage test enforces
+      // exactly that. These two are literal, and they are the ones that matter for a
+      // buyer, whose checkout reads happen in the browser where a computed key cannot
+      // be inlined at all.
+      { name: 'NEXT_PUBLIC_RPC_URL_11155111', purpose: 'Browser-readable RPC, Ethereum Sepolia — what a buyer\'s checkout actually uses', hasDefault: true },
+      { name: 'NEXT_PUBLIC_RPC_URL_84532', purpose: 'Browser-readable RPC, Base Sepolia', hasDefault: true },
     ],
   },
 ] as const
