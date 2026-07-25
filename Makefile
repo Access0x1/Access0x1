@@ -57,7 +57,15 @@ TEMPO_RPC_URL ?= https://rpc.testnet.tempo.xyz
 # 67 recipes pass it as `--sender $(DEPLOYER)`, so an unset value silently becomes an EMPTY
 # --sender and forge fails deep in its own argument handling, far from the actual cause.
 # Scoped to `deploy-*` goals so every other target (build, test, fmt) still works with no .env.
-ifneq ($(filter deploy-%,$(MAKECMDGOALS)),)
+#
+# EXCEPTIONS: not every `deploy-*` target deploys a CONTRACT. `deploy-web` ships the
+# Next.js app to Cloud Run and `deploy-inventory` only reads committed records — neither
+# touches a keystore, and demanding a Solidity deployer address for them blocks a
+# perfectly valid command with an error about the wrong subject entirely.
+DEPLOY_GOALS := $(filter deploy-%,$(MAKECMDGOALS))
+NON_CHAIN_DEPLOY_GOALS := deploy-web deploy-inventory
+CHAIN_DEPLOY_GOALS := $(filter-out $(NON_CHAIN_DEPLOY_GOALS),$(DEPLOY_GOALS))
+ifneq ($(CHAIN_DEPLOY_GOALS),)
   ifeq ($(strip $(DEPLOYER)),)
     $(error DEPLOYER is not set. Put the address your keystore controls in .env, e.g. DEPLOYER=0x... — `cast wallet list` shows the accounts you have)
   endif
