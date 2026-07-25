@@ -34,6 +34,15 @@ const VYPER_SRC = join(ROOT, 'vyper', 'src')
 const SCRIPT_DIR = join(ROOT, 'script')
 const BROADCAST = join(ROOT, 'broadcast')
 
+/**
+ * Anvil. A local chain is not a deployment: `make deploy-local` leaves records under
+ * `broadcast/…/31337`, and counting them inflated the live-chain totals AND reported the
+ * Router as "deployed twice on 31337" — which is just two local runs, the least
+ * interesting fact available. Excluded so the duplicate warning only ever means a real
+ * chain carrying a real second address.
+ */
+const LOCAL_CHAIN_IDS = new Set([31337])
+
 /** Every `.sol` under src/, excluding the interface directory. */
 function solFiles(dir = SRC) {
   const out = []
@@ -90,6 +99,7 @@ function onChain() {
     for (const d of readdirSync(base, { withFileTypes: true })) {
       if (!d.isDirectory() || !/^\d+$/.test(d.name)) continue
       const chainId = Number(d.name)
+      if (LOCAL_CHAIN_IDS.has(chainId)) continue
       if (!byChain.has(chainId)) byChain.set(chainId, new Map())
       const perName = byChain.get(chainId)
       for (const f of readdirSync(join(base, d.name))) {

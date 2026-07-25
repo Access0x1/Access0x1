@@ -95,6 +95,22 @@ if [[ -n "${PROTECT:-}" ]]; then
   done
 fi
 
+# The protected set is assembled from several sources that legitimately overlap —
+# the default branch and the branch you are standing on are usually both `main` —
+# so collapse it before use. Matters for the printed line more than the matching,
+# but a list that says "main main" reads like a bug in a script that deletes things.
+dedup_protected() {
+  local -a seen=()
+  local p q found
+  for p in "${PROTECTED[@]}"; do
+    [[ -z "$p" ]] && continue
+    found=0
+    for q in "${seen[@]}"; do [[ "$p" == "$q" ]] && { found=1; break; }; done
+    [[ $found -eq 0 ]] && seen+=("$p")
+  done
+  PROTECTED=("${seen[@]}")
+}
+
 is_protected() {
   local b="$1"
   for p in "${PROTECTED[@]}"; do [[ "$b" == "$p" ]] && return 0; done
@@ -129,9 +145,15 @@ branch_content_landed() {
   grep -qxF "$1" <<< "$MERGED_PR_BRANCHES"
 }
 
+dedup_protected
 TIER_A=(); TIER_B=(); KEEP=()
 
 while IFS= read -r ref; do
+  # `%(refname:short)` renders refs/remotes/origin/HEAD as the bare remote name
+  # "origin" — no slash, no arrow — so the `grep -v '\->'` below does not catch it
+  # and it arrived here looking like a branch called "origin" that was "? commits
+  # ahead". Require the origin/ prefix so only real remote branches get through.
+  [[ "$ref" != origin/* ]] && continue
   b="${ref#origin/}"
   [[ "$b" == "HEAD"* ]] && continue
   is_protected "$b" && continue
