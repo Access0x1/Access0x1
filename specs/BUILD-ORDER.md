@@ -14,7 +14,7 @@ judgeable product.
    **in** the settlement tx) → `payToken` / `payNative` fee-split (CEI,
    `nonReentrant`, `SafeERC20`, fee-on-transfer reject, `net + fee == gross`) →
    `Ownable2Step` admin. ≥95% coverage + the fuzz invariants.
-2. **`token-allowlist`** — real USDC + any real ERC-20. **No demo token.**
+2. **`token-allowlist`** — real USDC + any real ERC-20. **No fake token.**
 3. **`payment-lanes`** — ERC-6909 PaymentLanes (the owned-standard differentiator;
    per-lane asset firewall; zero-custody pull-claim).
 4. **`multichain`** — Arc / Base / zkSync via the O(1) hash-map `ChainRegistry`.

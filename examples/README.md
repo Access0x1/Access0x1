@@ -1,6 +1,6 @@
 # Examples — real, runnable Access0x1 flows
 
-Four copy-paste demos, each a **standalone script or page** that runs against the
+Four copy-paste examples, each a **standalone script or page** that runs against the
 **live testnet deployment** — no contracts to write, no monorepo to clone. Every
 one points at the **CREATE3 mirror** addresses (the same on every mirrored chain)
 straight from the README [Deployments](../README.md#deployments) table, and every

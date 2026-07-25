@@ -42,7 +42,7 @@ export interface ChainConfig {
 
 /**
  * The supported settlement chains. Arc-testnet (native-gas USDC), base-sepolia (the primary
- * EVM demo chain), and zksync-sepolia are the deployed chains; the chains below them (0G, Monad,
+ * EVM example chain), and zksync-sepolia are the deployed chains; the chains below them (0G, Monad,
  * Berachain, Sei, MegaETH) are KNOWN-but-not-yet-deployed targets — config-only, deploy PENDING.
  * Arc is the only chain where USDC is the native gas token — see {@link ChainConfig.usdcIsNativeGas}
  * for what that does and does not license a UI to claim.

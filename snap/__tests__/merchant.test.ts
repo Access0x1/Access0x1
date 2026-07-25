@@ -44,9 +44,9 @@ function providerReturning(
 describe('fetchMerchantName', () => {
   it('returns on-chain payout + feeBps + platformFeeBps and ENS name when the resolver succeeds', async () => {
     const provider = providerReturning(PAYOUT, OWNER, 150, 100);
-    const ens = vi.fn().mockResolvedValue('demo.access0x1.eth');
+    const ens = vi.fn().mockResolvedValue('acme.access0x1.eth');
     const info = await fetchMerchantName(7n, 5042002, ROUTER, provider, ens);
-    expect(info.name).toBe('demo.access0x1.eth');
+    expect(info.name).toBe('acme.access0x1.eth');
     expect(info.payout.toLowerCase()).toBe(PAYOUT);
     expect(info.feeBps).toBe(150);
     expect(info.platformFeeBps).toBe(100); // read from platformFeeBps() — the total fee needs it

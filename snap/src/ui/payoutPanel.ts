@@ -5,7 +5,7 @@
  * Displays the current payout balance and a "Withdraw Privately" button, and —
  * after a payout completes — the deposit/withdraw transactions as explorer links.
  *
- * Law #4 (truth in copy): the privacy line is the verbatim DEMO.md guardrail.
+ * Law #4 (truth in copy): the privacy line is the verbatim privacy guardrail.
  * It never claims "anonymous" or "untraceable".
  */
 
@@ -18,7 +18,7 @@ import type { PayoutResult } from '../types';
 export const WITHDRAW_BUTTON_NAME = 'access0x1-withdraw-privately';
 
 /**
- * The DEMO.md privacy guardrail line, shown verbatim. Never strengthen it.
+ * The privacy guardrail line, shown verbatim. Never strengthen it.
  */
 export const PRIVACY_COPY =
   "Your payout origin is confidential — competitors can't read your revenue on the public ledger.";

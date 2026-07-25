@@ -2,7 +2,7 @@
  * @file uniswapTradingApi.ts — Base rail: Uniswap Trading API (/quote then /order | /swap).
  *
  * Base's same-chain payout swap. The Trading API returns a quote, then either a gasless
- * UniswapX `/order` (filler-paid, MEV-protected — the headline demo) or a classic `/swap`
+ * UniswapX `/order` (filler-paid, MEV-protected — the headline rail) or a classic `/swap`
  * transaction. UniswapX `/order` runs its OWN auction, so Blink Recovery is NOT applied here
  * (it belongs only on the classic-/swap legs).
  *
@@ -65,7 +65,7 @@ export interface UniswapTradingApiConfig {
   readonly fetchImpl: FetchLike
   /**
    * Prefer the gasless UniswapX `/order` route. When false, falls back to classic `/swap`.
-   * Default true (the headline demo). UniswapX has its OWN MEV auction (no Blink here).
+   * Default true (the headline rail). UniswapX has its OWN MEV auction (no Blink here).
    * Superseded by `executionMode` when that is set.
    */
   readonly preferGasless?: boolean

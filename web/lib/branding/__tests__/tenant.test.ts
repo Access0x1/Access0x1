@@ -5,7 +5,7 @@
  * id. `resolveVerifiedTenant` verifies a Dynamic JWT (via jose + the env JWKS)
  * and derives the tenant from the cryptographically-verified wallet claim, only
  * falling back to the shape-checked body when no issuer is configured (the
- * booth-gated/local-demo state). jose is mocked so these run offline.
+ * booth-gated/local-dev state). jose is mocked so these run offline.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 

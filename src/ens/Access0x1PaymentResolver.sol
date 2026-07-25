@@ -122,7 +122,7 @@ contract Access0x1PaymentResolver is
     ///         (owner-configured, env/broadcast-sourced — NEVER hardcoded), {bindName} requires
     ///         `registry.owner(node) == msg.sender`, the trust-minimized guarantee. When unset (the
     ///         default on a chain whose ENSv2 registry address isn't confirmed yet), {bindName} falls
-    ///         back to first-claim + no-overwrite so a name can still be bound for the demo without a
+    ///         back to first-claim + no-overwrite so a name can still be bound for the walkthrough without a
     ///         standing hijack. `address(0)` ⇒ the strong check is dormant.
     address public ensRegistry;
 

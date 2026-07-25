@@ -9,7 +9,7 @@
  * Doctrine:
  *  - #1 zero custody: the destination EOA is derived deterministically from
  *    MetaMask's own BIP-44 entropy; the seed never leaves the wallet.
- *  - #4 truth in copy: callers surface the verbatim DEMO.md privacy line, never
+ *  - #4 truth in copy: callers surface the verbatim privacy guardrail line, never
  *    "anonymous" / "untraceable".
  *  - #5 never swallow a failure: a failed withdraw returns `recoverable: true`
  *    so the user knows their USDC is safe in the Unlink private balance.

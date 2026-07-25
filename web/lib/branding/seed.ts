@@ -3,7 +3,7 @@
  *
  * The branding store (`store.ts`) is a process-lifetime in-memory map: it starts
  * EMPTY on every boot and forgets everything on restart. That is fine for the
- * onboarding demo (a business signs in and fills the form), but a HOSTED instance
+ * onboarding flow (a business signs in and fills the form), but a HOSTED instance
  * often wants to showcase ONE real integrator as its default brand — a row that
  * is already present the moment the process comes up and that survives restarts.
  *

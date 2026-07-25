@@ -31,7 +31,7 @@ export function chainLabel(chainId: number): string {
 
 /**
  * Block-explorer transaction-link base for a chain. Defaults to Arcscan testnet,
- * the chain the live demo settles on.
+ * the chain the live app settles on.
  *
  * @param chainId - Numeric EVM chain id.
  * @returns The explorer base URL ending in `/tx/`.

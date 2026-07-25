@@ -72,7 +72,7 @@ export interface RailQuote {
 export interface RailExecution {
   /** The swap transaction hash, for the merchant's records / explorer link. */
   readonly txHash: string
-  /** The rail that executed it (for telemetry / the demo). */
+  /** The rail that executed it (for telemetry). */
   readonly rail: SwapRail
 }
 
@@ -133,6 +133,6 @@ export interface PayoutSwapResult {
   readonly amountOut?: bigint
   /** Why no swap happened (`none` iff `swapped`). */
   readonly reason: SwapSkipReason | 'none'
-  /** A human-readable detail for telemetry / the demo (never a secret). */
+  /** A human-readable detail for telemetry (never a secret). */
   readonly detail?: string
 }

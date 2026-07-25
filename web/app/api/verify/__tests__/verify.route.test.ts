@@ -38,7 +38,7 @@ vi.mock('@/lib/wallet', () => ({
 vi.mock('@/lib/chains', () => ({ getDefaultChainId: () => 5042002 }))
 
 // Dynamic JWT path: keep it on the booth-gated fallback (no issuer) so a
-// matching body user verifies in the demo.
+// matching body user verifies in the flow.
 vi.mock('@/lib/branding/tenant', async () => {
   class TenantAuthError extends Error {}
   return {

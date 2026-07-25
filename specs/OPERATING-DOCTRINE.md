@@ -25,7 +25,7 @@ ONE open-source, on-chain layer for **payments + auth + agents**:
 - **Logic** — the architecture is so clean a judge says *"of course."* One shared
   router, a hash-map chain registry, ERC-6909 PaymentLanes, no custody, a valid ERC
   nobody else ships (6909 / 7702 / 6492). The idea wins before a line of code does.
-- **Presentation** — the README is the gold standard; the demo is a 2-minute
+- **Presentation** — the README is the gold standard; the walkthrough is a 2-minute
   jaw-drop; one diagram tells the whole story.
 - **Delivery** — it **runs**: live testnet, real tx hashes, an agent paying real
   USDC on three chains. No "imagine if," no hard-coded values.

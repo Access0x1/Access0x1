@@ -31,7 +31,7 @@ import { MockV3Aggregator } from "../test/mocks/MockV3Aggregator.sol";
 ///         (swap $BASE_SEPOLIA_RPC_URL → $ARC_TESTNET_RPC_URL for the Arc run.)
 ///
 ///         Env overrides (optional): MERCHANT_PAYOUT (default: broadcaster — set a DISTINCT address
-///         for a cleaner demo where net lands somewhere other than the payer), PAY_USD8 (default
+///         for a cleaner walkthrough where net lands somewhere other than the payer), PAY_USD8 (default
 ///         1e8 = $1.00).
 contract DriveMerchant is Script {
     /// @notice The CREATE3 mirror router — identical on every chain.

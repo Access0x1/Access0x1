@@ -161,7 +161,7 @@ describe("payPerCall", () => {
     );
   });
 
-  it("amount math: Math.round(price * 1e6) is exact for the demo range", () => {
+  it("amount math: Math.round(price * 1e6) is exact for the expected range", () => {
     expect(usdToUsdcUnits(0.001)).toBe(1000);
     expect(usdToUsdcUnits(0.01)).toBe(10000);
     expect(usdToUsdcUnits(0.03)).toBe(30000);

@@ -14,7 +14,7 @@
  * other as a trivial bypass. In production (`requireVerifiedWrites`) it requires a
  * verified Dynamic session whose wallet IS `user` — the same fail-closed policy the
  * branding writes and the `dynamic` verify method use. Dev/booth (Dynamic unset) keeps
- * the open demo flow.
+ * the open payment flow.
  */
 
 import { requireVerifiedWrites, resolveVerifiedTenant, TenantAuthError } from '@/lib/branding/tenant'

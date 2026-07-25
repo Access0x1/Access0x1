@@ -20,7 +20,7 @@ import { EnsResolutionError, resolveEnsRecipient } from './ens';
 // EDIT THESE: your real merchant id (from registerMerchant) and the order's USD price.
 const MERCHANT_ID = 1n;
 const USD_AMOUNT = 29.0;
-const ORDER_ID = 'demo-order-001';
+const ORDER_ID = 'order-001';
 
 export default function CheckoutPage(): ReactNode {
   const [account, setAccount] = useState<`0x${string}` | undefined>(undefined);

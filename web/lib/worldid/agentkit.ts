@@ -15,7 +15,7 @@
  *     shared {@link verifyWorldProof} (DRY — the same byte-for-byte forward the buyer
  *     gate uses), scoped to the distinct `WORLD_AGENTKIT_ACTION`. A 200 with a
  *     nullifier ⇒ human-backed; anything else ⇒ rejected with a machine code.
- *   - SIMULATOR — when no `app_` id is configured (dev/demo/testnet default): a
+ *   - SIMULATOR — when no `app_` id is configured (dev/testnet default): a
  *     clearly-flagged `simulated: true` pass, so the delegation flow is exercisable
  *     without a real Developer-Portal app. Honesty law: a simulated result is NEVER
  *     a real proof, and it says so on its face.
