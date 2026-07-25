@@ -214,6 +214,11 @@ export const INTEGRATIONS: readonly Integration[] = [
       { name: 'UNLINK_API_KEY', purpose: 'Unlink API key', required: true, secret: true },
       { name: 'UNLINK_PRIVATE_PAY_KEY', purpose: "The agent's server payout key", secret: true },
       { name: 'UNLINK_PAYOUT_PRIVATE_KEY', purpose: 'Testnet key that signs the private payout', secret: true },
+      // The Unlink account/user id the /api/payout route pays from and checks ownership
+      // against (app/api/payout/route.ts throws UnlinkNotConfiguredError without it). A
+      // non-secret id, read server-side at runtime — must be in the deployed env or the
+      // payout route reports not_configured even with the keys set.
+      { name: 'UNLINK_PAYOUT_USER_ID', purpose: 'Unlink account id the payout route pays from (unset ⇒ payout 503s)' },
     ],
   },
   {
@@ -227,6 +232,12 @@ export const INTEGRATIONS: readonly Integration[] = [
       "Ramp provider's dashboard for the server keys (never NEXT_PUBLIC_); the deposit provider's " +
       'console for the public app id. See lib/funding/blink.ts + lib/onramp/config.ts.',
     vars: [
+      // Which hosted ramp runs is a server-only SELECTOR read at runtime (lib/onramp/
+      // config.ts + offramp.ts) — no provider is hardcoded. Blank/unknown ⇒ that leg is a
+      // clean no-op. Non-secret, but MUST reach the deployed env or the ramp stays dark
+      // even with the server key set (the same drop that hid Blink).
+      { name: 'ONRAMP_PROVIDER', purpose: 'On-ramp selector (coinbase|moonpay|stripe|circle|blink). Blank ⇒ off' },
+      { name: 'OFFRAMP_PROVIDER', purpose: 'Off-ramp selector (moonpay|transak|coinbase). Blank ⇒ off' },
       { name: 'ONRAMP_SERVER_KEY', purpose: 'Signs the on-ramp session before redirect', secret: true },
       { name: 'OFFRAMP_SERVER_KEY', purpose: 'Signs the off-ramp session before redirect', secret: true },
       { name: 'FLOW_SERVER_KEY', purpose: 'Signs the funding-flow session before redirect', secret: true },
@@ -259,6 +270,11 @@ export const INTEGRATIONS: readonly Integration[] = [
     impact: 'optional',
     where: 'A TESTNET key you generate. Never a wallet holding real funds.',
     vars: [
+      // The PUBLIC payout wallet (the payTo in every 402 challenge). lib/x402.ts throws
+      // "SELLER_ADDRESS is not set" without it, and the gateway balance/withdraw routes
+      // report not_configured — so the whole x402 seller seam is dark on the live site
+      // unless this reaches the deployed env. Non-secret (it is public in every challenge).
+      { name: 'SELLER_ADDRESS', purpose: 'Public merchant payout EOA (the 402 payTo). Unset ⇒ x402 seller 503s' },
       { name: 'SELLER_PRIVATE_KEY', purpose: 'Testnet key the gateway withdraw route signs with', secret: true },
       { name: 'BUYER_PRIVATE_KEY', purpose: 'Testnet key that funds the gateway (npm run fund)', secret: true },
     ],
@@ -316,6 +332,11 @@ export const INTEGRATIONS: readonly Integration[] = [
       },
       { name: 'AGENT_DAILY_USD_CAP', purpose: 'Hard daily spend ceiling (0 blocks everything)', required: true },
       { name: 'AGENT_URL_ALLOWLIST', purpose: 'Comma-separated origins the agent may pay (deny-all when blank)', required: true },
+      // The settlement chain + its USDC for the agent pay-any-token quote (route.ts reads
+      // both; the quote is skipped when either is blank/invalid). Additive + fail-soft, but
+      // dropping them at deploy silently returns no quote even when configured.
+      { name: 'AGENT_QUOTE_CHAIN_ID', purpose: 'Settlement chain id for the agent any-token quote (blank ⇒ no quote)' },
+      { name: 'AGENT_QUOTE_USDC', purpose: 'USDC address the any-token quote targets (blank ⇒ no quote)' },
       // REQUIRED, not optional: /api/agent/pay FAILS CLOSED with 503 not_configured when this is
       // unset (route.ts callerAuthFailure). Labelling a secret that gates a money route "optional"
       // reads as "safe to skip" — it is safe, but it silently disables the agent pay path.
@@ -343,6 +364,10 @@ export const INTEGRATIONS: readonly Integration[] = [
     vars: [
       { name: 'AGENT_STATE_ANCHOR', purpose: 'Set "true" to switch the anchor loop on', required: true },
       { name: 'AGENT_ANCHOR_REGISTRY', purpose: 'ProvenanceRegistry address (from broadcast/)' },
+      // The chain the anchor tx is submitted to. stateAnchor.ts returns null (no onchain
+      // "own" leg) when this isn't a valid integer — so earn→store→own goes dark on-chain
+      // (Walrus store still runs) if it's dropped at deploy.
+      { name: 'AGENT_ANCHOR_CHAIN_ID', purpose: 'Chain id the anchor tx is submitted to (blank ⇒ no onchain anchor)' },
       { name: 'AGENT_ANCHOR_PRIVATE_KEY', purpose: 'Testnet key that submits the anchor tx', secret: true },
       { name: 'WALRUS_PUBLISHER', purpose: 'Walrus publisher base URL', hasDefault: true },
     ],
