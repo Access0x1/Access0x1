@@ -26,10 +26,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const WEB_ROOT = resolve(HERE, '..')
+const WEB_ROOT = resolve(HERE, '../..')
 const REPO_ROOT = resolve(WEB_ROOT, '..')
 
-const { INTEGRATIONS, envFileFor } = await import('../lib/config/integrations.ts')
+const { INTEGRATIONS, envFileFor } = await import('../../lib/config/integrations.ts')
 
 /** Key names already present in an env file (values never read into memory here). */
 function keysIn(path) {

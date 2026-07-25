@@ -80,7 +80,7 @@ WORK="$(mktemp -d -t access0x1-deploy.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 RUNTIME_ENV="$WORK/runtime.yaml"
 SECRETS_DIR="$WORK/secrets"
-npx tsx scripts/deploy-env.mjs --runtime-out "$RUNTIME_ENV" --secrets-dir "$SECRETS_DIR"
+npx tsx scripts/doctor/deploy-env.mjs --runtime-out "$RUNTIME_ENV" --secrets-dir "$SECRETS_DIR"
 # These two must exist at runtime regardless of what .env.local held: the commit so
 # /api/health can name the live build, and the Dynamic env id so the server can
 # verify a sign-in (the whole "verified login" bug). Appended, so they win. Both are

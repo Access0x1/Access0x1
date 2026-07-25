@@ -11,17 +11,17 @@
  * booleans only, so its output is safe to paste into a chat, an issue, or a log.
  *
  * USAGE
- *   node scripts/env-doctor.mjs              # full report
- *   node scripts/env-doctor.mjs --core       # only what going live needs
- *   node scripts/env-doctor.mjs --json       # machine-readable (no values)
- *   node scripts/env-doctor.mjs --strict     # exit 1 if any `core` integration isn't ready
+ *   node scripts/doctor/env-doctor.mjs              # full report
+ *   node scripts/doctor/env-doctor.mjs --core       # only what going live needs
+ *   node scripts/doctor/env-doctor.mjs --json       # machine-readable (no values)
+ *   node scripts/doctor/env-doctor.mjs --strict     # exit 1 if any `core` integration isn't ready
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const WEB_ROOT = resolve(HERE, '..')
+const WEB_ROOT = resolve(HERE, '../..')
 
 const ARGS = process.argv.slice(2)
 const JSON_OUT = ARGS.includes('--json')
@@ -65,7 +65,7 @@ const IMPACT_ORDER = { core: 0, feature: 1, optional: 2 }
 async function main() {
   // The registry is TypeScript; read it through the same tsx/ts path the app uses.
   // Importing the .ts directly keeps ONE source of truth (no duplicated table).
-  const mod = await import('../lib/config/integrations.ts')
+  const mod = await import('../../lib/config/integrations.ts')
   const { INTEGRATIONS, statusOf } = mod
 
   // A value lives in ONE of two files: web/.env.local (the app) or the repo-root

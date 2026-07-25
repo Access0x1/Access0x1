@@ -31,7 +31,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const WEB_ROOT = resolve(HERE, '..')
+const WEB_ROOT = resolve(HERE, '../..')
 const REPO_ROOT = resolve(WEB_ROOT, '..')
 /** The default target; the deploy integration overrides this to the repo-root .env. */
 const ENV_PATH = join(WEB_ROOT, '.env.local')
@@ -192,7 +192,7 @@ async function main() {
   // `isPlaceholder` comes from the registry rather than being re-implemented here:
   // two copies of "what counts as unfilled" would drift, and the doctor and this
   // tool disagreeing about whether a value is real is the worst possible outcome.
-  const { INTEGRATIONS, statusOf, isPlaceholder } = await import('../lib/config/integrations.ts')
+  const { INTEGRATIONS, statusOf, isPlaceholder } = await import('../../lib/config/integrations.ts')
 
   // A value can live in web/.env.local (app) or the repo-root .env (deploy). Read
   // BOTH so the status of every integration is correct regardless of its file.

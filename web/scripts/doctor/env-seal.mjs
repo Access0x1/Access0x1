@@ -24,7 +24,7 @@
  * prompted for with echo OFF.
  *
  * AT DEPLOY TIME:
- *   ACCESS0X1_ENV_PASSPHRASE=... node scripts/env-seal.mjs --open && npm start
+ *   ACCESS0X1_ENV_PASSPHRASE=... node scripts/doctor/env-seal.mjs --open && npm start
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, chmodSync } from 'node:fs'
@@ -33,7 +33,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const WEB_ROOT = resolve(HERE, '..')
+const WEB_ROOT = resolve(HERE, '../..')
 const PLAIN_PATH = join(WEB_ROOT, '.env.local')
 const SEALED_PATH = join(WEB_ROOT, '.env.sealed')
 
@@ -100,7 +100,7 @@ function writeSecure(path, contents) {
 }
 
 async function main() {
-  const { seal, open, parseDotenv, SealedEnvError } = await import('../lib/config/sealedEnv.ts')
+  const { seal, open, parseDotenv, SealedEnvError } = await import('../../lib/config/sealedEnv.ts')
 
   if (MODE === 'seal') {
     assertGitignored(PLAIN_PATH, '.env.local')

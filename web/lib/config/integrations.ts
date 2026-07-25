@@ -387,7 +387,8 @@ export const INTEGRATIONS: readonly Integration[] = [
         purpose: 'The agent MPC wallet id',
         required: true,
         mintedBy:
-          'Dynamic, on first agent boot — it is printed to the server log. Leave BLANK now, ' +
+          'Dynamic, on the first authorized POST /api/agent/pay — the minted id comes back as the ' +
+          '"agent" field of the 200 response (nothing is written to the server log). Leave BLANK now, ' +
           'then re-run this and paste it. A guessed id points the agent at a wallet that does not exist.',
       },
       { name: 'AGENT_DAILY_USD_CAP', purpose: 'Hard daily spend ceiling (0 blocks everything)', required: true },
