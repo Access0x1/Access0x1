@@ -8,6 +8,8 @@
 
 Access0x1 is the umbrella layer everything plugs into — non-custodial payments, commerce (subscriptions · bookings · invoices · gift cards), tokenization ([ERC-7943 uRWA compliant assets · ERC-6551 token bound accounts](docs/TOKENIZATION-KIT.md) — built and unit-tested, deployed on no chain), and identity, white-label for non-coders and agent-native. One shared rail per chain; apps build on top, no per-app contract code.
 
+> **Where we are, honestly.** Access0x1 is a real startup — early, just starting up. What exists today is **the code**: this open-source repo, live on **testnets**, MIT-licensed. **No token. No outside funding claimed. No mainnet deployment.** Everything documented here is what's actually built and tested; nothing is promised that isn't. Built in the open, code first — the repo *is* the pitch.
+
 🏆 **Verified ETHGlobal Hacker Pack holder** — the Hacker Pack is an on-chain credential ([`EG-HACKER`](https://optimistic.etherscan.io/token/0x32382a82d9faDc55f971f33DaEeE5841cfbADbE0) · contract `0x32382a82d9faDc55f971f33DaEeE5841cfbADbE0` · balance 1 on Optimism).
 
 **⚡ New here? → [Quickstart — working code in 5 min](docs/QUICKSTART.md)** · [60-second model](docs/GETTING-STARTED.md) · [Architecture](#architecture)
