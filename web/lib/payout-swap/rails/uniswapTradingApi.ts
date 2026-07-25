@@ -54,8 +54,13 @@ interface TradingApiQuoteResponse {
   }
   /** Permit2 payload — stripped before any execute call, handled by the wallet owner. */
   permitData?: unknown
-  /** Permit-as-transaction variant — stripped the same way. */
-  permitTransaction?: unknown
+  /**
+   * The Permit2 grant as a ready-to-sign transaction (requested via
+   * `generatePermitAsTransaction: true`). Stripped from the execute body like
+   * permitData, but SURFACED on the execution result — it must land on-chain
+   * BEFORE the swap tx, or the Universal Router reverts.
+   */
+  permitTransaction?: { to?: string; data?: string; value?: string } | null
 }
 
 /** The `/swap` response: a ready-to-sign transaction (never a hash — nothing was submitted). */
@@ -171,6 +176,13 @@ export function createUniswapTradingApiClient(
           // classic mode FORCES a /swap-able route; the others let BEST_PRICE reach the
           // UniswapX auction (whose quote then routes to /order per the official rule).
           routingPreference: mode === 'classic' ? 'CLASSIC' : 'BEST_PRICE',
+          // The Permit2 grant as a READY-TO-SIGN TRANSACTION instead of an EIP-712
+          // payload. Live lesson (2026-07-25, Sepolia): /check_approval covers only the
+          // ERC20→Permit2 leg — the Permit2→Router grant normally rides the signed
+          // permitData this seam strips, and without it the Universal Router execute
+          // reverts on a funded, ERC20-approved wallet. permit-as-transaction fits this
+          // rail's whole model: every artifact is a tx the wallet owner signs.
+          generatePermitAsTransaction: true,
         }),
       })
       if (!res.ok) {
@@ -210,13 +222,18 @@ export function createUniswapTradingApiClient(
         throw new Error(`Uniswap Trading API /${route} failed (${res.status})`)
       }
       const body = (await res.json()) as TradingApiSwapResponse
-      if (body.txHash) return { txHash: body.txHash, rail: 'uniswap-trading-api' }
+      // The quote's permit-as-transaction rides along on the result: the wallet owner
+      // must land it BEFORE the swap tx (the Permit2→Router grant the swap relies on).
+      const pt = raw.permitTransaction
+      const permitTx =
+        pt?.to && pt.data && pt.data !== '0x' ? (pt as UnsignedSwapTx) : undefined
+      if (body.txHash) return { txHash: body.txHash, rail: 'uniswap-trading-api', permitTx }
       const swap = body.swap
       // Guard per the official reference: empty calldata means the quote expired server-side.
       if (!swap?.to || !swap.data || swap.data === '0x') {
         throw new Error(`Uniswap Trading API /${route} returned no executable transaction`)
       }
-      return { unsignedTx: swap as UnsignedSwapTx, rail: 'uniswap-trading-api' }
+      return { unsignedTx: swap as UnsignedSwapTx, rail: 'uniswap-trading-api', permitTx }
     },
   }
 }

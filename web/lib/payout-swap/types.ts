@@ -90,6 +90,12 @@ export interface RailExecution {
   readonly txHash?: string
   /** The ready-to-sign swap tx, when the rail prepares but never signs (Trading API `/swap`). */
   readonly unsignedTx?: UnsignedSwapTx
+  /**
+   * A ready-to-sign Permit2 grant that must land BEFORE `unsignedTx` (requested from the
+   * Trading API as permit-as-transaction). Absent when no permit is needed — an existing
+   * on-chain Permit2 allowance covers the swap.
+   */
+  readonly permitTx?: UnsignedSwapTx
   /** The rail that executed it (for telemetry). */
   readonly rail: SwapRail
 }
@@ -152,6 +158,8 @@ export interface PayoutSwapResult {
   readonly txHash?: string
   /** The ready-to-sign swap tx (when the rail prepares but never signs — the wallet submits). */
   readonly unsignedTx?: UnsignedSwapTx
+  /** The ready-to-sign Permit2 grant to land BEFORE `unsignedTx` (absent ⇒ not needed). */
+  readonly permitTx?: UnsignedSwapTx
   /** The quoted/landed output amount (present iff `swapped`). */
   readonly amountOut?: bigint
   /** Why no swap happened (`none` iff `swapped`). */
