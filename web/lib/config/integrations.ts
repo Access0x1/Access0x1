@@ -193,6 +193,39 @@ export const INTEGRATIONS: readonly Integration[] = [
     ],
   },
   {
+    id: 'ens-registrar',
+    label: 'ENS purchase — Own your name (.eth, in-app)',
+    unlocks:
+      'Buying a real .eth name from inside the app: commit → 60s → register, signed by the ' +
+      "CONNECTED wallet. Blank ⇒ the Own-your-name step is hidden; the free subname claim still works.",
+    impact: 'feature',
+    where:
+      'docs.ens.domains — CONFIRM the ETHRegistrarController + Public Resolver addresses for the ' +
+      'target testnet (default Sepolia). All PUBLIC: both txs are signed client-side, zero custody.',
+    vars: [
+      {
+        name: 'NEXT_PUBLIC_ENS_REGISTRAR_CONTROLLER',
+        purpose: 'ETHRegistrarController address (CONFIRM from official ENS docs). Blank ⇒ seam OFF',
+        required: true,
+      },
+      {
+        name: 'NEXT_PUBLIC_ENS_REGISTRAR_CHAIN_ID',
+        purpose: 'Chain the registrar runs on (defaults to Sepolia 11155111 — testnet-only law)',
+        hasDefault: true,
+      },
+      {
+        name: 'NEXT_PUBLIC_ENS_REGISTRAR_RESOLVER',
+        purpose: 'Public Resolver set at registration (enables records + primary name). Blank ⇒ bare register',
+        hasDefault: true,
+      },
+      {
+        name: 'NEXT_PUBLIC_ENS_REGISTRAR_RPC_URL',
+        purpose: "RPC for registrar reads (blank ⇒ the chain's public default)",
+        hasDefault: true,
+      },
+    ],
+  },
+  {
     id: 'world-id',
     label: 'World ID (proof of personhood)',
     unlocks: 'The verified-human checkout gate and the ✓ rung on the verification ladder.',
