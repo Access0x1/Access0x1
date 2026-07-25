@@ -16,9 +16,11 @@
  *   (1) `tokenInChainId`/`tokenOutChainId` are STRINGS and the amount field is `amount` —
  *   the previously assumed `{chainId, amountIn}` body 4xxes; (2) the 200 response nests the
  *   output under `quote.output.amount` (CLASSIC) or `quote.orderInfo.outputs[0]` (UniswapX) —
- *   there is no top-level `amountOut`; (3) Base Sepolia returns `ResourceNotFound: No quotes
- *   available` — the Trading API serves no testnet routing, so this rail is a MAINNET-ONLY
- *   capability and stays dormant on our testnet-only deployment (recorded in FEEDBACK.md).
+ *   there is no top-level `amountOut`; (3) testnet coverage is PER-CHAIN: Ethereum Sepolia
+ *   (11155111) IS served — a real priced one-hop CLASSIC quote (USDC→WETH) with a gas
+ *   estimate — while Base Sepolia answered `ResourceNotFound: No quotes available` for the
+ *   same canonical pair. The home-chain testnet leg is therefore live-quotable today; Base
+ *   Sepolia is not (recorded in FEEDBACK.md).
  * @warn The execute leg needs the merchant's signature (Permit2 / UniswapX order signing) —
  *   that leg lives with the wallet owner, never this seam. `/swap_7702`'s REST path is still
  *   the assumed part (the RPC method `Swap7702` is verified in `@uniswap/client-trading`).
