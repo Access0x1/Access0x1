@@ -25,13 +25,26 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /** Shared defs: the stone-edge filter + the cobble field pattern + fade mask. */
-function CalcadaDefs({ idPrefix }: { idPrefix: string }): ReactNode {
+function CalcadaDefs({
+  idPrefix,
+  stoneScale = 7,
+}: {
+  idPrefix: string
+  /**
+   * Displacement strength of the chisel filter, in LOCAL viewBox units — it
+   * must scale with the geometry it roughens. 7 is calibrated for the hero's
+   * 1200-unit canvas (24-unit strokes read as hand-cut); a small canvas like
+   * the 120-unit medallion roundel needs ~2.5 or the jitter shreds the shapes
+   * into fuzz instead of chiseling their edges.
+   */
+  stoneScale?: number
+}): ReactNode {
   return (
     <defs>
       {/* Hand-cut basalt: jitter the vector edges like chiseled stone. */}
       <filter id={`${idPrefix}-stone`} x="-5%" y="-5%" width="110%" height="110%">
         <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n" />
-        <feDisplacementMap in="SourceGraphic" in2="n" scale="7" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale={stoneScale} />
       </filter>
 
       {/* The limestone field: offset cobbles, slightly rotated like a fan course. */}
@@ -111,23 +124,18 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
         </mask>
       </defs>
 
-      {/* The basalt medallion — everything below is chisel-textured. */}
-      <g mask="url(#cx-hero-medfade-mask)">
-      <g filter="url(#cx-hero-stone)" className="opacity-[0.18]">
+      {/* The basalt medallion. The masked wrapper carries the ink weight; the
+          chisel filter covers only the LARGE work (ring, blades, big stones) —
+          the small orbiting satellites render crisp below, because the jitter
+          that reads as hand-cut edge on a 24-unit stroke reads as dust on a
+          7-unit stone. */}
+      <g mask="url(#cx-hero-medfade-mask)" className="opacity-[0.18]">
+      <g filter="url(#cx-hero-stone)">
         {/* The heart: the BRAND GLYPH geometry — socket ring + three dots. */}
         <circle cx="600" cy="300" r="92" fill="none" stroke="currentColor" strokeWidth="26" />
         <circle cx="563" cy="278" r="19" fill="currentColor" />
         <circle cx="637" cy="278" r="19" fill="currentColor" />
         <circle cx="600" cy="347" r="19" fill="currentColor" />
-
-        {/* Orbiting satellites — the pavement's outer dots, set in motion. */}
-        <g className="calcada-orbit" style={{ transformOrigin: '600px 300px' }}>
-          <circle cx="600" cy="130" r="22" fill="currentColor" />
-          <circle cx="447" cy="384" r="13" fill="currentColor" />
-          <circle cx="753" cy="384" r="13" fill="currentColor" />
-          <circle cx="466" cy="200" r="7" fill="currentColor" />
-          <circle cx="734" cy="200" r="7" fill="currentColor" />
-        </g>
 
         {/* The long volutes — the "u" blades with curled tips, drawn in.
             The curls stay inside x ∈ [~190, ~1010]: preserveAspectRatio="slice"
@@ -169,6 +177,16 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
         <circle cx="600" cy="596" r="9" fill="currentColor" />
         <circle cx="600" cy="622" r="5" fill="currentColor" />
       </g>
+
+      {/* Orbiting satellites — the pavement's outer dots, set in motion.
+          Unfiltered on purpose: small stones stay crisp (see above). */}
+      <g className="calcada-orbit" style={{ transformOrigin: '600px 300px' }}>
+        <circle cx="600" cy="130" r="22" fill="currentColor" />
+        <circle cx="447" cy="384" r="13" fill="currentColor" />
+        <circle cx="753" cy="384" r="13" fill="currentColor" />
+        <circle cx="466" cy="200" r="7" fill="currentColor" />
+        <circle cx="734" cy="200" r="7" fill="currentColor" />
+      </g>
       </g>
     </svg>
   )
@@ -183,14 +201,18 @@ export function CalcadaDivider({ className }: { className?: string }): ReactNode
     <div aria-hidden="true" className={cn('mx-auto w-full max-w-5xl px-6', className)}>
       <svg viewBox="0 0 1200 36" preserveAspectRatio="xMidYMid meet" className="h-6 w-full text-foreground">
         <CalcadaDefs idPrefix="cx-div" />
-        <g filter="url(#cx-div-stone)" className="opacity-[0.22]">
-          <path
-            d="M 0 22 Q 50 2 100 22 T 200 22 T 300 22 T 400 22 T 500 22 T 600 22 T 700 22 T 800 22 T 900 22 T 1000 22 T 1100 22 T 1200 22"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="7"
-            strokeLinecap="round"
-          />
+        <g className="opacity-[0.22]">
+          {/* The wave keeps its chiseled edge; the 4-unit cobble dots render
+              crisp outside the filter — jittered, they read as specks. */}
+          <g filter="url(#cx-div-stone)">
+            <path
+              d="M 0 22 Q 50 2 100 22 T 200 22 T 300 22 T 400 22 T 500 22 T 600 22 T 700 22 T 800 22 T 900 22 T 1000 22 T 1100 22 T 1200 22"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="7"
+              strokeLinecap="round"
+            />
+          </g>
           {Array.from({ length: 12 }, (_, i) => (
             <circle key={i} cx={100 + i * 100} cy={9} r={4} fill="currentColor" />
           ))}
@@ -224,21 +246,23 @@ export function CalcadaMedallion({
       viewBox="0 0 120 120"
       className={cn('pointer-events-none text-foreground', className)}
     >
-      <CalcadaDefs idPrefix="cx-med" />
-      <g filter="url(#cx-med-stone)">
-        {/* Dotted stone circle — the mosaic frame. */}
-        <g className="calcada-orbit-slow opacity-[0.35]" style={{ transformOrigin: '60px 60px' }}>
-          {dots.map((d, i) => (
-            <circle key={i} cx={d.x} cy={d.y} r={2.6} fill="currentColor" />
-          ))}
-        </g>
-        {/* The brand glyph geometry, in basalt. */}
-        <g className="opacity-[0.55]">
-          <circle cx="60" cy="60" r="26" fill="none" stroke="currentColor" strokeWidth="8" />
-          <circle cx="49.6" cy="53.9" r="5.4" fill="currentColor" />
-          <circle cx="70.4" cy="53.9" r="5.4" fill="currentColor" />
-          <circle cx="60" cy="73.2" r="5.4" fill="currentColor" />
-        </g>
+      {/* This canvas is 120 units (vs the hero's 1200), so the chisel scale
+          drops to 2.5 — the full-strength jitter shredded the roundel into a
+          smudge at its 72px rendered size. */}
+      <CalcadaDefs idPrefix="cx-med" stoneScale={2.5} />
+      {/* Dotted stone circle — the mosaic frame. Crisp on purpose: 2.6-unit
+          stones dissolve under any displacement at this scale. */}
+      <g className="calcada-orbit-slow opacity-[0.35]" style={{ transformOrigin: '60px 60px' }}>
+        {dots.map((d, i) => (
+          <circle key={i} cx={d.x} cy={d.y} r={2.6} fill="currentColor" />
+        ))}
+      </g>
+      {/* The brand glyph geometry, in basalt — lightly chiseled. */}
+      <g filter="url(#cx-med-stone)" className="opacity-[0.55]">
+        <circle cx="60" cy="60" r="26" fill="none" stroke="currentColor" strokeWidth="8" />
+        <circle cx="49.6" cy="53.9" r="5.4" fill="currentColor" />
+        <circle cx="70.4" cy="53.9" r="5.4" fill="currentColor" />
+        <circle cx="60" cy="73.2" r="5.4" fill="currentColor" />
       </g>
     </svg>
   )
