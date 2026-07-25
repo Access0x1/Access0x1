@@ -83,13 +83,52 @@ bundle, but I had to assume the header name, whether `/quote` needs the key as w
    EIP-712 payload) versus a classic `/swap` (raw calldata), and whether the API returns an
    unsigned payload to sign or submits on the caller's behalf.
 
+## Update 2026-07-25: five of the six requests, answered — by docs and a live probe
+
+Everything above was written while integrating **blind**. This week two things changed: the
+official reference material became available to us (the published quickstart plus the
+`swap-integration` agent skill from `uniswap/uniswap-ai`, now vendored under
+[`.agents/skills/swap-integration/`](.agents/skills/swap-integration/SKILL.md)), and we ran a
+**live read-only probe** of `POST /quote` with a real key. The rail was then rewritten to the
+verified shapes ([`uniswapTradingApi.ts`](web/lib/payout-swap/rails/uniswapTradingApi.ts) —
+the in-code `@warn` is now an `@verified`). Scoring my own request list:
+
+1. **Field reference — ANSWERED.** The canonical `/quote` body is
+   `{swapper, tokenIn, tokenOut, tokenInChainId, tokenOutChainId, amount, type,
+   routingPreference, …}` with the chain ids as **strings** and amounts as atomic integer
+   strings; the response nests the output under `quote.output.amount` (CLASSIC) or
+   `quote.orderInfo.outputs[]` (UniswapX), with the routing type deciding the execute
+   endpoint. Live probe: **HTTP 200, CLASSIC routing, Base mainnet** (read-only; no funds
+   moved). My original assumed shape 4xxes — exactly why request #1 mattered.
+2. **Base URL + testnets — HALF-ANSWERED, and the half that's missing still stings.**
+   `https://trade-api.gateway.uniswap.org/v1` confirmed. But the same probe on **Base
+   Sepolia (84532) returns `ResourceNotFound: "No quotes available"`** — the Trading API
+   serves no testnet routing. For a testnet-only build (and for every hackathon team and CI
+   pipeline like ours), that means the rail can be *correct* but never *demonstrated* without
+   going to mainnet. **Standing request: a testnet surface — even a single Base Sepolia pool
+   with stub liquidity — would let integrators prove their wiring end-to-end.**
+3. **`/order` lifecycle — PARTLY ANSWERED.** The quickstart confirms: sign and submit the
+   order payload, then poll `GET /orders` for status. The exact shape of the "filled" signal
+   is still the part we'd like pinned in the reference.
+4. **Auth — ANSWERED, plus one gotcha worth documenting.** `x-api-key` confirmed, required on
+   `/quote` too, alongside `x-universal-router-version: 2.0` on every call. The gotcha: the
+   API's Cloudflare front **rejects some non-browser client signatures with error 1010** —
+   a Python `urllib` caller is blocked outright while `curl` and an explicit product
+   User-Agent pass. Server-side integrators will hit this; one sentence in the docs would
+   save each of them an hour.
+5. **Fee semantics — RETIRED.** The canonical body has no integrator-fee field to zero out;
+   my `customFeeBps: 0` assumption is gone from the rail. Zero-added-fee is simply the
+   default — which is the right default.
+6. **Signing model — ANSWERED.** `/swap` returns a **ready-to-sign transaction**
+   (`{swap: {to, data, value, chainId, gasLimit}}`) that the caller signs and broadcasts;
+   UniswapX orders sign the `permitData` locally and submit the signed order. The rail now
+   surfaces that unsigned transaction truthfully instead of pretending a landed hash.
+
 ## Status: honest scope
 
-This integration is real code, env-gated, and dormant. Both rails go live only once the operator
-sets `UNISWAP_TRADING_API_URL` (and, where needed, `UNISWAP_TRADING_API_KEY`); absent that env the
-rail resolves to `undefined` and the payout worker degrades to a clean no-op — the merchant simply
-keeps their settled USDC. **No live Trading API transaction has been sent yet.** The capture script
-[`web/scripts/capture-payout-swap.mts`](web/scripts/capture-payout-swap.mts) drives one real
-Base-Sepolia payout-swap through this exact wiring the moment credentials and a confirmed endpoint
-exist; the tx hash it prints becomes the first live proof, and this document gets updated to point
-at it.
+The **quote leg is live-verified** (the read-only mainnet probe above; the offline suite pins
+the verified shapes — 58 tests). The **execute leg is wired to the documented flow but has
+sent no live transaction**: our build is testnet-only, and per finding #2 the Trading API
+serves no testnet routing — so the first live swap awaits either a testnet surface on the API
+side or a mainnet go-decision on ours. Both rails stay env-gated and fail-soft; absent env,
+the payout worker degrades to a clean no-op and the merchant keeps their settled USDC.
