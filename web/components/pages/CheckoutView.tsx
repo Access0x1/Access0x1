@@ -84,7 +84,12 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
     }
   }, [chainId, merchantId])
 
-  const amount = searchParams.get('amount') ?? '29.00'
+  // No hardcoded fallback. This line read `?? '29.00'` — the same defect the /c/ slug
+  // page carried, and the one `lib/checkout/paymentLink.ts` warns about: a link without
+  // an amount charged a customer a number nobody chose. Unlike /c/, this route is keyed
+  // by merchant id and has no branding row to borrow a price from, so a missing amount
+  // has exactly one honest answer — say the link is incomplete, and charge nothing.
+  const amount = searchParams.get('amount')
   const orderParam = searchParams.get('order') ?? undefined
   // Validate at the source: only an https: URL survives; a javascript:/data:/http:
   // /evil-origin value is dropped to undefined (no link rendered) — red-report C-1.
@@ -131,7 +136,12 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
             </button>
           ) : null}
         </div>
-      ) : merchant && merchantId !== null ? (
+      ) : merchant && merchantId !== null && !amount ? (
+        <div className="rounded-2xl border border-border bg-secondary p-6 text-sm text-muted-foreground">
+          This payment link is missing its amount, so there is nothing to charge. The
+          merchant needs to share a link that includes a price.
+        </div>
+      ) : merchant && merchantId !== null && amount ? (
         // White-label checkout card = a deliberate bright `.light` island on the
         // dark chassis (the merchant's own storefront). Same treatment as the
         // slug checkout; the CheckoutCard's brandColor seams are untouched.
