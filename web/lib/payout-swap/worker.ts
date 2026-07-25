@@ -102,6 +102,7 @@ export async function runPayoutSwap(
       rail: exec.rail,
       txHash: exec.txHash,
       unsignedTx: exec.unsignedTx,
+      permitTx: exec.permitTx,
       amountOut: quote.amountOut,
       reason: 'none',
     }
