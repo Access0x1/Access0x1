@@ -24,6 +24,23 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
+/**
+ * The hero blade geometry, defined ONCE: each path is drawn twice — the basalt
+ * stroke, then a background-colored dashed seam overlay that cuts the blade
+ * into individual set stones (in the real pavement every scroll is tessellated
+ * from small basalt cubes; a smooth vector ribbon reads as paint, not stone).
+ * Single source keeps the stroke and its seams from ever drifting apart.
+ */
+const VOLUTE_LEFT =
+  'M 505 205 C 395 128, 265 104, 196 158 C 176 174, 172 198, 190 212 C 206 224, 228 218, 234 201 C 238 186, 226 176, 213 180'
+const VOLUTE_RIGHT =
+  'M 695 205 C 805 128, 935 104, 1004 158 C 1024 174, 1028 198, 1010 212 C 994 224, 972 218, 966 201 C 962 186, 974 176, 987 180'
+const UNDER_SWEEP =
+  'M 380 430 C 390 540, 560 570, 600 500 C 640 570, 810 540, 820 430'
+
+/** Seam paint: the page background, so a "joint" is a true gap in the stone. */
+const SEAM_STROKE = { stroke: 'hsl(var(--background))' } as const
+
 /** Shared defs: the stone-edge filter + the cobble field pattern + fade mask. */
 function CalcadaDefs({
   idPrefix,
@@ -142,8 +159,19 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
           7-unit stone. */}
       <g mask="url(#cx-hero-medfade-mask)" className="opacity-[0.18]">
       <g filter="url(#cx-hero-stone)">
-        {/* The heart: the BRAND GLYPH geometry — socket ring + three dots. */}
+        {/* The heart: the BRAND GLYPH geometry — socket ring + three dots.
+            The ring carries radial seam joints (the dashed overlay below) so it
+            reads as a course of set stones; the dots are single stones. */}
         <circle cx="600" cy="300" r="92" fill="none" stroke="currentColor" strokeWidth="26" />
+        <circle
+          cx="600"
+          cy="300"
+          r="92"
+          fill="none"
+          strokeWidth="26"
+          strokeDasharray="3.5 17.5"
+          style={SEAM_STROKE}
+        />
         <circle cx="563" cy="278" r="19" fill="currentColor" />
         <circle cx="637" cy="278" r="19" fill="currentColor" />
         <circle cx="600" cy="347" r="19" fill="currentColor" />
@@ -156,7 +184,7 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
         <path
           pathLength={1}
           className="calcada-draw"
-          d="M 505 205 C 395 128, 265 104, 196 158 C 176 174, 172 198, 190 212 C 206 224, 228 218, 234 201 C 238 186, 226 176, 213 180"
+          d={VOLUTE_LEFT}
           fill="none"
           stroke="currentColor"
           strokeWidth="24"
@@ -165,23 +193,29 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
         <path
           pathLength={1}
           className="calcada-draw"
-          d="M 695 205 C 805 128, 935 104, 1004 158 C 1024 174, 1028 198, 1010 212 C 994 224, 972 218, 966 201 C 962 186, 974 176, 987 180"
+          d={VOLUTE_RIGHT}
           fill="none"
           stroke="currentColor"
           strokeWidth="24"
           strokeLinecap="round"
         />
+        {/* Seam overlays: background-colored joints cut each blade into set
+            stones. Static (no draw-in) — seams over an undrawn blade are
+            background-on-background, so they only appear as the blade does. */}
+        <path d={VOLUTE_LEFT} fill="none" strokeWidth="24" strokeDasharray="3.5 17.5" style={SEAM_STROKE} />
+        <path d={VOLUTE_RIGHT} fill="none" strokeWidth="24" strokeDasharray="3.5 17.5" style={SEAM_STROKE} />
 
         {/* The long U beneath — the sweep the third photo nails. */}
         <path
           pathLength={1}
           className="calcada-draw calcada-draw-late"
-          d="M 380 430 C 390 540, 560 570, 600 500 C 640 570, 810 540, 820 430"
+          d={UNDER_SWEEP}
           fill="none"
           stroke="currentColor"
           strokeWidth="20"
           strokeLinecap="round"
         />
+        <path d={UNDER_SWEEP} fill="none" strokeWidth="20" strokeDasharray="3 15" style={SEAM_STROKE} />
 
         {/* Trailing dot column, fading like the pavement run-out. */}
         <circle cx="600" cy="560" r="14" fill="currentColor" />
