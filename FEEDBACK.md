@@ -100,13 +100,15 @@ the in-code `@warn` is now an `@verified`). Scoring my own request list:
    `quote.orderInfo.outputs[]` (UniswapX), with the routing type deciding the execute
    endpoint. Live probe: **HTTP 200, CLASSIC routing, Base mainnet** (read-only; no funds
    moved). My original assumed shape 4xxes — exactly why request #1 mattered.
-2. **Base URL + testnets — HALF-ANSWERED, and the half that's missing still stings.**
-   `https://trade-api.gateway.uniswap.org/v1` confirmed. But the same probe on **Base
-   Sepolia (84532) returns `ResourceNotFound: "No quotes available"`** — the Trading API
-   serves no testnet routing. For a testnet-only build (and for every hackathon team and CI
-   pipeline like ours), that means the rail can be *correct* but never *demonstrated* without
-   going to mainnet. **Standing request: a testnet surface — even a single Base Sepolia pool
-   with stub liquidity — would let integrators prove their wiring end-to-end.**
+2. **Base URL + testnets — ANSWERED, with a better outcome than we first thought.**
+   `https://trade-api.gateway.uniswap.org/v1` confirmed. Coverage turned out to be
+   **per-chain**: our first testnet probe (Base Sepolia, 84532) returned
+   `ResourceNotFound: "No quotes available"` for the canonical USDC→WETH pair — but the
+   same request on **Ethereum Sepolia (11155111) returned HTTP 200, CLASSIC routing, a
+   priced one-hop route and a gas estimate**. So a real testnet surface EXISTS, and it is
+   the chain our deployed app calls home. The narrowed ask: a published per-chain
+   testnet-coverage list (and, if feasible, Base Sepolia routing) — we found Ethereum
+   Sepolia support by probing, not by reading it anywhere.
 3. **`/order` lifecycle — PARTLY ANSWERED.** The quickstart confirms: sign and submit the
    order payload, then poll `GET /orders` for status. The exact shape of the "filled" signal
    is still the part we'd like pinned in the reference.
@@ -126,9 +128,11 @@ the in-code `@warn` is now an `@verified`). Scoring my own request list:
 
 ## Status: honest scope
 
-The **quote leg is live-verified** (the read-only mainnet probe above; the offline suite pins
-the verified shapes — 58 tests). The **execute leg is wired to the documented flow but has
-sent no live transaction**: our build is testnet-only, and per finding #2 the Trading API
-serves no testnet routing — so the first live swap awaits either a testnet surface on the API
-side or a mainnet go-decision on ours. Both rails stay env-gated and fail-soft; absent env,
-the payout worker degrades to a clean no-op and the merchant keeps their settled USDC.
+The **quote leg is live-verified** on Base mainnet, Ethereum mainnet, and — the one that
+matters for a testnet-only build — **Ethereum Sepolia**, all read-only (the offline suite
+pins the verified shapes). The **execute leg is wired to the documented flow but has sent no
+live transaction yet**; with Ethereum Sepolia served, the first real testnet swap needs only
+a faucet-funded burner — the capture script drives it through the exact production wiring
+and this document gets the tx hash the moment it lands. Both rails stay env-gated and
+fail-soft; absent env, the payout worker degrades to a clean no-op and the merchant keeps
+their settled USDC.
