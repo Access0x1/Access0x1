@@ -197,3 +197,40 @@ select {
     stroke-dashoffset: 0;
   }
 }
+
+/*
+ * Developer view (components/marketing/DevMode.tsx).
+ *
+ * Every `.dev-note` is in the server-rendered HTML — real, indexable content that
+ * a reader with JS disabled still gets. This rule is the only thing that hides it,
+ * so flipping the switch is one attribute write on <html> rather than a re-render
+ * of a page carrying dozens of them.
+ *
+ * Default hidden: the merchant reading "get paid with one link" should not have to
+ * scroll past a contract name to reach the next sentence.
+ */
+.dev-note {
+  display: none;
+}
+
+:root[data-devmode='on'] .dev-note {
+  display: block;
+  animation: dev-note-in 220ms ease-out both;
+}
+
+@keyframes dev-note-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-devmode='on'] .dev-note {
+    animation: none;
+  }
+}
