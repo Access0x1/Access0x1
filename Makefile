@@ -294,6 +294,9 @@ prune-branches-confirm: _prune-fresh ## DELETE the git-proven-merged remote bran
 	@rm -f /tmp/access0x1-prune.txt
 	@bash scripts/prune-merged-branches.sh --confirm
 
+deploy-web: ## Build + ship the web app to Cloud Run (DYN_ENV=<dynamic-env-id> required)
+	@bash scripts/deploy-web.sh
+
 deploy-inventory: ## What is deployed, what is dead, and is anything deployed twice?
 	@node scripts/deploy-inventory.mjs
 
