@@ -8,6 +8,7 @@
  * (the fresh withdrawal target) — never an Unlink execution / ERC-4337 account
  * (NANOPAYMENTS §3b buyer-side rule).
  */
+import { loadLocalEnv } from "./load-local-env.mts";
 import { GatewayClient } from "@circle-fin/x402-batching/client";
 import type { Hex } from "viem";
 
@@ -26,6 +27,7 @@ const DEFAULT_DEPOSIT = "5.00";
  * @returns the deposit + post-deposit available balance, for logging
  */
 async function fundGateway(amount: string): Promise<void> {
+  loadLocalEnv();
   const key = process.env.BUYER_PRIVATE_KEY;
   if (!key || key.trim() === "") {
     throw new Error("BUYER_PRIVATE_KEY is not set.");

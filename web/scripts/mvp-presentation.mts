@@ -7,10 +7,12 @@
  * accumulates them into ONE on-chain batch settlement tx visible on Arcscan
  * (the track's literal bar — provably NOT one big transfer).
  *
- * The buyer is a FRESH ephemeral EOA per run (unlinkability hygiene). The pay
+ * The buyer is BUYER_PRIVATE_KEY from web/.env.local (persistent, fund once) or a
+ * fresh ephemeral EOA when unset. The pay
  * loop core (`runDemoLoop`) is exported and gateway-injectable so the integration
  * smoke test can drive it against a mock without touching the Arc testnet.
  */
+import { loadLocalEnv } from "./load-local-env.mts";
 import {
   generatePrivateKey,
   privateKeyToAccount,
@@ -162,22 +164,37 @@ function parseLimit(argv: string[]): number | undefined {
   return undefined;
 }
 
-/** CLI entrypoint: ephemeral buyer wallet → deposit → round-robin MVP presentation loop. */
+/** CLI entrypoint: buyer wallet (env key or ephemeral) → deposit → round-robin loop. */
 async function main(): Promise<void> {
+  loadLocalEnv();
   const { GatewayClient } = await import("@circle-fin/x402-batching/client");
 
   const baseUrl = process.env.LOOP_BASE_URL ?? "http://localhost:3000";
   const depositAmount = process.env.LOOP_DEPOSIT ?? "5.00";
   const limit = parseLimit(process.argv);
 
-  // Fresh ephemeral EOA per run (unlinkability hygiene; the Gateway payer is a
-  // plain EOA, never an Unlink execution account).
-  const privateKey = generatePrivateKey();
+  // The buyer wallet. BUYER_PRIVATE_KEY (the same key fund-gateway.mts uses) when
+  // set — a PERSISTENT testnet EOA you fund once and reuse across runs. Only when
+  // it is blank do we fall back to a fresh ephemeral EOA, and we say so loudly:
+  // an ephemeral key evaporates at exit, so funding its printed address and
+  // re-running strands the USDC on an address whose key no longer exists.
+  const envKey = (process.env.BUYER_PRIVATE_KEY ?? "").trim();
+  const privateKey = (envKey || generatePrivateKey()) as `0x${string}`;
   const account = privateKeyToAccount(privateKey);
-  console.log(`Ephemeral buyer EOA: ${account.address}`);
-  console.log(
-    "Fund this address with Arc Testnet USDC (native gas + ERC-20) before depositing.",
-  );
+  if (envKey) {
+    console.log(`Buyer EOA (BUYER_PRIVATE_KEY): ${account.address}`);
+  } else {
+    console.log(`Ephemeral buyer EOA (this run only): ${account.address}`);
+    console.log(
+      "⚠ No BUYER_PRIVATE_KEY set — this key is DISCARDED at exit. Do NOT fund this",
+    );
+    console.log(
+      "  address for later; set BUYER_PRIVATE_KEY in web/.env.local (a testnet key",
+    );
+    console.log(
+      "  you generate, e.g. `cast wallet new`), fund THAT once, and re-run.",
+    );
+  }
 
   const gateway = new GatewayClient({
     chain: ARC_TESTNET_GATEWAY_CHAIN,
