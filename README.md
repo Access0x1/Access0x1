@@ -958,7 +958,7 @@ no-op, never a blocked payment). The detail for each — file paths and exact be
 | **Chainlink** | `<token>/USD` Data Feeds read in-transaction (+ CRE for the audit consumer) | The settled price is trusted **on-chain**, not a frontend guess — one in-tx call gave us USD→USDC pricing |
 | **Dynamic** | Email sign-in backed by an embedded wallet | A buyer who has never held a wallet completes a USDC checkout — no seed phrase, no extension |
 | **Unlink** | Confidential-withdrawal seam (`@unlink-xyz/sdk`) | A merchant can shield a settled-USDC payout off the public ledger; absent the SDK it degrades to a standard payout |
-| **Uniswap** | Trading API `/quote` → `/check_approval` → gasless UniswapX `/order` \| classic `/swap` \| EIP-7702 `/swap_7702`, **plus a v4 hook** (`Access0x1SwapReceiptHook`, built + unit-tested, not yet deployed) | The **"receive in any coin"** payout swap: settled USDC → the merchant's token, same-chain, non-custodial, **zero added fee** and off the settlement path; env-gated + dormant until an endpoint is set |
+| **Uniswap** | Trading API `/quote` → `/check_approval` → gasless UniswapX `/order` \| classic `/swap` \| EIP-7702 `/swap_7702`, **plus a v4 hook** ([`Access0x1SwapReceiptHook`](https://sepolia.etherscan.io/address/0x4d6cf3e12c331393880df02b53017a478a6ec040), live + source-verified on Ethereum Sepolia at a CREATE2 flag-mined address — the low 14 bits carry exactly AFTER_SWAP) | The **"receive in any coin"** payout swap: settled USDC → the merchant's token, same-chain, non-custodial, **zero added fee** and off the settlement path; env-gated + dormant until an endpoint is set |
 | **1inch** | Aggregation/Swap API — Fusion gasless order \| classic `/swap`, plus the agent pay-any-token quote | The **aggregator alternative** for the payout swap **and** the buyer/agent "what does this cost in token X" quote — both **zero integrator fee**, env-gated + dormant until `ONEINCH_API_URL`. **Mainnet-only by 1inch's own coverage**: their API serves no testnets, so this testnet-only repo maps **no chain** to it ([`capabilities.ts`](web/lib/payout-swap/capabilities.ts)) — the quote leg matches the v6 API, the execute leg still needs a signer |
 | **World ID** | One-tap proof-of-personhood gate before pay | Verified-human checkout that sits **in front of** settlement — a misconfigured gate degrades, never blocks |
 | **OIDC (e.g. Sign in with Google)** | Server-side ID-token verification via `jose` | "Verify for all" — any app from this template inherits an `oidc` method by setting one env var; blank ⇒ OFF |
@@ -1049,8 +1049,10 @@ integration let us *not* build, not a marketing wall.
     not yet deployed).** Built on ENSv2's "your name, your registry" model: instead of a **static**
     text record, `pay.<merchant>.eth` resolves — via a custom resolver — to the merchant's **live**
     payout + USD-pricing config, read off the router *at query time* (change your payout, the name
-    follows, zero re-issuance). Served today by the off-chain CCIP-Read gateway; the trust-minimized
-    on-chain resolver is authored + tested, pending a testnet broadcast.
+    follows, zero re-issuance). Served by the off-chain CCIP-Read gateway, and the trust-minimized
+    on-chain resolver is [**live + source-verified on Ethereum Sepolia**](https://sepolia.etherscan.io/address/0x9c9ade797451309925ef400e99b289ee1ea1d237)
+    (UUPS proxy `0x9c9ADe…d237`), bound to the mirror router with the bind gate armed by the
+    official ENS registry.
     [`src/ens/Access0x1PaymentResolver.sol`](src/ens/Access0x1PaymentResolver.sol) implements the
     standard ENS profile (`addr` · ENSIP-11 multichain `addr` · `text` · ENSIP-10 wildcard
     `resolve`); a name is bound to a seat with owner-consent read live from `router.merchants(id)

@@ -194,3 +194,12 @@ CELO_SEPOLIA_USDC_ADDRESS=0x01C5C0122039549AD1493B8220cABEdD739BC44E
 
 All 23 testnet RPCs (the 20 named branches + Ethereum/Arbitrum/Optimism Sepolia) were confirmed
 live with a matching `eth_chainId` on 2026-06-17.
+
+## Lisbon 2026 sidecar deploys — Ethereum Sepolia (11155111)
+
+Deployed 2026-07-25 during ETHGlobal Lisbon (broadcast records in `broadcast/`); both source-verified.
+
+| Contract | Address | Notes |
+|---|---|---|
+| `Access0x1SwapReceiptHook` | [`0x4d6cf3e12c331393880df02b53017a478a6ec040`](https://sepolia.etherscan.io/address/0x4d6cf3e12c331393880df02b53017a478a6ec040) | v4 `afterSwap` receipt hook; CREATE2 salt-mined so the address's low 14 bits carry exactly AFTER_SWAP; PoolManager `0xE03A1074c86CFeDd5C142C4F04F1a1536e203543` (official Uniswap deployments page) |
+| `Access0x1PaymentResolver` (proxy) | [`0x9c9ade797451309925ef400e99b289ee1ea1d237`](https://sepolia.etherscan.io/address/0x9c9ade797451309925ef400e99b289ee1ea1d237) | UUPS proxy over impl `0x83167d7754b8ff3147cffb37ae845eddba2b6766`; router = the CREATE3 mirror; bind gate armed with the official ENS registry `0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e` |
