@@ -130,8 +130,12 @@ fi
 # Public NEXT_PUBLIC_* vars are inlined at build from .env.local (copied into the
 # context) plus the substitutions below; server vars are set at runtime in step 4.
 echo "==> building ${IMAGE}"
+# _CACHE_DEPS keeps a deps-stage image in the registry so `npm ci` only re-runs
+# when the lockfile actually changed — a cold Cloud Build machine pulls it and
+# the dependency layer cache-hits instead of reinstalling the world every deploy.
+CACHE_DEPS="${REGION}-docker.pkg.dev/${PROJ}/access0x1/web:deps-cache"
 gcloud builds submit --config cloudbuild.yaml \
-  --substitutions="_IMAGE=${IMAGE},_DYNAMIC_ENV=${DYN_ENV},_DEFAULT_CHAIN_ID=${DEFAULT_CHAIN_ID}" \
+  --substitutions="_IMAGE=${IMAGE},_DYNAMIC_ENV=${DYN_ENV},_DEFAULT_CHAIN_ID=${DEFAULT_CHAIN_ID},_CACHE_DEPS=${CACHE_DEPS}" \
   .
 
 # ── 4. Deploy it, WITH every integration's runtime env ───────────────────────
