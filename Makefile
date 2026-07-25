@@ -657,27 +657,31 @@ deploy-tempo: ## Deploy to Tempo Moderato (chainId 42431; TIP-20 stablecoin fees
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 #  This repo is TESTNET-ONLY today and UNAUDITED. There is NO mainnet deployment and NO mainnet
 #  claim. The targets below exist ONLY so each chain has a mainnet PROFILE alongside its testnet one
-#  (config/readiness). They move REAL money on a LIVE chain — running one before a completed
-#  third-party security audit is forbidden (money paths, law #5 + #4). Each recipe deliberately STOPS
-#  with a confirm gate (`MAINNET_AUDITED=yes`) so an accidental `make deploy-<chain>-mainnet` is a
-#  no-op, never a broadcast. HelperConfig reads every address from `<CHAIN>_MAINNET_*` env (default
-#  address(0) ⇒ skipped); NOTHING is hardcoded. Verifier per chain mirrors the testnet target.
+#  (config/readiness). They move REAL money on a LIVE chain, with no undo. The operator owns the
+#  security posture (an external audit is available/welcome but NOT a required gate — see
+#  audit/nfteria-auditor/ + docs/MAINNET-CUSTODY.md). Each recipe deliberately STOPS with a
+#  real-funds confirm gate (`MAINNET_CONFIRM=yes`) so an accidental `make deploy-<chain>-mainnet`
+#  is a no-op, never a fat-fingered broadcast. HelperConfig reads every address from
+#  `<CHAIN>_MAINNET_*` env (default address(0) ⇒ skipped); NOTHING is hardcoded. Verifier per chain
+#  mirrors the testnet target.
 #
-#  To actually deploy AFTER an audit: set MAINNET_AUDITED=yes on the command line, e.g.
-#    make deploy-base-mainnet MAINNET_AUDITED=yes
+#  To actually deploy: set MAINNET_CONFIRM=yes on the command line, e.g.
+#    make deploy-base-mainnet MAINNET_CONFIRM=yes
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 
-# The audit gate. Every mainnet recipe runs this FIRST; it aborts unless MAINNET_AUDITED=yes is passed.
-MAINNET_AUDITED ?= no
+# The real-funds confirm gate. Every mainnet recipe runs this FIRST; it aborts unless
+# MAINNET_CONFIRM=yes is passed — fat-finger protection for a live-chain broadcast, not an audit claim.
+MAINNET_CONFIRM ?= no
 define MAINNET_GATE
-	@if [ "$(MAINNET_AUDITED)" != "yes" ]; then \
-		echo "⛔ MAINNET deploy BLOCKED — AUDIT-GATED."; \
-		echo "   This is testnet-only, unaudited software. No mainnet deployment exists or is claimed."; \
-		echo "   Do NOT run on mainnet until a third-party audit is complete (real funds, law #5)."; \
-		echo "   If (and only if) the audit is done, re-run with: MAINNET_AUDITED=yes"; \
+	@if [ "$(MAINNET_CONFIRM)" != "yes" ]; then \
+		echo "⛔ MAINNET deploy BLOCKED — real funds on a live chain."; \
+		echo "   This deploys to mainnet with REAL money. There is no undo."; \
+		echo "   The operator is responsible for the security posture (an external audit is"; \
+		echo "   available but NOT required — see audit/nfteria-auditor/ + docs/MAINNET-CUSTODY.md)."; \
+		echo "   To proceed deliberately, re-run with: MAINNET_CONFIRM=yes"; \
 		exit 1; \
 	fi
-	@echo "⚠️  MAINNET deploy proceeding with MAINNET_AUDITED=yes — real funds on a live chain."
+	@echo "⚠️  MAINNET deploy proceeding with MAINNET_CONFIRM=yes — real funds on a live chain, no undo."
 endef
 
 deploy-ethereum-mainnet: ## ⛔ AUDIT-GATED: deploy to Ethereum mainnet (etherscan verify) — real funds

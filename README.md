@@ -552,8 +552,8 @@ verified chain is a clean no-op).
 ### Deploy — mainnet (⛔ audit-gated · not deployed)
 
 > **There is NO mainnet deployment, and none is claimed.** Every target below is **config/readiness
-> only** — blocked behind a `MAINNET_AUDITED=yes` gate that refuses to broadcast until a third-party
-> security audit is complete (real funds, law #5). Each reads its addresses from `<CHAIN>_MAINNET_*`
+> only** — gated behind a deliberate `MAINNET_CONFIRM=yes` real-funds confirmation (no undo;
+> fat-finger protection, not an audit claim — an external audit is available but not required). Each reads its addresses from `<CHAIN>_MAINNET_*`
 > env (default `address(0)` ⇒ skipped); no mainnet USDC/feed address is hardcoded. `deploy-arc-mainnet`
 > is additionally gated as **NOT LAUNCHED** — Arc mainnet does not exist yet, so its chain id is never
 > invented.
@@ -660,9 +660,10 @@ make deploy-unichain-sepolia # Unichain Sepolia
 > never invented). This is **config/readiness only**: each mainnet branch reads its addresses from
 > `<CHAIN>_MAINNET_*` env (default `address(0)` ⇒ skipped) — **no mainnet USDC/feed address is hardcoded**
 > anywhere (law #4: a guessed address would imply a deployment we have not made). The
-> `make deploy-<chain>-mainnet` targets that reach these branches are **blocked behind a `MAINNET_AUDITED=yes`
-> gate**: they refuse to broadcast until a **third-party security audit** is complete (real funds, law #5).
-> See the loud `⛔ MAINNET` banners in the [`Makefile`](Makefile) and [`.env.example`](.env.example).
+> `make deploy-<chain>-mainnet` targets that reach these branches are **gated behind a deliberate
+> `MAINNET_CONFIRM=yes`** real-funds confirmation (no undo) — fat-finger protection for a live broadcast,
+> not an audit claim; an external audit is available but not required. See the loud `⛔ MAINNET`
+> banners in the [`Makefile`](Makefile) and [`.env.example`](.env.example).
 
 ### Deployments
 

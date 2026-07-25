@@ -14,20 +14,21 @@ provides, and no report it produces should be presented as a third-party audit.
 
 The operator brings genuine smart-contract security experience, and experienced
 first-party review beats naive review by a wide margin — it is a real mitigant,
-and we state it as one. But experience reviewing *your own* code is still not
-independence. The two honest tiers are:
+and we state it as one. Experience reviewing your own code is still not the same
+as independence, and we don't pretend it is.
 
-1. **Where we are:** rigorous, tooled, experience-backed **first-party** review
-   (this agent + the operator). Raises the floor; keeps `audit/` current.
-2. **What we still have to do before real funds:** a genuinely **independent
-   third-party audit** — the hard requirement behind the `MAINNET_AUDITED=yes`
-   gate ([`docs/MAINNET-CUSTODY.md`](../../docs/MAINNET-CUSTODY.md) §5). Nothing
-   in this directory changes that gate.
+**Our posture:** rigorous, tooled, experience-backed **first-party** review (this
+agent + the operator) is the security review we run. An **independent
+third-party audit is available and welcome** — it strengthens confidence and we
+keep the `audit/` package ready so an external auditor starts from a clean,
+well-mapped codebase, not a cold read — but it is **not a hard blocker** we
+impose on ourselves. Going to mainnet on first-party review is a real,
+operator-accepted risk; we name it as one rather than hide it behind a gate we'd
+only wave through anyway.
 
 This agent is the **continuous internal auditor** that keeps the repo
-audit-ready between external reviews and produces findings in the exact format an
-external auditor's report uses — so the independent audit, when booked, starts
-from a clean, well-mapped codebase, not a cold read.
+audit-ready and produces findings in the exact format an external auditor's
+report uses.
 
 ## Files
 
@@ -62,6 +63,6 @@ nothing survives verification it says so plainly. It changes no code.
   backed, honest about being first-party.
 - **Not a fixer.** Findings go to a human; corrections are a separate branch +
   PR through the normal build loop.
-- **Not a substitute for a third-party audit** before mainnet. It raises the
-  floor and keeps the `audit/` package current; the external audit is still a
-  hard gate for real funds — the thing we still have to do.
+- An external audit is **available and welcome**, not a self-imposed blocker. It
+  raises confidence; the operator owns the decision to seek one and the risk of
+  shipping on first-party review.

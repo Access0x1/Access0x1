@@ -4,9 +4,11 @@ How a solo operator gets institutional-grade key custody before any mainnet
 deploy. A multisig needs multiple **keys**, not multiple **people**: one person
 holding three keys on three different media is a real 2-of-3 multisig.
 
-This document is the checklist behind the Makefile's `MAINNET_AUDITED=yes` gate.
-The deploy command itself is boring by design — custody is the part that has to
-be true first.
+This document is the checklist behind the Makefile's `MAINNET_CONFIRM=yes`
+deploy confirmation. The deploy command itself is boring by design — custody is
+the part that has to be true first. (An external audit is available and welcome
+but not a required gate; the operator owns that decision — see
+`audit/nfteria-auditor/`.)
 
 ---
 
@@ -79,16 +81,18 @@ Rules that matter:
 When all five steps are muscle memory, mainnet day is:
 
 ```bash
-ROUTER_OWNER=<your-mainnet-safe> MAINNET_AUDITED=yes make deploy-ethereum-mainnet
+ROUTER_OWNER=<your-mainnet-safe> MAINNET_CONFIRM=yes make deploy-ethereum-mainnet
 ```
 
-## 5. The full gate, in order
+## 5. The full checklist, in order
 
-1. Third-party audit of the money paths complete, findings resolved
-   (`audit/` is the ready-to-hand package: slither/aderyn dispositions,
-   coverage ≥90% on money paths, invariants at the CI profile).
+1. Security review done: first-party review (the nfteria auditor + the
+   operator's experience) complete, findings resolved. An external audit is
+   **optional and welcome** — not a required gate — and `audit/` is the
+   ready-to-hand package if one is sought (slither/aderyn dispositions, coverage
+   ≥90% on money paths, invariants at the CI profile).
 2. Safe created + rehearsed (§4), `ROUTER_OWNER` pointed at it.
 3. Paper backups written, split, and restore-verified (§3).
 4. Deployer funded with gas ETH only.
 5. Mainnet env confirmed from official docs (USDC, feeds, treasury — law 3).
-6. Then, and only then: `MAINNET_AUDITED=yes`.
+6. Then, and only then: `MAINNET_CONFIRM=yes` (a deliberate real-funds confirmation, no undo).
