@@ -284,7 +284,7 @@ export function OnChainSvgSimulatorView({
             autoComplete="off"
             accept="image/svg+xml,.svg,image/png,image/jpeg,image/webp,image/gif"
             onChange={onFile}
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-rail file:px-3 file:py-1 file:text-xs file:font-medium file:text-white"
+            className="rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-rail file:px-3 file:py-1 file:text-xs file:font-medium file:text-primary-foreground"
           />
         </label>
       </div>

@@ -202,7 +202,7 @@ function ActionButton({
 }): ReactNode {
   const toneClass =
     tone === 'primary'
-      ? 'bg-rail text-white hover:opacity-90'
+      ? 'bg-rail text-primary-foreground hover:opacity-90'
       : 'border border-input bg-background text-foreground hover:border-rail hover:text-rail'
   return (
     <button

@@ -182,7 +182,7 @@ export function AskView({
             type="submit"
             disabled={loading || unconfigured || question.trim().length === 0}
             data-action="ask-send"
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--ax1-rail)] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--ax1-rail)] px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {loading ? 'Asking…' : 'Ask'}
           </button>
