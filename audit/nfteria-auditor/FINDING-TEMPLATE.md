@@ -45,6 +45,9 @@ does not add it to the suite._
 
 ## Report footer (every report ends with)
 
+- **Independence:** FIRST-PARTY review by the nfteria auditor (us auditing us) —
+  NOT an independent third-party audit. Experience-backed, but not independent.
+  A third-party audit is still required before real funds (MAINNET-CUSTODY.md §5).
 - **Scope audited:** _exact paths._
 - **Not in scope / residual risk:** _what was NOT examined and what could not be
   ruled out. Never imply completeness you didn't achieve._
