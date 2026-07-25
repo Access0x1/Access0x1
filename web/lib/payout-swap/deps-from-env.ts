@@ -25,9 +25,24 @@ function env(name: string): string {
 
 /** Wrap fetch to inject the Uniswap Trading API key header when one is configured (else plain fetch). */
 function makeKeyedFetch(apiKey: string): FetchLike {
-  if (!apiKey) return (url, init) => fetch(url, init)
+  // Live-verified 2026-07-25: the Trading API requires `x-universal-router-version` on every
+  // call, and its Cloudflare front rejects some non-browser client signatures (error 1010) —
+  // an explicit product User-Agent keeps server-side calls deterministic. Accept per the
+  // official quickstart. These ride every request whether or not a key is set.
+  const base = {
+    accept: 'application/json',
+    'user-agent': 'access0x1-payout-rail/1.0',
+    'x-universal-router-version': '2.0',
+  }
   return (url, init) =>
-    fetch(url, { ...init, headers: { ...(init?.headers ?? {}), 'x-api-key': apiKey } })
+    fetch(url, {
+      ...init,
+      headers: {
+        ...base,
+        ...(init?.headers ?? {}),
+        ...(apiKey ? { 'x-api-key': apiKey } : {}),
+      },
+    })
 }
 
 /** Wrap fetch to inject the 1inch `Authorization: Bearer <key>` header (else plain fetch). */
