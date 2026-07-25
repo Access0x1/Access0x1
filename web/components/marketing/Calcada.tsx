@@ -87,7 +87,32 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
         <rect width="1200" height="640" fill="url(#cx-hero-field)" className="opacity-[0.07]" />
       </g>
 
+      {/* Reading-zone fade: the medallion heart sits at the exact center of the
+          fold — behind the headline — so the basalt dims to ~40% strength there
+          and recovers toward the edges. The strongest ornament must never fight
+          the strongest copy; the glyph-in-stone stays as a watermark under the
+          text and at full weight where the volutes and outer stones live. The
+          orbiting satellites inherit this too: a stone dims while it crosses
+          the reading zone and brightens back on the far side of its orbit. */}
+      <defs>
+        <radialGradient
+          id="cx-hero-medfade"
+          gradientUnits="userSpaceOnUse"
+          cx="600"
+          cy="310"
+          r="430"
+        >
+          <stop offset="0%" stopColor="white" stopOpacity="0.4" />
+          <stop offset="55%" stopColor="white" stopOpacity="0.68" />
+          <stop offset="100%" stopColor="white" stopOpacity="1" />
+        </radialGradient>
+        <mask id="cx-hero-medfade-mask">
+          <rect width="1200" height="640" fill="url(#cx-hero-medfade)" />
+        </mask>
+      </defs>
+
       {/* The basalt medallion — everything below is chisel-textured. */}
+      <g mask="url(#cx-hero-medfade-mask)">
       <g filter="url(#cx-hero-stone)" className="opacity-[0.18]">
         {/* The heart: the BRAND GLYPH geometry — socket ring + three dots. */}
         <circle cx="600" cy="300" r="92" fill="none" stroke="currentColor" strokeWidth="26" />
@@ -143,6 +168,7 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
         <circle cx="600" cy="560" r="14" fill="currentColor" />
         <circle cx="600" cy="596" r="9" fill="currentColor" />
         <circle cx="600" cy="622" r="5" fill="currentColor" />
+      </g>
       </g>
     </svg>
   )
