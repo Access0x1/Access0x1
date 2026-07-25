@@ -59,9 +59,31 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 export type WrapFetchWithPayment = (baseFetch: FetchLike, account: AgentX402Account) => FetchLike;
 
 /** Default seam — throws until the real `x402-fetch` is injected at app boot (or by tests). */
-let wrapFetchWithPayment: WrapFetchWithPayment = () => {
+const defaultWrapFetchWithPayment: WrapFetchWithPayment = () => {
   throw new Error("x402-fetch not wired: call setWrapFetchWithPayment() at app boot");
 };
+
+/**
+ * The wiring latch lives on `globalThis`, not at module scope: dev bundlers
+ * compile `instrumentation.ts` (which wires this seam at boot) and the pay
+ * route as SEPARATE compilations, each holding its own instance of this
+ * module — a module-scope latch is wired in one copy and read unwired in the
+ * other (the same bundle-duality documented in dynamicAgentWallet.ts). The
+ * `Symbol.for` key resolves every copy — and every HMR rebuild — to the one
+ * per-process slot. The test-only `baseFetch` seam below stays module-local
+ * on purpose: only tests set it, in the same module instance they exercise.
+ */
+const WRAP_FETCH_KEY = Symbol.for("access0x1.agent.wrapFetchWithPayment");
+
+const globalStore = globalThis as Record<symbol, unknown>;
+if (globalStore[WRAP_FETCH_KEY] === undefined) {
+  globalStore[WRAP_FETCH_KEY] = defaultWrapFetchWithPayment;
+}
+
+/** Read the currently-wired wrapper from the per-process slot. */
+function currentWrapFetchWithPayment(): WrapFetchWithPayment {
+  return globalStore[WRAP_FETCH_KEY] as WrapFetchWithPayment;
+}
 
 /**
  * Inject the `x402-fetch` `wrapFetchWithPayment`. Called once at app boot with the real
@@ -71,9 +93,7 @@ let wrapFetchWithPayment: WrapFetchWithPayment = () => {
  * @returns void
  */
 export function setWrapFetchWithPayment(impl: WrapFetchWithPayment | null): void {
-  wrapFetchWithPayment = impl ?? (() => {
-    throw new Error("x402-fetch not wired: call setWrapFetchWithPayment() at app boot");
-  });
+  globalStore[WRAP_FETCH_KEY] = impl ?? defaultWrapFetchWithPayment;
 }
 
 /** The base fetch (injectable for tests; defaults to the global). */
@@ -132,7 +152,7 @@ export async function agentPay(args: {
   let res: Response;
   try {
     const account = await buildAgentX402Account();
-    const paidFetch = wrapFetchWithPayment(baseFetch, account);
+    const paidFetch = currentWrapFetchWithPayment()(baseFetch, account);
     res = await paidFetch(url, headers ? { headers } : undefined);
   } catch (err) {
     // Nothing settled — refund the reservation (law #5) and rethrow unchanged so the
