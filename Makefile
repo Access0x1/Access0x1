@@ -464,6 +464,26 @@ cre-sim: ## Simulate the CRE workflow (the demoable artifact; deploy is Early-Ac
 # ── Everything ──────────────────────────────────────────────────────────────────
 all: install gate ## Install everything, then run the full green gate
 
+# ── Upgrade EVERY live mirror module on a chain to a fresh impl — ONE broadcast, one ──
+# ── password; impls auto-verify under VERIFY_ES. Same address, today's code. ──
+# Complements the per-module `upgrade-<chain> MODULE=X` rail below: same Upgrade dispatch, same
+# `upgrade-guard` storage gate in front, but all 19 modules in a single signed run. The prep step
+# derives the module→proxy set from script/mirror-manifest.json (broadcast-derived, never typed);
+# UpgradeAll skips modules with no code on the chain and skips-with-a-loud-WARN any module the
+# sender does not own (the known misowned pairs), so one bad pair never blocks a whole chain.
+out/upgrade-set.json: script/mirror-manifest.json
+	@mkdir -p out
+	@python3 -c "import json; m=json.load(open('script/mirror-manifest.json'))['contracts']; json.dump({'targets':[{'name':k[:-6],'proxy':v} for k,v in sorted(m.items()) if k.endswith('.proxy')]}, open('out/upgrade-set.json','w'))"
+
+upgrade-all-ethereum-sepolia: upgrade-guard out/upgrade-set.json ## Upgrade ALL live modules on Ethereum Sepolia (one broadcast)
+	@DEPLOYER=$(DEPLOYER) UPGRADE_SET=out/upgrade-set.json forge script script/UpgradeAll.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+upgrade-all-base-sepolia: upgrade-guard out/upgrade-set.json ## Upgrade ALL live modules on Base Sepolia (one broadcast)
+	@DEPLOYER=$(DEPLOYER) UPGRADE_SET=out/upgrade-set.json forge script script/UpgradeAll.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+upgrade-all-arc: upgrade-guard out/upgrade-set.json ## Upgrade ALL live modules on Arc testnet (one broadcast)
+	@DEPLOYER=$(DEPLOYER) UPGRADE_SET=out/upgrade-set.json forge script script/UpgradeAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
+
 # ── More test networks (keystore `deployer`; set each RPC + *SCAN_API_KEY in .env) ──
 deploy-ethereum-sepolia: ## Deploy to Ethereum Sepolia (etherscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
