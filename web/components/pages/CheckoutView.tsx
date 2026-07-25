@@ -9,6 +9,7 @@ import { CheckoutCard } from '@/components/CheckoutCard'
 import { AskAssistant } from '@/components/AskAssistant'
 import { safeReturnUrl } from '@/lib/safeUrl'
 import { humanizeWalletError } from '@/lib/errors/walletError'
+import { TimeoutError, withTimeout } from '@/lib/withTimeout'
 import { resolveCheckoutDisplayName } from '@/lib/checkout/displayName'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -59,7 +60,9 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
       try {
         const routerAddress = getRouterAddress(chainId)
         const client = getPublicClient(chainId)
-        const m = await getMerchant(client, routerAddress, merchantId)
+        // Bounded: an unbounded read leaves the skeleton pulsing forever, which tells
+        // a buyer nothing and leaves them no move but to close the tab.
+        const m = await withTimeout(getMerchant(client, routerAddress, merchantId))
         if (cancelled) return
         if (m.owner === ZERO_ADDRESS) {
           setLoadError('Access0x1__MerchantNotFound')
@@ -73,7 +76,11 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
           // cannot fix it, and is one bad screen away from abandoning the payment.
           // Browser reads use the public endpoint, so under demo load this is the
           // likeliest thing they will ever see. Say it in one line they can act on.
-          setLoadError(humanizeWalletError(err))
+          setLoadError(
+            err instanceof TimeoutError
+              ? 'The network is taking too long to respond. Please try again.'
+              : humanizeWalletError(err),
+          )
         }
       } finally {
         if (!cancelled) setLoading(false)

@@ -14,6 +14,7 @@ import { CasinoVerifiedBadge } from '@/components/CasinoVerifiedBadge'
 import { isWorldIdConfigured } from '@/lib/worldid/config'
 import { AskAssistant } from '@/components/AskAssistant'
 import { safeReturnUrl } from '@/lib/safeUrl'
+import { withTimeout } from '@/lib/withTimeout'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -43,7 +44,9 @@ export function SlugCheckoutView({ slug }: { slug: string }): ReactNode {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch(`/api/branding/${encodeURIComponent(slug)}`)
+        // `fetch` has no default timeout: a connection that opens and goes quiet
+        // would pulse the skeleton indefinitely.
+        const res = await withTimeout(fetch(`/api/branding/${encodeURIComponent(slug)}`))
         if (cancelled) return
         if (res.status === 404) {
           setLoadError('not_found')
