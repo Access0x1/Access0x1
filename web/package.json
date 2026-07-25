@@ -12,6 +12,7 @@
     "env:doctor": "tsx scripts/env-doctor.mjs",
     "env:core": "tsx scripts/env-doctor.mjs --core",
     "env:set": "tsx scripts/env-set.mjs",
+    "env:scaffold": "node scripts/env-scaffold.mjs",
     "env:deploy-preview": "node scripts/deploy-env.mjs",
     "env:seal": "tsx scripts/env-seal.mjs",
     "env:open": "tsx scripts/env-seal.mjs --open",
