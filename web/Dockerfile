@@ -92,8 +92,14 @@ COPY . .
 # substitution (it only needs web/public/embed.js + the NEXT_PUBLIC_* env) and
 # SKIPPING gen-deployments. `--ignore-scripts` on the next call is implicit:
 # we bypass the npm `build` lifecycle by invoking the steps directly.
+# `next build --webpack` on this app peaks past Node's DEFAULT heap ceiling (~2GB),
+# which is independent of machine RAM — the Cloud Build worker is an E2_HIGHCPU_8
+# with 8GB and the build still died at 1.97GB with "JavaScript heap out of memory",
+# exit 134. Raise the cap for the build step only; the runner never needs it (the
+# server is a fraction of the build's footprint).
 RUN node scripts/replace-embed-addrs.js \
-    && node ./node_modules/next/dist/bin/next build --webpack
+    && NODE_OPTIONS=--max-old-space-size=6144 \
+       node ./node_modules/next/dist/bin/next build --webpack
 
 # --- Stage 3: runner ---------------------------------------------------------
 FROM node:${NODE_VERSION} AS runner
