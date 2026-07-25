@@ -155,12 +155,12 @@ export async function agentPay(args: {
 
 /**
  * Fire `count` autonomous micro-calls in sequence, each paying `pricePerCallUsd`. Sequential
- * (not parallel) so the meter's spend check stays a correct running total and the walkthrough shows a
+ * (not parallel) so the meter's spend check stays a correct running total and the live flow shows a
  * deterministic batch on Arcscan. The per-call value is rounded to 6-decimal USDC math
  * (`Math.round(price * 1e6)`) — floating-point safe across the expected range (design decision #5).
  *
  * @param args.url The x402-protected endpoint to call repeatedly.
- * @param args.count Number of calls to fire (the route handler caps this for the walkthrough).
+ * @param args.count Number of calls to fire (the route handler caps this in the live flow).
  * @param args.pricePerCallUsd USD cost per call, reserved against the meter each iteration.
  * @returns An array of the `count` parsed JSON results, in call order.
  * @throws {BudgetExceeded} as soon as the running total would exceed the daily cap.

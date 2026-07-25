@@ -4,7 +4,7 @@
  * Doctrine guardrail #6 — NEVER hardcode Arc addresses at call sites. Every value
  * here is copied VERBATIM from the live `circlefin/arc-nanopayments` repo at the
  * Circle booth. One wrong nibble in the Gateway Wallet address = a silent settle
- * fail. Each value carries a "confirm at booth" note; re-verify before the booth run.
+ * fail. Each value carries a "confirm at booth" note; re-verify before going live.
  *
  * On Arc, USDC IS the native gas token (system contract `0x3600…0000`), so the
  * Nanopayments batch layer settles without a separate Paymaster.

@@ -5,7 +5,7 @@
  * gas-free, and that native USDC is 18-decimal (the "Arc trap"). This file pins
  * the Arc-specific constants that the app and the money/display paths depend on
  * — in ONE place, with NO env reads and NO `vm.setEnv` race — so a wrong nibble
- * or a regressed decimal/gas-free policy fails CI loudly before the booth run.
+ * or a regressed decimal/gas-free policy fails CI loudly before going live.
  *
  * Scope (intentionally narrow, distinct from token-decimals.test.ts):
  *   - the canonical Arc chain id (5042002) — one source, no re-literal drift
