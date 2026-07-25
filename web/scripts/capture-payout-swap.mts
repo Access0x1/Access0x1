@@ -58,6 +58,7 @@ import {
   type SwapRequest,
 } from '../lib/payout-swap/index.js'
 import type { UnsignedSwapTx } from '../lib/payout-swap/types.js'
+import { loadLocalEnv } from './load-local-env.mts'
 
 /** The env this capture requires, checked as a set so one throw lists every gap. */
 const REQUIRED_ENV = [
@@ -192,6 +193,10 @@ async function signAndLand(
  * merchant-wallet leg (approval + the ready-to-sign swap) with the burner and print the tx.
  */
 async function main(): Promise<void> {
+  // Standalone scripts read only process.env — pull in web/.env.local first (a var
+  // exported in the shell still wins), same as mvp-presentation + fund-gateway.
+  loadLocalEnv()
+
   // Fail-fast: check the whole required set at once so the error lists every gap, not just the first.
   const missing = REQUIRED_ENV.filter((name) => env(name) === '')
   if (missing.length > 0) throw new MissingCaptureEnvError(missing)
