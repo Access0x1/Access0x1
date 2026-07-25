@@ -55,6 +55,15 @@ ONE open-source, on-chain layer for **payments + auth + agents**:
 - **Money paths roll back, never swallow** — refunds never blocked, no custody,
   CEI + `nonReentrant` + oracle-staleness on every pay path; the fuzz invariants are
   the floor, not the ceiling.
+- **One registry, one source of truth for config** — every env var the web app reads
+  is declared in `web/lib/config/integrations.ts`; `env:doctor`, the status probe, and
+  the deploy all derive from it. An undeclared var is invisible to the doctor and
+  dropped at deploy — the feature ships dark. Adding an integration is one entry, not a
+  hunt through routes + `.env.example` + a status page. (Recipe: CONTRIBUTING.md.)
+- **Production naming, never provisional** — no "demo" (it frames a shipped, testnet-
+  live product as a throwaway); the pitch is the *presentation*, everything else uses
+  product language. No "Phase 1/2/3" roadmap framing — name what's built and honestly
+  name what isn't. Numbered wizard steps in a user flow are fine; staged phases are not.
 
 ## Verify or it didn't happen
 
