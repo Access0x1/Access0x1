@@ -5,7 +5,7 @@
 > is not yet on mainnet. Every claim here is reproducible from this repo. If it isn't proven,
 > we don't claim it.
 
-_Last updated: 2026-07-24 (test-count refresh: 2,059 Foundry contract tests + 1,909 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300)._
+_Last updated: 2026-07-25 (test-count refresh: 2,068 Foundry contract tests + 1,909 web/SDK unit tests; nine-chain mirror incl. zkSync Sepolia 300; the v4 SwapReceiptHook + ENS PaymentResolver deployed + source-verified on Ethereum Sepolia)._
 
 ---
 
@@ -46,7 +46,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ## 2. Tested
 
-- **2,059 contract tests, 0 failed, 0 skipped** (`make test`; the count is CI-enforced against `forge test --list`
+- **2,068 contract tests, 0 failed, 0 skipped** (`make test`; the count is CI-enforced against `forge test --list`
   by `scripts/sync-test-badge.mjs`). The 3 `test/fork/**` Chainlink-feed tests are
   counted in the total and short-circuit to a green no-op when no fork RPC is set, so a fresh clone and CI
   both run green; set `BASE_SEPOLIA_RPC_URL` to exercise them against the live feed.
@@ -127,8 +127,11 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 - **ENS** — gasless merchant subnames via Namestone + ENSIP-11 (coinType) / ENSIP-19 (verified primary name).
   Plus the **ENSv2 Payment Resolver** (`src/ens/Access0x1PaymentResolver.sol` + `web/lib/ens/ensv2.ts` +
   `web/app/api/ens/resolve`, unit-tested): a custom resolver that resolves `pay.<merchant>.eth` to the
-  merchant's LIVE router payout/config at query time. The signed EIP-3668 CCIP-Read wrapper is a declared
-  next rung, NOT claimed live (the on-chain resolver is the source of truth); the ENSv2 registry addresses
+  merchant's LIVE router payout/config at query time. The on-chain resolver is **deployed +
+  source-verified on Ethereum Sepolia** as a UUPS proxy at
+  [`0x9c9ade797451309925ef400e99b289ee1ea1d237`](https://sepolia.etherscan.io/address/0x9c9ade797451309925ef400e99b289ee1ea1d237),
+  pointed at the mirror router with the bind gate armed by the official ENS registry. The signed
+  EIP-3668 CCIP-Read wrapper is a declared next rung, NOT claimed live; the ENSv2 registry addresses
   are alpha/env-gated, blank ⇒ the ENSv1 path.
 - **World ID** — one-tap proof-of-personhood gate; nullifier dedup with replay protection; a Casino-Verified
   vertical that makes the gate mandatory for gaming merchants. (World ID proves a unique human only —
@@ -139,11 +142,13 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   SDK** (drop-in `<PayButton>` + the `usePayment` hook — orderId-bound receipt watch with a 120s timeout
   ceiling; Vitest-covered; git-distributed — consumed as a GitHub dependency, not published to npm by design), and the `create-access0x1` scaffolder.
 
-- **Uniswap v4 hook** — `src/uniswap/Access0x1SwapReceiptHook.sol` (+ 6-test unit suite): an
+- **Uniswap v4 hook** — `src/uniswap/Access0x1SwapReceiptHook.sol` (+ 11-test unit suite): an
   afterSwap-only hook that emits an attributable on-chain SwapReceipt (merchantId + orderRef via
   hookData) for merchant payout swaps — zero custody, zero fee, the other nine callbacks revert.
-  Built + unit-tested; NOT deployed (a live deploy needs the CREATE2 address-mining step so the
-  address carries the AFTER_SWAP flag — claimed only when a broadcast record exists).
+  **Deployed + source-verified on Ethereum Sepolia** at
+  [`0x4d6cf3e12c331393880df02b53017a478a6ec040`](https://sepolia.etherscan.io/address/0x4d6cf3e12c331393880df02b53017a478a6ec040)
+  — a CREATE2 salt-mined address whose low 14 bits carry exactly the AFTER_SWAP flag
+  (`script/DeploySwapReceiptHook.s.sol` mines, deploys, and asserts it; broadcast record committed).
 
 - **Tokenization kit — uRWA assets (ERC-7943)** — `src/Access0x1RwaToken.sol` implements the full
   `IERC7943NonFungible` surface (per-token freeze, authorized `forcedTransfer`, `canSend`/
@@ -201,7 +206,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
 
 ```bash
 git clone https://github.com/Access0x1/Access0x1 && cd Access0x1
-make test                       # 2,059 contract tests, 0 failed
+make test                       # 2,068 contract tests, 0 failed
 forge coverage --ir-minimum     # the real coverage number
 make halmos                     # the symbolic fee-split + budget proofs
 make anvil && make deploy-local && make drive-local   # real local payment, no keys

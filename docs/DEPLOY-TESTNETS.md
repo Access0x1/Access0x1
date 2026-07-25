@@ -61,8 +61,9 @@ make deploy-arbitrum-sepolia    # fund the deployer first — faucets are per ch
 # they're already live, and a re-deploy mints new addresses and breaks the app.
 ```
 
-Chains with real USDC but **no Chainlink USDC/USD feed** (Linea / Unichain / World Chain / Celo /
-Optimism Sepolia) deploy with USDC allowlisted-but-unpriced. To price it, deploy a `$1` stand-in feed
+Chains with real USDC but **no Chainlink USDC/USD feed** (Linea / Unichain / World Chain / Celo)
+deploy with USDC allowlisted-but-unpriced. (Optimism Sepolia HAS a USDC/USD feed —
+`0x6e44e50E3cc14DD16e01C590DC1d7020cb36eD4C`, see CHAIN-ADDRESSES.md.) To price it, deploy a `$1` stand-in feed
 and set `<CHAIN>_USDC_USD_FEED` to the printed address before deploying that chain:
 
 ```sh
@@ -386,7 +387,7 @@ full `DeployAll` (the full first-party surface + configure) is additive.
 > No separate gas token on Arc — USDC is native. The buyer pays settlement and
 > gas in the same USDC balance, with no Paymaster to run.
 
-**Base Sepolia / Base Mainnet:**
+**Base Sepolia:**
 > Gas is paid in ETH on Base. An optional, generic ERC-7677 paymaster seam can
 > sponsor gas where a provider is configured — buyers pay in USDC, gas sponsored,
 > $0 in network fees. The seam is provider-agnostic and env-gated; no paymaster

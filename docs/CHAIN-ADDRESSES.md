@@ -9,8 +9,8 @@ row is left blank on purpose — that chain deploys a **bare** router + stack (n
 feed exists; it is never wired to a placeholder.
 
 Deploy one chain at a time with `make deploy-<chain>` (e.g. `make deploy-base-sepolia`); fund the
-deployer first — faucets are listed per chain below. Arc + Base Sepolia are already live — don't
-re-deploy them (it mints new addresses).
+deployer first — faucets are listed per chain below. The nine mirrored chains are already live —
+a re-run reverts (CreateCollision) rather than minting new addresses; see the Live table below.
 
 > **RPC:** the public endpoints in `.env.example` rate-limit across 20+ chains. For the broadcast,
 > set each `<CHAIN>_RPC_URL` to your **Alchemy** (`https://<net>.g.alchemy.com/v2/<KEY>`) or
@@ -19,20 +19,20 @@ re-deploy them (it mints new addresses).
 
 ## Live (deployed + verified)
 
-> **`Router` column — treat [`web/lib/deployments.ts`](../web/lib/deployments.ts) as authoritative.** The
-> per-chain router addresses below predate the CREATE3 mirror cutover + an interim redeploy and may be
-> stale; the broadcast-derived `web/lib/deployments.ts` is the source of truth. **Base Sepolia now runs
-> the CREATE3 mirror** — `Access0x1Router` = `0xe92244e3368561faf21648146511DeDE3a475EB5`, the same on
-> every mirrored chain (see [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md)). The USDC + Chainlink-feed columns
-> are first-party-verified and current.
+> **`Router` column — the CREATE3 mirror is the live router on every mirrored chain.**
+> `Access0x1Router` = `0xe92244e3368561faf21648146511DeDE3a475EB5` on all nine mirrored testnets
+> (7 source-verified — see [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md)); the broadcast-derived
+> [`web/lib/deployments.ts`](../web/lib/deployments.ts) is the programmatic source of truth. Older
+> pre-mirror per-chain routers still exist on-chain but are HISTORICAL — never integrate against
+> them. The USDC + Chainlink-feed columns are first-party-verified and current.
 
 | Chain | id | Router | USDC | native/USD | USDC/USD |
 |---|---|---|---|---|---|
-| Arc Testnet | 5042002 | `0xa598…9aad` | `0x3600…0000` (native) | `0x60eb…8008` ($1 mock) | `0x60eb…8008` ($1 mock) |
-| Base Sepolia | 84532 | `0xe922…a475EB5` (mirror) | `0x036CbD…dCF7e` | `0x4aDC67…7cb1` (ETH/USD) | `0xd30e21…5165` |
-| Ethereum Sepolia | 11155111 | `0x75aad7079f3e3b9f51b46529e5f235934af2e932` | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` | `0x694AA1769357215DE4FAC081bf1f309aDC325306` (ETH/USD) | `0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E` |
-| Optimism Sepolia | 11155420 | `0xc7ed3886ec8995531531cb2659d6b4bc4519c231` | `0x5fd84259d66Cd46123540766Be93DFE6D43130D7` | `0x61Ec26aA57019C486B10502285c5A3D4A4750AD7` (ETH/USD) | `0x6e44e50E3cc14DD16e01C590DC1d7020cb36eD4C` |
-| Avalanche Fuji | 43113 | `0x60eb647d166b70662e0567551af7e575f13e8008` | `0x5425890298aed601595a70AB815c96711a31Bc65` | `0x5498BB86BC934c8D34FDA08E81D444153d0D06aD` (AVAX/USD) | `0x97FE42a7E96640D932bbc0e1580c73E705A8EB73` |
+| Arc Testnet | 5042002 | `0xe922…5EB5` (mirror) | `0x3600…0000` (native) | `0x60eb…8008` ($1 mock) | `0x60eb…8008` ($1 mock) |
+| Base Sepolia | 84532 | `0xe922…5EB5` (mirror) | `0x036CbD…dCF7e` | `0x4aDC67…7cb1` (ETH/USD) | `0xd30e21…5165` |
+| Ethereum Sepolia | 11155111 | `0xe922…5EB5` (mirror) | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` | `0x694AA1769357215DE4FAC081bf1f309aDC325306` (ETH/USD) | `0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E` |
+| Optimism Sepolia | 11155420 | `0xe922…5EB5` (mirror) | `0x5fd84259d66Cd46123540766Be93DFE6D43130D7` | `0x61Ec26aA57019C486B10502285c5A3D4A4750AD7` (ETH/USD) | `0x6e44e50E3cc14DD16e01C590DC1d7020cb36eD4C` |
+| Avalanche Fuji | 43113 | `0xe922…5EB5` (mirror) | `0x5425890298aed601595a70AB815c96711a31Bc65` | `0x5498BB86BC934c8D34FDA08E81D444153d0D06aD` (AVAX/USD) | `0x97FE42a7E96640D932bbc0e1580c73E705A8EB73` |
 
 ## Ready to deploy — fully priced (USDC + USDC/USD feed)
 
@@ -79,7 +79,7 @@ Sei atlantic-2 (1328), BOB Sepolia (808813), Bitlayer (200810), Plume (98867), A
 Sepolia (4202), Metal L2 (1740), Superseed (53302), opBNB (5611), Neo X T4 (12227332), Kaia Kairos
 (1001), TAC (2391), Plasma (9746), Berachain Bepolia (80069), Jovay (2019775), AB (26888), Pharos
 Atlantic (688689), Morph Hoodi (2910), Ethereum Hoodi (560048), MegaETH (6342), Monad (10143), DogeOS
-(6281971), ADI (99999), Ronin Saigon (202601), Edge (33431), Robinhood (46630), Tempo Moderato (42431),
+(6281971), ADI (99999), Ronin Saigon (202601), Edge (33431), Robinhood (46630 — already mirrored, see Live), Tempo Moderato (42431),
 Creditcoin (102031). Each carries USDC/feeds on its own chain in a few cases (Hedera, Monad, Sei, Plume,
 Pharos, Morph, Edge) — wire + on-chain-verify those before relying on pricing.
 
@@ -142,7 +142,7 @@ token + price source is wired, never a placeholder.
 
 | Chain | id | Public RPC | Explorer | Native gas | Oracle situation (pricing path) |
 |---|---|---|---|---|---|
-| 0G Galileo Testnet | 16602 | `https://evmrpc-testnet.0g.ai` | `https://chainscan-galileo.0g.ai` | `0G` | **No Chainlink/Pyth feed published** → bare deploy; USD pricing needs the swappable `PriceOracleAdapter` (or a `$1` USDC/USD mock) once a token + source exist. |
+| 0G Galileo Testnet | 16602 | `https://evmrpc-testnet.0g.ai` | `https://chainscan-galileo.0g.ai` | `0G` | **A pre-mirror per-chain deploy EXISTS** (broadcast `16602/`, 2026-06-20) — what is pending here is the CREATE3 mirror cutover (`make bootstrap-createx-galileo`), not a first deploy. **No Chainlink/Pyth feed published** → USD pricing needs the swappable `PriceOracleAdapter` (or a `$1` USDC/USD mock). |
 | Monad Testnet | 10143 | `https://testnet-rpc.monad.xyz` | `https://testnet.monadexplorer.com` | `MON` | **Chainlink push feeds LIVE** (ETH/USD + USDC/USD per Monad docs) → Router prices USD→token directly, **no adapter needed**. Owner reads exact aggregators from `docs.chain.link` at deploy. |
 | Berachain Bepolia | 80069 | `https://bepolia.rpc.berachain.com` | `https://bepolia.beratrail.io` | `BERA` | On Chainlink's faucet list but **no verified push price feed** → use the `PriceOracleAdapter` (Pyth) or a `$1` USDC/USD mock until a feed is confirmed. |
 | Sei Testnet (atlantic-2) | 1328 | `https://evm-rpc-testnet.sei-apis.com` | `https://testnet.seitrace.com` | `SEI` | **Pyth is the native oracle on Sei** → price via the `PriceOracleAdapter` (Pyth), **not** Chainlink. |
