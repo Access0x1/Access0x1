@@ -46,6 +46,14 @@ type WithdrawBody = {
   recipient?: unknown;
 };
 
+/** Thrown when the withdraw seam has no signing key — dormant, not broken (law #1). */
+class GatewayNotConfigured extends Error {
+  constructor() {
+    super("gateway withdraw is not configured on this server");
+    this.name = "GatewayNotConfigured";
+  }
+}
+
 /**
  * Build the real GatewayClient from the server-only SELLER_PRIVATE_KEY.
  *
@@ -55,7 +63,10 @@ type WithdrawBody = {
 function defaultClientFactory(): WithdrawClient {
   const key = process.env.SELLER_PRIVATE_KEY;
   if (!key || key.trim() === "") {
-    throw new Error("SELLER_PRIVATE_KEY is not set.");
+    // Typed, so the handler can tell "this deployment is dormant" (503) from
+    // "the gateway is failing" (502). Untyped, both collapsed into a 502 whose
+    // body echoed the name of a server secret back to the caller.
+    throw new GatewayNotConfigured();
   }
   return new GatewayClient({
     chain: ARC_TESTNET_GATEWAY_CHAIN,
@@ -135,9 +146,13 @@ export async function POST(req: Request): Promise<Response> {
 
   const sellerAddress = (process.env.SELLER_ADDRESS ?? "").trim().toLowerCase();
   if (!sellerAddress) {
+    // Same var, same answer as the sibling GET /api/gateway/balance: 503 +
+    // `not_configured`. This route used to return 500 for the identical state,
+    // so the two disagreed about whether an unconfigured deployment is broken.
+    // It is not — unconfigured is a state, not a fault (law #1).
     return Response.json(
-      { error: "SELLER_ADDRESS is not configured on this server." },
-      { status: 500 },
+      { ok: false, reason: "not_configured", error: "SELLER_ADDRESS is not set." },
+      { status: 503 },
     );
   }
   if (callerWallet !== sellerAddress) {
@@ -172,6 +187,12 @@ export async function POST(req: Request): Promise<Response> {
   try {
     client = clientFactory();
   } catch (err) {
+    if (err instanceof GatewayNotConfigured) {
+      return Response.json(
+        { ok: false, reason: "not_configured", error: err.message },
+        { status: 503 },
+      );
+    }
     return Response.json({ error: translateError(err) }, { status: 502 });
   }
 

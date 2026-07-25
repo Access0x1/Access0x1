@@ -12,7 +12,7 @@
  * ⚠️ BOOTH-CONFIRM the admin/client factory names + arg shapes against the live SDK.
  */
 import type { UnlinkAccount, UnlinkClient } from "@unlink-xyz/sdk";
-import { loadUnlinkSdk } from "./loadSdk.js";
+import { loadUnlinkSdk, UnlinkNotConfiguredError } from "./loadSdk.js";
 
 /**
  * Unlink environment string — kebab-case `arc-testnet` (NOT camel `arcTestnet`,
@@ -67,8 +67,9 @@ export async function ensureRegistered(userId: string): Promise<void> {
   }
   const apiKey = process.env.UNLINK_API_KEY;
   if (!apiKey) {
-    // Do not echo any env contents — just state the missing config by name.
-    throw new Error("ensureRegistered: UNLINK_API_KEY is not configured");
+    // Typed, not a plain Error: an unconfigured seam is a dormant state the
+    // caller answers with 503 not_configured, never a 500 (law #1).
+    throw new UnlinkNotConfiguredError("UNLINK_API_KEY");
   }
 
   const { createUnlinkAdmin } = await loadUnlinkSdk();

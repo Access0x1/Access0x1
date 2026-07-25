@@ -35,7 +35,11 @@ import {
   type WithdrawResult,
 } from "../../../lib/unlink/privateWithdraw.js";
 import { usdToUsdcBaseUnits } from "../../../lib/unlink/amount.js";
-import { loadUnlinkSdk, UnlinkSdkUnavailableError } from "../../../lib/unlink/loadSdk.js";
+import {
+  loadUnlinkSdk,
+  UnlinkNotConfiguredError,
+  UnlinkSdkUnavailableError,
+} from "../../../lib/unlink/loadSdk.js";
 
 /** Force Node runtime — the payout service uses server-only secrets. */
 export const runtime = "nodejs";
@@ -159,6 +163,11 @@ export async function handlePayout(req: Request, deps: PayoutDeps): Promise<Resp
     if (err instanceof UnlinkSdkUnavailableError) {
       return json({ code: "unlink_sdk_unavailable", recoverable: true }, 503);
     }
+    if (err instanceof UnlinkNotConfiguredError) {
+      // Same kind of non-event as the missing SDK: no funds moved, and it works
+      // the moment an operator fills the env in. A 500 here read as "broken".
+      return json({ code: "not_configured", recoverable: true }, 503);
+    }
     // Registration failure is unexpected (already-registered is swallowed upstream).
     return json({ error: "registration_failed" }, 500);
   }
@@ -183,6 +192,10 @@ export async function handlePayout(req: Request, deps: PayoutDeps): Promise<Resp
     if (err instanceof UnlinkSdkUnavailableError) {
       // SDK absent (pre-booth): nothing shielded, recoverable — never a 500.
       return json({ code: "unlink_sdk_unavailable", recoverable: true }, 503);
+    }
+    if (err instanceof UnlinkNotConfiguredError) {
+      // Credentials absent: nothing shielded either — dormant, not faulty.
+      return json({ code: "not_configured", recoverable: true }, 503);
     }
     return json({ error: "unexpected_error" }, 500);
   }
@@ -220,9 +233,7 @@ async function buildServerPayout(args: {
   const serverKey = process.env.UNLINK_PAYOUT_PRIVATE_KEY as `0x${string}` | undefined;
   const payoutUserId = process.env.UNLINK_PAYOUT_USER_ID;
   if (!serverKey || !payoutUserId) {
-    throw new Error(
-      "payout client not wired (booth: set UNLINK_PAYOUT_PRIVATE_KEY + UNLINK_PAYOUT_USER_ID, build fromKeys account)",
-    );
+    throw new UnlinkNotConfiguredError("UNLINK_PAYOUT_PRIVATE_KEY", "UNLINK_PAYOUT_USER_ID");
   }
   // The server account is key-backed (transfer/withdraw only, no execute) — built
   // by the booth wiring from `account.fromKeys({ privateKey: serverKey })`. The

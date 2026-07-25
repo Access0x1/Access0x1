@@ -117,6 +117,19 @@ describe('POST /api/gateway/withdraw', () => {
     expect(client.withdraw).not.toHaveBeenCalled() // never signed
   })
 
+  it('503 not_configured when SELLER_ADDRESS is unset — the same answer as GET /balance', async () => {
+    // These two routes read the SAME env var and used to disagree about it: balance
+    // said 503 not_configured, withdraw said 500. A 500 reads as "this deployment is
+    // broken" to every monitor pointed at it; unconfigured is a state, not a fault.
+    delete process.env.SELLER_ADDRESS
+    __setWithdrawClientFactory(() => okClient('100'))
+    const res = await POST(
+      req({ tenantId: SELLER, amount: '5', destinationChain: 'baseSepolia', recipient: RECIPIENT }),
+    )
+    expect(res.status).toBe(503)
+    expect((await res.json()).reason).toBe('not_configured')
+  })
+
   it('200 returns the mint tx hash for the seller with sufficient balance', async () => {
     const client = okClient('100')
     __setWithdrawClientFactory(() => client)

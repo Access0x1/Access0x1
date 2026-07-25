@@ -55,6 +55,32 @@ export class UnlinkSdkUnavailableError extends Error {
 }
 
 /**
+ * Thrown when the SDK is present but the payout seam has no credentials — the
+ * SAME shape of non-event as {@link UnlinkSdkUnavailableError}: nothing moved,
+ * nothing is broken, and it becomes possible the moment an operator fills the
+ * env in. It exists because those cases used to fall to a generic 500, which
+ * told an operator their deployment was faulty when it was merely dormant
+ * (law #1).
+ *
+ * The message names the missing VARIABLE (never its value) because this error
+ * is read in server logs, where "which one?" is the only question that matters.
+ * It is safe to be specific here precisely because the HTTP layer does not
+ * forward the message: callers get `{ code: "not_configured" }` and nothing else.
+ */
+export class UnlinkNotConfiguredError extends Error {
+  readonly recoverable = true as const
+  readonly code = 'not_configured' as const
+  constructor(...missing: string[]) {
+    super(
+      `not_configured: the private payout seam has no credentials; no funds moved.${
+        missing.length ? ` Missing: ${missing.join(', ')}.` : ''
+      }`,
+    )
+    this.name = 'UnlinkNotConfiguredError'
+  }
+}
+
+/**
  * Dynamically load the Unlink SDK, throwing {@link UnlinkSdkUnavailableError}
  * (fail-soft, no secret) when the package is absent. Always call at request time
  * inside a try/catch on the payout path — never at module top level.
