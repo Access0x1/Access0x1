@@ -134,7 +134,7 @@ export function JourneyView(): ReactNode {
           <button
             type="button"
             onClick={() => setShowAuthFlow(true)}
-            className="rounded-lg bg-rail px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            className="rounded-lg bg-rail px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             Sign in
           </button>
@@ -303,7 +303,7 @@ export function JourneyLadder({
                   step.status === 'done'
                     ? 'bg-green-600 text-white'
                     : step.status === 'ready'
-                      ? 'bg-rail text-white'
+                      ? 'bg-rail text-primary-foreground'
                       : 'bg-secondary text-muted-foreground'
                 }`}
               >

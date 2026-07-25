@@ -73,7 +73,7 @@ export function ReceiptScreen({
         <a
           href={safeReturn}
           rel="noopener noreferrer"
-          className="mx-auto mt-2 rounded-lg bg-rail px-5 py-2.5 font-medium text-white hover:opacity-90"
+          className="mx-auto mt-2 rounded-lg bg-rail px-5 py-2.5 font-medium text-primary-foreground hover:opacity-90"
         >
           Return to merchant
         </a>

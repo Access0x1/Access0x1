@@ -571,7 +571,7 @@ export function CheckoutCard({
           type="button"
           onClick={() => void handlePay()}
           disabled={payDisabled}
-          className="rounded-lg bg-rail px-4 py-3 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg bg-rail px-4 py-3 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {paying ? 'Confirming…' : `Pay $${formatCheckoutUsd(usdAmount8)}`}
         </button>

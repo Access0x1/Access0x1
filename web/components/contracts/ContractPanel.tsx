@@ -268,7 +268,7 @@ function FunctionRow({
           disabled={busy}
           className={`rounded-lg px-3 py-1 text-xs font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-50 ${
             kind === 'write'
-              ? 'bg-rail text-white hover:opacity-90'
+              ? 'bg-rail text-primary-foreground hover:opacity-90'
               : 'border border-input bg-background text-foreground hover:border-rail hover:text-rail'
           }`}
         >

@@ -397,7 +397,7 @@ export function BrandingForm({
         type="button"
         onClick={() => void handleSave()}
         disabled={saving || !name.trim()}
-        className="rounded-lg bg-rail px-4 py-3 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg bg-rail px-4 py-3 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {saving
           ? 'Saving…'
@@ -470,7 +470,7 @@ function DoneScreen({
         data-testid="onboard-step-2"
       >
         <div className="flex items-start gap-3">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rail text-xs font-semibold text-white">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rail text-xs font-semibold text-primary-foreground">
             2
           </span>
           <div className="flex flex-col gap-0.5">
@@ -484,7 +484,7 @@ function DoneScreen({
         <NetworkBadge />
         <a
           href="/dashboard"
-          className="rounded-lg bg-rail px-4 py-3 text-center text-sm font-medium text-white transition-opacity hover:opacity-90"
+          className="rounded-lg bg-rail px-4 py-3 text-center text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           Switch on payments →
         </a>

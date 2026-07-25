@@ -73,7 +73,7 @@ function useSellableWrite(): {
 const inputCls =
   'rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-rail'
 const buttonCls =
-  'rounded-lg bg-rail px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
+  'rounded-lg bg-rail px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
 
 /** Billing periods a business actually picks from, in seconds. */
 export const PLAN_PERIODS = [
@@ -142,7 +142,7 @@ export function PlanForm({
           <input type="number" id="sellable-plan-key" name="planKey" autoComplete="off" min="0" max="255" value={planKey} onChange={(e) => setPlanKey(e.target.value)} className={inputCls} />
         </label>
       </div>
-      {formError ?? error ? <p className="text-sm text-red-600">{formError ?? error}</p> : null}
+      {formError ?? error ? <p className="text-sm text-destructive">{formError ?? error}</p> : null}
       <button type="submit" disabled={submitting} className={buttonCls}>
         {submitting ? 'Publishing plan…' : 'Publish the plan on-chain'}
       </button>
@@ -216,7 +216,7 @@ export function InvoiceForm({
         <span className="font-medium text-ink">Payer <span className="text-muted-foreground">(optional — empty means anyone can pay)</span></span>
         <input type="text" id="sellable-payer" name="payer" autoComplete="off" value={payer} onChange={(e) => setPayer(e.target.value)} placeholder="0x…" className={`${inputCls} font-mono`} />
       </label>
-      {formError ?? error ? <p className="text-sm text-red-600">{formError ?? error}</p> : null}
+      {formError ?? error ? <p className="text-sm text-destructive">{formError ?? error}</p> : null}
       <button type="submit" disabled={submitting} className={buttonCls}>
         {submitting ? 'Creating invoice…' : 'Create the invoice on-chain'}
       </button>
@@ -289,7 +289,7 @@ export function GiftCardForm({
         <span className="font-medium text-ink">Recipient <span className="text-muted-foreground">(optional — defaults to you)</span></span>
         <input type="text" id="sellable-recipient" name="recipient" autoComplete="off" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="0x…" className={`${inputCls} font-mono`} />
       </label>
-      {formError ?? error ? <p className="text-sm text-red-600">{formError ?? error}</p> : null}
+      {formError ?? error ? <p className="text-sm text-destructive">{formError ?? error}</p> : null}
       <button type="submit" disabled={submitting} className={buttonCls}>
         {submitting ? 'Issuing card…' : 'Issue the gift card on-chain'}
       </button>
@@ -308,7 +308,7 @@ export function CreatedLine({
   chainId: number
 }): ReactNode {
   return (
-    <p className="flex flex-wrap items-center gap-2 text-sm text-green-700 dark:text-green-400" data-testid="created-line">
+    <p className="flex flex-wrap items-center gap-2 text-sm text-success" data-testid="created-line">
       <span>{label}</span>
       <TxHashLink hash={txHash} chainId={chainId} />
     </p>
