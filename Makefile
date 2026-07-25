@@ -150,10 +150,22 @@ storage-layout: ## Regenerate docs/STORAGE-LAYOUT.md from `forge inspect <C> sto
 	@bash script/storage-layout.sh
 
 fmt: ## Format the Solidity (forge fmt)
-	forge fmt
+	@if command -v forge >/dev/null 2>&1; then \
+		forge fmt; \
+	else \
+		echo "make fmt: Foundry is not installed here, so nothing can be REFORMATTED."; \
+		echo "  Running the no-Foundry check instead — it flags newly added over-long lines."; \
+		node scripts/sol-line-length.mjs; \
+	fi
 
-fmt-check: ## Check formatting without writing (CI)
-	forge fmt --check
+fmt-check: ## Check formatting without writing (CI). Falls back to a diff-scoped width check without Foundry.
+	@if command -v forge >/dev/null 2>&1; then \
+		forge fmt --check; \
+	else \
+		echo 'make fmt-check: Foundry absent — forge fmt --check is the authority and runs in CI.'; \
+		echo "  Checking what CAN be checked here: line width on newly added Solidity lines."; \
+		node scripts/sol-line-length.mjs; \
+	fi
 
 clean: ## Remove build artifacts (forge clean)
 	forge clean
