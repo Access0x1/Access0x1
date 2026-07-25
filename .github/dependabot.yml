@@ -38,7 +38,7 @@ updates:
           - "minor"
           - "patch"
 
-  # --- web/ (Next.js demo app) ---
+  # --- web/ (Next.js app) ---
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:

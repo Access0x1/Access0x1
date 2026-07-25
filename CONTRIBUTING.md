@@ -156,6 +156,21 @@ make analyze           # umbrella: 4naly3er + aderyn + slither
   variable; JSDoc on every export. Document the *why*, not the obvious.
 - **Formatting** is enforced — run `forge fmt` (Solidity) and the web typecheck/lint
   before committing.
+- **Config is one registry entry.** Every env var the web app reads is declared in
+  `web/lib/config/integrations.ts` — that one table drives `env:doctor`, the status
+  probe, **and the deploy** (`web/scripts/deploy-env.mjs` derives the Cloud Run env
+  from it). A var read by code but **not** declared is invisible to the doctor and is
+  silently dropped at deploy, so the feature ships dark even when the operator set it.
+  When you read a new `process.env.X`: (1) add it to `integrations.ts` — `secret: true`
+  for a real credential (→ Secret Manager), non-secret for a flag / id / URL / selector
+  (→ plain runtime env); a `NEXT_PUBLIC_` name is public, never secret; (2) add it to
+  `web/.env.example`; (3) read it fail-soft (blank ⇒ `not_configured` / hidden). The
+  `registry-coverage` test fails CI on an undeclared *credential* and on `.env.example`
+  drift, but it can't catch a missing flag/id — so declare those by hand.
+- **Production naming.** No "demo" in code or copy — it frames a shipped, testnet-live
+  product as a throwaway. The hackathon pitch is the *presentation*; everything else
+  uses product language. No "Phase 1/2/3" roadmap framing — name what's built and
+  honestly name what isn't. Numbered wizard *steps* in a user flow are fine.
 
 ---
 

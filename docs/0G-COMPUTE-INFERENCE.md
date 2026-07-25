@@ -85,7 +85,7 @@ curl -X POST localhost:3000/api/ai/infer \
   -d '{"prompt":"Say hi from 0G Compute."}'            # → {"provider":"zerog","model":…,"completion":…}
 ```
 
-## Demo: the docs assistant on 0G
+## In action: the docs assistant on 0G
 
 The **Ask-the-docs** assistant (`/api/docs-ask`, the `DocsAssistant` widget) follows the same global
 inference switch. With `AI_INFERENCE_PROVIDER=zerog` the same doc-grounded corpus is answered on 0G

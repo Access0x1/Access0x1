@@ -13,7 +13,7 @@ import { HelperConfig } from "./HelperConfig.s.sol";
 ///         seat on the mirror router (permissionless — the broadcaster becomes the seat owner),
 ///         configures a promotional rebate program on it, and pre-funds the pool from the
 ///         broadcaster's balance of the chain's configured USDC. Everything a live end-to-end rebate
-///         demo needs, in a single signed run.
+///         flow needs, in a single signed run.
 /// @dev    TESTNET-ONLY seeding (the promo pool is real money on any chain — this script is for
 ///         faucet funds). Env knobs, all optional except the module address:
 ///           REBATES_ADDRESS     the deployed {Access0x1Rebates} proxy (required; the mirror-manifest

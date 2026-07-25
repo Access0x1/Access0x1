@@ -39,7 +39,7 @@ import {
 } from '@/lib/artifacts/Access0x1ProvenanceRegistry'
 import { humanizeWalletError } from '@/lib/errors/walletError'
 
-// ── Example repo identity (the placeholder the /admin demo claims + anchors) ──
+// ── Example repo identity (the placeholder the /admin flow claims + anchors) ──
 //
 // The registry keys an on-chain claim by `keccak256(toBytes(EXAMPLE_REPO_STRING))`.
 // An integrating app derives the SAME id from the SAME documented string, so a
@@ -48,7 +48,7 @@ import { humanizeWalletError } from '@/lib/errors/walletError'
 // host-qualified repo identifier; a test asserts the derivation is stable.
 
 /**
- * A placeholder, host-qualified repo string the admin demo claims provenance for.
+ * A placeholder, host-qualified repo string the admin flow claims provenance for.
  * An integrating app keys its on-chain claim by `keccak256(toBytes(...))` of its
  * OWN repo string; this is the documented example. Changing it changes the
  * on-chain identity, so it is a single, deliberate source of truth.

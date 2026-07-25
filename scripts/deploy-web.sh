@@ -93,7 +93,7 @@ node scripts/deploy-env.mjs --runtime-out "$RUNTIME_ENV" --secrets-dir "$SECRETS
 # ── 2b. Real credentials → Secret Manager, NOT plaintext env config ──────────
 # Going-live discipline (DEPLOY-GCP.md §2): a secret lives vaulted, versioned and
 # access-controlled — never in the service's env config where any project viewer
-# reads it. `env:set` puts DEMO=false in nobody's head; this is what makes the
+# reads it. Flipping a flag convinces nobody; vaulting the secret is what makes the
 # difference real. Each secret is created (or a new version added) from a 0600 file,
 # never from argv, then referenced by name at deploy time.
 SET_SECRETS=""

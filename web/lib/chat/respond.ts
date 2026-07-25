@@ -4,11 +4,11 @@
  * resolves to a checkout link) is INJECTED via {@link ChatReplyDeps}, so this is
  * pure and fully unit-testable, and the Telegram/WhatsApp routes wire the real deps.
  *
- * MODE (truth in copy): Phase 1 is LINK mode — the bot never holds a key. A `send`
+ * MODE (truth in copy): The bot runs in LINK mode — it never holds a key. A `send`
  * yields our hosted checkout link (amount prefilled as a hint, and stated in the
  * text); the payment is signed in the sender's own wallet. Read commands that need
  * to know WHO is asking (balance/receipt) honestly point at the app until wallet
- * mode (Phase 3) binds a chat identity to a bounded MPC wallet.
+ * mode (custody, not yet built) binds a chat identity to a bounded MPC wallet.
  */
 
 import type { ChatIntent } from './parse.js'

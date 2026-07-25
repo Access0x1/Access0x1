@@ -24,7 +24,7 @@ import {
 
 const SID = ('0x' + '3'.repeat(64)) as SessionId
 const KEY = 'ak_live_demo_0123456789abcdef'
-const BINDING: KeyBinding = { sessionId: SID, pricePerCallAtomic: 1000n, label: 'demo' }
+const BINDING: KeyBinding = { sessionId: SID, pricePerCallAtomic: 1000n, label: 'example' }
 
 function fakeBackend(rows: Map<string, unknown>): DurableKvStore {
   return {

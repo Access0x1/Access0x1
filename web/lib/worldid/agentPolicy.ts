@@ -68,7 +68,7 @@ export function isAgentSessionCapEnforced(): boolean {
  * the conservative cap + `unverified` tier. Deterministic given the env caps.
  *
  * A `simulated: true` verified result still maps to the human-backed tier: the
- * simulator only runs when World ID is unconfigured (dev/demo), and the flag is
+ * simulator only runs when World ID is unconfigured (dev), and the flag is
  * carried honestly upstream — it never silently downgrades the terms in that context.
  *
  * @param result - the verification outcome from `agentkit.ts`.

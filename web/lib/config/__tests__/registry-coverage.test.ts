@@ -132,6 +132,21 @@ describe('.env.example stays in sync', () => {
   })
 })
 
+describe('production never sees an example env', () => {
+  it('.gcloudignore excludes every .env* file from the production build context', () => {
+    // Production config travels exactly two roads: cloudbuild substitutions at
+    // build, Cloud Run env + Secret Manager at runtime. No env FILE — not even
+    // .env.example — belongs in the build upload. A `!.env.example` re-include
+    // here once shipped the example file into every production image's build
+    // context; this pins that it stays out.
+    const gcloudignore = readFileSync(resolve(WEB_ROOT, '.gcloudignore'), 'utf8')
+    const lines = gcloudignore.split('\n').map((l) => l.trim())
+    expect(lines).toContain('.env*')
+    const reincluded = lines.filter((l) => l.startsWith('!') && l.includes('.env'))
+    expect(reincluded, `env files re-included into the build context: ${reincluded.join(', ')}`).toEqual([])
+  })
+})
+
 describe('registry hygiene (reported, not enforced)', () => {
   it('does not declare variables the code never reads', () => {
     // A declared-but-unread var is a typo or a removed feature; either way the

@@ -107,7 +107,7 @@ export const zircuitGarfield = defineChain({
  *
  * ⚠️ Hashio is explicitly **development and testing only**, and rate-limited by
  * Hedera: ~50 HBAR/min globally plus 100–1,600 requests per IP per minute by
- * endpoint tier. A booth demo sharing one venue IP can trip that, so the RPC is
+ * endpoint tier. Traffic behind one shared IP can trip that, so the RPC is
  * env-overridable — set `NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL` to a commercial
  * relay (QuickNode) or a self-hosted Hiero relay for anything load-bearing.
  * Hedera's own docs recommend exactly that for non-toy use. A free second public
@@ -569,7 +569,7 @@ export function getRpcUrl(chainId: number): string {
   // by literal text at build time, so a template-literal lookup finds nothing. Without
   // this table every client-side read (the checkout's merchant lookup, the dashboard,
   // the slug page) went to viem's shared public endpoint no matter what the operator
-  // configured, which under demo load is a rate-limit lottery whose loss shows up as a
+  // configured, which under load is a rate-limit lottery whose loss shows up as a
   // failed checkout. Literal keys, so the bundler can substitute them.
   const publicOverride = (PUBLIC_RPC_BY_CHAIN[chainId] ?? '').trim()
   if (publicOverride.length > 0) return publicOverride

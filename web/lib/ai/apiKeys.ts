@@ -45,7 +45,7 @@ export interface KeyBinding {
   readonly sessionId: SessionId;
   /** Per-call price in atomic USDC (6-decimal), e.g. `1000n` for $0.001. */
   readonly pricePerCallAtomic: bigint;
-  /** A non-secret label for dashboards/audit (e.g. "claude-haiku demo"). */
+  /** A non-secret label for dashboards/audit (e.g. "claude-haiku example"). */
   readonly label: string;
 }
 

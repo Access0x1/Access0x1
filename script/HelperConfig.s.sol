@@ -120,7 +120,7 @@ contract HelperConfig is Script {
     ///         0G, so `nativeUsdFeed` stays address(0) and same-chain native `quote()` is unavailable
     ///         (NEVER invent a 0G/USD feed). Where a REAL ERC-20 USDC exists, deploy a $1.00 USDC/USD
     ///         MockV3Aggregator first (`make deploy-usd-mock-feed RPC=$GALILEO_RPC_URL`, the Arc pattern)
-    ///         and set `GALILEO_USDC_USD_FEED` — the router then prices REAL USDC (the "no demo token" law
+    ///         and set `GALILEO_USDC_USD_FEED` — the router then prices REAL USDC (the "no fake token" law
     ///         holds). Blockscout-style explorer (chainscan-galileo.0g.ai). Confirmed live via cast 2026-06-20.
     uint256 internal constant GALILEO_TESTNET_CHAIN_ID = 16_602;
 
@@ -719,7 +719,7 @@ contract HelperConfig is Script {
     ///      `quote()` is unavailable (NEVER invent a 0G/USD feed). 0G has NO Chainlink Data Feeds at all,
     ///      so the USDC/USD feed must be a $1.00 MockV3Aggregator deployed FIRST (the Arc pattern:
     ///      `make deploy-usd-mock-feed RPC=$GALILEO_RPC_URL`, then set `GALILEO_USDC_USD_FEED`). The token
-    ///      stays REAL ERC-20 USDC where one exists (the "no demo token" law holds — the mock is only the
+    ///      stays REAL ERC-20 USDC where one exists (the "no fake token" law holds — the mock is only the
     ///      missing PRICE feed); leave `GALILEO_USDC_ADDRESS` blank until confirmed. Blockscout verifier.
     ///      `treasury` required; everything else skipped (address(0)) until set.
     function _galileoTestnetConfig() internal view returns (NetworkConfig memory) {

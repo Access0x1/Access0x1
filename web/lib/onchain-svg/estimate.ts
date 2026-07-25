@@ -29,7 +29,7 @@
  *     The floor arm is PURELY 10 × tokens; the standard arm carries the
  *     create surcharge + execution (implemented exactly that way below).
  * The delta between the two — and which one the LIVE node reports — is part
- * of the demo: the math predicts, the chain confirms. Chain honesty notes:
+ * of the product: the math predicts, the chain confirms. Chain honesty notes:
  *   - Arbitrum chains deliberately do NOT enable EIP-7623 (ArbOS 40+ ship
  *     Pectra parity without it) — there the legacy number is the right one.
  *   - OP-Stack chains (Base/OP Sepolia) charge an L1 data fee ON TOP of the

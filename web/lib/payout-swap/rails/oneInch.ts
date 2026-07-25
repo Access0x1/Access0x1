@@ -42,7 +42,7 @@ export interface OneInchConfig {
   readonly fetchImpl: FetchLike
   /**
    * Prefer the gasless 1inch **Fusion** route. When false, falls back to the classic `/swap`.
-   * Default true (the headline demo). Fusion runs its OWN resolver auction (no external MEV leg).
+   * Default true (the headline rail). Fusion runs its OWN resolver auction (no external MEV leg).
    */
   readonly preferFusion?: boolean
 }

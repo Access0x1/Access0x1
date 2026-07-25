@@ -25,8 +25,7 @@ const WEB_ROOT = resolve(HERE, '..')
 
 const ARGS = process.argv.slice(2)
 const JSON_OUT = ARGS.includes('--json')
-// `--demo` still accepted so an existing script or muscle-memory does not break.
-const CORE_ONLY = ARGS.includes('--core') || ARGS.includes('--demo')
+const CORE_ONLY = ARGS.includes('--core')
 const STRICT = ARGS.includes('--strict')
 
 /**

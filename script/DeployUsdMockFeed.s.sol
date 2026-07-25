@@ -8,7 +8,7 @@ import { MockV3Aggregator } from "../test/mocks/MockV3Aggregator.sol";
 /// @notice Any-chain generalization of {DeployArcUsdFeed}: deploys a minimal MockV3Aggregator to serve
 ///         as a **USDC/USD** price feed on a testnet where Chainlink publishes no USDC/USD feed but a
 ///         REAL Circle USDC token exists (Linea / Unichain / World Chain / Celo / Optimism Sepolia —
-///         see docs/CHAIN-ADDRESSES.md). The router keeps accepting REAL USDC (the "no demo token" law
+///         see docs/CHAIN-ADDRESSES.md). The router keeps accepting REAL USDC (the "no fake token" law
 ///         is intact); this stands in ONLY for the missing *price feed*, pegged to $1.00 because USDC is
 ///         a dollar stablecoin. Without it those chains allowlist USDC but `payToken` reverts (no quote).
 ///
@@ -17,7 +17,7 @@ import { MockV3Aggregator } from "../test/mocks/MockV3Aggregator.sol";
 ///           MOCK_FEED_DECIMALS (uint8, default 8) · MOCK_FEED_ANSWER (int, default 1e8 = $1.00)
 ///
 ///         Minimal by design (no oracle-committee security) — TESTNET ONLY, appropriate where the peg is
-///         an assumption of the demo, never for mainnet (law #5: mainnet is audit-gated, real funds).
+///         an assumption of the local run, never for mainnet (law #5: mainnet is audit-gated, real funds).
 ///
 /// @dev    Usage — ONE-TIME, on the chain that lacks a USDC/USD feed, BEFORE its `make deploy-<chain>`:
 ///

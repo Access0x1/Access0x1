@@ -1,5 +1,5 @@
 /**
- * /api/chat/telegram — the Telegram Bot API webhook (chat payments, Phase 1).
+ * /api/chat/telegram — the Telegram Bot API webhook (chat payments — link mode).
  *
  * Env-gated + fail-soft like every seam: no `TELEGRAM_BOT_TOKEN` ⇒ GET reports
  * `{ configured:false }` and POST is a 503 `not_configured` no-op. The bot is a

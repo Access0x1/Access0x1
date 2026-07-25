@@ -74,7 +74,7 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
           // A raw viem/RPC error is several lines of request dump and a docs URL,
           // and this one lands on the BUYER — someone who did not choose the RPC,
           // cannot fix it, and is one bad screen away from abandoning the payment.
-          // Browser reads use the public endpoint, so under demo load this is the
+          // Browser reads use the public endpoint, so under load this is the
           // likeliest thing they will ever see. Say it in one line they can act on.
           setLoadError(
             err instanceof TimeoutError

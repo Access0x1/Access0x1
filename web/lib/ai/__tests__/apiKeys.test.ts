@@ -18,7 +18,7 @@ import type { SessionId } from "../sessionMeter.js";
 
 const SID = "0x3333333333333333333333333333333333333333333333333333333333333333" as SessionId;
 const KEY = "ak_live_demo_0123456789abcdef";
-const BINDING: KeyBinding = { sessionId: SID, pricePerCallAtomic: 1000n, label: "demo" };
+const BINDING: KeyBinding = { sessionId: SID, pricePerCallAtomic: 1000n, label: "example" };
 
 beforeEach(() => {
   __resetApiKeysForTests();

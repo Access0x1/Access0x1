@@ -4,7 +4,7 @@ import {
   defaultCalls,
   runDemoLoop,
   type PayGateway,
-} from "../../scripts/demo-loop.mts";
+} from "../../scripts/pay-loop.mts";
 
 const PRICES: Record<string, string> = {
   quote: "0.001",
@@ -18,7 +18,7 @@ function priceFor(url: string): string {
   return PRICES.compute;
 }
 
-describe("demo-loop integration smoke", () => {
+describe("pay-loop integration smoke", () => {
   it("runs 5 iterations: correct URL+method per call, totalSpent accumulates", async () => {
     const seen: Array<{ url: string; method?: string }> = [];
     const gateway: PayGateway = {

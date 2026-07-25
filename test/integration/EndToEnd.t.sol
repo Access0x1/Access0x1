@@ -21,7 +21,7 @@ import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 import { MockForwarder } from "../mocks/MockForwarder.sol";
 import { ProxyDeployer } from "../utils/ProxyDeployer.sol";
 
-/// @title  EndToEnd — the Access0x1 demo flow as ONE provable test
+/// @title  EndToEnd — the Access0x1 end-to-end flow as ONE provable test
 /// @author Access0x1
 /// @notice Wires the WHOLE system together on a local fork-style setup (MockUSDC + MockV3Aggregator
 ///         + the real contracts) and runs the full money flow end to end — the proof that the
@@ -181,7 +181,7 @@ contract EndToEndTest is Test, ProxyDeployer {
             ChainRegistry.ChainConfig({
                 usdc: address(usdc),
                 router: address(router),
-                ccipSelector: 0, // same-chain demo: no live CCIP lane
+                ccipSelector: 0, // same-chain path: no live CCIP lane
                 flags: 0x0002 | 0x0008 // FLAG_CIRCLE_USDC | FLAG_TESTNET
             })
         );
@@ -203,7 +203,7 @@ contract EndToEndTest is Test, ProxyDeployer {
                        THE FULL MONEY FLOW (ONE TEST)
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice The demo flow, asserted as one composed transaction graph: quote -> pay -> split ->
+    /// @notice The end-to-end flow, asserted as one composed transaction graph: quote -> pay -> split ->
     ///         lane credit -> receipt event -> CRE audit (via the Forwarder). Every leg is checked.
     function test_e2e_fullMoneyFlow_quote_split_lane_receipt_audit() public {
         // ── Identity: the merchant's NAME sets its on-chain brand color, for free (no storage). ──

@@ -67,7 +67,7 @@ import {
 } from "../../../../lib/agent/stateAnchor.js";
 
 /** Hard ceiling on a single nano-loop request — law #4: the agent fires real, bounded calls. */
-const MAX_DEMO_CALLS = 50;
+const MAX_TRIAL_CALLS = 50;
 
 /** Default per-call price when the body omits one (matches the $0.001 micro-call). */
 const DEFAULT_PRICE_USD = 0.001;
@@ -185,8 +185,8 @@ function validate(body: unknown): PayRequest | string {
   if (b.count !== undefined && (!Number.isInteger(b.count) || (b.count as number) < 1)) {
     return "count must be a positive integer";
   }
-  if (typeof b.count === "number" && b.count > MAX_DEMO_CALLS) {
-    return `count must not exceed ${MAX_DEMO_CALLS}`;
+  if (typeof b.count === "number" && b.count > MAX_TRIAL_CALLS) {
+    return `count must not exceed ${MAX_TRIAL_CALLS}`;
   }
   if (
     b.pricePerCallUsd !== undefined &&

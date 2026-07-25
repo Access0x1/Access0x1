@@ -49,7 +49,7 @@ export { ShieldFailedError, WithdrawFailedError, UnlinkSdkUnavailableError };
  * Default shield multiple: shield this many times the payment amount so the deposit is
  * strictly larger than the withdraw (the asymmetry keystone). 4x keeps the on-chain
  * deposit obviously decoupled from the payment value without parking too much. Override
- * per call via `shieldMultiple` for the demo.
+ * per call via `shieldMultiple` per run.
  */
 export const DEFAULT_SHIELD_MULTIPLE = 4;
 

@@ -10,5 +10,8 @@ playwright-report/
 test-results/
 e2e/.auth/
 *.log
+# NO env file ships to the production build — not even .env.example. The build
+# gets its public values from cloudbuild substitutions; the runtime gets its env
+# from Cloud Run (--env-vars-file) + Secret Manager. The example file is docs,
+# and docs have no business inside a production build context.
 .env*
-!.env.example

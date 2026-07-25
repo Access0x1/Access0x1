@@ -15,7 +15,7 @@
  * unset (`response.ts` law #4).
  */
 
-/** The IDKit `environment`. Demo uses the Worldcoin Simulator under "staging". */
+/** The IDKit `environment`. Dev uses the Worldcoin Simulator under "staging". */
 export type WorldEnvironment = 'staging' | 'production'
 
 /** The off-chain Developer Portal verify base (production). */
@@ -42,7 +42,7 @@ export function worldRpId(): string {
 /**
  * The action string scoping the buyer gate (`hash(app_id, action)` →
  * externalNullifier). One human can clear this action once. Defaults to a
- * readable constant so the demo works before the env is set; override per
+ * readable constant so it works before the env is set; override per
  * deployment via `WORLD_ACTION`.
  */
 export function worldAction(): string {

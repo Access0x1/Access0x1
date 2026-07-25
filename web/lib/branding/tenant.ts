@@ -11,7 +11,7 @@
  *
  * BOOTH-GATED FALLBACK (honest): full verification needs the Dynamic environment
  * id (`NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`, public) to locate the JWKS. When that
- * env is unset — the pre-booth / local-demo state — there is no issuer to verify
+ * env is unset — the pre-booth / local-dev state — there is no issuer to verify
  * against, so we FALL BACK to the prior behavior (shape-validate the body
  * `tenantId`) and mark the result `verified: false`. When the env IS set and a
  * `Authorization: Bearer <jwt>` header is present, the token is verified and a
@@ -41,7 +41,7 @@ export interface ResolvedTenant {
   tenantId: string
   /**
    * True only when a Dynamic JWT was verified against the issuer's JWKS. False
-   * when we fell back to shape-validating the body (booth-gated / local demo).
+   * when we fell back to shape-validating the body (booth-gated / local dev).
    */
   verified: boolean
 }
@@ -92,7 +92,7 @@ export function isJwtVerificationConfigured(): boolean {
  * Dynamic JWT), rather than merely shape-checked against the body `tenantId`.
  *
  * The booth-gated fallback (`resolveVerifiedTenant` → `verified: false` when no
- * issuer is configured) is a deliberate DEV/DEMO convenience — it lets the
+ * issuer is configured) is a deliberate DEV convenience — it lets the
  * onboarding flow work at a hackathon booth before Dynamic is wired. In
  * PRODUCTION that fallback would let an unauthenticated caller overwrite ANY
  * tenant's branding (cross-tenant defacement), so writes must fail CLOSED there.
@@ -243,7 +243,7 @@ function bearerToken(request: Request): string | null {
  *  - If JWT verification IS configured and a Bearer token is present: verify the
  *    token against Dynamic's JWKS, derive the tenant id from the verified wallet
  *    claim, and reject when the body `tenantId` (if any) disagrees with it.
- *  - Otherwise (no issuer configured — booth-gated/local demo): fall back to the
+ *  - Otherwise (no issuer configured — booth-gated/local dev): fall back to the
  *    shape-validated body `tenantId`, returned with `verified: false`.
  *
  * @param request - the incoming request (for the Authorization header).
@@ -322,7 +322,7 @@ function subFromClaims(payload: JWTPayload): string {
  *    token against Dynamic's JWKS (pinned issuer + audience), derive the userId
  *    from the verified `sub` claim, and REJECT when the body `userId` (if any)
  *    disagrees with it.
- *  - Otherwise (no issuer configured — booth-gated/local demo): fall back to the
+ *  - Otherwise (no issuer configured — booth-gated/local dev): fall back to the
  *    non-empty-string body `userId`, returned with `verified: false`.
  *
  * @param request - the incoming request (for the Authorization header).

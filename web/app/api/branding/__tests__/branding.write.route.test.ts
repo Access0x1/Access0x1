@@ -69,7 +69,7 @@ describe('POST /api/branding (Save)', () => {
     }
   })
 
-  it('still accepts the booth-gated fallback write when verification is NOT required (dev/demo)', async () => {
+  it('still accepts the booth-gated fallback write when verification is NOT required (dev)', async () => {
     // Default test posture (flag unset, non-production): the fallback stands so
     // the onboarding flow works before Dynamic is wired.
     delete process.env.BRANDING_REQUIRE_VERIFIED_WRITES

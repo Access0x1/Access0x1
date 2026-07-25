@@ -1,7 +1,7 @@
 /**
- * demo-loop.mts — the judge artifact: a 1 tx/sec round-robin x402 pay loop.
+ * pay-loop.mts — the judge artifact: a 1 tx/sec round-robin x402 pay loop.
  *
- * Usage:  npx tsx web/scripts/demo-loop.mts [--limit N]
+ * Usage:  npx tsx web/scripts/pay-loop.mts [--limit N]
  *
  * Fires many sub-cent authorizations across the priced endpoints so Circle
  * accumulates them into ONE on-chain batch settlement tx visible on Arcscan
@@ -35,13 +35,13 @@ export type PayGateway = {
   deposit?: (amount: string) => Promise<unknown>;
 };
 
-/** Result of a demo loop run, for tests + the on-stage summary. */
+/** Result of a pay loop run, for tests + the on-stage summary. */
 export type DemoLoopResult = {
   calls: number;
   totalSpent: number;
 };
 
-/** Options controlling a demo loop run. */
+/** Options controlling a pay loop run. */
 export type DemoLoopOptions = {
   /** The priced calls to round-robin through. */
   calls: PricedCall[];
@@ -91,7 +91,7 @@ export async function runDemoLoop(
   } = opts;
 
   if (calls.length === 0) {
-    throw new Error("demo-loop: no priced calls to fire.");
+    throw new Error("pay-loop: no priced calls to fire.");
   }
 
   let count = 0;
@@ -134,7 +134,7 @@ export async function runDemoLoop(
   }
 
   console.log(
-    `demo-loop done: ${count} calls, total ${totalSpent.toFixed(6)} USDC`,
+    `pay-loop done: ${count} calls, total ${totalSpent.toFixed(6)} USDC`,
   );
   return { calls: count, totalSpent };
 }
@@ -166,8 +166,8 @@ function parseLimit(argv: string[]): number | undefined {
 async function main(): Promise<void> {
   const { GatewayClient } = await import("@circle-fin/x402-batching/client");
 
-  const baseUrl = process.env.DEMO_BASE_URL ?? "http://localhost:3000";
-  const depositAmount = process.env.DEMO_DEPOSIT ?? "5.00";
+  const baseUrl = process.env.LOOP_BASE_URL ?? "http://localhost:3000";
+  const depositAmount = process.env.LOOP_DEPOSIT ?? "5.00";
   const limit = parseLimit(process.argv);
 
   // Fresh ephemeral EOA per run (unlinkability hygiene; the Gateway payer is a
@@ -192,7 +192,7 @@ async function main(): Promise<void> {
 
   const controller = new AbortController();
   process.on("SIGINT", () => {
-    console.log("\nStopping demo loop…");
+    console.log("\nStopping pay loop…");
     controller.abort();
   });
 
@@ -207,11 +207,11 @@ async function main(): Promise<void> {
 const invokedDirectly =
   typeof process !== "undefined" &&
   process.argv[1] !== undefined &&
-  /demo-loop\.mts$/.test(process.argv[1]);
+  /pay-loop\.mts$/.test(process.argv[1]);
 
 if (invokedDirectly) {
   main().catch((err) => {
-    console.error("demo-loop failed:", err);
+    console.error("pay-loop failed:", err);
     process.exitCode = 1;
   });
 }

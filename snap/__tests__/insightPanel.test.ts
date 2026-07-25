@@ -10,7 +10,7 @@ import type { MerchantInfo, PaymentSummary } from '../src/types';
 
 const MERCHANT: MerchantInfo = {
   id: 7n,
-  name: 'demo.access0x1.eth',
+  name: 'acme.access0x1.eth',
   payout: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   feeBps: 500, // 5% merchant surcharge
   platformFeeBps: 100, // 1% platform fee — the panel must show the 6% TOTAL
@@ -93,7 +93,7 @@ describe('renderInsightPanel', () => {
   it('includes the USD amount, merchant name, chain label, and order label for payNative', () => {
     const text = collectText(renderInsightPanel(NATIVE_SUMMARY, MERCHANT));
     expect(text).toContain('$29.00');
-    expect(text).toContain('demo.access0x1.eth');
+    expect(text).toContain('acme.access0x1.eth');
     expect(text).toContain('Arc Testnet');
     expect(text).toContain('order-1');
     expect(text).toContain('Native');

@@ -101,7 +101,7 @@ nothing here is a deployment claim — these are the inputs a future deploy woul
 - ⚠️ **Hashio is development/testing only** and rate-limited: ~50 HBAR/min globally plus
   100–1,600 requests per IP per minute by endpoint tier. A venue behind one NAT'd IP shares that
   budget — override `NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL` (QuickNode, or self-hosted Hiero relay)
-  before demoing. Hedera's docs recommend the same.
+  before shipping. Hedera's docs recommend the same.
 - **Chainlink price feeds DO exist on Hedera**, via the Chainlink Price Feeds Adapter
   (`/evm/integrations/oracles/chainlink`); Pyth and Supra are documented too, and Supra publishes
   HBAR/USD. This corrects an earlier repo comment that asserted Hedera had none. **Still
@@ -109,11 +109,11 @@ nothing here is a deployment claim — these are the inputs a future deploy woul
   `docs.chain.link`, so the $1 `MockV3Aggregator` remains the default and a real feed is a
   per-deploy upgrade via `HEDERA_TESTNET_USDC_USD_FEED`.
 - **Chainlink CCIP is live on Hedera testnet** — router `0x802C5F84eAD128Ff36fD6a3f8a418e339f467Ce4`,
-  chain selector `222782988166878823`, with documented demos to **Ethereum Sepolia (11155111)**, a
+  chain selector `222782988166878823`, with documented routes to **Ethereum Sepolia (11155111)**, a
   chain the mirror already covers (`/evm/integrations/cross-chain/chainlink-ccip`). Recorded for
   reference only: **`Access0x1Receiver` is a Chainlink CRE/Keystone consumer, not a CCIP receiver** —
   it gates on a KeystoneForwarder, so CCIP is an adjacent rail, not a drop-in. Hedera's own docs also
-  flag Cross-Chain Token transfers as still in progress on testnet, and the demos as unaudited.
+  flag Cross-Chain Token transfers as still in progress on testnet, and the flows as unaudited.
 
 **Tempo Moderato (42431) — special-cased, do not deploy with the generic flow.** Tempo has **no
 native gas token**: fees are **USD-denominated and paid in TIP-20 stablecoins** (per docs.tempo.xyz,

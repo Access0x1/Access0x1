@@ -13,7 +13,7 @@
  * the real module once the version is pinned at the booth.
  *
  * ⚠️ BOOTH-CONFIRM the `requestDeposit` arg/return shape below against the live
- * SDK before the live demo. These shapes follow the documented one-tap deposit
+ * SDK before the live run. These shapes follow the documented one-tap deposit
  * call `requestDeposit({ amount, chainId, address, token })`.
  */
 declare module '@swype-org/deposit' {
