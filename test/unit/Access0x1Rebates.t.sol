@@ -158,7 +158,7 @@ contract Access0x1RebatesTest is Test, ProxyDeployer {
         assertEq(usdc.balanceOf(treasury), treasuryBefore + fee, "platform fee landed once");
         (,,,,, uint256 fundedAfter) = rebates.promos(seat);
         assertEq(fundedAfter, fundedBefore, "pool untouched");
-        assertFalse(rebates.claimedOrder(orderId), "orderId not burned");
+        assertFalse(rebates.claimedOrder(merchantId, orderId), "orderId not burned");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -390,7 +390,7 @@ contract Access0x1RebatesTest is Test, ProxyDeployer {
         // The pool funded the rebate; the settlement itself left ZERO custody here.
         assertEq(_funded(), POOL - rebate, "pool decremented");
         assertEq(usdc.balanceOf(address(rebates)), POOL - rebate, "zero settlement custody");
-        assertTrue(rebates.claimedOrder(orderId), "idempotency key consumed");
+        assertTrue(rebates.claimedOrder(merchantId, orderId), "idempotency key consumed");
     }
 
     function test_payBeforeStartSettlesWithoutRebate() public {
@@ -444,7 +444,7 @@ contract Access0x1RebatesTest is Test, ProxyDeployer {
         rebates.payWithRebate(merchantId, address(other), USD, orderId);
 
         assertEq(_funded(), fundedBefore, "pool untouched");
-        assertFalse(rebates.claimedOrder(orderId), "orderId not burned");
+        assertFalse(rebates.claimedOrder(merchantId, orderId), "orderId not burned");
     }
 
     function test_payWithNoPromoSettlesWithoutRebate() public {
@@ -513,7 +513,7 @@ contract Access0x1RebatesTest is Test, ProxyDeployer {
         vm.prank(buyer);
         rebates.payWithRebate(fresh, address(usdc), 1, orderId);
 
-        assertFalse(rebates.claimedOrder(orderId), "zero rebate burns no key");
+        assertFalse(rebates.claimedOrder(merchantId, orderId), "zero rebate burns no key");
         (,,,,, uint256 funded) = rebates.promos(fresh);
         assertEq(funded, 1e6, "pool untouched");
     }
@@ -560,7 +560,7 @@ contract Access0x1RebatesTest is Test, ProxyDeployer {
 
         // Settlement stood; the rebate is parked, claimable, and the key is consumed.
         assertEq(rebates.withdrawable(buyer, address(blk)), rebate, "queued for pull");
-        assertTrue(rebates.claimedOrder(orderId));
+        assertTrue(rebates.claimedOrder(merchantId, orderId));
         (,,,,, uint256 funded) = rebates.promos(fresh);
         assertEq(funded, 100e6 - rebate, "pool decremented despite queue");
 
@@ -765,5 +765,57 @@ contract Access0x1RebatesPauseSplitTest is Access0x1RebatesTest {
         vm.prank(merchantOwner);
         rebates.reclaim(merchantId, merchantOwner);
         assertEq(usdc.balanceOf(merchantOwner), remainder);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+              TENANCY: THE ORDER LEDGER IS NAMESPACED BY MERCHANT
+    //////////////////////////////////////////////////////////////*/
+
+    /// The order ledger was once keyed on the bare `orderId`, global across every tenant. Since
+    /// `registerMerchant` is permissionless, that let anyone burn a victim's order reference for the
+    /// price of gas — and because the guard sits BEFORE the router hop, the victim lost the whole
+    /// payment, not just the rebate. This is that attack, and it must now fail.
+    function test_attackerCannotBurnAnotherMerchantsOrderId() public {
+        address attacker = makeAddr("attacker");
+        bytes32 orderId = keccak256("acme-cart-0001");
+
+        // 1. The attacker registers their own merchant seat (permissionless) and opens a 100%-back
+        //    promo funded with a single USDC wei — total outlay, one wei plus gas.
+        vm.prank(attacker);
+        uint256 evilId = router.registerMerchant(attacker, address(0), 0, keccak256("evil"));
+        vm.prank(attacker);
+        rebates.createPromo(evilId, address(usdc), promoStart, promoEnd, 10_000, 0);
+        usdc.mint(attacker, 1_000e6);
+        vm.startPrank(attacker);
+        usdc.approve(address(rebates), type(uint256).max);
+        rebates.fundPromo(evilId, 1);
+
+        // 2. They front-run the victim's checkout, reusing the victim's orderId against their own
+        //    merchant. This succeeds — it is their own ledger, and they are entitled to burn it.
+        rebates.payWithRebate(evilId, address(usdc), 1, orderId);
+        vm.stopPrank();
+        assertTrue(rebates.claimedOrder(evilId, orderId), "attacker burned it in their OWN ledger");
+
+        // 3. The real merchant's ledger is untouched, so the real buyer's payment still settles.
+        assertFalse(rebates.claimedOrder(merchantId, orderId), "victim ledger must be clean");
+        uint256 payoutBefore = usdc.balanceOf(merchantPayout);
+        vm.prank(buyer);
+        rebates.payWithRebate(merchantId, address(usdc), USD, orderId);
+        assertGt(usdc.balanceOf(merchantPayout), payoutBefore, "the victim's payment must land");
+        assertTrue(rebates.claimedOrder(merchantId, orderId), "and consume the victim's own key");
+    }
+
+    /// Namespacing must not weaken the guard it replaces: within ONE merchant, an orderId is still
+    /// strictly one-shot.
+    function test_orderIdStillOneShotWithinTheSameMerchant() public {
+        bytes32 orderId = keccak256("acme-cart-0002");
+        vm.prank(buyer);
+        rebates.payWithRebate(merchantId, address(usdc), USD, orderId);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccess0x1Rebates.Access0x1Rebates__OrderAlreadyClaimed.selector, orderId)
+        );
+        vm.prank(buyer);
+        rebates.payWithRebate(merchantId, address(usdc), USD, orderId);
     }
 }

@@ -91,7 +91,8 @@ contract Access0x1Rebates is
 
     /// @notice orderId ⇒ whether it already consumed a rebate — the idempotency key. Set ONLY when a
     ///         rebate actually pays (or queues), so a non-qualifying settlement never burns an id.
-    mapping(bytes32 orderId => bool claimed) private _claimedOrder;
+    /// @dev Keyed by `keccak256(merchantId, orderId)`, NOT by the bare `orderId`. See {_orderKey}.
+    mapping(bytes32 orderKey => bool claimed) private _claimedOrder;
 
     /// @notice account ⇒ asset ⇒ queued rebate claimable via {withdraw} (the never-blockable lane:
     ///         only written when an inline rebate push failed).
@@ -228,7 +229,8 @@ contract Access0x1Rebates is
         nonReentrant
     {
         if (token == NATIVE) revert Access0x1Rebates__NativeNotSupported();
-        if (_claimedOrder[orderId]) revert Access0x1Rebates__OrderAlreadyClaimed(orderId);
+        bytes32 orderKey = _orderKey(merchantId, orderId);
+        if (_claimedOrder[orderKey]) revert Access0x1Rebates__OrderAlreadyClaimed(orderId);
 
         // ── settle THROUGH the canonical router (set at initialize; never an arbitrary target) ──
         uint256 gross = router.quote(merchantId, token, usdAmount8);
@@ -248,7 +250,7 @@ contract Access0x1Rebates is
 
         // Effects before the push: one settlement = at most one rebate, conservation holds even if
         // the push re-enters (it cannot — nonReentrant — but the ordering stands on its own).
-        _claimedOrder[orderId] = true;
+        _claimedOrder[orderKey] = true;
         p.funded -= rebate;
         _pushOrQueue(merchantId, msg.sender, p.token, rebate, orderId);
     }
@@ -302,8 +304,8 @@ contract Access0x1Rebates is
     }
 
     /// @inheritdoc IAccess0x1Rebates
-    function claimedOrder(bytes32 orderId) external view returns (bool) {
-        return _claimedOrder[orderId];
+    function claimedOrder(uint256 merchantId, bytes32 orderId) external view returns (bool) {
+        return _claimedOrder[_orderKey(merchantId, orderId)];
     }
 
     /// @inheritdoc IAccess0x1Rebates
@@ -317,7 +319,7 @@ contract Access0x1Rebates is
         view
         returns (uint256 rebate)
     {
-        if (token == NATIVE || _claimedOrder[orderId]) return 0;
+        if (token == NATIVE || _claimedOrder[_orderKey(merchantId, orderId)]) return 0;
         Promo storage p = _promos[merchantId];
         bool qualifies = token == p.token && p.funded != 0 && block.timestamp >= p.start
             && block.timestamp <= p.end && usdAmount8 >= p.minUsd8;
@@ -360,6 +362,23 @@ contract Access0x1Rebates is
             _withdrawable[buyer][asset] += amount;
             emit RebateQueued(merchantId, buyer, asset, amount, orderId);
         }
+    }
+
+    /// @dev The rebate ledger key: `keccak256(merchantId, orderId)`. Namespaces the one-shot flag by
+    ///      merchant, exactly as {GaslessPayIn}._orderKey and {Refunds}._refundKey do.
+    ///
+    ///      This USED to be the bare `orderId`, which made the flag global across every tenant of the
+    ///      deployment. Because `registerMerchant` is permissionless, that let anyone pre-consume any
+    ///      order reference for the price of gas: register a throwaway merchant, open a 100% promo
+    ///      funded with one wei, front-run a real buyer's `payWithRebate` with the same `orderId`, and
+    ///      the flag flips. The victim's call then reverts at the guard above — and the guard sits
+    ///      BEFORE the router hop, so what is lost is not the rebate but the WHOLE PAYMENT. A merchant
+    ///      deriving `orderId` deterministically from a cart would see every retry fail too.
+    ///
+    ///      Namespacing removes the shared surface entirely: two merchants can now use identical order
+    ///      references without ever meeting, and no one can reach into another's ledger to burn a key.
+    function _orderKey(uint256 merchantId, bytes32 orderId) private pure returns (bytes32) {
+        return keccak256(abi.encode(merchantId, orderId));
     }
 
     /// @dev Pull exactly `amount` of an ERC-20 in, verifying via the balance delta that the token did

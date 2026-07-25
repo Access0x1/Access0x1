@@ -135,7 +135,13 @@ contract Access0x1Bookings is
         approvedCancelRelayer;
 
     /// @notice clientNonce ⇒ consumed. The on-chain idempotency guard: a replayed {reserve} reverts.
-    mapping(bytes32 clientNonce => bool used) public nonceUsed;
+    /// @notice merchantId ⇒ clientNonce ⇒ consumed. Namespaced for the SAME reason {occupant} above is,
+    ///         and it was missed when that one was fixed: with a global nonce ledger, anyone could
+    ///         register a throwaway merchant, watch the mempool, and front-run a real {reserve} with the
+    ///         victim's `clientNonce` — burning it for the cost of a 1-wei deposit and reverting the
+    ///         booking. Keying by (merchantId, clientNonce) means two merchants may use the same nonce
+    ///         and neither can consume the other's.
+    mapping(uint256 merchantId => mapping(bytes32 clientNonce => bool used)) public nonceUsed;
 
     /// @notice The id assigned to the next {reserve}. Starts at 1, so 0 is the unset/vacant sentinel.
     uint256 public nextReservationId;
@@ -253,7 +259,7 @@ contract Access0x1Bookings is
             revert Access0x1Bookings__ZeroSlotTimestamp();
         }
         _requireMerchantExists(merchantId);
-        if (nonceUsed[clientNonce]) revert Access0x1Bookings__NonceUsed(clientNonce);
+        if (nonceUsed[merchantId][clientNonce]) revert Access0x1Bookings__NonceUsed(clientNonce);
         // Occupancy is namespaced by merchant (tenancy isolation): this only blocks a double-book of
         // THIS merchant's slot, never another merchant's identical slotKey.
         uint256 occupiedBy = occupant[merchantId][slotKey];
@@ -281,7 +287,7 @@ contract Access0x1Bookings is
         });
         _slotKeyOf[id] = slotKey;
         occupant[merchantId][slotKey] = id;
-        nonceUsed[clientNonce] = true;
+        nonceUsed[merchantId][clientNonce] = true;
         _escrowedOf[token] += escrowAmount;
 
         emit SlotHeld(id, merchantId, msg.sender, slotKey, token, escrowAmount, holdExpiresAt);

@@ -1130,4 +1130,53 @@ contract Access0x1BookingsTest is Test, ProxyDeployer {
         );
         UUPSUpgradeable(address(bookings)).upgradeToAndCall(v2, "");
     }
+
+    /*//////////////////////////////////////////////////////////////
+              TENANCY: THE NONCE LEDGER IS NAMESPACED BY MERCHANT
+    //////////////////////////////////////////////////////////////*/
+
+    /// `occupant` was namespaced by merchant to stop exactly this attack; `nonceUsed`, declared six
+    /// lines below it, was not. With a global nonce ledger anyone could register a throwaway merchant,
+    /// front-run a real {reserve} with the victim's `clientNonce`, and revert their booking for the
+    /// cost of a one-wei deposit.
+    function test_attackerCannotBurnAnotherMerchantsNonce() public {
+        address attacker = makeAddr("attacker");
+        bytes32 nonce = keccak256("victim-booking-nonce");
+
+        vm.prank(attacker);
+        uint256 evilId = router.registerMerchant(attacker, address(0), 0, keccak256("evil"));
+        usdc.mint(attacker, 1_000e6);
+        vm.startPrank(attacker);
+        usdc.approve(address(bookings), type(uint256).max);
+        // The attacker consumes the nonce against their OWN merchant — legitimate, their ledger.
+        bookings.reserve(
+            evilId,
+            keccak256("attacker-slot"),
+            SLOT_TS,
+            address(usdc),
+            DEPOSIT_USD8,
+            0,
+            _policy(2 hours, 10e8, 20e8),
+            HOLD_SECS,
+            nonce
+        );
+        vm.stopPrank();
+        assertTrue(bookings.nonceUsed(evilId, nonce), "burned in the attacker's OWN ledger");
+
+        // The victim's ledger is untouched, so their booking still goes through.
+        assertFalse(bookings.nonceUsed(merchantId, nonce), "victim ledger must be clean");
+        (uint256 id,) = _reserve(SLOT_KEY, nonce);
+        assertGt(id, 0, "the victim's reservation must land");
+        assertTrue(bookings.nonceUsed(merchantId, nonce), "and consume the victim's own nonce");
+    }
+
+    /// Namespacing must not weaken the replay guard: within ONE merchant a nonce is still one-shot.
+    function test_nonceStillOneShotWithinTheSameMerchant() public {
+        bytes32 nonce = keccak256("same-merchant-nonce");
+        _reserve(SLOT_KEY, nonce);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccess0x1Bookings.Access0x1Bookings__NonceUsed.selector, nonce)
+        );
+        _reserve(keccak256("a-different-slot"), nonce);
+    }
 }

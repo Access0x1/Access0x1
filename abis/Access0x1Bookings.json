@@ -251,6 +251,11 @@
     "name": "nonceUsed",
     "inputs": [
       {
+        "name": "merchantId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "clientNonce",
         "type": "bytes32",
         "internalType": "bytes32"

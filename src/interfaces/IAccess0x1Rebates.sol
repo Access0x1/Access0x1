@@ -194,15 +194,19 @@ interface IAccess0x1Rebates {
             uint256 funded
         );
 
-    /// @notice Whether an `orderId` already consumed its rebate (the idempotency key).
+    /// @notice Whether a merchant's `orderId` already consumed its rebate (the idempotency key).
     /// @dev    THE double-claim guard, and the reason a rebate is one-shot per order: set on the first
     ///         successful claim and never cleared, so a replayed claim for the same order is refused
-    ///         even if the promo is still funded and inside its window. Because the flag is global to
-    ///         this contract rather than scoped per merchant, an `orderId` must be unique across the
-    ///         deployment — colliding references would let the first claim block the second.
+    ///         even if the promo is still funded and inside its window.
+    ///
+    ///         The flag is namespaced by merchant (`keccak256(merchantId, orderId)`), so an `orderId`
+    ///         only has to be unique WITHIN a merchant, never across the deployment. It was global
+    ///         once; since `registerMerchant` is permissionless, that let anyone burn any order
+    ///         reference for the price of gas and revert the payment it belonged to.
+    /// @param  merchantId The merchant whose ledger to read.
     /// @param  orderId The settled-payment reference to test.
-    /// @return True iff a rebate has already been claimed against this order.
-    function claimedOrder(bytes32 orderId) external view returns (bool);
+    /// @return True iff a rebate has already been claimed against this merchant's order.
+    function claimedOrder(uint256 merchantId, bytes32 orderId) external view returns (bool);
 
     /// @notice The queued-rebate balance an account may {withdraw} for an asset.
     /// @param account The owed party.

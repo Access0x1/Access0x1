@@ -162,7 +162,7 @@ contract Access0x1BookingsFuzz is Test, ProxyDeployer {
             bookings.occupant(merchantId, slotSeed), id, "slot not occupied by this reservation"
         );
         assertTrue(
-            bookings.nonceUsed(keccak256(abi.encode("nonce", depositSeed, slotSeed))),
+            bookings.nonceUsed(merchantId, keccak256(abi.encode("nonce", depositSeed, slotSeed))),
             "nonce not consumed"
         );
         assertEq(uint8(bookings.reservationOf(id).status), uint8(IAccess0x1Bookings.RStatus.HELD));
