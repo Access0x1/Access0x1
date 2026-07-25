@@ -171,7 +171,7 @@ clean: ## Remove build artifacts (forge clean)
 	forge clean
 
 # ── The gate (run before any commit) ────────────────────────────────────────────
-gate: build test fmt-check web-gate ## FULL GREEN GATE: contracts build+test+fmt AND web typecheck+test
+gate: build test fmt-check web-gate sync-check ## FULL GREEN GATE: contracts build+test+fmt AND web typecheck+test+generated-artifact drift
 	@echo "==> GATE GREEN"
 
 # ── Security / audit ─────────────────────────────────────────────────────────────
@@ -298,12 +298,38 @@ deploy-inventory: ## What is deployed, what is dead, and is anything deployed tw
 	@node scripts/deploy-inventory.mjs
 
 sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status + deployed ABIs + test-count badge
+	@echo "sync 1/6  web deployment maps"
 	@node web/scripts/gen-deployments.mjs
+	@echo "sync 2/6  README mirror-status table"
 	@node web/scripts/sync-readme-status.mjs
+	@echo "sync 3/6  README pre-mirror address table"
 	@node web/scripts/gen-premirror-table.mjs
-	@node scripts/sync-deployed-abis.mjs --write
-	@node scripts/sync-test-badge.mjs --write
+	@echo "sync 4/6  deployed-contract ABIs"
+	@if [ -d out ]; then \
+		node scripts/sync-deployed-abis.mjs --write; \
+	else \
+		echo "          skipped: out/ is absent (it is gitignored and needs 'forge build')."; \
+		echo "          The committed abis/ keep their values; CI regenerates them."; \
+	fi
+	@echo "sync 5/6  Foundry test-count badge  (runs 'forge test --list' — this COMPILES the"
+	@echo "          whole project, so expect a long quiet pause here on a cold cache)"
+	@if command -v forge >/dev/null 2>&1; then \
+		node scripts/sync-test-badge.mjs --write; \
+	else \
+		echo "          skipped: Foundry not installed — the badge keeps its committed value,"; \
+		echo "          and CI re-derives it."; \
+	fi
+	@echo "sync 6/6  web test-count claims"
 	@node web/scripts/sync-web-test-badge.mjs --write
+	@echo "==> sync complete."
+
+sync-check: ## Verify every generated artifact matches its source (no writes) — what CI runs
+	@node web/scripts/sync-readme-status.mjs --check
+	@node web/scripts/gen-premirror-table.mjs --check
+	@node web/scripts/gen-module-abis.mjs --check
+	@node web/scripts/gen-docs-corpus.mjs --check
+	@node web/scripts/sync-web-test-badge.mjs --check
+	@echo "==> generated artifacts are in sync with their sources."
 
 sync-test-badge: build ## Regenerate the README test-count badge from `forge test --list`, then drift-check it
 	@node scripts/sync-test-badge.mjs --write
@@ -315,9 +341,11 @@ abis: build ## Regenerate abis/ (committed ABI for EVERY deployed contract) + en
 
 deploy-arc: ## Deploy to Arc testnet (keystore `deployer`)
 	@forge script script/DeployAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-base-sepolia: ## Deploy to Base Sepolia (keystore `deployer`, verified)
 	@forge script script/DeployAll.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 # ── Be a merchant on the LIVE mirror + settle ONE real native payment (no faucet — pays from gas) ──
 # DriveMerchant registers a merchant and settles a real payNative in the chain's native token; the
@@ -337,12 +365,14 @@ drive-merchant-arc: ## Be a merchant + settle one native payment on Arc testnet 
 
 deploy-zksync-sepolia: ## Deploy to zkSync Era Sepolia via its EVM interpreter (keystore `deployer`) — PLAIN EVM path, NO --zksync: zksolc cannot compile the ERC-6551 account (EXTCODECOPY unsupported on native EraVM) and native-EraVM CREATE derivation would break the mirror; Era's EVM bytecode emulation executes standard EVM initcode with EVM CREATE3 math (proven: CreateX live at its canonical address + computeCreate3Address identical to L1 + full-script simulation lands the Router at the mirror 0xe92244…5EB5)
 	@forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 bootstrap-createx-galileo: ## Status + runbook to put CreateX on 0G Galileo (16602) so the mirror can deploy there (pre-signed keyless tx; owner funds 0xeD456e... once)
 	@./script/bootstrap-createx-galileo.sh
 
 deploy-galileo: ## Deploy to 0G Galileo testnet 16602 (keystore `deployer`) — set GALILEO_RPC_URL + GALILEO_PLATFORM_TREASURY first; 0G has no Chainlink feed, run `make deploy-usd-mock-feed RPC=$(GALILEO_RPC_URL)` for $1 USDC pricing
 	@forge script script/DeployAll.s.sol --rpc-url $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --priority-gas-price 2000000000 -vvvv
+	@$(MAKE) --no-print-directory sync
 
 # Deploy a $1.00 USDC/USD mock feed to ANY chain that has real Circle USDC but no Chainlink USDC/USD
 # feed (Linea/Unichain/World Chain/Celo/Optimism Sepolia). Real USDC stays the token; this is the
@@ -350,6 +380,7 @@ deploy-galileo: ## Deploy to 0G Galileo testnet 16602 (keystore `deployer`) — 
 # run that chain's deploy. See script/DeployUsdMockFeed.s.sol + docs/CHAIN-ADDRESSES.md.
 deploy-usd-mock-feed: ## Deploy a $1 USDC/USD mock feed to a chain that lacks one — make deploy-usd-mock-feed RPC=<url>
 	forge script script/DeployUsdMockFeed.s.sol --rpc-url $(RPC) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-createx: ## Put canonical CreateX (0xba5Ed…ba5Ed) on a chain that lacks it — the keyless presigned deploy (vendored from pcaversaccio/createx, signer + target re-verified from the signature): funds the one-time signer EXACTLY 0.3 native (3M gas @ 100 gwei, unrecoverable if the chain rejects pre-EIP-155 — probe first with `cast publish` unfunded), then publishes. make deploy-createx RPC=<url>
 	@test -n "$(RPC)" || { echo "usage: make deploy-createx RPC=<rpcUrl>"; exit 1; }
@@ -425,25 +456,32 @@ all: install gate ## Install everything, then run the full green gate
 # ── More test networks (keystore `deployer`; set each RPC + *SCAN_API_KEY in .env) ──
 deploy-ethereum-sepolia: ## Deploy to Ethereum Sepolia (etherscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-arbitrum-sepolia: ## Deploy to Arbitrum Sepolia (arbiscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(ARBITRUM_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-optimism-sepolia: ## Deploy to Optimism Sepolia (etherscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(OPTIMISM_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-polygon-amoy: ## Deploy to Polygon Amoy (polygonscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(POLYGON_AMOY_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-avalanche-fuji: ## Deploy to Avalanche Fuji (snowtrace verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(AVALANCHE_FUJI_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
 	@echo "Fuji broadcast complete — verify with: make verify-avalanche-fuji (Routescan, keyless). Etherscan V2 does not cover Fuji."
+	@$(MAKE) --no-print-directory sync
 
 deploy-bnb-testnet: ## Deploy to BNB Smart Chain testnet (bscscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(BNB_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-scroll-sepolia: ## Deploy to Scroll Sepolia (scrollscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(SCROLL_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 # Robinhood Chain testnet (Arbitrum Orbit L2, chainId 46630). Native = ETH; Blockscout explorer (no
 # Etherscan key, so no verify flag here). NOTE: Chainlink Data Feeds are NOT live on RH Chain yet, so
@@ -452,6 +490,7 @@ deploy-scroll-sepolia: ## Deploy to Scroll Sepolia (scrollscan verify)
 # ROBINHOOD_TESTNET_PLATFORM_TREASURY in .env first; the deployer keystore signs.
 deploy-robinhood-testnet: ## Deploy to Robinhood Chain testnet (CCIP-lane endpoint; no price feed yet)
 	@forge script script/DeployAll.s.sol --rpc-url $(ROBINHOOD_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ROBINHOOD_TESTNET_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 # Verify the ALREADY-DEPLOYED Robinhood Chain contracts on Blockscout — standalone + deploy-path-
 # INDEPENDENT (no --broadcast, no keystore: it only uploads source). --resume re-reads the last
@@ -529,46 +568,60 @@ verify-all-sourcify: ## Also verify on Sourcify (keyless, decentralized) — sup
 
 deploy-linea-sepolia: ## Deploy to Linea Sepolia (lineascan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(LINEA_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-mantle-sepolia: ## Deploy to Mantle Sepolia (blockscout verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(MANTLE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(MANTLE_SEPOLIA_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-blast-sepolia: ## Deploy to Blast Sepolia (blastscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(BLAST_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-unichain-sepolia: ## Deploy to Unichain Sepolia (uniscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(UNICHAIN_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 # ── Even more test networks (the faucet list: blockscout/sourcify/etherscan-family verify per chain) ──
 deploy-zora-sepolia: ## Deploy to Zora Sepolia (chainId 999999999, ETH; blockscout verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(ZORA_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ZORA_SEPOLIA_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-filecoin-calibration: ## Deploy to Filecoin Calibration (chainId 314159, tFIL; blockscout verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(FILECOIN_CALIBRATION_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(FILECOIN_CALIBRATION_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-gnosis-chiado: ## Deploy to Gnosis Chiado (chainId 10200, XDAI; blockscout verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(GNOSIS_CHIADO_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(GNOSIS_CHIADO_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-apechain-curtis: ## Deploy to ApeChain Curtis (chainId 33111, APE; blockscout verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(APECHAIN_CURTIS_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(APECHAIN_CURTIS_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-worldchain-sepolia: ## Deploy to World Chain Sepolia (chainId 4801, ETH; worldscan/etherscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(WORLDCHAIN_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-zircuit-garfield: ## Deploy to Zircuit Garfield testnet (chainId 48898, ETH; sourcify verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(ZIRCUIT_GARFIELD_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --verify --verifier sourcify -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-hedera-testnet: ## Deploy to Hedera testnet (chainId 296, HBAR via Hashio; sourcify verify) — set HEDERA_TESTNET_PLATFORM_TREASURY first; Hedera has no Chainlink feed, run `make deploy-usd-mock-feed RPC=$(HEDERA_TESTNET_RPC_URL)` for $1 USDC pricing
 	@forge script script/DeployAll.s.sol --rpc-url $(HEDERA_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --verify --verifier sourcify -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-citrea-testnet: ## Deploy to Citrea testnet (chainId 5115, cBTC; blockscout verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(CITREA_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(CITREA_TESTNET_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-flow-evm-testnet: ## Deploy to Flow EVM testnet (chainId 545, FLOW; blockscout verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(FLOW_EVM_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(FLOW_EVM_TESTNET_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-celo-sepolia: ## Deploy to Celo Sepolia (chainId 11142220, CELO; celoscan/etherscan-v2 verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(CELO_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 # Ethereum Hoodi + Tempo Moderato — the last two pre-mirror chains that previously had NO Makefile
 # target (docs/MIRROR-CUTOVER.md sent you to a raw `forge script` invocation). Same generic CREATE3
@@ -582,9 +635,11 @@ deploy-celo-sepolia: ## Deploy to Celo Sepolia (chainId 11142220, CELO; celoscan
 # RPC=$(TEMPO_RPC_URL) VERIFIER_URL=<api>` once a working verifier endpoint is confirmed).
 deploy-hoodi: ## Deploy to Ethereum Hoodi (chainId 560048, ETH; etherscan-v2 verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(HOODI_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-tempo: ## Deploy to Tempo Moderato (chainId 42431; TIP-20 stablecoin fees — see caveat above)
 	@forge script script/DeployAll.s.sol --rpc-url $(TEMPO_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(TEMPO_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 #  ⛔ MAINNET — AUDIT-GATED, REAL FUNDS. DO NOT RUN UNTIL A THIRD-PARTY AUDIT IS COMPLETE.            ⛔
@@ -617,90 +672,112 @@ endef
 deploy-ethereum-mainnet: ## ⛔ AUDIT-GATED: deploy to Ethereum mainnet (etherscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ETHEREUM_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-base-mainnet: ## ⛔ AUDIT-GATED: deploy to Base mainnet (basescan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(BASE_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-arbitrum-mainnet: ## ⛔ AUDIT-GATED: deploy to Arbitrum One (arbiscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ARBITRUM_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-optimism-mainnet: ## ⛔ AUDIT-GATED: deploy to OP Mainnet (etherscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(OPTIMISM_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-polygon-mainnet: ## ⛔ AUDIT-GATED: deploy to Polygon mainnet (polygonscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(POLYGON_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-avalanche-mainnet: ## ⛔ AUDIT-GATED: deploy to Avalanche C-Chain (snowtrace verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(AVALANCHE_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-bnb-mainnet: ## ⛔ AUDIT-GATED: deploy to BNB Smart Chain (bscscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(BNB_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-scroll-mainnet: ## ⛔ AUDIT-GATED: deploy to Scroll mainnet (scrollscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(SCROLL_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-linea-mainnet: ## ⛔ AUDIT-GATED: deploy to Linea mainnet (lineascan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(LINEA_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-mantle-mainnet: ## ⛔ AUDIT-GATED: deploy to Mantle mainnet (blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(MANTLE_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(MANTLE_MAINNET_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-blast-mainnet: ## ⛔ AUDIT-GATED: deploy to Blast mainnet (blastscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(BLAST_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-unichain-mainnet: ## ⛔ AUDIT-GATED: deploy to Unichain mainnet (uniscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(UNICHAIN_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-zksync-mainnet: ## ⛔ AUDIT-GATED: deploy to zkSync Era mainnet (zksync verify, --zksync) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --zksync --verify --verifier zksync --verifier-url $(ZKSYNC_MAINNET_VERIFIER_URL) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-zora-mainnet: ## ⛔ AUDIT-GATED: deploy to Zora mainnet (chainId 7777777, ETH; blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ZORA_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ZORA_MAINNET_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-filecoin-mainnet: ## ⛔ AUDIT-GATED: deploy to Filecoin mainnet (chainId 314, FIL; blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(FILECOIN_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(FILECOIN_MAINNET_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-gnosis-mainnet: ## ⛔ AUDIT-GATED: deploy to Gnosis Chain (chainId 100, XDAI; gnosisscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(GNOSIS_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-apechain-mainnet: ## ⛔ AUDIT-GATED: deploy to ApeChain (chainId 33139, APE; apescan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(APECHAIN_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-worldchain-mainnet: ## ⛔ AUDIT-GATED: deploy to World Chain (chainId 480, ETH; worldscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(WORLDCHAIN_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-zircuit-mainnet: ## ⛔ AUDIT-GATED: deploy to Zircuit mainnet (chainId 48900, ETH; sourcify verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ZIRCUIT_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --verify --verifier sourcify -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-citrea-mainnet: ## ⛔ AUDIT-GATED: deploy to Citrea mainnet (chainId 4114, cBTC; blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(CITREA_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(CITREA_MAINNET_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-flow-evm-mainnet: ## ⛔ AUDIT-GATED: deploy to Flow EVM mainnet (chainId 747, FLOW; blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(FLOW_EVM_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(FLOW_EVM_MAINNET_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 deploy-celo-mainnet: ## ⛔ AUDIT-GATED: deploy to Celo mainnet (chainId 42220, CELO; celoscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(CELO_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 # Arc MAINNET is NOT launched (Arc is testnet-only today). Its chain id is TBD, so the HelperConfig
 # branch is selected only when ARC_MAINNET_CHAIN_ID is set to the real id at launch (never invented).
@@ -716,6 +793,7 @@ deploy-arc-mainnet: ## ⛔ AUDIT-GATED + NOT LAUNCHED: deploy to Arc mainnet (se
 		exit 1; \
 	fi
 	@forge script script/DeployAll.s.sol --rpc-url $(ARC_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_MAINNET_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════════════
 # UUPS UPGRADES — storage-safe, keystore-signed, ONE module per chain. Full runbook: docs/UPGRADING.md.
