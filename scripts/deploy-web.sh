@@ -76,16 +76,55 @@ cd "$REPO_ROOT/web"
 # Unlink, Claude, World's signing key, the agent config, and whatever is added to
 # the registry next. It prints a NAMES-ONLY summary so you can see the full list
 # and fill any blanks with `npm run env:set` before shipping.
-RUNTIME_ENV="$(mktemp -t access0x1-runtime.XXXXXX.yaml)"
-trap 'rm -f "$RUNTIME_ENV"' EXIT
-node scripts/deploy-env.mjs --runtime-out "$RUNTIME_ENV"
+WORK="$(mktemp -d -t access0x1-deploy.XXXXXX)"
+trap 'rm -rf "$WORK"' EXIT
+RUNTIME_ENV="$WORK/runtime.yaml"
+SECRETS_DIR="$WORK/secrets"
+node scripts/deploy-env.mjs --runtime-out "$RUNTIME_ENV" --secrets-dir "$SECRETS_DIR"
 # These two must exist at runtime regardless of what .env.local held: the commit so
 # /api/health can name the live build, and the Dynamic env id so the server can
-# verify a sign-in (the whole "verified login" bug). Appended, so they win.
+# verify a sign-in (the whole "verified login" bug). Appended, so they win. Both are
+# public, so they belong in the plain env file, not Secret Manager.
 {
   echo "NEXT_PUBLIC_BUILD_COMMIT: '${TAG}'"
   [[ -n "${DYN_ENV:-}" ]] && echo "NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: '${DYN_ENV}'"
 } >> "$RUNTIME_ENV"
+
+# ── 2b. Real credentials → Secret Manager, NOT plaintext env config ──────────
+# Going-live discipline (DEPLOY-GCP.md §2): a secret lives vaulted, versioned and
+# access-controlled — never in the service's env config where any project viewer
+# reads it. `env:set` puts DEMO=false in nobody's head; this is what makes the
+# difference real. Each secret is created (or a new version added) from a 0600 file,
+# never from argv, then referenced by name at deploy time.
+SET_SECRETS=""
+if [[ -s "$SECRETS_DIR/manifest.txt" ]]; then
+  echo "==> vaulting $(wc -l < "$SECRETS_DIR/manifest.txt" | tr -d ' ') secret(s) in Secret Manager"
+  # The runtime service account that must be allowed to READ them. On an existing
+  # service, its configured SA; otherwise the project's default compute SA.
+  RUNTIME_SA="$(gcloud run services describe "$SERVICE" --region "$REGION" \
+    --format='value(spec.template.spec.serviceAccountName)' 2>/dev/null || true)"
+  if [[ -z "$RUNTIME_SA" ]]; then
+    PROJ_NUM="$(gcloud projects describe "$PROJ" --format='value(projectNumber)' 2>/dev/null || true)"
+    [[ -n "$PROJ_NUM" ]] && RUNTIME_SA="${PROJ_NUM}-compute@developer.gserviceaccount.com"
+  fi
+  while read -r ENV_VAR SECRET_NAME; do
+    [[ -z "$ENV_VAR" ]] && continue
+    if gcloud secrets describe "$SECRET_NAME" --project "$PROJ" >/dev/null 2>&1; then
+      gcloud secrets versions add "$SECRET_NAME" --project "$PROJ" \
+        --data-file="$SECRETS_DIR/val__$ENV_VAR" >/dev/null
+    else
+      gcloud secrets create "$SECRET_NAME" --project "$PROJ" \
+        --replication-policy=automatic --data-file="$SECRETS_DIR/val__$ENV_VAR" >/dev/null
+    fi
+    # Let the runtime SA read this secret (idempotent).
+    if [[ -n "$RUNTIME_SA" ]]; then
+      gcloud secrets add-iam-policy-binding "$SECRET_NAME" --project "$PROJ" \
+        --member="serviceAccount:${RUNTIME_SA}" \
+        --role="roles/secretmanager.secretAccessor" >/dev/null 2>&1 || true
+    fi
+    SET_SECRETS="${SET_SECRETS:+$SET_SECRETS,}${ENV_VAR}=${SECRET_NAME}:latest"
+  done < "$SECRETS_DIR/manifest.txt"
+fi
 
 # ── 3. Build the image ───────────────────────────────────────────────────────
 # Public NEXT_PUBLIC_* vars are inlined at build from .env.local (copied into the
@@ -105,6 +144,7 @@ gcloud run deploy "$SERVICE" \
   --region "$REGION" \
   --image "$IMAGE" \
   --env-vars-file "$RUNTIME_ENV" \
+  ${SET_SECRETS:+--set-secrets "$SET_SECRETS"} \
   --quiet
 
 # ── 4. Prove the live site is the build we just made ─────────────────────────

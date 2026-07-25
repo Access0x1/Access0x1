@@ -29,7 +29,7 @@
  *   node web/scripts/deploy-env.mjs                    # summary only
  *   node web/scripts/deploy-env.mjs --public-out P --runtime-out R
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -82,7 +82,8 @@ async function main() {
   }
 
   const publicVars = {} // NEXT_PUBLIC_* → value (build-time, public)
-  const runtimeVars = {} // server → value (runtime)
+  const plainVars = {} // non-secret server config → runtime env (safe as plain env)
+  const secretVars = {} // secret:true → Secret Manager, never plain env config
   const summary = [] // per-integration, names + booleans only
 
   for (const integ of INTEGRATIONS) {
@@ -92,8 +93,12 @@ async function main() {
       const val = lookup(v.name)
       if (val === undefined || val === '' || isPlaceholder(val)) continue
       setNames.push(v.name)
+      // The registry's `secret` flag decides the road: a real credential goes to
+      // Secret Manager (vaulted), a public id or non-sensitive setting stays a plain
+      // env var. NEXT_PUBLIC_* is public by definition and never a secret.
       if (v.name.startsWith('NEXT_PUBLIC_')) publicVars[v.name] = val
-      else runtimeVars[v.name] = val
+      else if (v.secret) secretVars[v.name] = val
+      else plainVars[v.name] = val
     }
     summary.push({
       id: integ.id,
@@ -117,19 +122,41 @@ async function main() {
   }
 
   if (runtimeOut) {
-    // The runtime set is server vars PLUS the public ones. NEXT_PUBLIC vars are inlined
-    // into the browser at build, but several are ALSO read by SERVER code at runtime —
-    // `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` is what the JWT verifier needs, and passing it
-    // only as a build arg is exactly the bug where sign-in works and every write is
-    // rejected. They are public, so setting them at runtime too costs nothing and closes
-    // that gap for every such var at once.
-    const runtimeAll = { ...publicVars, ...runtimeVars }
+    // The env-vars-file carries ONLY non-secret values: the public NEXT_PUBLIC_* vars
+    // (public by definition) and plain server config. Secrets are excluded on purpose —
+    // they go to Secret Manager below, never into the service's plaintext env config.
+    //
+    // NEXT_PUBLIC vars are here as well as in the build because several are read by
+    // SERVER code at runtime — `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` is what the JWT
+    // verifier needs, and passing it only as a build arg is exactly the bug where
+    // sign-in works and every write is rejected.
+    const runtimeAll = { ...publicVars, ...plainVars }
     // Cloud Run --env-vars-file format: a flat YAML map. Values single-quoted with
     // internal quotes doubled, so commas/URLs/keys survive intact.
     const yaml = Object.entries(runtimeAll)
       .map(([k, v]) => `${k}: '${String(v).replace(/'/g, "''")}'`)
       .join('\n')
     writeFileSync(runtimeOut, yaml + (yaml ? '\n' : ''), { mode: 0o600 })
+  }
+
+  const secretsDir = argValue('--secrets-dir')
+  if (secretsDir) {
+    // One file per secret (the value, 0600) plus a manifest the deploy script loops:
+    //   <ENV_VAR>  <secret-manager-name>
+    // The Secret Manager NAME is the env var lowercased with underscores → dashes,
+    // matching the convention in DEPLOY-GCP.md (env ANTHROPIC_API_KEY → secret
+    // anthropic-api-key). Values NEVER touch argv or stdout — only these 0600 files,
+    // which the deploy script deletes when it exits.
+    mkdirSync(secretsDir, { recursive: true })
+    const manifest = []
+    for (const [name, val] of Object.entries(secretVars)) {
+      const secretName = name.toLowerCase().replace(/_/g, '-')
+      writeFileSync(join(secretsDir, `val__${name}`), String(val), { mode: 0o600 })
+      manifest.push(`${name} ${secretName}`)
+    }
+    writeFileSync(join(secretsDir, 'manifest.txt'), manifest.join('\n') + (manifest.length ? '\n' : ''), {
+      mode: 0o600,
+    })
   }
 
   // ── Human summary: names + counts ONLY, never a value ────────────────────────
@@ -149,9 +176,10 @@ async function main() {
     console.error(`  ${icon[s.state] ?? '· '} ${s.label}${note}`)
   }
   const pub = Object.keys(publicVars).length
-  const rt = Object.keys(runtimeVars).length
+  const plain = Object.keys(plainVars).length
+  const sec = Object.keys(secretVars).length
   console.error(
-    `\n  → ${pub} public build var(s), ${rt} server runtime var(s) will be deployed.` +
+    `\n  → ${pub} public + ${plain} plain config var(s) as env; ${sec} secret(s) to Secret Manager.` +
       '\n  Blank ones stay OFF (fail-soft). Fill any with `npm run env:set` before deploying.\n',
   )
 }
