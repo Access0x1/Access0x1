@@ -85,18 +85,58 @@ export function MerchantProviders({ children }: { children: ReactNode }): ReactN
  * Renders in place of the merchant children so their Dynamic hooks never run
  * (which would otherwise throw "Hook must be used within <DynamicContextProvider>").
  */
+/**
+ * Shown in place of the merchant subtree when Dynamic has no environment id.
+ *
+ * It cannot render the children — they call `useDynamicContext`, which hard-throws without
+ * the provider — so this page IS the fallback, and a fallback that only says "not
+ * configured" is a dead end. Two audiences hit it and both need somewhere to go:
+ *
+ *   - an OPERATOR, who needs the exact command, not just the variable name (this repo's
+ *     env doctor never prints a missing var without printing how to fill it);
+ *   - a VISITOR — a judge, a customer — who cannot fix it at all, and for whom the honest
+ *     answer is that most of the product does not need a wallet and is one click away.
+ *
+ * The links below are all wallet-free surfaces, verified as such: `/deployments` reads live
+ * `getCode` from each chain's public RPC, `/simulate` is pure arithmetic, `/ask` degrades on
+ * its own probe, and the landing page is server-rendered.
+ */
 function DynamicNotConfiguredNotice(): ReactNode {
+  const stillWorks: { href: string; label: string; blurb: string }[] = [
+    {
+      href: '/deployments',
+      label: 'Live deployments',
+      blurb: 'reads the deployed bytecode on every chain and diffs it against this build',
+    },
+    { href: '/simulate', label: 'Cost simulator', blurb: 'what a payment costs, on-chain' },
+    { href: '/ask', label: 'Ask how it works', blurb: 'answers from the docs in this repo' },
+    { href: '/', label: 'Start page', blurb: 'what this is and who it is for' },
+  ]
   return (
-    <main style={{ minHeight: '60vh', display: 'grid', placeItems: 'center', padding: '2rem', textAlign: 'center' }}>
-      <div style={{ maxWidth: 520 }}>
-        <h1 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>
-          Wallet sign-in is not configured
-        </h1>
-        <p style={{ opacity: 0.7, lineHeight: 1.6 }}>
-          The merchant flow uses Dynamic for wallet auth. Set{' '}
-          <code>NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID</code> for this deployment to enable
-          onboarding. Payment and checkout surfaces work without it.
+    <main className="mx-auto grid min-h-[60vh] max-w-xl place-items-center px-6 py-12">
+      <div>
+        <h1 className="mb-3 text-xl font-semibold">Sign-in is not configured on this deployment</h1>
+        <p className="text-sm leading-relaxed opacity-70">
+          The merchant flow signs in through Dynamic, and this deployment has no{' '}
+          <code>NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID</code>. Nothing is broken — that seam is
+          simply dormant, and only the merchant surfaces need it.
         </p>
+        <p className="mt-3 text-sm leading-relaxed opacity-70">
+          Running this yourself? <code>npm run env:set -- dynamic</code> writes it to the right
+          file, and <code>npm run env:doctor</code> lists whatever else is still missing.
+        </p>
+
+        <p className="mt-6 text-sm font-medium">Everything here works without signing in:</p>
+        <ul className="mt-2 space-y-2 text-sm">
+          {stillWorks.map(({ href, label, blurb }) => (
+            <li key={href}>
+              <a className="text-rail underline-offset-2 hover:underline" href={href}>
+                {label}
+              </a>
+              <span className="opacity-60"> — {blurb}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </main>
   )

@@ -85,6 +85,13 @@ export default async function Home(): Promise<ReactNode> {
               {dict.landing.footer.simulator}
             </Link>{' '}
             ·{' '}
+            {/* The strongest proof surface in the app, and it was linked from nowhere: it
+                reads deployed bytecode live off each chain's public RPC and diffs it against
+                this build. No wallet, no sign-in — exactly what a first-time visitor needs. */}
+            <Link href="/deployments" className="text-primary hover:underline">
+              {dict.landing.footer.deployments}
+            </Link>{' '}
+            ·{' '}
             <Link href="/contracts" className="text-primary hover:underline">
               {dict.landing.footer.contracts}
             </Link>{' '}
