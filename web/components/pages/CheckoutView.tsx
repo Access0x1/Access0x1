@@ -8,6 +8,7 @@ import { getPublicClient } from '@/lib/wallet'
 import { CheckoutCard } from '@/components/CheckoutCard'
 import { AskAssistant } from '@/components/AskAssistant'
 import { safeReturnUrl } from '@/lib/safeUrl'
+import { humanizeWalletError } from '@/lib/errors/walletError'
 import { resolveCheckoutDisplayName } from '@/lib/checkout/displayName'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -37,6 +38,8 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  /** Bumped by Retry. A buyer whose RPC blipped should not have to find the URL again. */
+  const [attempt, setAttempt] = useState(0)
 
   let merchantId: bigint | null = null
   try {
@@ -65,7 +68,12 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
         }
       } catch (err) {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load merchant.')
+          // A raw viem/RPC error is several lines of request dump and a docs URL,
+          // and this one lands on the BUYER — someone who did not choose the RPC,
+          // cannot fix it, and is one bad screen away from abandoning the payment.
+          // Browser reads use the public endpoint, so under demo load this is the
+          // likeliest thing they will ever see. Say it in one line they can act on.
+          setLoadError(humanizeWalletError(err))
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -102,9 +110,26 @@ export function CheckoutView({ merchantIdParam }: { merchantIdParam: string }): 
         <div className="h-64 animate-pulse rounded-2xl bg-secondary" />
       ) : loadError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-          {loadError === 'Access0x1__MerchantNotFound'
-            ? 'This payment link is not valid.'
-            : loadError}
+          <p>
+            {loadError === 'Access0x1__MerchantNotFound'
+              ? 'This payment link is not valid.'
+              : loadError}
+          </p>
+          {/* A bad link is permanent; a network read is not. Only offer the retry
+              that can actually succeed, so the button never lies about the outcome. */}
+          {loadError !== 'Access0x1__MerchantNotFound' && loadError !== 'Invalid merchant id.' ? (
+            <button
+              type="button"
+              onClick={() => {
+                setLoadError(null)
+                setLoading(true)
+                setAttempt((n) => n + 1)
+              }}
+              className="mt-3 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
+            >
+              Try again
+            </button>
+          ) : null}
         </div>
       ) : merchant && merchantId !== null ? (
         // White-label checkout card = a deliberate bright `.light` island on the
