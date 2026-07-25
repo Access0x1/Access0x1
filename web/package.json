@@ -28,7 +28,7 @@
     "test:watch": "vitest",
     "check:embed": "node --check public/embed.js",
     "verify:embed": "node scripts/verify-embed.js",
-    "pay-loop": "tsx scripts/pay-loop.mts",
+    "mvp-presentation": "tsx scripts/mvp-presentation.mts",
     "fund": "tsx scripts/fund-gateway.mts",
     "capture:swap": "tsx scripts/capture-payout-swap.mts",
     "gate": "node --check public/embed.js && node scripts/verify-embed.js && node scripts/gen-module-abis.mjs --check && node scripts/gen-docs-corpus.mjs --check && tsc --noEmit && vitest run --exclude '**/*.integration.test.ts'"

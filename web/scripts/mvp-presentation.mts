@@ -1,7 +1,7 @@
 /**
- * pay-loop.mts — the judge artifact: a 1 tx/sec round-robin x402 pay loop.
+ * mvp-presentation.mts — the judge artifact: a 1 tx/sec round-robin x402 MVP presentation loop.
  *
- * Usage:  npx tsx web/scripts/pay-loop.mts [--limit N]
+ * Usage:  npx tsx web/scripts/mvp-presentation.mts [--limit N]
  *
  * Fires many sub-cent authorizations across the priced endpoints so Circle
  * accumulates them into ONE on-chain batch settlement tx visible on Arcscan
@@ -35,13 +35,13 @@ export type PayGateway = {
   deposit?: (amount: string) => Promise<unknown>;
 };
 
-/** Result of a pay loop run, for tests + the on-stage summary. */
+/** Result of a MVP presentation loop run, for tests + the on-stage summary. */
 export type DemoLoopResult = {
   calls: number;
   totalSpent: number;
 };
 
-/** Options controlling a pay loop run. */
+/** Options controlling a MVP presentation loop run. */
 export type DemoLoopOptions = {
   /** The priced calls to round-robin through. */
   calls: PricedCall[];
@@ -67,7 +67,7 @@ const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Run the round-robin x402 pay loop against a gateway.
+ * Run the round-robin x402 MVP presentation loop against a gateway.
  *
  * On each tick it pays the next priced call, accumulates `totalSpent`, and (when
  * the gateway exposes balance + deposit) auto-redeposits below the threshold.
@@ -91,7 +91,7 @@ export async function runDemoLoop(
   } = opts;
 
   if (calls.length === 0) {
-    throw new Error("pay-loop: no priced calls to fire.");
+    throw new Error("mvp-presentation: no priced calls to fire.");
   }
 
   let count = 0;
@@ -134,7 +134,7 @@ export async function runDemoLoop(
   }
 
   console.log(
-    `pay-loop done: ${count} calls, total ${totalSpent.toFixed(6)} USDC`,
+    `mvp-presentation done: ${count} calls, total ${totalSpent.toFixed(6)} USDC`,
   );
   return { calls: count, totalSpent };
 }
@@ -162,7 +162,7 @@ function parseLimit(argv: string[]): number | undefined {
   return undefined;
 }
 
-/** CLI entrypoint: ephemeral buyer wallet → deposit → round-robin pay loop. */
+/** CLI entrypoint: ephemeral buyer wallet → deposit → round-robin MVP presentation loop. */
 async function main(): Promise<void> {
   const { GatewayClient } = await import("@circle-fin/x402-batching/client");
 
@@ -192,7 +192,7 @@ async function main(): Promise<void> {
 
   const controller = new AbortController();
   process.on("SIGINT", () => {
-    console.log("\nStopping pay loop…");
+    console.log("\nStopping MVP presentation loop…");
     controller.abort();
   });
 
@@ -207,11 +207,11 @@ async function main(): Promise<void> {
 const invokedDirectly =
   typeof process !== "undefined" &&
   process.argv[1] !== undefined &&
-  /pay-loop\.mts$/.test(process.argv[1]);
+  /mvp-presentation\.mts$/.test(process.argv[1]);
 
 if (invokedDirectly) {
   main().catch((err) => {
-    console.error("pay-loop failed:", err);
+    console.error("mvp-presentation failed:", err);
     process.exitCode = 1;
   });
 }

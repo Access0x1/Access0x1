@@ -378,7 +378,7 @@ export const INTEGRATIONS: readonly Integration[] = [
   {
     id: 'agent',
     label: 'Agent (x402 earn/spend)',
-    unlocks: 'The autonomous pay loop: the agent earns and spends from its own bounded wallet.',
+    unlocks: 'The autonomous MVP presentation loop: the agent earns and spends from its own bounded wallet.',
     impact: 'core',
     where: 'Set after the Dynamic wallet exists; caps/allowlist are yours to choose.',
     vars: [
