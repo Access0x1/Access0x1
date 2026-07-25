@@ -1,4 +1,4 @@
-# nfteria auditor
+# first-party auditor
 
 A **pure audit agent**: it finds and reports security issues, and it **never
 corrects them**. It separates finding from fixing — an auditor that also patches
@@ -6,7 +6,7 @@ is grading its own work.
 
 ## It's still us. Say so.
 
-Be honest about what this is: the nfteria auditor is **first-party**. We built
+Be honest about what this is: the first-party auditor is **first-party**. We built
 it, it runs on our own code, and however rigorous its rubric, an author's own
 tool reviewing the author's own contracts is **self-review, not independent
 review**. It does not — cannot — satisfy the independence that a real audit
@@ -37,7 +37,7 @@ from a clean, well-mapped codebase, not a cold read.
 | [`RUBRIC.md`](RUBRIC.md) | The 13-category manual-review checklist, phrased as attack questions the agent re-derives from code. |
 | [`FINDING-TEMPLATE.md`](FINDING-TEMPLATE.md) | The per-finding block the agent fills; describes the fix in prose, never writes it. |
 
-The runnable agent lives at `.claude/agents/nfteria-auditor.md` (gitignored,
+The runnable agent lives at `.claude/agents/first-party-auditor.md` (gitignored,
 local tooling) with **read-only tools only** — the no-corrections law is enforced
 at the tool level, not just asked for. This tracked charter is its source of
 truth and what other engineers review.
@@ -46,9 +46,9 @@ truth and what other engineers review.
 
 ```
 # in Claude Code, from the repo root:
-Use the nfteria-auditor agent to audit src/**
+Use the first-party-auditor agent to audit src/**
 # or a narrower scope:
-Use the nfteria-auditor agent to audit src/ens/Access0x1PaymentResolver.sol
+Use the first-party-auditor agent to audit src/ens/Access0x1PaymentResolver.sol
 ```
 
 It reproduces the gate read-only, runs slither/aderyn, walks the rubric, reasons

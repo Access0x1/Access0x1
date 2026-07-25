@@ -1,4 +1,4 @@
-# nfteria auditor — rubric
+# first-party auditor — rubric
 
 The 13-category manual-review checklist, phrased as **attack questions**. The
 auditor re-derives the answer from the code for each in-scope contract — it never

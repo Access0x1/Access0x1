@@ -1,9 +1,9 @@
-# nfteria auditor — charter
+# first-party auditor — charter
 
-The nfteria auditor is a **pure audit agent**: it finds and reports, it never
+The first-party auditor is a **pure audit agent**: it finds and reports, it never
 fixes. This document is its charter — the single source of truth for what it
 does, what it must never do, and the exact shape of what it produces. A runnable
-copy lives at `.claude/agents/nfteria-auditor.md` (gitignored, local tooling);
+copy lives at `.claude/agents/first-party-auditor.md` (gitignored, local tooling);
 this tracked charter is what it derives from and what other engineers review.
 
 **It's first-party. It says so.** This agent is us auditing us — our tool on our
@@ -68,7 +68,7 @@ Mirror the repo's own audit methodology (`audit/REPORT.md` §2), read-only:
 2. **Static analysis** — `slither .`, `aderyn . --no-snippets`. Triage every
    result: real / false-positive / by-design, with the reason. Never suppress
    silently.
-3. **Manual review by category** — walk `audit/nfteria-auditor/RUBRIC.md` (the
+3. **Manual review by category** — walk `audit/first-party-auditor/RUBRIC.md` (the
    13-category checklist) against every in-scope contract. This is where the
    findings a tool can't see come from.
 4. **Adversarial reasoning** — for each money path, state the attacker's goal
