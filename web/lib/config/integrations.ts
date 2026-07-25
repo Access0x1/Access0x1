@@ -215,6 +215,7 @@ export const INTEGRATIONS: readonly Integration[] = [
       'Buying a real .eth name from inside the app: commit → 60s → register, signed by the ' +
       "CONNECTED wallet. Blank ⇒ the Own-your-name step is hidden; the free subname claim still works.",
     impact: 'feature',
+    origin: 'partner',
     where:
       'docs.ens.domains — CONFIRM the ETHRegistrarController + Public Resolver addresses for the ' +
       'target testnet (default Sepolia). All PUBLIC: both txs are signed client-side, zero custody.',
