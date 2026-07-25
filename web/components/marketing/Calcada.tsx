@@ -47,18 +47,29 @@ function CalcadaDefs({
         <feDisplacementMap in="SourceGraphic" in2="n" scale={stoneScale} />
       </filter>
 
-      {/* The limestone field: offset cobbles, slightly rotated like a fan course. */}
+      {/* The limestone field. The real Liberdade field is hand-set: irregular
+          stones in drifting courses, no two alike — a perfect square grid reads
+          as bathroom tile, not calçada. So the tile is larger (44 units, harder
+          for the eye to lock onto) and every stone carries its own size and a
+          few degrees of rotation, the way a calceteiro's hammer actually leaves
+          them. Deterministic values, not Math.random(): identical on server and
+          client, so there is no hydration drift. */}
       <pattern
         id={`${idPrefix}-field`}
-        width="28"
-        height="28"
+        width="44"
+        height="44"
         patternUnits="userSpaceOnUse"
         patternTransform="rotate(8)"
       >
-        <rect x="1" y="1" width="12" height="11" rx="2" fill="currentColor" />
-        <rect x="15" y="2" width="11" height="10" rx="2" fill="currentColor" />
-        <rect x="2" y="15" width="10" height="11" rx="2" fill="currentColor" />
-        <rect x="14" y="14" width="12" height="12" rx="2" fill="currentColor" />
+        <rect x="2" y="2" width="13" height="11" rx="2.5" fill="currentColor" transform="rotate(-6 8.5 7.5)" />
+        <rect x="18" y="1" width="11" height="12" rx="2.5" fill="currentColor" transform="rotate(7 23.5 7)" />
+        <rect x="32" y="3" width="10" height="10" rx="2.5" fill="currentColor" transform="rotate(-3 37 8)" />
+        <rect x="1" y="16" width="11" height="13" rx="2.5" fill="currentColor" transform="rotate(4 6.5 22.5)" />
+        <rect x="15" y="15" width="13" height="11" rx="2.5" fill="currentColor" transform="rotate(-8 21.5 20.5)" />
+        <rect x="30" y="16" width="12" height="12" rx="2.5" fill="currentColor" transform="rotate(5 36 22)" />
+        <rect x="3" y="31" width="12" height="11" rx="2.5" fill="currentColor" transform="rotate(8 9 36.5)" />
+        <rect x="17" y="29" width="11" height="13" rx="2.5" fill="currentColor" transform="rotate(-5 22.5 35.5)" />
+        <rect x="31" y="30" width="11" height="11" rx="2.5" fill="currentColor" transform="rotate(3 36.5 35.5)" />
       </pattern>
 
       {/* Vignette so the field fades out toward the edges (laid, not tiled).
