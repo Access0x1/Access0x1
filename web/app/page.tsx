@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 
 import { BrandMark } from '@/components/BrandMark'
 import { CalcadaDivider } from '@/components/marketing/Calcada'
+import { ProofBand } from '@/components/marketing/ProofBand'
 import { Hero } from '@/components/marketing/Hero'
 import { FeatureGrid } from '@/components/marketing/FeatureGrid'
 import { IntegrationStrip } from '@/components/marketing/IntegrationStrip'
@@ -56,6 +57,12 @@ export default async function Home(): Promise<ReactNode> {
 
       {/* The capability grid across the contract surface. */}
       <FeatureGrid features={dict.features} />
+
+      {/* Evidence, before the second ask. Everything above this point is a claim;
+          this is the part a visitor can check without a wallet, an account, or a
+          single click of trust — and it was previously reachable from nowhere. */}
+      <CalcadaDivider className="py-2" />
+      <ProofBand />
 
       {/* Closing call-to-action — a second, explicit path into onboarding. */}
       <section className="mx-auto w-full max-w-3xl px-6 pb-28 pt-8 text-center">
