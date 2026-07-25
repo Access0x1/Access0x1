@@ -12,6 +12,14 @@ ANVIL_SENDER ?= 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 # match what you actually imported (e.g. DEPLOYER_ACCOUNT=default) — `cast wallet list` shows names.
 DEPLOYER_ACCOUNT ?= deployer
 
+# Silence Node's DEP0040 punycode deprecation. It comes from TRANSITIVE deps we do not
+# control — @dynamic-labs/iconic -> url@0.11 -> punycode@1.3, and eslint -> ajv -> uri-js
+# -> punycode@2.3 — so there is nothing in our source to fix and the warning is pure noise
+# on every `make sync`. Suppress the ONE warning id, never all warnings (a blanket
+# --no-deprecation would hide a real deprecation in our own code). Appended, so an operator's
+# own NODE_OPTIONS survives.
+export NODE_OPTIONS := $(strip $(NODE_OPTIONS) --disable-warning=DEP0040)
+
 # Public RPC defaults — so every `make deploy-<chain>` (and the preview) works with ZERO .env setup.
 # A value set in .env always wins (set <CHAIN>_RPC_URL to your Alchemy/Tenderly URL for reliability —
 # public endpoints rate-limit). Every endpoint below was verified live + chainId-matched 2026-06-17.
