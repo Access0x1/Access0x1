@@ -222,6 +222,30 @@ async function main(): Promise<void> {
 
   console.log(`Swapper (merchant): ${account.address} on ${chain.name}`)
 
+  // Pre-flight: prove the burner actually HOLDS the input before touching the chain.
+  // Without this, an unfunded burner still lands the (pointless) approval, then buys a
+  // Universal-Router revert with real gas — the exact failure the first live run hit.
+  const usdcBalance = (await reader.readContract({
+    address: req.usdc,
+    abi: [
+      {
+        type: 'function',
+        name: 'balanceOf',
+        stateMutability: 'view',
+        inputs: [{ name: 'owner', type: 'address' }],
+        outputs: [{ name: '', type: 'uint256' }],
+      },
+    ],
+    functionName: 'balanceOf',
+    args: [account.address],
+  })) as bigint
+  if (usdcBalance < req.amountUsdc) {
+    throw new InvalidCaptureEnvError(
+      `burner ${account.address} holds ${usdcBalance} of ${req.usdc} but the swap needs ` +
+        `${req.amountUsdc} — fund it first (no tx was sent, no gas spent)`,
+    )
+  }
+
   // Approval pre-step, exactly as a merchant wallet would run it: ask the rail, sign what it hands back.
   if (client.checkApproval) {
     const check = await client.checkApproval(req)
