@@ -26,13 +26,19 @@ export function Hero({ hero, cta }: HeroProps): ReactNode {
   return (
     <section className="relative isolate overflow-hidden">
       {/*
-       * Ambient cyan→teal glow behind the headline. Decorative only, so it is
-       * aria-hidden and pointer-events-none; it never intercepts a click on the
-       * CTA below it. Pure CSS gradient — no image request.
+       * Moonlight on night water: a low, wide band of cyan lying along the
+       * BOTTOM of the fold, where the calçada ground meets the ink — light
+       * caught on a surface, which is the brand's own image ("access0x1 across
+       * night water"). It replaces a large blurred orb floating above the
+       * headline; that shape is the default SaaS halo, it belongs to no
+       * particular product, and pinning it behind the h1 washed the one line
+       * the page most needs to land. Decorative only — aria-hidden and
+       * pointer-events-none, so it never intercepts a click on the CTA. Pure
+       * CSS gradient, no image request.
        */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 -top-32 -z-10 mx-auto h-72 max-w-3xl rounded-full bg-gradient-to-r from-primary/25 via-accent/15 to-primary/25 blur-3xl"
+        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 mx-auto h-20 max-w-4xl rounded-[100%] bg-gradient-to-r from-transparent via-primary/20 to-transparent blur-2xl"
       />
 
       {/*

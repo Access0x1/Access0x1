@@ -380,7 +380,7 @@ export function CheckoutCard({
         >
           This payment link has an invalid amount. Please ask the merchant for a new link.
         </div>
-        <p className="flex items-center justify-center gap-1.5 border-t border-neutral-100 pt-4 text-center text-xs text-neutral-400">
+        <p className="flex items-center justify-center gap-1.5 border-t border-border pt-4 text-center text-xs text-muted-foreground">
           <span>Powered by</span>
           <BrandMark size={14} />
         </p>
@@ -415,7 +415,7 @@ export function CheckoutCard({
             always identical (a crafted `?amount=29.999` shows "29.999", not a
             misleading rounded "30.00"). */}
         <p className="text-4xl font-semibold text-ink">${formatCheckoutUsd(usdAmount8)}</p>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           {loadingQuote
             ? 'Fetching live quote…'
             : quoteError
@@ -431,7 +431,7 @@ export function CheckoutCard({
             Paying in another coin (WETH/LINK/…) still needs the chain's gas asset,
             so we never show this for a non-USDC selection. */}
         {isGasFree(chainId) && tokenSymbol === USDC_SYMBOL ? (
-          <p className="mt-1 text-xs text-neutral-400">Pay in USDC — no separate gas token needed.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Pay in USDC — no separate gas token needed.</p>
         ) : null}
         {/* ERC-7677 sponsored-gas badge (env-gated, fail-soft).
             Shown ONLY when a paymaster is configured AND it covers this chain
@@ -492,8 +492,8 @@ export function CheckoutCard({
           data-flow="true"
           className="rounded-xl border border-dashed border-input bg-secondary p-4"
         >
-          <p className="text-sm font-medium text-neutral-700">Pay in any token</p>
-          <p className="mt-1 text-xs text-neutral-500">
+          <p className="text-sm font-medium text-foreground">Pay in any token</p>
+          <p className="mt-1 text-xs text-muted-foreground">
             Coming soon — your token will be swapped to USDC at checkout. For now,
             pick an accepted token above or top up in USDC to pay.
           </p>
@@ -531,7 +531,7 @@ export function CheckoutCard({
           }`}
         >
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm text-neutral-600">
+            <span className="text-sm text-foreground/80">
               {tierMet
                 ? 'You meet this merchant’s verification requirement.'
                 : `This merchant accepts ${TIER_INFO[requiredTier].label} buyers.`}
@@ -577,7 +577,7 @@ export function CheckoutCard({
         </button>
       ) : (
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-neutral-500">Connect a wallet to pay.</p>
+          <p className="text-sm text-muted-foreground">Connect a wallet to pay.</p>
           <BuyerConnectButton />
         </div>
       )}
@@ -591,7 +591,7 @@ export function CheckoutCard({
         </p>
       ) : null}
 
-      <p className="flex items-center justify-center gap-1.5 border-t border-neutral-100 pt-4 text-center text-xs text-neutral-400">
+      <p className="flex items-center justify-center gap-1.5 border-t border-border pt-4 text-center text-xs text-muted-foreground">
         <span>Powered by</span>
         <BrandMark size={14} />
       </p>

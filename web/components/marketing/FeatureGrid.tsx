@@ -102,10 +102,25 @@ export function FeatureGrid({ features }: FeatureGridProps): ReactNode {
           const item = features.items[key]
           return (
             <li key={key} className="contents">
-              <Card className="h-full transition-colors hover:border-primary/50">
+              {/* Hover does three small things at once instead of one: the border
+                  warms, the card lifts half a step off the page, and the surface
+                  brightens — so a pointer reads the card as a physical object it
+                  can pick up rather than an outline that changed colour. The lift
+                  is suppressed under prefers-reduced-motion; the colour is not,
+                  because colour is the part carrying the affordance. */}
+              <Card className="h-full transition-[transform,border-color,background-color] duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-card/80 motion-reduce:hover:translate-y-0">
                 <CardHeader>
                   <div className="mb-2 flex items-center gap-2">
-                    <span aria-hidden="true" className="text-xl leading-none">
+                    {/* The glyph sits in a calçada stone: a set roundel of the
+                        secondary surface, sized to the row. A bare emoji floating
+                        against the card had no shared silhouette card-to-card, so
+                        seven different vendor drawings at seven different optical
+                        weights read as clip art. The roundel is the constant, and
+                        the emoji becomes its inlay. */}
+                    <span
+                      aria-hidden="true"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-base leading-none"
+                    >
                       {glyph}
                     </span>
                     <CardTitle className="text-base">{item.title}</CardTitle>

@@ -83,7 +83,19 @@ const config: Config = {
           foreground: 'hsl(var(--card-foreground))',
         },
       },
+      // The radius scale is one token with offsets, same as the colours: --radius
+      // (14px) is the brand's corner and every step is derived from it, so a
+      // cloner re-corners the whole app by editing one value.
+      //
+      // xl/2xl are NOT decoration here — they are a repair. Tailwind ships its own
+      // xl (0.75rem) and 2xl (1rem), and this app already calls `rounded-xl` and
+      // `rounded-2xl` on ~60 surfaces (cards, panels, checkout). Without these two
+      // entries, that majority silently kept Tailwind's stock corners while only
+      // the shadcn components followed --radius: the app was quietly running two
+      // radius systems, and changing --radius moved half of it.
       borderRadius: {
+        '2xl': 'calc(var(--radius) + 10px)',
+        xl: 'calc(var(--radius) + 4px)',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
