@@ -5,6 +5,7 @@ import type { Chain } from 'viem'
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import { getWalletClient } from '@/lib/wallet'
 import { ensureChain, isTestnetChain, useLiveChain, writableChains, type LiveChain } from '@/lib/live-chain'
+import { humanizeWalletError } from '@/lib/errors/walletError'
 
 /**
  * NetworkBadge — the live-network truth chip for merchant surfaces.
@@ -37,7 +38,7 @@ export function NetworkBadge({ className }: { className?: string }): ReactNode {
       // No state to set on success — the wagmi store hears chainChanged and
       // useLiveChain re-renders this badge on the new chain by itself.
     } catch (err) {
-      setSwitchError(err instanceof Error ? err.message : 'Could not switch network.')
+      setSwitchError(humanizeWalletError(err))
     } finally {
       setSwitching(null)
     }

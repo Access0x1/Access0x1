@@ -164,8 +164,10 @@ describe('humanizeAdminRevert', () => {
     expect(humanizeAdminRevert(new Error('User rejected the request.'))).toMatch(/rejected/i)
   })
 
-  it('detects insufficient funds', () => {
-    expect(humanizeAdminRevert(new Error('insufficient funds for gas'))).toMatch(/insufficient/i)
+  it('detects insufficient funds and points at the fix, which is outside the app', () => {
+    const out = humanizeAdminRevert(new Error('insufficient funds for gas'))
+    expect(out).toMatch(/gas/i)
+    expect(out).toMatch(/faucet/i)
   })
 
   it('prefers a viem shortMessage when no known error matches', () => {

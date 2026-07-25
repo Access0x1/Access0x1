@@ -10,6 +10,7 @@ import { registerMerchant } from '@/lib/contracts'
 import { getPublicClient, getWalletClient } from '@/lib/wallet'
 import { EnsResolutionError, isEnsInput, resolveENS } from '@/lib/ens'
 import { setWalletLabel } from '@/lib/walletLabel'
+import { humanizeWalletError } from '@/lib/errors/walletError'
 
 export interface RegisterResult {
   merchantId: bigint
@@ -110,7 +111,7 @@ export function RegisterForm({
     setError(null)
 
     if (!primaryWallet) {
-      setError('Connect a wallet first.')
+      setError('Sign in first.')
       return
     }
     const trimmedName = name.trim()
@@ -199,7 +200,10 @@ export function RegisterForm({
         chainId,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed.')
+      // A raw viem error here is several lines of ABI dump at the exact moment a
+      // merchant has just pressed the button — and the two likeliest causes (they
+      // dismissed the wallet prompt, or the wallet has no gas) are invisible in it.
+      setError(humanizeWalletError(err))
     } finally {
       setSubmitting(false)
     }

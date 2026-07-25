@@ -37,6 +37,7 @@ import {
   PROVENANCE_REGISTRY_ABI,
   PROVENANCE_REGISTRY_BYTECODE,
 } from '@/lib/artifacts/Access0x1ProvenanceRegistry'
+import { humanizeWalletError } from '@/lib/errors/walletError'
 
 // ── Example repo identity (the placeholder the /admin demo claims + anchors) ──
 //
@@ -242,33 +243,13 @@ const KNOWN_REVERTS: Readonly<Record<string, string>> = {
 /**
  * Turn a thrown viem/wallet error into a clean, human reason string.
  *
- * Surfaces, in order: a known registry custom error (by name), a user-rejected
- * signature, an insufficient-funds hint, then viem's own short message, falling
- * back to a generic line. Never leaks a stack trace into the UI.
+ * The registry's own custom errors are resolved here (they are this module's to
+ * know); everything generic — user-rejected, the gas cliff, nonce and network
+ * conditions, viem's shortMessage — is shared with every other wallet-calling
+ * surface via {@link humanizeWalletError}. Never leaks a stack trace into the UI.
  */
 export function humanizeAdminRevert(err: unknown): string {
-  const message =
-    typeof err === 'object' && err !== null && 'message' in err
-      ? String((err as { message: unknown }).message)
-      : String(err)
-
-  for (const [name, friendly] of Object.entries(KNOWN_REVERTS)) {
-    if (message.includes(name)) return friendly
-  }
-  if (/User rejected|rejected the request|denied transaction|User denied/i.test(message)) {
-    return 'You rejected the request in your wallet.'
-  }
-  if (/insufficient funds/i.test(message)) {
-    return 'Insufficient funds for gas on this testnet — top up the connected wallet.'
-  }
-  // viem attaches a concise `shortMessage` to its errors; prefer it when present.
-  const short =
-    typeof err === 'object' && err !== null && 'shortMessage' in err
-      ? String((err as { shortMessage: unknown }).shortMessage)
-      : null
-  if (short) return short
-  // Otherwise return the first line of the raw message (no stack trace).
-  return message.split('\n')[0] || 'The transaction failed. Please try again.'
+  return humanizeWalletError(err, KNOWN_REVERTS)
 }
 
 // ── The three on-chain actions (viem wrappers) ───────────────────────────────

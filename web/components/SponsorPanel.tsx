@@ -15,6 +15,7 @@ import {
 } from '@/lib/sponsor-registry'
 import { TxHashLink } from '@/components/TxHashLink'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { humanizeWalletError } from '@/lib/errors/walletError'
 
 /**
  * The panel's five actions. `decline`, `withdraw` and `clear` all submit
@@ -157,7 +158,7 @@ export function SponsorPanel({ merchantId }: { merchantId: bigint }): ReactNode 
       // Re-read the record — the receipt landed, show the on-chain truth.
       setReloadKey((k) => k + 1)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Transaction failed.')
+      setError(humanizeWalletError(err))
     } finally {
       setBusy(null)
     }

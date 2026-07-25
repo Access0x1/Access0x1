@@ -8,6 +8,7 @@ import { getPublicClient, getWalletClient } from '@/lib/wallet'
 import { usdToAmount8 } from '@/lib/quote'
 import { createInvoice, issueGiftCard, setSubscriptionPlan } from '@/lib/journey/sellables'
 import { TxHashLink } from '@/components/TxHashLink'
+import { humanizeWalletError } from '@/lib/errors/walletError'
 
 /**
  * SellableForms — the three "create something a business sells" steps of the
@@ -59,7 +60,7 @@ function useSellableWrite(): {
       if (switched) walletClient = await getWalletClient(primaryWallet)
       return await fn(walletClient, getPublicClient(chainId), chainId)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Transaction failed.')
+      setError(humanizeWalletError(err))
       return null
     } finally {
       setSubmitting(false)
