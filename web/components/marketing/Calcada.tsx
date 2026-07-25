@@ -101,11 +101,15 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
           <circle cx="734" cy="200" r="7" fill="currentColor" />
         </g>
 
-        {/* The long volutes — the "u" blades with curled tips, drawn in. */}
+        {/* The long volutes — the "u" blades with curled tips, drawn in.
+            The curls stay inside x ∈ [~190, ~1010]: preserveAspectRatio="slice"
+            crops up to ~155 viewBox units per side at common laptop aspect
+            ratios (≥1280px wide over a ~920px fold), and the curl is the one
+            element that must never be amputated by that crop. */}
         <path
           pathLength={1}
           className="calcada-draw"
-          d="M 505 205 C 380 120, 210 96, 96 170 C 74 185, 66 210, 84 226 C 100 240, 124 236, 132 218 C 138 202, 126 190, 112 192"
+          d="M 505 205 C 395 128, 265 104, 196 158 C 176 174, 172 198, 190 212 C 206 224, 228 218, 234 201 C 238 186, 226 176, 213 180"
           fill="none"
           stroke="currentColor"
           strokeWidth="24"
@@ -114,7 +118,7 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
         <path
           pathLength={1}
           className="calcada-draw"
-          d="M 695 205 C 820 120, 990 96, 1104 170 C 1126 185, 1134 210, 1116 226 C 1100 240, 1076 236, 1068 218 C 1062 202, 1074 190, 1088 192"
+          d="M 695 205 C 805 128, 935 104, 1004 158 C 1024 174, 1028 198, 1010 212 C 994 224, 972 218, 966 201 C 962 186, 974 176, 987 180"
           fill="none"
           stroke="currentColor"
           strokeWidth="24"
