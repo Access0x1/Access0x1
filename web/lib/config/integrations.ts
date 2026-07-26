@@ -198,13 +198,22 @@ export const INTEGRATIONS: readonly Integration[] = [
   },
   {
     id: 'ens-subnames',
-    label: 'ENS subnames (Namestone)',
-    unlocks: 'Issuing pay.<business>.eth subnames — the front door of onboarding.',
-    impact: 'core',
+    label: 'ENS subnames — gasless issuer (⚠ SUNSET: NameStone ends Aug 3, 2026)',
+    unlocks:
+      'Gasless pay.<business>.eth subname issuance. NameStone announced shutdown effective ' +
+      'Aug 3, 2026 (also enspro.xyz/enspark.xyz) — do NOT onboard a new key. Blank ⇒ subname ' +
+      'issuance is a clean no-op; payments and the in-app .eth purchase are unaffected.',
+    // Was 'core'. A third-party with days to live cannot be a launch blocker: demoted so the
+    // doctor stops demanding a key from a dying console. The successor path is our own —
+    // the ENSv2 PaymentResolver + CCIP-Read gateway (already shipped) and the in-app .eth
+    // registrar ("Own your name"); an on-chain subname issuer replaces the gasless leg later.
+    impact: 'optional',
     origin: 'partner',
-    where: 'namestone.com — API key, plus an ENS name you control as the parent.',
+    where:
+      'DO NOT SIGN UP — namestone.com shuts down Aug 3, 2026. Existing keys work until then; ' +
+      'the replacement is the in-repo resolver/registrar path (lib/ens/**).',
     vars: [
-      { name: 'NAMESTONE_API_KEY', purpose: 'Namestone API key', required: true, secret: true },
+      { name: 'NAMESTONE_API_KEY', purpose: 'Legacy Namestone key (service sunsets Aug 3, 2026)', secret: true },
       { name: 'ENS_SUBNAME_PARENT', purpose: 'The ENS name subnames are issued under', required: true },
     ],
   },
