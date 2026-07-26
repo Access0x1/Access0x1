@@ -87,17 +87,18 @@ const defaultClientFactory: DynamicClientFactory = () => {
 };
 
 /**
- * Design decision #2 (globalThis-backed latch): dev bundlers compile
- * `instrumentation.ts` and each route as SEPARATE compilations, so this module
- * exists as two live instances in one Node process — boot wires copy A's
- * factory, the route reads copy B's default throw, and `/api/agent/pay`
- * answers 503 `not_configured` despite a successful wiring (webpack `next dev`,
- * verified 2026-07-25). Module state is per-INSTANCE; the latch must be
- * per-PROCESS, so all mutable state lives on `globalThis` under a
- * `Symbol.for` key every copy resolves to the same slot (HMR-safe too: a
- * rebuilt module re-attaches to the same store instead of orphaning the
- * wiring). Prod semantics are unchanged — one process, one latch, auth still
- * happens at most once.
+ * Design decision #2 (globalThis-backed latch): webpack splits
+ * `instrumentation.ts` and each route into SEPARATE module instances in one
+ * Node process — in dev as separate compilations, and in the standalone PROD
+ * build too (the route scope-hoists its own verbatim copy of this module
+ * while instrumentation loads it via an async chunk; verified empirically in
+ * `.next/server`, 2026-07-26). Boot wires copy A's factory, the route reads
+ * copy B's default throw, and `/api/agent/pay` answers 503 `not_configured`
+ * despite a successful wiring. Module state is per-INSTANCE; the latch must
+ * be per-PROCESS, so all mutable state lives on `globalThis` under a
+ * `Symbol.for` key every copy resolves to the same slot (a rebuilt dev module
+ * re-attaches to the same store instead of orphaning the wiring). One
+ * process, one latch, auth at most once — now true in every topology.
  */
 interface WalletModuleState {
   clientFactory: DynamicClientFactory;
@@ -146,11 +147,6 @@ function requireEnv(name: string): string {
   return value;
 }
 
-let client: DynamicEvmWalletClient | null = null;
-let authPromise: Promise<DynamicEvmWalletClient> | null = null;
-let account: AgentAccount | null = null;
-let accountPromise: Promise<AgentAccount> | null = null;
-
 /**
  * Get the authenticated Dynamic client, authenticating exactly once per process
  * (design decision #1). Concurrent callers await the same in-flight auth promise, so
@@ -186,22 +182,22 @@ export async function getAgentClient(): Promise<DynamicEvmWalletClient> {
  * @throws {ConfigMissing} if `WALLET_PASSWORD` (or any auth env var) is unset.
  */
 export async function getOrCreateAgentAccount(): Promise<AgentAccount> {
-  if (account) {
-    return account;
+  if (state.account) {
+    return state.account;
   }
-  if (!accountPromise) {
-    accountPromise = (async () => {
+  if (!state.accountPromise) {
+    state.accountPromise = (async () => {
       const c = await getAgentClient();
       const password = requireEnv("WALLET_PASSWORD");
       const walletId = process.env.AGENT_WALLET_ID;
       const acct = walletId
         ? await c.getWalletAccount({ walletId, password })
         : await c.createWalletAccount({ password });
-      account = acct;
+      state.account = acct;
       return acct;
     })();
   }
-  return accountPromise;
+  return state.accountPromise;
 }
 
 /**
@@ -222,8 +218,8 @@ export async function agentAddress(): Promise<Hex> {
  * @returns void
  */
 export function __resetWalletForTests(): void {
-  client = null;
-  authPromise = null;
-  account = null;
-  accountPromise = null;
+  state.client = null;
+  state.authPromise = null;
+  state.account = null;
+  state.accountPromise = null;
 }
