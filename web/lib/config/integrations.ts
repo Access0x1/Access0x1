@@ -260,6 +260,17 @@ export const INTEGRATIONS: readonly Integration[] = [
     where: 'developer.worldcoin.org — create an app + action, then an API key for the sign route.',
     vars: [
       { name: 'NEXT_PUBLIC_WORLD_APP_ID', purpose: 'World app id (client)', required: true },
+      // THE REAL-vs-SIMULATOR SWITCH. Blank/anything-but-"production" ⇒ IDKit runs
+      // against the Worldcoin SIMULATOR (staging verify base) — correct for dev, but
+      // NOT a real proof of personhood. Set to "production" to verify against the
+      // real World App. It was documented in .env.example but UNDECLARED here, so the
+      // deploy silently dropped it (law 7) — an operator could flip it to production
+      // locally and the live site would keep running the simulator.
+      {
+        name: 'NEXT_PUBLIC_WORLD_ENVIRONMENT',
+        purpose: 'IDKit environment: "production" for real World App proofs; blank ⇒ staging simulator',
+        hasDefault: true,
+      },
       { name: 'WORLD_ACTION', purpose: 'The action string the buyer gate verifies', hasDefault: true },
       { name: 'WORLD_SIGNING_KEY', purpose: 'Server-only key that signs the World payload', secret: true },
       // Per-surface action overrides. Each defaults to a baked-in action string, so
