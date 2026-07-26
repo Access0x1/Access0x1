@@ -63,6 +63,21 @@ if [[ -z "${DYN_ENV:-}" ]]; then
   exit 1
 fi
 
+# ── Refuse to bake garbage into the bundle ───────────────────────────────────
+# A stray `export DYN_ENV=paste-the-id-from-step-2` (a copy-pasted instruction
+# placeholder) survived in an operator shell, overrode the derivation, and got
+# COMPILED into the client bundle as the Dynamic environment id — the SDK then
+# fails to init and sign-in dies with no error anywhere. A Dynamic env id is a
+# UUID; anything else is a placeholder or a typo, and a 20-minute build over it
+# is pure loss. Refuse loudly instead.
+if [[ ! "$DYN_ENV" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+  echo "deploy-web: REFUSING to build — DYN_ENV is not a Dynamic environment id (UUID):"
+  echo "    DYN_ENV='${DYN_ENV}'"
+  echo "  This is usually a stale placeholder exported in your shell. Fix:"
+  echo "    unset DYN_ENV && make deploy-web    # derives the real id from web/.env.local"
+  exit 1
+fi
+
 cd "$REPO_ROOT"
 
 # ── 1. Never build stale code ────────────────────────────────────────────────
@@ -105,9 +120,16 @@ npx tsx scripts/doctor/deploy-env.mjs --runtime-out "$RUNTIME_ENV" --secrets-dir
 # /api/health can name the live build, and the Dynamic env id so the server can
 # verify a sign-in (the whole "verified login" bug). Appended, so they win. Both are
 # public, so they belong in the plain env file, not Secret Manager.
+# REPLACE, never shadow: deploy-env already wrote NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID
+# from .env.local. Appending a second copy made a duplicate YAML key — gcloud only
+# WARNS, silently letting one value win, which is how a poisoned DYN_ENV shadowed
+# the correct id without an error. Strip any existing lines first so the file has
+# exactly one value per key and a disagreement becomes impossible.
+grep -vE '^(NEXT_PUBLIC_BUILD_COMMIT|NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID):' "$RUNTIME_ENV" > "$RUNTIME_ENV.tmp" \
+  && mv "$RUNTIME_ENV.tmp" "$RUNTIME_ENV"
 {
   echo "NEXT_PUBLIC_BUILD_COMMIT: '${TAG}'"
-  [[ -n "${DYN_ENV:-}" ]] && echo "NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: '${DYN_ENV}'"
+  echo "NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: '${DYN_ENV}'"
 } >> "$RUNTIME_ENV"
 
 # ── 2b. Real credentials → Secret Manager, NOT plaintext env config ──────────
