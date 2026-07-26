@@ -10,6 +10,7 @@ import { Hero } from '@/components/marketing/Hero'
 import { FeatureGrid } from '@/components/marketing/FeatureGrid'
 import { IntegrationStrip } from '@/components/marketing/IntegrationStrip'
 import { LandingCTA } from '@/components/marketing/LandingCTA'
+import { JudgesCorner } from '@/components/marketing/JudgesCorner'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { LocalePrompt } from '@/components/LocalePrompt'
 import { getLocale, getLocaleContext } from '@/lib/i18n/locale'
@@ -70,6 +71,9 @@ export default async function Home(): Promise<ReactNode> {
 
       {/* The capability grid across the contract surface. */}
       <FeatureGrid features={dict.features} />
+
+      {/* Judges / sceptics: the receipts counter — ask the repo's own docs, live. */}
+      <JudgesCorner judges={dict.judges} />
 
       {/* Closing call-to-action — a second, explicit path into onboarding. */}
       <section className="mx-auto w-full max-w-3xl px-6 pb-28 pt-8 text-center">

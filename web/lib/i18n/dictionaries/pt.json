@@ -53,6 +53,26 @@
       "ens": {
         "title": "Identidade ENS",
         "description": "Registe o seu endereço de recebimento com um nome ENS e ele é resolvido on-chain antes de ser guardado. O checkout mostra depois esse nome apenas quando o ENS prova que ele resolve de volta para o endereço exato — caso contrário, o comprador vê o endereço em bruto."
+      },
+      "ownName": {
+        "title": "O teu nome, teu",
+        "description": "Compra um nome .eth verdadeiro sem sair da app — commit, os 60 segundos obrigatórios, registo. As duas transações são assinadas pela tua própria carteira; nunca tocamos numa chave."
+      },
+      "verification": {
+        "title": "Escada de verificação",
+        "description": "Sessão iniciada → humano verificado → nome verificado, num único selo com um botão para o próximo degrau. Confiança que valida identidade e escritas — nunca um pagamento."
+      },
+      "aiInference": {
+        "title": "IA à tua maneira",
+        "description": "Cada funcionalidade de IA pode correr na Anthropic ou na inferência descentralizada da 0G Compute — uma definição, e as respostas dizem qual delas respondeu."
+      },
+      "payoutSwap": {
+        "title": "Recebe em qualquer moeda",
+        "description": "Liquida em USDC, guarda ou troca via Uniswap ou 1inch sem taxa adicional — depois da liquidação, para que uma troca nunca quebre um pagamento."
+      },
+      "proofOfPayment": {
+        "title": "Prova de Pagamento",
+        "description": "\"Chegou?\" respondido pela própria blockchain: a última liquidação com o hash da transação que qualquer pessoa pode verificar — sem confiar em dashboards."
       }
     }
   },
@@ -70,5 +90,16 @@
   },
   "switcher": {
     "label": "Idioma"
+  },
+  "judges": {
+    "heading": "Júri — não acreditem só na nossa palavra",
+    "sub": "Esta página são afirmações; o assistente são recibos. Responde a partir da documentação do próprio repositório — contratos, invariantes, deployments — e diz \"não está na documentação\" em vez de inventar.",
+    "prompts": [
+      "Como funciona realmente a custódia zero?",
+      "O que acontece se o feed da Chainlink estiver obsoleto a meio de um pagamento?",
+      "Mostra-me o endereço espelho CREATE3 e as chains onde está ativo.",
+      "O que encontrou e corrigiu a vossa própria auditoria?"
+    ],
+    "cta": "Perguntar ao repositório, ao vivo"
   }
 }
