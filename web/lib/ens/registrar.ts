@@ -20,6 +20,19 @@
  *                                       buffer against oracle drift between
  *                                       quote and mine.
  *
+ * VERSION TARGET — ENSv1 controller, deliberately. This client speaks to the
+ * ETHRegistrarController that is DEPLOYED AND REGISTERABLE today (Sepolia + the
+ * live .eth registrar). The ENSv2 ETH Registrar changes the surface — ERC20
+ * payment via approve/safeTransferFrom instead of msg.value, a (subregistry,
+ * referrer) pair instead of (data[], reverseRecord, fuses), isAvailable/
+ * getRegisterPrice instead of available/rentPrice, $8/yr base with multi-year
+ * discounts, 28-day grace — but ENS's own docs mark those contracts "not yet
+ * final and may change prior to mainnet deployment". We do not build against a
+ * moving interface (law 4: nothing claimed that isn't live). When v2 finalizes,
+ * the adapter is contained: registrationArgs() is the single argument builder
+ * both txs share, and the step engine (ownName.ts) carries over UNCHANGED —
+ * v2 keeps the same commit → MIN_COMMITMENT_AGE (60s) → register ≤ 24h window.
+ *
  * DOCTRINE:
  *   - Env-gated + fail-soft (law 1): no controller address configured ⇒ the
  *     whole seam reports unconfigured and the UI never shows "Buy".
