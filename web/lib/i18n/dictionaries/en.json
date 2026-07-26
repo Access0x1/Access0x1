@@ -19,7 +19,8 @@
       "Chainlink": "USD price feeds + Automation keepers",
       "Arc": "USDC-native settlement chain (chain id 5042002)",
       "Base": "Low-cost L2 settlement",
-      "zkSync": "ZK-rollup settlement"
+      "zkSync": "ZK-rollup settlement",
+      "World": "Proof of personhood (World ID) — the verified-human rung"
     }
   },
   "features": {
@@ -60,7 +61,7 @@
       },
       "verification": {
         "title": "Verification ladder",
-        "description": "Signed-in → verified human → verified name, as one chip with one next-step button. Trust that gates identity and writes — never a payment."
+        "description": "Signed-in → verified human with World ID → verified name, as one chip with one next-step button. Trust that gates identity and writes — never a payment."
       },
       "aiInference": {
         "title": "AI on your terms",

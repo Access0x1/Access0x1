@@ -19,7 +19,8 @@
       "Chainlink": "Feeds de preço em USD + keepers de Automação",
       "Arc": "Rede de liquidação nativa em USDC (chain id 5042002)",
       "Base": "Liquidação L2 de baixo custo",
-      "zkSync": "Liquidação em ZK-rollup"
+      "zkSync": "Liquidação em ZK-rollup",
+      "World": "Prova de humanidade (World ID) — o degrau de humano verificado"
     }
   },
   "features": {
@@ -60,7 +61,7 @@
       },
       "verification": {
         "title": "Escada de verificação",
-        "description": "Sessão iniciada → humano verificado → nome verificado, num único selo com um botão para o próximo degrau. Confiança que valida identidade e escritas — nunca um pagamento."
+        "description": "Sessão iniciada → humano verificado com World ID → nome verificado, num único selo com um botão para o próximo degrau. Confiança que valida identidade e escritas — nunca um pagamento."
       },
       "aiInference": {
         "title": "IA à tua maneira",
