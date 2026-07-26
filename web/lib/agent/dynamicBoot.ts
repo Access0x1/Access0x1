@@ -266,6 +266,9 @@ export function buildPayingFetch(
  * instance of this file re-running `wireAgentRuntime()` with a module-scope
  * flag would re-wire the factory and RESET the memoised, authenticated client
  * mid-flight. One per-process flag keeps the wiring truly once-per-boot.
+ * Deliberate flip side: the flag outlives HMR, so a dev edit to the wiring
+ * internals (buildPayingFetch, the adapter, the factory) takes effect only
+ * after a dev-server restart — the old closures stay latched until then.
  */
 const WIRED_KEY = Symbol.for("access0x1.agent.dynamicBootWired");
 

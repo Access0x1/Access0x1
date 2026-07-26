@@ -64,14 +64,17 @@ const defaultWrapFetchWithPayment: WrapFetchWithPayment = () => {
 };
 
 /**
- * The wiring latch lives on `globalThis`, not at module scope: dev bundlers
- * compile `instrumentation.ts` (which wires this seam at boot) and the pay
- * route as SEPARATE compilations, each holding its own instance of this
- * module — a module-scope latch is wired in one copy and read unwired in the
- * other (the same bundle-duality documented in dynamicAgentWallet.ts). The
- * `Symbol.for` key resolves every copy — and every HMR rebuild — to the one
- * per-process slot. The test-only `baseFetch` seam below stays module-local
- * on purpose: only tests set it, in the same module instance they exercise.
+ * The wiring latch lives on `globalThis`, not at module scope: webpack — in
+ * dev AND the standalone prod build — gives `instrumentation.ts` (which wires
+ * this seam at boot) and the pay route separate instances of this module, so
+ * a module-scope latch is wired in one copy and read unwired in the other
+ * (the bundle-duality documented in dynamicAgentWallet.ts). Before this latch
+ * went global, the prod route's copy ALWAYS threw here after the meter
+ * refund — the pay route could never settle in prod; globalizing it is what
+ * activates the prod x402 leg. The `Symbol.for` key resolves every copy —
+ * and every HMR rebuild — to the one per-process slot. The test-only
+ * `baseFetch` seam below stays module-local on purpose: only tests set it,
+ * in the same module instance they exercise.
  */
 const WRAP_FETCH_KEY = Symbol.for("access0x1.agent.wrapFetchWithPayment");
 

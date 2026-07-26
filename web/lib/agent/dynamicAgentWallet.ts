@@ -87,17 +87,18 @@ const defaultClientFactory: DynamicClientFactory = () => {
 };
 
 /**
- * Design decision #2 (globalThis-backed latch): dev bundlers compile
- * `instrumentation.ts` and each route as SEPARATE compilations, so this module
- * exists as two live instances in one Node process — boot wires copy A's
- * factory, the route reads copy B's default throw, and `/api/agent/pay`
- * answers 503 `not_configured` despite a successful wiring (webpack `next dev`,
- * verified 2026-07-25). Module state is per-INSTANCE; the latch must be
- * per-PROCESS, so all mutable state lives on `globalThis` under a
- * `Symbol.for` key every copy resolves to the same slot (HMR-safe too: a
- * rebuilt module re-attaches to the same store instead of orphaning the
- * wiring). Prod semantics are unchanged — one process, one latch, auth still
- * happens at most once.
+ * Design decision #2 (globalThis-backed latch): webpack splits
+ * `instrumentation.ts` and each route into SEPARATE module instances in one
+ * Node process — in dev as separate compilations, and in the standalone PROD
+ * build too (the route scope-hoists its own verbatim copy of this module
+ * while instrumentation loads it via an async chunk; verified empirically in
+ * `.next/server`, 2026-07-26). Boot wires copy A's factory, the route reads
+ * copy B's default throw, and `/api/agent/pay` answers 503 `not_configured`
+ * despite a successful wiring. Module state is per-INSTANCE; the latch must
+ * be per-PROCESS, so all mutable state lives on `globalThis` under a
+ * `Symbol.for` key every copy resolves to the same slot (a rebuilt dev module
+ * re-attaches to the same store instead of orphaning the wiring). One
+ * process, one latch, auth at most once — now true in every topology.
  */
 interface WalletModuleState {
   clientFactory: DynamicClientFactory;
