@@ -14,11 +14,11 @@ private keys are ever passed on the command line — all signing goes through
 > factory (the `Access0x1Router` proxy is `0xe92244e3368561faf21648146511DeDE3a475EB5`
 > everywhere the mirror is live; the canonical set is pinned in
 > [`script/mirror-manifest.json`](../script/mirror-manifest.json)). The mirror is live
-> on **nine testnets** (Arc `5042002`, Base Sepolia `84532`, Ethereum Sepolia
+> on **ten testnets** (Arc `5042002`, Base Sepolia `84532`, Ethereum Sepolia
 > `11155111`, Optimism Sepolia `11155420`, Avalanche Fuji `43113`, Robinhood `46630`,
-> Arbitrum Sepolia `421614`, Celo Sepolia `11142220`, zkSync Sepolia `300`) and
-> source-verified on seven of them; three earlier chains (Ethereum Hoodi `560048`, 0G Galileo `16602`, Tempo
-> `42431`) carry pre-mirror per-chain deploys being cut over (see
+> Arbitrum Sepolia `421614`, Celo Sepolia `11142220`, zkSync Sepolia `300`, 0G Galileo
+> `16602`) and source-verified on seven of them; two earlier chains (Ethereum Hoodi
+> `560048`, Tempo `42431`) carry pre-mirror per-chain deploys being cut over (see
 > [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md)). zkSync Sepolia (`300`) still needs its own
 > EraVM build path — [`ZKSYNC-TESTING.md`](ZKSYNC-TESTING.md) — but it IS mirrored: its
 > committed record (`broadcast/DeployAll.s.sol/300/run-latest.json`) carries the router at
