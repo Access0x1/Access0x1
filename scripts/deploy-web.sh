@@ -19,8 +19,9 @@
 # that the thing now serving is the thing that was just built.
 #
 # Usage:
-#   DYN_ENV=<dynamic-environment-id> bash scripts/deploy-web.sh
-#   DYN_ENV=... DEFAULT_CHAIN_ID=84532 bash scripts/deploy-web.sh
+#   make deploy-web                       # env id derived from web/.env.local
+#   DYN_ENV=<id> make deploy-web          # explicit override (CI / another env)
+#   DEFAULT_CHAIN_ID=84532 make deploy-web
 #
 set -euo pipefail
 
@@ -36,10 +37,29 @@ command -v gcloud >/dev/null 2>&1 || {
   exit 1
 }
 
+# ── Dynamic environment id: DERIVED, not retyped ─────────────────────────────
+# It already lives in web/.env.local (the app reads it from there), so making the
+# operator paste it on the command line was not just friction — it was a BUG
+# FACTORY: the deploy could bake an id that differs from the one the app is
+# configured with, and the two only disagree silently. A build carrying env A
+# while the dashboard/session expects env B is exactly the failure where sign-in
+# renders but never opens, and a returning user's JWT (pinned to
+# app.dynamicauth.com/<id>) can no longer be verified.
+#
+# So: read it from .env.local by default; DYN_ENV remains an explicit OVERRIDE for
+# CI or for deploying a different environment on purpose.
 if [[ -z "${DYN_ENV:-}" ]]; then
-  echo "deploy-web: set DYN_ENV to the Dynamic environment id."
-  echo "  Find it with:  grep NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID web/.env.local"
-  echo "  Then:          DYN_ENV=<id> bash scripts/deploy-web.sh"
+  DYN_ENV="$(grep -E '^NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=' "$REPO_ROOT/web/.env.local" 2>/dev/null \
+    | head -1 | cut -d= -f2- | tr -d '"'"'"' \r' | sed 's/[[:space:]]*#.*$//')"
+  if [[ -n "$DYN_ENV" ]]; then
+    echo "==> Dynamic env id: derived from web/.env.local (override with DYN_ENV=<id>)"
+  fi
+fi
+
+if [[ -z "${DYN_ENV:-}" ]]; then
+  echo "deploy-web: no Dynamic environment id found."
+  echo "  Set NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID in web/.env.local (npm run env:set -- dynamic),"
+  echo "  or pass an explicit override:  DYN_ENV=<id> make deploy-web"
   exit 1
 fi
 
