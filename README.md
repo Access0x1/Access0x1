@@ -137,6 +137,44 @@ and no intermediary ever holds the funds.
 
 ---
 
+## Everything you can do today
+
+All shipped, all testnet-live or one env var from it — nothing on this list is a roadmap item.
+
+| You can… | Powered by | Where |
+| --- | --- | --- |
+| **Get paid in USDC with one link** — USD-priced on-chain, zero custody, exact fee split | `Access0x1Router` + Chainlink in-tx quote | `/onboard` → `/c/<slug>` |
+| **Pay in any allowlisted coin** — WETH, LINK, DAI… priced by that token's feed in the same tx | `payToken` + per-token feeds | the checkout picker |
+| **Sell subscriptions, bookings, invoices, gift cards** | the commerce quartet composing the router | `/journey` |
+| **Authorize an AI agent to spend** — budget-scoped, time-bounded, one signature | `SessionGrant` (ERC-7702/6492) | agent APIs |
+| **Let an agent earn → store → own** — x402 micro-earnings, Walrus-anchored memory, on-chain provenance | x402 + `stateAnchor` + `ProvenanceRegistry` | the agent spine |
+| **Run every AI feature on decentralized inference** — one setting flips Anthropic ↔ 0G Compute, answers badge who served them | `lib/ai/inference.ts` | `/ask`, `/api/ai/infer` |
+| **Buy a real .eth name in-app** — commit → 60s → register, signed by your own wallet | `lib/ens/registrar` + `ownName` step engine | `/name` |
+| **Resolve payments to live names** — `pay.<business>.eth` answers from current router state, not a static record | `Access0x1PaymentResolver` + CCIP-Read gateway | ENS resolution |
+| **Climb the verification ladder** — signed-in → verified human (World ID) → verified name, one chip | Dynamic + World ID + ENSIP-19 | `/verify` |
+| **Receive in any coin** — post-settlement swaps, zero added fee, on-chain swap receipts | Uniswap (Trading API / classic / v4 hook) · 1inch | payout settings |
+| **Prove a payment landed** — the last settlement with its verifiable tx hash, read from logs | `lib/proof/lastPayment` | Proof of Payment |
+| **Verify the deployment yourself** — live bytecode diffed against this repo, per chain, in your browser | `/deployments` + `currentBytecode` | [access0x1.click/deployments](https://access0x1.click/deployments) |
+| **Send a payment link in chat** — Telegram link mode (bot never holds a key) | `/api/chat/telegram` | chat payments |
+| **Drive the whole rail headless** — the 1 tx/sec x402 settlement loop | `mvp-presentation.mts` | `npm run mvp-presentation` |
+
+### Judges: don't take our word for it — ask the repo, live
+
+The assistant at **[access0x1.click/ask](https://access0x1.click/ask)** answers from this repo's own
+docs corpus (contracts, invariants, deployments, the self-audit) and says *"not in the docs"* rather
+than invent. Good opening questions:
+
+- *How does zero custody actually work?*
+- *What happens if the Chainlink feed is stale mid-payment?*
+- *Show me the CREATE3 mirror address and the chains it's live on.*
+- *What did your own audit find and fix?*
+
+Every answer is checkable against [`AUDIT.md`](AUDIT.md), [`audit/`](audit/), and the
+[deployments dashboard](https://access0x1.click/deployments) — which reads live bytecode off each
+chain and diffs it against this source, in your browser.
+
+---
+
 ## Architecture
 
 ```mermaid

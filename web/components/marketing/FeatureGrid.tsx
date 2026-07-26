@@ -78,6 +78,41 @@ const FEATURE_ORDER = [
     dev: 'A name is shown only when ENS proves it resolves BACK to the exact payout address — forward and reverse must agree. Registration resolves on-chain and throws rather than storing a wrong payout.',
     caveat: 'The checkout badge is off the money path by design: if the lookup fails you see the raw address, and the payment is unaffected.',
   },
+  {
+    key: 'ownName',
+    contract: 'lib/ens/registrar.ts + ownName.ts',
+    glyph: '🏷️',
+    dev: 'The full ENS commit → 60s → register flow runs in-app, both transactions signed by the CONNECTED wallet — no server key, zero custody. The commitment secret survives a page refresh, and a doomed transaction (early register, expired commitment, switched wallet) is refused before it costs gas.',
+    caveat: 'Registration runs on the testnet registrar the app is configured for; the step is hidden entirely until the controller address is configured.',
+  },
+  {
+    key: 'verification',
+    contract: 'World ID + Dynamic + ENS (the ladder)',
+    glyph: '✅',
+    dev: 'One trust ladder — signed-in, verified human (World ID), verified name — surfaced as a single chip with one next-rung button. Merchants gate writes on it; buyers see it on the checkout.',
+    caveat: 'Each rung is off the money path: an unverified buyer can still pay; verification gates identity claims and merchant writes, never settlement.',
+  },
+  {
+    key: 'aiInference',
+    contract: 'lib/ai/inference.ts (Anthropic | 0G Compute)',
+    glyph: '🧠',
+    dev: 'One env var flips every AI feature between Anthropic and 0G Compute decentralized inference — key mode or a funded broker wallet minting signed per-request billing headers. Answers carry a visible "Computed on 0G Compute" badge when 0G served them.',
+    caveat: 'The badge is claimed only when 0G actually served the request — a fallback answer never wears it.',
+  },
+  {
+    key: 'payoutSwap',
+    contract: 'lib/payout-swap (Uniswap · 1inch rails)',
+    glyph: '🔄',
+    dev: 'Merchants receive in any coin: settled USDC swaps through Uniswap (Trading API / classic / v4 hook) or 1inch, zero added fee, entirely AFTER settlement. The v4 SwapReceiptHook writes an on-chain receipt per swap.',
+    caveat: 'Strictly off the money path — a rail failure degrades to "you keep USDC", it can never block or alter the payment itself.',
+  },
+  {
+    key: 'proofOfPayment',
+    contract: 'lib/proof/lastPayment.ts',
+    glyph: '🧾',
+    dev: 'One call answers "did it land?": the last settlement read straight from PaymentReceived logs — amount, buyer, order id, and the tx hash anyone can verify independently. No indexer, no extra gas stored on-chain.',
+    caveat: 'It never reports a payment it cannot back with a real transaction hash — an unprovable log is refused, not rendered as paid.',
+  },
 ] as const
 
 export interface FeatureGridProps {

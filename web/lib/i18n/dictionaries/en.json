@@ -53,6 +53,26 @@
       "ens": {
         "title": "ENS identity",
         "description": "Register your payout with an ENS name and it is resolved on-chain before it is stored. Checkout then shows that name only when ENS proves it resolves back to the exact payout address — otherwise the buyer sees the raw address."
+      },
+      "ownName": {
+        "title": "Own your name",
+        "description": "Buy a real .eth name without leaving the app — commit, wait the mandatory 60 seconds, register. Both transactions signed by your own wallet; we never touch a key."
+      },
+      "verification": {
+        "title": "Verification ladder",
+        "description": "Signed-in → verified human → verified name, as one chip with one next-step button. Trust that gates identity and writes — never a payment."
+      },
+      "aiInference": {
+        "title": "AI on your terms",
+        "description": "Every AI feature can run on Anthropic or on 0G Compute decentralized inference — one setting, and answers say which one served them."
+      },
+      "payoutSwap": {
+        "title": "Receive in any coin",
+        "description": "Settle in USDC, keep it or swap it through Uniswap or 1inch at zero added fee — after settlement, so a swap can never break a payment."
+      },
+      "proofOfPayment": {
+        "title": "Proof of Payment",
+        "description": "\"Did it land?\" answered from the chain itself: the last settlement with the transaction hash anyone can verify — no dashboard trust required."
       }
     }
   },
@@ -70,5 +90,16 @@
   },
   "switcher": {
     "label": "Language"
+  },
+  "judges": {
+    "heading": "Judges — don't take our word for it",
+    "sub": "This page is claims; the assistant is receipts. It answers from the repo's own docs corpus — contracts, invariants, deployments — and says \"not in the docs\" rather than invent.",
+    "prompts": [
+      "How does zero custody actually work?",
+      "What happens if the Chainlink feed is stale mid-payment?",
+      "Show me the CREATE3 mirror address and the chains it's live on.",
+      "What did your own audit find and fix?"
+    ],
+    "cta": "Ask the repo, live"
   }
 }
