@@ -57,7 +57,10 @@ export interface IntegrationStripProps {
 
 export function IntegrationStrip({ integrations }: IntegrationStripProps): ReactNode {
   const roles = integrations.roles as Record<string, string | undefined>
-  const items = ['Chainlink', ...LIVE_CHAINS]
+  // 'Chainlink' and 'World' are powered-by integrations (in-tx price feeds; the
+  // verified-human rung of the trust ladder) — shipped code, not chains, so they
+  // sit outside the deploy-derived LIVE_CHAINS law and are named explicitly.
+  const items = ['Chainlink', 'World', ...LIVE_CHAINS]
 
   return (
     <section className="mx-auto max-w-5xl px-6 py-12">
