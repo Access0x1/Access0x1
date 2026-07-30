@@ -5,8 +5,9 @@
   },
   "hero": {
     "eyebrow": "Payments · identity · agents — one open rail",
-    "headline": "Get paid straight to your wallet — money no company can freeze, hold, or claw back",
+    "headline": "Payments settle directly to your business wallet without Access0x1 taking custody.",
     "subhead": "Onboard once, share one link, and payments settle straight to your wallet in USDC — no processor in the middle, no code to write, no gas to manage. The same open rail also proves identity and lets agents pay within limits you set.",
+    "disclosure": "Access0x1 provides payment routing and settlement software. Asset issuers, wallet providers, and networks may apply their own controls.",
     "hackerPack": "Verified ETHGlobal Hacker Pack holder"
   },
   "cta": {

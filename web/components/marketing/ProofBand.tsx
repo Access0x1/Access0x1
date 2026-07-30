@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react'
 
 import { DEPLOYMENTS } from '@/lib/deployments'
+import {
+  CONFIRMED_MIRROR_COUNT,
+  MIRROR_ROUTER,
+  SOURCE_VERIFIED_COUNT,
+  isPubliclyClaimable,
+} from '@/lib/public-status'
 import { CalcadaMedallion } from '@/components/marketing/Calcada'
 import { cn } from '@/lib/utils'
 
@@ -14,10 +20,16 @@ import { cn } from '@/lib/utils'
  * strongest thing this project has, that the contracts are really there, was the one
  * thing a judge never saw.
  *
- * EVERY NUMBER HERE IS DERIVED, none is typed. `lib/deployments.ts` is generated from
- * the committed `broadcast/` records by `make sync`, so this band cannot claim a chain
- * or an address that was not actually deployed (law #3). If a deploy is reverted the
- * number falls on its own; there is no second place to remember to edit.
+ * WHERE THE NUMBERS COME FROM. `lib/deployments.ts` is generated from `broadcast/`, so it
+ * reports what a deploy script RECORDED — which is not the same as what is live. This band
+ * previously rendered "9 testnets" by counting manifest entries carrying the mirror address,
+ * and that UNDER-COUNTED: the mirror router also answers on 0G Galileo (16602), which has no
+ * committed broadcast record at that address. Ten chains respond; nine are in the manifest.
+ *
+ * So the mirror count now comes from `lib/public-status.ts` — a list where a chain earns its
+ * place by answering on its own RPC, not by appearing in a file. The manifest is still the
+ * right source for the "chains deployed" total (it is a faithful count of deploy records,
+ * pre-mirror chains included) and for the explorer deep-link.
  *
  * DESIGN. It borrows the calçada vocabulary rather than inventing a new one: the
  * medallion as the anchor, `currentColor` at low opacity so it is theme-aware by
@@ -25,14 +37,17 @@ import { cn } from '@/lib/utils'
  * client JS, no new dependency — the whole app installs from a clone.
  */
 
-/** The mirror address every mirrored chain shares, read from the generated set. */
-const MIRROR_ROUTER = '0xe92244e3368561faf21648146511DeDE3a475EB5'
-
-/** Chains whose committed record carries the shared mirror router. */
+/**
+ * Chains that BOTH carry the mirror router in the generated manifest AND are on the
+ * reviewed confirmed list. The manifest alone is not sufficient evidence for a public
+ * claim; the reviewed list is what gates it.
+ */
 function mirroredChains(): typeof DEPLOYMENTS {
   const wanted = MIRROR_ROUTER.toLowerCase()
-  return DEPLOYMENTS.filter((c) =>
-    c.deployments.some((d) => d.address.toLowerCase() === wanted),
+  return DEPLOYMENTS.filter(
+    (c) =>
+      isPubliclyClaimable(c.chainId) &&
+      c.deployments.some((d) => d.address.toLowerCase() === wanted),
   )
 }
 
@@ -59,6 +74,8 @@ function Figure({
 
 export function ProofBand({ className }: { className?: string }): ReactNode {
   const mirrored = mirroredChains()
+  // Every chain with a committed deploy record, pre-mirror ones included — which is what
+  // the "including pre-mirror" label says. Accurate straight from the manifest.
   const totalChains = DEPLOYMENTS.length
   // The explorer link goes to a chain that genuinely carries the mirror. Preferring
   // one WITH an explorer avoids rendering a dead link; if none has one we show the
@@ -77,19 +94,20 @@ export function ProofBand({ className }: { className?: string }): ReactNode {
           id="proof-band-heading"
           className="mt-4 font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl"
         >
-          One address. Every chain. Already deployed.
+          One CREATE3 mirror address across ten testnets.
         </h2>
         <p className="mt-2 max-w-xl text-balance text-center text-sm text-muted-foreground">
-          Not a roadmap — these are read from the deploy records in this repository.
-          Open any of it before you trust a word above.
+          Not a roadmap — the mirror count is checked against each chain&rsquo;s own RPC,
+          and every deploy record is in this repository. Open either before you trust a
+          word above.
         </p>
 
         {/* The figures, separated by stone seams rather than hard borders. */}
         <div className="mt-8 flex w-full flex-col items-center divide-y divide-border/60 sm:flex-row sm:justify-center sm:divide-x sm:divide-y-0">
           <Figure
-            value={String(mirrored.length)}
+            value={String(CONFIRMED_MIRROR_COUNT)}
             label="testnets, one address"
-            sub="identical via CREATE3"
+            sub={`identical via CREATE3 · ${SOURCE_VERIFIED_COUNT} source-verified`}
           />
           <Figure value={String(totalChains)} label="chains deployed" sub="including pre-mirror" />
           <Figure value="0" label="custody, by construction" sub="settles in one transaction" />

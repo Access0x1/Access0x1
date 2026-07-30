@@ -88,8 +88,10 @@ does not exist yet.
 
 **This is the part that needs no new code at all**, and it is deployed on ten testnets today:
 
-- **`Access0x1Bookings`** — a USD-priced, refundable holding deposit with an immutable
-  cancellation policy snapshot and a refund the merchant can never block.
+- **`Access0x1Bookings`** — a USD-priced, refundable holding deposit whose cancellation
+  policy is snapshotted at reserve and never mutated, so a merchant cannot withhold a refund
+  that policy owes, nor raise the fee after the fact. The policy is still the merchant's, and
+  it may define a window in which no refund is owed at all.
 - **`Access0x1Subscriptions`** — recurring USD rent with dunning, renewed by a permissionless
   keeper.
 - **`Access0x1Invoices`** — a one-shot USD invoice, settled through the same fee split.
@@ -254,8 +256,9 @@ before the mint, so a re-entrant claim on the same voucher reverts.
 ## Security posture (what the kit guarantees)
 
 - **Money paths roll back, never swallow.** The router legs are wrapped so an oracle outage or a
-  de-allowlisted token can never brick a refund. `BookingToken` refunds are **never blockable** by
-  the merchant; a failed push queues to a claimable pull-map (length-safe, USDT-style-token-safe).
+  de-allowlisted token can never brick a refund. A `BookingToken` refund the policy owes
+  **cannot be withheld** by the merchant; a failed push queues to a claimable pull-map
+  (length-safe, USDT-style-token-safe).
 - **Merchant-binding.** `InvoiceToken` reuses the `GaslessPayIn` structured-nonce design so a relayer
   holding a signed authorization **cannot** redirect settlement to another merchant/amount/invoice.
 - **Single-settlement.** Invoices are an absorbing `OPEN→PAID` machine; receipt/redemption ids are
