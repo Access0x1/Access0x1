@@ -56,11 +56,11 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^19.2.17",
-    "happy-dom": "^20.11.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "happy-dom": "^20.11.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "typescript": "^6.0.3",
-    "viem": "^2.55.2",
+    "viem": "^2.55.8",
     "vitest": "^4.1.10"
   },
   "keywords": [
