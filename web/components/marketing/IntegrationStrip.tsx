@@ -30,6 +30,7 @@ const MIRROR_ROUTER = '0xe92244e3368561faf21648146511dede3a475eb5'
 const CHAIN_LABELS: ReadonlyArray<readonly [number, string]> = [
   [5042002, 'Arc'],
   [84532, 'Base'],
+  [1301, 'Unichain'],
   [11155111, 'Ethereum'],
   [11155420, 'Optimism'],
   [43113, 'Avalanche Fuji'],

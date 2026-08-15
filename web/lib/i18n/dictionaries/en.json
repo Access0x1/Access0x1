@@ -15,13 +15,14 @@
     "secondary": "Ask how it works"
   },
   "integrations": {
-    "heading": "Powered by, and live on",
+    "heading": "Powered by — and live on",
     "roles": {
       "Chainlink": "USD price feeds + Automation keepers",
       "Arc": "USDC-native settlement chain (chain id 5042002)",
       "Base": "Low-cost L2 settlement",
       "zkSync": "ZK-rollup settlement",
-      "World": "Proof of personhood (World ID) — the verified-human rung"
+      "World": "Proof of personhood (World ID) — the verified-human rung",
+      "Unichain": "Uniswap-native L2 settlement"
     }
   },
   "features": {

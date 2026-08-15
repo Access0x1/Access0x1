@@ -86,7 +86,7 @@ does not exist yet.
 
 ### 2. Taking money for property — deposits, rent, invoices
 
-**This is the part that needs no new code at all**, and it is deployed on ten testnets today:
+**This is the part that needs no new code at all**, and it is deployed on eleven testnets today:
 
 - **`Access0x1Bookings`** — a USD-priced, refundable holding deposit whose cancellation
   policy is snapshotted at reserve and never mutated, so a merchant cannot withhold a refund

@@ -15,13 +15,14 @@
     "secondary": "Pergunte como funciona"
   },
   "integrations": {
-    "heading": "Com tecnologia de, e ativo em",
+    "heading": "Com tecnologia de — e ativo em",
     "roles": {
       "Chainlink": "Feeds de preço em USD + keepers de Automação",
       "Arc": "Rede de liquidação nativa em USDC (chain id 5042002)",
       "Base": "Liquidação L2 de baixo custo",
       "zkSync": "Liquidação em ZK-rollup",
-      "World": "Prova de humanidade (World ID) — o degrau de humano verificado"
+      "World": "Prova de humanidade (World ID) — o degrau de humano verificado",
+      "Unichain": "Liquidação na L2 nativa da Uniswap"
     }
   },
   "features": {
