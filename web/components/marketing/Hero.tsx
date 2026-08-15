@@ -74,6 +74,17 @@ export function Hero({ hero, cta }: HeroProps): ReactNode {
         </p>
 
         {/*
+         * Scope disclosure. The product is routing/settlement software and takes no
+         * custody — but it cannot promise that no external party can restrict funds:
+         * asset issuers (USDC), wallet providers, networks and legal authorities all
+         * retain their own controls. Deliberately understated and directly under the
+         * subhead, so the limit travels with the claim rather than living in a footer.
+         */}
+        <p className="max-w-xl text-balance text-sm text-muted-foreground/80">
+          {hero.disclosure}
+        </p>
+
+        {/*
          * Credibility line: the ETHGlobal Hacker Pack is an on-chain credential
          * (EG-HACKER, balance 1 on Optimism). Understated — no dollar figures.
          * The 🏆 glyph is decorative and stays literal; the copy is localized.

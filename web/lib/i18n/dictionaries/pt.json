@@ -5,8 +5,9 @@
   },
   "hero": {
     "eyebrow": "Pagamentos · identidade · agentes — uma infraestrutura aberta",
-    "headline": "Receba diretamente na sua carteira — dinheiro que nenhuma empresa pode congelar, reter ou reverter",
+    "headline": "Os pagamentos são liquidados diretamente na carteira da sua empresa, sem que a Access0x1 assuma a custódia.",
     "subhead": "Registe-se uma vez, partilhe um link e os pagamentos são liquidados diretamente na sua carteira, em USDC — sem intermediário, sem escrever código, sem gerir gas. A mesma infraestrutura aberta também prova a identidade e deixa os agentes pagar dentro dos limites que definir.",
+    "disclosure": "A Access0x1 fornece software de roteamento e liquidação de pagamentos. Emissores de ativos, provedores de carteira e redes podem aplicar os seus próprios controlos.",
     "hackerPack": "Detentor verificado do ETHGlobal Hacker Pack"
   },
   "cta": {
@@ -14,13 +15,14 @@
     "secondary": "Pergunte como funciona"
   },
   "integrations": {
-    "heading": "Com tecnologia de, e ativo em",
+    "heading": "Com tecnologia de — e ativo em",
     "roles": {
       "Chainlink": "Feeds de preço em USD + keepers de Automação",
       "Arc": "Rede de liquidação nativa em USDC (chain id 5042002)",
       "Base": "Liquidação L2 de baixo custo",
       "zkSync": "Liquidação em ZK-rollup",
-      "World": "Prova de humanidade (World ID) — o degrau de humano verificado"
+      "World": "Prova de humanidade (World ID) — o degrau de humano verificado",
+      "Unichain": "Liquidação na L2 nativa da Uniswap"
     }
   },
   "features": {
