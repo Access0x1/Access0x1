@@ -168,9 +168,26 @@ const nextConfig: NextConfig = {
     // bundle/resolve it at build time; the guarded `loadSdk.ts` loader catches a
     // missing package at runtime and fails soft (the private payout leg is
     // server-only, so this never affects the client bundle).
+    if (!isServer) {
+      // pg is imported (literally, lazily) by the durable-store adapters, which a
+      // client-component chain reaches. In the browser there is no Postgres and
+      // no node built-ins — compile it to an empty module (never evaluated:
+      // getDurableKv returns null client-side before the import runs).
+      // MUST be resolve.alias, not resolve.fallback: fallback fires only when
+      // resolution FAILS, but pg resolves fine — it is pg's INTERNALS that then
+      // request fs/dns/net/tls and hard-fail. alias:false replaces the module
+      // BEFORE resolution, so the client bundle never descends into pg at all.
+      config.resolve.alias = { ...config.resolve.alias, pg: false }
+    }
     if (isServer) {
       const externals = config.externals
-      const unlinkExternal = { '@unlink-xyz/sdk': 'commonjs @unlink-xyz/sdk' }
+      // pg: same commonjs-external pattern as the unlink SDK below — webpack must
+      // emit a real runtime require('pg') (a bundled computed import threw
+      // "Cannot find module 'pg'" in prod with pg present on disk).
+      const unlinkExternal = {
+        '@unlink-xyz/sdk': 'commonjs @unlink-xyz/sdk',
+        pg: 'commonjs pg',
+      }
       config.externals = Array.isArray(externals)
         ? [...externals, unlinkExternal]
         : [externals, unlinkExternal].filter(Boolean)
