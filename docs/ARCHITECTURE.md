@@ -148,7 +148,7 @@ invariants (proven by fuzz tests). It's the foundation the cross-chain stretch
 [`src/ChainRegistry.sol`](../src/ChainRegistry.sol) is an O(1) hash-map chain
 registry (`addChain`, one SLOAD) so **one** shared router serves every chain
 rather than N bespoke deploys. The protocol is live at ONE CREATE3-mirrored
-address (`0xe92244e3…5EB5`) on eleven testnets, source-verified on seven — see
+address (`0xe92244e3…5EB5`) on eleven testnets, source-verified on eight — see
 [docs/CHAIN-ADDRESSES.md](./CHAIN-ADDRESSES.md) for the authoritative address
 list (never hardcode one; confirm on the explorer).
 

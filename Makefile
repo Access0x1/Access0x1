@@ -579,6 +579,11 @@ verify-galileo: ## Verify deployed 0G Galileo contracts (Blockscout; set GALILEO
 # (one key, routed by chain id); pass VERIFIER_URL for a Blockscout chain. Examples:
 #   make verify-chain CHAIN=560048 RPC=$HOODI_RPC_URL                                   # Etherscan V2 (Hoodi)
 #   make verify-chain CHAIN=42431  RPC=$TEMPO_RPC_URL VERIFIER_URL=https://explore.testnet.tempo.xyz/api/
+# ⚠️ V2-era chains (e.g. Unichain Sepolia 1301): forge's `--chain <id>` alias routes to the LEGACY
+#   per-chain explorer API, which rejects the unified V2 key ("Invalid API Key") — and VERIFIER_URL=
+#   here routes to the BLOCKSCOUT script, which is wrong too. Call the etherscan script directly with
+#   the V2 endpoint as $3 (proven on 1301, 38/38 verified 2026-08-17):
+#   ETHERSCAN_API_KEY=$KEY script/verify-etherscan.sh 1301 $RPC "https://api.etherscan.io/v2/api?chainid=1301" "$KEY"
 verify-chain: ## Verify ANY deployed chain: CHAIN=<id> RPC=<url> [VERIFIER_URL=<blockscout-api>]
 	@test -n "$(CHAIN)" || { echo "set CHAIN=<chainId>"; exit 1; }
 	@test -n "$(RPC)" || { echo "set RPC=<rpcUrl>"; exit 1; }
