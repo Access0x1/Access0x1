@@ -41,10 +41,114 @@ const UNDER_SWEEP =
 /** Seam paint: the page background, so a "joint" is a true gap in the stone. */
 const SEAM_STROKE = { stroke: 'hsl(var(--background))' } as const
 
-/** Shared defs: the stone-edge filter + the cobble field pattern + fade mask. */
+/** The phone composition's blade geometry (recurled to stay inside a 375px band). */
+const M_VOLUTE_LEFT =
+  'M 232 200 C 186 168 148 166 132 190 C 122 204 128 220 143 222 C 155 223 162 212 156 202'
+const M_VOLUTE_RIGHT =
+  'M 368 200 C 414 168 452 166 468 190 C 478 204 472 220 457 222 C 445 223 438 212 444 202'
+const M_UNDER_SWEEP = 'M 210 420 C 220 500 275 525 300 480 C 325 525 380 500 390 420'
+
+/**
+ * mulberry32 — a tiny SEEDED PRNG. Seeded is the whole point: the floor is
+ * "randomly generated" the way a real calceteiro's floor is (no two bricks
+ * alike), but the fixed seed makes every render — server and client — emit
+ * the identical layout, so the no-hydration-drift law holds. Math.random()
+ * here would tear the page apart on hydration.
+ */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+interface Brick {
+  x: number
+  y: number
+  w: number
+  h: number
+  /** fired-clay tone — no two neighbors match */
+  o: number
+  /** the hand-laid lie, in degrees */
+  r: number
+  /** a glazed azulejo stone, set in the brand primary */
+  glazed: boolean
+}
+
+/**
+ * The floor, laid ONCE at module load on a 600×240 generated tile — large
+ * enough that the repeat is invisible behind copy, cheap enough that the DOM
+ * carries the tile once (SVG patterns paint by reference, not by copy).
+ * Every course draws its own stagger, every brick its own width, tone and
+ * half-degree lie; a brick crossing the right seam is laid again at the wrap
+ * so the bond tiles seamlessly. ~5% of stones come up glazed.
+ */
+const TILE_W = 600
+const TILE_H = 240
+const BRICKS: readonly Brick[] = (() => {
+  const rng = mulberry32(0xca1cada)
+  const out: Brick[] = []
+  const courses = 18
+  const pitch = TILE_H / courses
+  const r1 = (n: number): number => Math.round(n * 10) / 10
+  for (let c = 0; c < courses; c++) {
+    const y = r1(c * pitch + 1 + (rng() - 0.5) * 0.8)
+    const h = r1(pitch - 2.2 - rng() * 0.6)
+    let x = -rng() * 30
+    while (x < TILE_W) {
+      const w = r1(20 + rng() * 14)
+      const b: Brick = {
+        x: r1(x),
+        y,
+        w,
+        h,
+        o: Math.round((0.5 + rng() * 0.5) * 100) / 100,
+        r: r1((rng() - 0.5) * 1.6),
+        glazed: rng() < 0.05,
+      }
+      out.push(b)
+      if (x + w > TILE_W) out.push({ ...b, x: r1(x - TILE_W) })
+      x += w + 1.8 + rng() * 1.2
+    }
+  }
+  return out
+})()
+
+/** Render the laid floor (pattern-tile content). */
+function BrickField(): ReactNode {
+  return (
+    <>
+      {BRICKS.map((b, i) => (
+        <rect
+          key={i}
+          x={b.x}
+          y={b.y}
+          width={b.w}
+          height={b.h}
+          rx="1.2"
+          {...(b.glazed
+            ? { style: { fill: 'hsl(var(--primary))' } }
+            : { fill: 'currentColor' })}
+          fillOpacity={b.o}
+          transform={`rotate(${b.r} ${r2(b.x + b.w / 2)} ${r2(b.y + b.h / 2)})`}
+        />
+      ))}
+    </>
+  )
+}
+/** one-decimal rounding for transform origins (keeps SSR payload lean) */
+function r2(n: number): number {
+  return Math.round(n * 10) / 10
+}
+
+/** Shared defs: the stone-edge filter + the generated brick field + fade mask. */
 function CalcadaDefs({
   idPrefix,
   stoneScale = 7,
+  withField = true,
 }: {
   idPrefix: string
   /**
@@ -55,6 +159,12 @@ function CalcadaDefs({
    * into fuzz instead of chiseling their edges.
    */
   stoneScale?: number
+  /**
+   * Whether to emit the generated brick-field pattern. The heroes use it; the
+   * divider and medallion never paint the field, and the tile is ~380 rects
+   * of SSR payload — don't ship it where nothing references it.
+   */
+  withField?: boolean
 }): ReactNode {
   return (
     <defs>
@@ -64,57 +174,22 @@ function CalcadaDefs({
         <feDisplacementMap in="SourceGraphic" in2="n" scale={stoneScale} />
       </filter>
 
-      {/* The brick floor. Real paving brick, laid in RUNNING BOND: rectangular
-          ~2:1 bricks in staggered courses with true mortar joints (the 2-unit
-          gaps are the page background showing through — a joint is an absence,
-          not a line). Realism comes from three deterministic irregularities,
-          the way an actual paver leaves a floor: each brick carries its own
-          tone (fillOpacity — fired clay never matches its neighbor), a hairline
-          rotation (laid by hand, not by machine), and a fraction of a unit of
-          size wobble. The half-brick stagger crosses the tile seam, so the
-          boundary bricks are drawn twice (once at each wrap position) and the
-          bond reads continuous. No Math.random(): identical on server and
-          client, so there is no hydration drift. */}
-      <pattern
-        id={`${idPrefix}-field`}
-        width="104"
-        height="48"
-        patternUnits="userSpaceOnUse"
-        patternTransform="rotate(8)"
-      >
-        {/* Four courses on a 104-unit tile so the repeat is too large for the
-            eye to lock onto: every course carries its OWN stagger (0 / 13 / 5 /
-            20 — reclaimed-brick paving, not machine bond), bricks vary in width
-            (18–28), tone (0.55–1.0) and half-degree lie. Seam-crossing bricks
-            are drawn at both wrap positions. And a few bricks are GLAZED: filled
-            with the brand `--primary` (an existing token — the seam stroke
-            already reads `--background` the same way), the color the moving
-            medallion art hands down from the Portuguese floor it comes from —
-            azulejo glints set into the clay. */}
-        {/* Course A (y 1) — stagger 0. */}
-        <rect x="1" y="1" width="24" height="10" rx="1.2" fill="currentColor" fillOpacity="0.9" transform="rotate(-0.8 13 6)" />
-        <rect x="27" y="1.3" width="20" height="9.7" rx="1.2" fill="currentColor" fillOpacity="0.62" transform="rotate(0.7 37 6)" />
-        <rect x="49" y="0.9" width="24" height="10.1" rx="1.2" style={{ fill: 'hsl(var(--primary))' }} fillOpacity="0.85" transform="rotate(-0.5 61 6)" />
-        <rect x="75" y="1.2" width="27" height="9.8" rx="1.2" fill="currentColor" fillOpacity="0.78" transform="rotate(0.9 88 6)" />
-        {/* Course B (y 13) — stagger 13; seam brick at both wraps. */}
-        <rect x="-9" y="13" width="22" height="10" rx="1.2" fill="currentColor" fillOpacity="0.7" transform="rotate(0.6 2 18)" />
-        <rect x="95" y="13" width="22" height="10" rx="1.2" fill="currentColor" fillOpacity="0.7" transform="rotate(0.6 104 18)" />
-        <rect x="15" y="13.2" width="26" height="9.8" rx="1.2" fill="currentColor" fillOpacity="1" transform="rotate(-0.7 28 18)" />
-        <rect x="43" y="12.9" width="20" height="10.1" rx="1.2" fill="currentColor" fillOpacity="0.58" transform="rotate(0.5 53 18)" />
-        <rect x="65" y="13.1" width="28" height="9.9" rx="1.2" fill="currentColor" fillOpacity="0.82" transform="rotate(-0.4 79 18)" />
-        {/* Course C (y 25) — stagger 5; seam brick pair; one glazed. */}
-        <rect x="-19" y="25" width="22" height="10" rx="1.2" fill="currentColor" fillOpacity="0.88" transform="rotate(-0.6 -8 30)" />
-        <rect x="85" y="25" width="22" height="10" rx="1.2" fill="currentColor" fillOpacity="0.88" transform="rotate(-0.6 96 30)" />
-        <rect x="5" y="25.3" width="24" height="9.7" rx="1.2" fill="currentColor" fillOpacity="0.66" transform="rotate(0.8 17 30)" />
-        <rect x="31" y="24.9" width="24" height="10.1" rx="1.2" style={{ fill: 'hsl(var(--primary))' }} fillOpacity="0.9" transform="rotate(-0.5 43 30)" />
-        <rect x="57" y="25.1" width="26" height="9.9" rx="1.2" fill="currentColor" fillOpacity="0.95" transform="rotate(0.4 70 30)" />
-        {/* Course D (y 37) — stagger 20; seam brick pair; one glazed. */}
-        <rect x="-6" y="37" width="24" height="10" rx="1.2" fill="currentColor" fillOpacity="0.75" transform="rotate(0.5 6 42)" />
-        <rect x="98" y="37" width="24" height="10" rx="1.2" fill="currentColor" fillOpacity="0.75" transform="rotate(0.5 110 42)" />
-        <rect x="20" y="37.2" width="28" height="9.8" rx="1.2" fill="currentColor" fillOpacity="0.55" transform="rotate(-0.9 34 42)" />
-        <rect x="50" y="36.9" width="22" height="10.1" rx="1.2" fill="currentColor" fillOpacity="1" transform="rotate(0.6 61 42)" />
-        <rect x="74" y="37.1" width="22" height="9.9" rx="1.2" style={{ fill: 'hsl(var(--primary))' }} fillOpacity="0.8" transform="rotate(-0.6 85 42)" />
-      </pattern>
+      {/* The brick floor — SEEDED-GENERATED, not hand-tiled (see BRICKS above):
+          a 600×240 tile whose every course draws its own stagger and every
+          brick its own width, tone and lie, with ~5% glazed stones in the
+          brand primary. Mortar joints are true gaps (page background through).
+          Deterministic by seed — identical on server and client. */}
+      {withField && (
+        <pattern
+          id={`${idPrefix}-field`}
+          width={TILE_W}
+          height={TILE_H}
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(8)"
+        >
+          <BrickField />
+        </pattern>
+      )}
 
       {/* Vignette so the field fades out toward the edges (laid, not tiled).
           Biased LOW (cy 68%) so the cobbles read as ground under the copy and
@@ -158,11 +233,36 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
     >
       <CalcadaDefs idPrefix="cx-hero" />
 
-      {/* Brick floor, vignetted. A notch more present than the old cobbles
-          (0.07 → 0.1): the running-bond courses ARE the texture now, and below
-          ~0.08 they blur back into noise. Still ground, never wallpaper. */}
+      {/* THE POMBALINE CUT. In the real Baixa pavement the black basalt figure
+          is not laid OVER the white field — the field stones are cut and set
+          AROUND it, flush. Same here: this mask knocks the medallion's
+          footprint (each element a few units wider than its stroke — the
+          setting bed) out of the brick field, so the basalt drawn later sits
+          IN the floor, not on top of it. The orbiting satellites stay outside
+          the cut on purpose: they move, and a cut cannot follow a stone. */}
+      <defs>
+        <mask id="cx-hero-cut">
+          <rect width="1200" height="640" fill="white" />
+          <g stroke="black" fill="black">
+            <circle cx="600" cy="300" r="92" fill="none" strokeWidth="35" />
+            <circle cx="563" cy="278" r="24" />
+            <circle cx="637" cy="278" r="24" />
+            <circle cx="600" cy="347" r="24" />
+            <path d={VOLUTE_LEFT} fill="none" strokeWidth="33" strokeLinecap="round" />
+            <path d={VOLUTE_RIGHT} fill="none" strokeWidth="33" strokeLinecap="round" />
+            <path d={UNDER_SWEEP} fill="none" strokeWidth="29" strokeLinecap="round" />
+            <circle cx="600" cy="560" r="19" />
+            <circle cx="600" cy="596" r="14" />
+            <circle cx="600" cy="622" r="10" />
+          </g>
+        </mask>
+      </defs>
+
+      {/* Brick floor, vignetted, with the medallion footprint cut out. */}
       <g mask="url(#cx-hero-mask)">
-        <rect width="1200" height="640" fill="url(#cx-hero-field)" className="opacity-[0.1]" />
+        <g mask="url(#cx-hero-cut)">
+          <rect width="1200" height="640" fill="url(#cx-hero-field)" className="opacity-[0.1]" />
+        </g>
       </g>
 
       {/* Reading-zone fade: the medallion heart sits at the exact center of the
@@ -287,9 +387,30 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
     >
       <CalcadaDefs idPrefix="cx-herom" stoneScale={4} />
 
-      {/* Brick floor, vignetted — same field, phone-sized canvas. */}
+      {/* The Pombaline cut, phone geometry (see the desktop note). */}
+      <defs>
+        <mask id="cx-herom-cut">
+          <rect width="600" height="640" fill="white" />
+          <g stroke="black" fill="black">
+            <circle cx="300" cy="290" r="78" fill="none" strokeWidth="30" />
+            <circle cx="269" cy="271" r="20" />
+            <circle cx="331" cy="271" r="20" />
+            <circle cx="300" cy="330" r="20" />
+            <path d={M_VOLUTE_LEFT} fill="none" strokeWidth="28" strokeLinecap="round" />
+            <path d={M_VOLUTE_RIGHT} fill="none" strokeWidth="28" strokeLinecap="round" />
+            <path d={M_UNDER_SWEEP} fill="none" strokeWidth="25" strokeLinecap="round" />
+            <circle cx="300" cy="545" r="16" />
+            <circle cx="300" cy="577" r="12" />
+            <circle cx="300" cy="600" r="8" />
+          </g>
+        </mask>
+      </defs>
+
+      {/* Brick floor, vignetted, medallion footprint cut out — phone canvas. */}
       <g mask="url(#cx-herom-mask)">
-        <rect width="600" height="640" fill="url(#cx-herom-field)" className="opacity-[0.1]" />
+        <g mask="url(#cx-herom-cut)">
+          <rect width="600" height="640" fill="url(#cx-herom-field)" className="opacity-[0.1]" />
+        </g>
       </g>
 
       {/* Reading-zone fade, recentred for the phone fold. */}
@@ -331,7 +452,7 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
         <path
           pathLength={1}
           className="calcada-draw"
-          d="M 232 200 C 186 168 148 166 132 190 C 122 204 128 220 143 222 C 155 223 162 212 156 202"
+          d={M_VOLUTE_LEFT}
           fill="none"
           stroke="currentColor"
           strokeWidth="20"
@@ -340,26 +461,26 @@ export function CalcadaBackdrop({ className }: { className?: string }): ReactNod
         <path
           pathLength={1}
           className="calcada-draw"
-          d="M 368 200 C 414 168 452 166 468 190 C 478 204 472 220 457 222 C 445 223 438 212 444 202"
+          d={M_VOLUTE_RIGHT}
           fill="none"
           stroke="currentColor"
           strokeWidth="20"
           strokeLinecap="round"
         />
-        <path d="M 232 200 C 186 168 148 166 132 190 C 122 204 128 220 143 222 C 155 223 162 212 156 202" fill="none" strokeWidth="20" strokeDasharray="3 15" style={SEAM_STROKE} />
-        <path d="M 368 200 C 414 168 452 166 468 190 C 478 204 472 220 457 222 C 445 223 438 212 444 202" fill="none" strokeWidth="20" strokeDasharray="3 15" style={SEAM_STROKE} />
+        <path d={M_VOLUTE_LEFT} fill="none" strokeWidth="20" strokeDasharray="3 15" style={SEAM_STROKE} />
+        <path d={M_VOLUTE_RIGHT} fill="none" strokeWidth="20" strokeDasharray="3 15" style={SEAM_STROKE} />
 
         {/* The under-sweep, narrowed to the phone band. */}
         <path
           pathLength={1}
           className="calcada-draw calcada-draw-late"
-          d="M 210 420 C 220 500 275 525 300 480 C 325 525 380 500 390 420"
+          d={M_UNDER_SWEEP}
           fill="none"
           stroke="currentColor"
           strokeWidth="17"
           strokeLinecap="round"
         />
-        <path d="M 210 420 C 220 500 275 525 300 480 C 325 525 380 500 390 420" fill="none" strokeWidth="17" strokeDasharray="2.6 13" style={SEAM_STROKE} />
+        <path d={M_UNDER_SWEEP} fill="none" strokeWidth="17" strokeDasharray="2.6 13" style={SEAM_STROKE} />
 
         {/* Trailing dot column. */}
         <circle cx="300" cy="545" r="12" fill="currentColor" />
@@ -389,7 +510,7 @@ export function CalcadaDivider({ className }: { className?: string }): ReactNode
   return (
     <div aria-hidden="true" className={cn('mx-auto w-full max-w-5xl px-6', className)}>
       <svg viewBox="0 0 1200 36" preserveAspectRatio="xMidYMid meet" className="h-6 w-full text-foreground">
-        <CalcadaDefs idPrefix="cx-div" />
+        <CalcadaDefs idPrefix="cx-div" withField={false} />
         <g className="opacity-[0.22]">
           {/* The wave keeps its chiseled edge; the 4-unit cobble dots render
               crisp outside the filter — jittered, they read as specks. */}
@@ -438,7 +559,7 @@ export function CalcadaMedallion({
       {/* This canvas is 120 units (vs the hero's 1200), so the chisel scale
           drops to 2.5 — the full-strength jitter shredded the roundel into a
           smudge at its 72px rendered size. */}
-      <CalcadaDefs idPrefix="cx-med" stoneScale={2.5} />
+      <CalcadaDefs idPrefix="cx-med" stoneScale={2.5} withField={false} />
       {/* Dotted stone circle — the mosaic frame. Crisp on purpose: 2.6-unit
           stones dissolve under any displacement at this scale. */}
       <g className="calcada-orbit-slow opacity-[0.35]" style={{ transformOrigin: '60px 60px' }}>
