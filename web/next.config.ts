@@ -126,6 +126,28 @@ const nextConfig: NextConfig = {
   // The repo root has a Foundry package-lock.json; pin tracing to this app dir
   // so Next does not infer the monorepo root as the workspace.
   outputFileTracingRoot: __dirname,
+  // The pg driver is imported through a COMPUTED specifier (see
+  // lib/storage/postgresKvStore.ts — a literal import breaks the CLIENT build
+  // via a client-component chain), which blinds the file tracer. Force the
+  // whole pg family into `output: standalone` explicitly, or production ships
+  // memory-only while health claims postgres (the 2026-08-17 incident).
+  outputFileTracingIncludes: {
+    '/**': [
+      './node_modules/pg/**',
+      './node_modules/pg-cloudflare/**',
+      './node_modules/pg-connection-string/**',
+      './node_modules/pg-int8/**',
+      './node_modules/pg-pool/**',
+      './node_modules/pg-protocol/**',
+      './node_modules/pg-types/**',
+      './node_modules/pgpass/**',
+      './node_modules/postgres-array/**',
+      './node_modules/postgres-bytea/**',
+      './node_modules/postgres-date/**',
+      './node_modules/postgres-interval/**',
+      './node_modules/split2/**',
+    ],
+  },
   // `serverExternalPackages` keeps the Anthropic SDK out of the client bundle;
   // the Claude API key is server-only (doctrine guardrail #8).
   //

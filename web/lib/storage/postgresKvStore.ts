@@ -88,16 +88,22 @@ export function createPostgresKvStore(
     if (!poolPromise) {
       poolPromise = (async () => {
         // Lazy dynamic import: `pg` is only loaded when a durable store is actually
-        // configured. LITERAL specifier ON PURPOSE (2026-08-17): it used to be
-        // ['p','g'].join('') so typecheck would not require pg — but pg is a real
-        // dependency now, and the computed specifier BLINDED Next's file tracer,
-        // so `output: standalone` shipped WITHOUT pg and production hydrates all
-        // failed with "Cannot find module 'pg'" while health claimed postgres.
-        // A literal dynamic import stays lazy at runtime AND traceable at build.
-        // `pg`/`@types/pg` being installed — `pg` is an OPTIONAL peer the operator
-        // installs to use the durable store. Tests use the `injectedPool` seam, so
-        // no live DB is required.
-        const imported = (await import('pg')) as unknown as
+        // configured. TWO constraints meet here, and both bit us on 2026-08-17:
+        //   1. The specifier is COMPUTED so webpack never statically resolves 'pg'
+        //      — a client-component chain (SlugCheckoutView → gateConfig →
+        //      branding/store → durableKv) reaches this module, and a literal
+        //      import('pg') makes the CLIENT build hard-fail on node built-ins
+        //      (fs/dns/net/tls). Computed, the client bundle emits only the
+        //      "request of a dependency is an expression" warning and never
+        //      evaluates it (no URL is configured in a browser).
+        //   2. A computed specifier also blinds Next's FILE TRACER, which shipped
+        //      `output: standalone` WITHOUT pg — production hydrates all failed
+        //      "Cannot find module 'pg'". Bundling is therefore guaranteed
+        //      explicitly instead: next.config.ts `outputFileTracingIncludes`
+        //      forces the whole pg family into standalone, and the deploy script
+        //      refuses to ship a bundle missing node_modules/pg.
+        const specifier: string = ['p', 'g'].join('')
+        const imported = (await import(/* @vite-ignore */ specifier)) as unknown as
           | PgModule
           | { default: PgModule }
         const mod: PgModule =
