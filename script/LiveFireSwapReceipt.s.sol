@@ -32,10 +32,11 @@ interface IPoolSwapTest {
 }
 
 interface IPoolModifyLiquidityTest {
-    function modifyLiquidity(PoolKey memory key, ModifyLiquidityParams memory params, bytes memory hookData)
-        external
-        payable
-        returns (BalanceDelta);
+    function modifyLiquidity(
+        PoolKey memory key,
+        ModifyLiquidityParams memory params,
+        bytes memory hookData
+    ) external payable returns (BalanceDelta);
 }
 
 /// @title  LiveFireSwapReceipt
@@ -107,25 +108,29 @@ contract LiveFireSwapReceipt is Script {
         IPoolManager(poolManager).initialize(key, SQRT_PRICE_1_1);
 
         // 3. Dust liquidity around the current price so the swap has something to trade against.
-        IPoolModifyLiquidityTest(liqTest).modifyLiquidity(
-            key,
-            ModifyLiquidityParams({ tickLower: -600, tickUpper: 600, liquidityDelta: 1e18, salt: 0 }),
-            ""
-        );
+        IPoolModifyLiquidityTest(liqTest)
+            .modifyLiquidity(
+                key,
+                ModifyLiquidityParams({
+                tickLower: -600, tickUpper: 600, liquidityDelta: 1e18, salt: 0
+            }),
+                ""
+            );
 
         // 4. THE LIVE FIRE: 1.0 mock-USDC exact-in, hookData = the merchant attribution. The
         //    PoolManager calls the hook's afterSwap, which emits SwapReceipt(poolId, sender,
         //    merchantId, orderRef, delta) into this transaction's logs.
-        IPoolSwapTest(swapTest).swap(
-            key,
-            SwapParams({
+        IPoolSwapTest(swapTest)
+            .swap(
+                key,
+                SwapParams({
                 zeroForOne: true,
                 amountSpecified: -1_000_000, // exact-in 1.0 (6-dec mock)
                 sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
             }),
-            TestSettings({ takeClaims: false, settleUsingBurn: false }),
-            abi.encode(merchantId, orderRef)
-        );
+                TestSettings({ takeClaims: false, settleUsingBurn: false }),
+                abi.encode(merchantId, orderRef)
+            );
 
         vm.stopBroadcast();
 
