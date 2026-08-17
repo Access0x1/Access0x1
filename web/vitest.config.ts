@@ -31,10 +31,25 @@ export default defineConfig({
     // lib/agent/__tests__/ and app/api/agent/__tests__/ (dynamic-agent),
     // and test/ (unlink-private). Do NOT restrict `include` — the default
     // **/*.test.ts(x) glob covers all of them.
-    // Integration vectors need live Mainnet HTTP; run via `test:integration`.
+    // Integration vectors need live services (mainnet HTTP, a real Postgres);
+    // run via `test:integration`. Under vitest 4 a config `exclude` beats any
+    // CLI filename filter (a positional path still reports "No test files
+    // found"), so the old `vitest run **/*.integration.test.ts` script silently
+    // could not run AT ALL — the exclude must be lifted by the script itself,
+    // hence the VITEST_INTEGRATION=1 gate: unset (the normal gate) keeps
+    // integration tests excluded exactly as before; set, the include flips to
+    // integration tests only.
     // e2e/ holds Playwright `.spec.ts` files (run via `playwright test`, never
     // vitest — they call test.describe() from @playwright/test); exclude them so
     // a plain `vitest run` is green on a fresh clone.
-    exclude: ['**/node_modules/**', '**/dist/**', '**/*.integration.test.ts', '**/e2e/**'],
+    ...(process.env.VITEST_INTEGRATION === '1'
+      ? { include: ['**/*.integration.test.ts'] }
+      : {}),
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      ...(process.env.VITEST_INTEGRATION === '1' ? [] : ['**/*.integration.test.ts']),
+      '**/e2e/**',
+    ],
   },
 });
