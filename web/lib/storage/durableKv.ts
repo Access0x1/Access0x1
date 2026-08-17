@@ -275,8 +275,51 @@ export async function hydrate(
   }
 }
 
+/**
+ * PROBED store status for observability (the /api/health `store` field). Presence
+ * of a URL is NOT proof — this module was caught twice in one day claiming
+ * "postgres" while (1) the URL pointed at a placeholder host and (2) the `pg`
+ * driver was missing from the standalone bundle entirely. So the health surface
+ * now runs a real round-trip:
+ *   'memory'               — no URL configured (the honest dev/fallback mode)
+ *   'postgres'             — a live `get` round-trip against the backend SUCCEEDED
+ *   'postgres-unreachable' — a URL is configured but the round-trip FAILED
+ *     (driver missing, host wrong, auth failed, table unreachable — the message
+ *     is logged server-side only, never returned: no secret, no internals leak)
+ * The probe result is cached for PROBE_TTL_MS so health polling stays cheap, and
+ * a probe never throws — observability must not create load or new failure modes.
+ */
+const PROBE_TTL_MS = 60_000
+let probeCache: { at: number; status: 'postgres' | 'postgres-unreachable' } | null = null
+
+export async function durableStoreStatus(): Promise<
+  'memory' | 'postgres' | 'postgres-unreachable'
+> {
+  if (!isDurableKvConfigured()) return 'memory'
+  const now = Date.now()
+  if (probeCache && now - probeCache.at < PROBE_TTL_MS) return probeCache.status
+  try {
+    const backend = getDurableKv('health:probe')
+    if (!backend) return 'memory'
+    // A read of a never-written sentinel key: exercises driver load, connection,
+    // TLS, auth, and the lazily-created table in one cheap round-trip. Raced
+    // against a hard 3s timeout: a dead host must degrade the STATUS, never
+    // hang the health endpoint for a TCP timeout.
+    await Promise.race([
+      backend.get('probe'),
+      new Promise((_r, reject) => setTimeout(() => reject(new Error('probe timeout (3s)')), 3_000)),
+    ])
+    probeCache = { at: now, status: 'postgres' }
+  } catch (err) {
+    console.warn(`[storage/durableKv] health probe failed: ${errMessage(err)}`)
+    probeCache = { at: now, status: 'postgres-unreachable' }
+  }
+  return probeCache.status
+}
+
 /** Test-only: drop cached backends + the warn latch so a flipped env takes effect. */
 export function __resetDurableKvForTests(): void {
   backends.clear()
   warned = false
+  probeCache = null
 }

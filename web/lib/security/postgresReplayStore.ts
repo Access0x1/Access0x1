@@ -73,12 +73,16 @@ export function createPostgresReplayStore(
     if (!poolPromise) {
       poolPromise = (async () => {
         // Lazy dynamic import: `pg` is only loaded when a durable store is actually
-        // configured. The specifier is computed so the typecheck does NOT depend on
+        // configured. LITERAL specifier ON PURPOSE (2026-08-17): it used to be
+        // ['p','g'].join('') so typecheck would not require pg — but pg is a real
+        // dependency now, and the computed specifier BLINDED Next's file tracer,
+        // so `output: standalone` shipped WITHOUT pg and production hydrates all
+        // failed with "Cannot find module 'pg'" while health claimed postgres.
+        // A literal dynamic import stays lazy at runtime AND traceable at build.
         // `pg`/`@types/pg` being installed — `pg` is an OPTIONAL peer the operator
         // installs to use the durable store. Tests mock it via `vi.mock('pg')` or
         // the `injectedPool` seam, so no live DB is required.
-        const specifier: string = ['p', 'g'].join('')
-        const imported = (await import(/* @vite-ignore */ specifier)) as unknown as
+        const imported = (await import('pg')) as unknown as
           | PgModule
           | { default: PgModule }
         const mod: PgModule =

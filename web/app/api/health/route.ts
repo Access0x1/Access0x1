@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { isDurableKvConfigured } from '@/lib/storage/durableKv.js'
+import { durableStoreStatus } from '@/lib/storage/durableKv.js'
 
 /**
  * GET /api/health — "is the app actually serving, and WHICH build is it?"
@@ -49,8 +49,14 @@ export async function GET(): Promise<NextResponse> {
         (process.env.BUILD_ID ?? '').trim() ||
         (process.env.NEXT_PUBLIC_BUILD_COMMIT ?? '').trim() ||
         'unknown',
-      /** The active persistence layer: durable Postgres, or the memory fallback. */
-      store: isDurableKvConfigured() ? 'postgres' : 'memory',
+      /**
+       * The active persistence layer, PROBED not presumed: 'postgres' only after
+       * a live round-trip succeeded (cached 60s); 'postgres-unreachable' when a
+       * URL is configured but the round-trip fails (missing driver, bad host,
+       * auth, TLS — the reason stays in server logs only); 'memory' when no
+       * URL is configured. Presence-only reporting lied twice on 2026-08-17.
+       */
+      store: await durableStoreStatus(),
       /**
        * Proves API routes are reachable. If you can read this line, a 404 on any
        * other `/api/*` path means that route is missing from THIS build — not that
