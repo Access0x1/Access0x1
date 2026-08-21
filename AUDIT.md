@@ -13,7 +13,7 @@
 > real and a reader deserves to know which one this is. An external audit is welcome but not a
 > gate we impose (see [`audit/first-party-auditor/`](audit/first-party-auditor/)).
 
-_Last updated: 2026-07-26 (test-count refresh: 2,068 Foundry contract tests + 1,923 web/SDK unit tests; ten-chain mirror incl. zkSync Sepolia 300 and 0G Galileo 16602; the v4 SwapReceiptHook + ENS PaymentResolver deployed + source-verified on Ethereum Sepolia)._
+_Last updated: 2026-07-26 (test-count refresh: 2,068 Foundry contract tests + 1,955 web/SDK unit tests; ten-chain mirror incl. zkSync Sepolia 300 and 0G Galileo 16602; the v4 SwapReceiptHook + ENS PaymentResolver deployed + source-verified on Ethereum Sepolia)._
 
 ---
 
