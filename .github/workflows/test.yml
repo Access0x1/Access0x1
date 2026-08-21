@@ -25,7 +25,8 @@ jobs:
   # against the base and emits one boolean per lane; each heavy job is gated `if:` on its lane.
   # A skipped job reports conclusion "skipped", which branch protection treats as satisfied — so
   # a docs-only PR is not blocked by a Foundry lane that never ran. On main-push/dispatch every
-  # lane runs (merge = full validation). No third-party action: plain git diff, SHA-pinned checkout.
+  # lane runs (merge = full validation) — enforced in the script, not just intended; see the note
+  # there. No third-party action: plain git diff, SHA-pinned checkout.
   changes:
     name: Detect changed lanes
     runs-on: ubuntu-latest
@@ -50,8 +51,15 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          # Manual dispatch is the "validate everything" escape hatch — always full.
-          if [ "$EVENT" = "workflow_dispatch" ]; then
+          # A push to main is a MERGE, and a merge gets full validation — the comment on
+          # this job always said so, but the code only did it for workflow_dispatch, and
+          # the gap is not theoretical. `cancel-in-progress` supersedes runs: merge A
+          # starts a run that would cover lane X, merge B lands seconds later and cancels
+          # it, and B's own diff (B vs A) no longer touches lane X — so lane X is never
+          # validated on main at all. That is exactly the failure mode the note below
+          # calls "the one that actually costs something". Observed 2026-08-21: the mcp
+          # lane was skipped on main this way, minutes after the package merged.
+          if [ "$EVENT" = "workflow_dispatch" ] || [ "$EVENT" = "push" ]; then
             for k in contracts web packages snap subgraph mcp; do echo "$k=true" >> "$GITHUB_OUTPUT"; done
             exit 0
           fi
