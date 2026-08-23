@@ -11,7 +11,9 @@
  *  - capability probe: GET ⇒ { configured },
  *  - input guards: invalid JSON / missing / empty / over-long question ⇒ 400,
  *  - the per-IP limiter returns 429, and the daily never-negative meter returns
- *    429 once spent.
+ *    429 once spent,
+ *  - the cost meter captures the usage frames the stream carries WITHOUT
+ *    changing a byte of the answer the client receives.
  *
  * The Claude key never appears in any response body (it lives server-side only).
  */
@@ -39,6 +41,8 @@ vi.mock('@anthropic-ai/sdk', () => {
 })
 
 const { GET, POST, __resetDocsAskMetersForTests } = await import('../route.js')
+const { __resetDocsAskCostMeterForTests, readCostRecords } = await import('@/lib/docs/cost-meter.js')
+const { buildDocsSystemPrompt } = await import('@/lib/docs/corpus.js')
 
 /** Build an async-iterable that yields the given text as one text_delta event. */
 function streamOf(text: string): AsyncIterable<unknown> {
@@ -66,6 +70,7 @@ function req(body: unknown, ip?: string): Request {
 beforeEach(() => {
   streamMock.mockReset()
   __resetDocsAskMetersForTests()
+  __resetDocsAskCostMeterForTests()
   vi.stubEnv('CLAUDE_API_KEY', 'sk-test-key')
   // The limiter keys on a TRUSTED proxy-set IP. Tell the route it is behind a
   // trusted proxy so the per-request x-forwarded-for IP is honored (single hop ⇒
@@ -92,7 +97,8 @@ describe('happy path (mocked SDK)', () => {
     expect(text).not.toContain('sk-test-key')
   })
 
-  it('calls Claude Haiku with the docs system prompt sent as a cache-controlled block', async () => {
+  it('calls Claude Haiku with a grounded, retrieval-sized system prompt and NO cache block', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
     streamMock.mockReturnValue(streamOf('ok'))
 
     await POST(req({ question: 'How is a payment priced?' }))
@@ -104,24 +110,119 @@ describe('happy path (mocked SDK)', () => {
       messages: { role: string; content: string }[]
     }
     expect(params.model).toBe('claude-haiku-4-5')
-    // System is a text-block ARRAY (not a bare string) so it can be cached.
+    // System stays a text-block ARRAY (not a bare string) so the corpus mode can
+    // still attach cache_control to it.
     expect(Array.isArray(params.system)).toBe(true)
     expect(params.system).toHaveLength(1)
     const block = params.system[0]
     expect(block.type).toBe('text')
-    // The corpus is marked for prompt caching — the key efficiency win.
-    expect(block.cache_control).toEqual({ type: 'ephemeral' })
-    // The grounding instruction + a real doc citation header are present.
+    // A per-question prefix is never re-read, so caching it would buy a 1.25x
+    // write multiplier and nothing else.
+    expect(block.cache_control).toBeUndefined()
+    // The grounding instruction and a real doc citation header are present.
     expect(block.text).toContain('documentation assistant')
     expect(block.text).toContain('Cite the source doc filename')
-    expect(block.text).toContain('===== docs/FAQ.md =====')
+    expect(block.text).toMatch(/===== docs\/\S+\.md =====/)
     expect(params.messages[0]).toEqual({ role: 'user', content: 'How is a payment priced?' })
+  })
+})
+
+describe('grounding mode — DOCS_ASK_MODE', () => {
+  /** The single system block the mocked SDK was called with. */
+  function sentBlock(): { type: string; text: string; cache_control?: { type: string } } {
+    const params = streamMock.mock.calls[0][0] as {
+      system: { type: string; text: string; cache_control?: { type: string } }[]
+    }
+    return params.system[0]
+  }
+
+  it('grounds on the WHOLE CORPUS by default — switching is an owner decision', async () => {
+    // The default is deliberately the known-good recall, not the cheap path: the
+    // cost meter exists to measure a cache hit rate that rag mode never produces,
+    // and no answer-quality A/B has run. See docsAskMode() for the full reasoning.
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'How is the platform fee split?' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('corpus')
+    const block = sentBlock()
+    expect(block.text).toBe(buildDocsSystemPrompt())
+    expect(block.cache_control).toEqual({ type: 'ephemeral' })
+  })
+
+  it('retrieves when opted in: a prompt orders of magnitude smaller than the corpus', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'How is the platform fee split?' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('rag')
+    const block = sentBlock()
+    expect(block.cache_control).toBeUndefined()
+    expect(block.text.length * 20).toBeLessThan(buildDocsSystemPrompt().length)
+    expect(block.text).toContain('===== docs/PLATFORM-FEE.md =====')
+  })
+
+  it('restores the previous behavior EXACTLY with DOCS_ASK_MODE=corpus', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'corpus')
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'How is the platform fee split?' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('corpus')
+    const block = sentBlock()
+    // Byte-for-byte the old prompt, still marked for prompt caching.
+    expect(block.text).toBe(buildDocsSystemPrompt())
+    expect(block.cache_control).toEqual({ type: 'ephemeral' })
+  })
+
+  it('reads an unrecognized mode as corpus — a typo keeps recall, never degrades answers', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'RGA')
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'How is the platform fee split?' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('corpus')
+    expect(sentBlock().text).toBe(buildDocsSystemPrompt())
+  })
+
+  it('falls back to the whole corpus when retrieval matches nothing', async () => {
+    // The honesty rule: never ask the model to answer from an empty context.
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'asdfghjkl qwertyuiop zxcvbnm' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('corpus')
+    const block = sentBlock()
+    expect(block.text).toBe(buildDocsSystemPrompt())
+    expect(block.cache_control).toEqual({ type: 'ephemeral' })
+  })
+
+  it('honors DOCS_ASK_TOP_K, and ignores a nonsensical one', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
+    vi.stubEnv('DOCS_ASK_TOP_K', '2')
+    streamMock.mockReturnValue(streamOf('ok'))
+    await POST(req({ question: 'How is the platform fee split?' }))
+    const narrow = sentBlock().text
+
+    streamMock.mockReset()
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
+    vi.stubEnv('DOCS_ASK_TOP_K', 'not-a-number')
+    streamMock.mockReturnValue(streamOf('ok'))
+    await POST(req({ question: 'How is the platform fee split?' }))
+    const wide = sentBlock().text
+
+    expect(narrow.length).toBeLessThan(wide.length)
+    // Counts real passage headers only — the instruction itself quotes the
+    // header FORM, so the pattern requires an actual filename.
+    expect(narrow.match(/===== docs\/\S+\.md =====/g)).toHaveLength(2)
   })
 })
 
 describe('0G Compute path — global switch AI_INFERENCE_PROVIDER=zerog', () => {
   it('answers the SAME grounded corpus on 0G and tags x-inference-provider: zerog', async () => {
     vi.stubEnv('AI_INFERENCE_PROVIDER', 'zerog')
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
     vi.stubEnv('ZEROG_COMPUTE_ENDPOINT', 'https://compute.0g')
     vi.stubEnv('ZEROG_COMPUTE_API_KEY', 'k')
     const fetchMock = vi.fn(
@@ -138,14 +239,17 @@ describe('0G Compute path — global switch AI_INFERENCE_PROVIDER=zerog', () => 
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/plain')
     expect(res.headers.get('x-inference-provider')).toBe('zerog')
+    // Grounding happens BEFORE the provider fork, so 0G gets the retrieved
+    // prompt too — which is also what keeps it inside a 128K-context model.
+    expect(res.headers.get('x-docs-ask-mode')).toBe('rag')
     expect(await res.text()).toBe('Priced in USD (docs/FAQ.md).')
 
-    // The 0G call is OpenAI-compatible, with the docs corpus sent as the system message.
+    // The 0G call is OpenAI-compatible, with the grounded docs sent as the system message.
     const [url, init] = fetchMock.mock.calls[0]
     expect(String(url)).toBe('https://compute.0g/chat/completions')
     const body = JSON.parse((init as RequestInit).body as string)
     expect(body.messages[0].role).toBe('system')
-    expect(body.messages[0].content).toContain('===== docs/FAQ.md =====')
+    expect(body.messages[0].content).toMatch(/===== docs\/\S+\.md =====/)
     expect(body.messages[1]).toEqual({ role: 'user', content: 'How is a payment priced?' })
     expect(streamMock).not.toHaveBeenCalled() // the Anthropic streaming path is untouched
   })
@@ -255,5 +359,89 @@ describe('input validation', () => {
   it('rejects an over-long question with 400', async () => {
     const res = await POST(req({ question: 'x'.repeat(2001) }))
     expect(res.status).toBe(400)
+  })
+})
+
+describe('cost instrumentation — the usage frames the loop used to discard', () => {
+  /** A full stream: message_start (input side), the text, message_delta (output). */
+  function streamWithUsage(text: string, cacheRead: number, cacheWrite: number): AsyncIterable<unknown> {
+    return {
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: 'message_start',
+          message: {
+            id: 'msg_01',
+            model: 'claude-haiku-4-5',
+            usage: {
+              input_tokens: 14,
+              output_tokens: 1,
+              cache_creation_input_tokens: cacheWrite,
+              cache_read_input_tokens: cacheRead,
+            },
+          },
+        }
+        yield { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }
+        yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } }
+        yield { type: 'content_block_stop', index: 0 }
+        yield { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 96 } }
+        yield { type: 'message_stop' }
+      },
+    }
+  }
+
+  it('records one costed answer per stream and leaves the streamed text untouched', async () => {
+    streamMock.mockReturnValue(streamWithUsage('Priced in USD (docs/FAQ.md).', 130_412, 0))
+
+    const res = await POST(req({ question: 'How is a payment priced?' }))
+
+    // The user-visible contract is byte-identical to the uninstrumented route.
+    expect(await res.text()).toBe('Priced in USD (docs/FAQ.md).')
+
+    const records = readCostRecords()
+    expect(records).toHaveLength(1)
+    expect(records[0].cacheState).toBe('read')
+    expect(records[0].cacheReadInputTokens).toBe(130_412)
+    expect(records[0].inputTokens).toBe(14)
+    // message_delta carries the CUMULATIVE output count, not an increment.
+    expect(records[0].outputTokens).toBe(96)
+    expect(records[0].costUsd).toBeGreaterThan(0)
+  })
+
+  it('marks a cold turn as a cache WRITE — the expensive 1.25x side', async () => {
+    streamMock.mockReturnValue(streamWithUsage('ok', 0, 130_412))
+
+    // Drain the body: the meter is written when the stream finishes, by design.
+    await (await POST(req({ question: 'What is the router?' }))).text()
+
+    const [record] = readCostRecords()
+    expect(record.cacheState).toBe('write')
+    expect(record.cacheCreationInputTokens).toBe(130_412)
+  })
+
+  it('still delivers the partial answer and meters it when the stream dies mid-flight', async () => {
+    streamMock.mockReturnValue({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: 'message_start',
+          message: { usage: { input_tokens: 14, output_tokens: 1, cache_read_input_tokens: 130_412 } },
+        }
+        yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'partial' } }
+        throw new Error('upstream died')
+      },
+    })
+
+    const res = await POST(req({ question: 'anything' }))
+
+    expect(await res.text()).toBe('partial\n\n[stream interrupted]')
+    // The tokens were still billed, so they are still metered.
+    expect(readCostRecords()).toHaveLength(1)
+  })
+
+  it('records nothing for a stream that reported no usage at all', async () => {
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    await (await POST(req({ question: 'anything' }))).text()
+
+    expect(readCostRecords()).toHaveLength(0)
   })
 })

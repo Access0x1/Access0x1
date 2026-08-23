@@ -256,7 +256,7 @@ export function DashboardView(): ReactNode {
             highest trust tier.
           </span>
         </span>
-        <span className="shrink-0 rounded-lg bg-rail px-3 py-1.5 text-sm font-medium text-white">
+        <span className="shrink-0 rounded-lg bg-rail px-3 py-1.5 text-sm font-medium text-primary-foreground">
           Verify →
         </span>
       </a>
@@ -282,15 +282,15 @@ export function DashboardView(): ReactNode {
 
       {justRegistered ? (
         // Just switched on payments — show the live link/QR/embed confirmation.
-        <div className="rounded-2xl border border-green-200 bg-green-50/40 p-6">
-          <p className="mb-4 text-sm font-medium text-green-700">
+        <div className="rounded-2xl border border-success/30 bg-success/10 p-6">
+          <p className="mb-4 text-sm font-medium text-success">
             ✓ Payments are on. Your checkout link is live.
           </p>
           <LinkCard result={justRegistered} />
           {/* WHAT the merchant now sits on: their id + the shared module
               addresses on the chain the seat actually landed on, with
               per-chain explorer links. */}
-          <div className="mt-6 border-t border-green-200 pt-4">
+          <div className="mt-6 border-t border-success/30 pt-4">
             <RailModulesCard
               chainId={justRegistered.chainId}
               merchantId={justRegistered.merchantId.toString()}
@@ -339,10 +339,10 @@ export function DashboardView(): ReactNode {
                 "payments on" claim. */}
             {pendingResult ? (
               <div
-                className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50/60 p-4"
+                className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4"
                 data-testid="attach-error"
               >
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-destructive">
                   {attachError ?? 'Could not switch on payments. Please try again.'}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -353,7 +353,7 @@ export function DashboardView(): ReactNode {
                   type="button"
                   onClick={() => void attach(pendingResult)}
                   disabled={attaching}
-                  className="self-start rounded-lg bg-rail px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="self-start rounded-lg bg-rail px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {attaching ? 'Switching on…' : 'Retry switching on payments'}
                 </button>
@@ -374,7 +374,7 @@ export function DashboardView(): ReactNode {
       ) : (
         <>
           <p className="text-sm text-muted-foreground">Merchant #{merchantId.toString()}</p>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
           {loading ? (
             <div className="h-32 animate-pulse rounded-xl bg-secondary" />
           ) : rows.length === 0 ? (

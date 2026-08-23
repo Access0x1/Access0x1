@@ -19,8 +19,9 @@
 # that the thing now serving is the thing that was just built.
 #
 # Usage:
-#   DYN_ENV=<dynamic-environment-id> bash scripts/deploy-web.sh
-#   DYN_ENV=... DEFAULT_CHAIN_ID=84532 bash scripts/deploy-web.sh
+#   make deploy-web                       # env id derived from web/.env.local
+#   DYN_ENV=<id> make deploy-web          # explicit override (CI / another env)
+#   DEFAULT_CHAIN_ID=84532 make deploy-web
 #
 set -euo pipefail
 
@@ -36,10 +37,44 @@ command -v gcloud >/dev/null 2>&1 || {
   exit 1
 }
 
+# ── Dynamic environment id: DERIVED, not retyped ─────────────────────────────
+# It already lives in web/.env.local (the app reads it from there), so making the
+# operator paste it on the command line was not just friction — it was a BUG
+# FACTORY: the deploy could bake an id that differs from the one the app is
+# configured with, and the two only disagree silently. A build carrying env A
+# while the dashboard/session expects env B is exactly the failure where sign-in
+# renders but never opens, and a returning user's JWT (pinned to
+# app.dynamicauth.com/<id>) can no longer be verified.
+#
+# So: read it from .env.local by default; DYN_ENV remains an explicit OVERRIDE for
+# CI or for deploying a different environment on purpose.
 if [[ -z "${DYN_ENV:-}" ]]; then
-  echo "deploy-web: set DYN_ENV to the Dynamic environment id."
-  echo "  Find it with:  grep NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID web/.env.local"
-  echo "  Then:          DYN_ENV=<id> bash scripts/deploy-web.sh"
+  DYN_ENV="$(grep -E '^NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=' "$REPO_ROOT/web/.env.local" 2>/dev/null \
+    | head -1 | cut -d= -f2- | tr -d '"'"'"' \r' | sed 's/[[:space:]]*#.*$//')"
+  if [[ -n "$DYN_ENV" ]]; then
+    echo "==> Dynamic env id: derived from web/.env.local (override with DYN_ENV=<id>)"
+  fi
+fi
+
+if [[ -z "${DYN_ENV:-}" ]]; then
+  echo "deploy-web: no Dynamic environment id found."
+  echo "  Set NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID in web/.env.local (npm run env:set -- dynamic),"
+  echo "  or pass an explicit override:  DYN_ENV=<id> make deploy-web"
+  exit 1
+fi
+
+# ── Refuse to bake garbage into the bundle ───────────────────────────────────
+# A stray `export DYN_ENV=paste-the-id-from-step-2` (a copy-pasted instruction
+# placeholder) survived in an operator shell, overrode the derivation, and got
+# COMPILED into the client bundle as the Dynamic environment id — the SDK then
+# fails to init and sign-in dies with no error anywhere. A Dynamic env id is a
+# UUID; anything else is a placeholder or a typo, and a 20-minute build over it
+# is pure loss. Refuse loudly instead.
+if [[ ! "$DYN_ENV" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+  echo "deploy-web: REFUSING to build — DYN_ENV is not a Dynamic environment id (UUID):"
+  echo "    DYN_ENV='${DYN_ENV}'"
+  echo "  This is usually a stale placeholder exported in your shell. Fix:"
+  echo "    unset DYN_ENV && make deploy-web    # derives the real id from web/.env.local"
   exit 1
 fi
 
@@ -80,14 +115,21 @@ WORK="$(mktemp -d -t access0x1-deploy.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 RUNTIME_ENV="$WORK/runtime.yaml"
 SECRETS_DIR="$WORK/secrets"
-node scripts/deploy-env.mjs --runtime-out "$RUNTIME_ENV" --secrets-dir "$SECRETS_DIR"
+npx tsx scripts/doctor/deploy-env.mjs --runtime-out "$RUNTIME_ENV" --secrets-dir "$SECRETS_DIR"
 # These two must exist at runtime regardless of what .env.local held: the commit so
 # /api/health can name the live build, and the Dynamic env id so the server can
 # verify a sign-in (the whole "verified login" bug). Appended, so they win. Both are
 # public, so they belong in the plain env file, not Secret Manager.
+# REPLACE, never shadow: deploy-env already wrote NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID
+# from .env.local. Appending a second copy made a duplicate YAML key — gcloud only
+# WARNS, silently letting one value win, which is how a poisoned DYN_ENV shadowed
+# the correct id without an error. Strip any existing lines first so the file has
+# exactly one value per key and a disagreement becomes impossible.
+grep -vE '^(NEXT_PUBLIC_BUILD_COMMIT|NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID):' "$RUNTIME_ENV" > "$RUNTIME_ENV.tmp" \
+  && mv "$RUNTIME_ENV.tmp" "$RUNTIME_ENV"
 {
   echo "NEXT_PUBLIC_BUILD_COMMIT: '${TAG}'"
-  [[ -n "${DYN_ENV:-}" ]] && echo "NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: '${DYN_ENV}'"
+  echo "NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID: '${DYN_ENV}'"
 } >> "$RUNTIME_ENV"
 
 # ── 2b. Real credentials → Secret Manager, NOT plaintext env config ──────────
@@ -129,9 +171,43 @@ fi
 # ── 3. Build the image ───────────────────────────────────────────────────────
 # Public NEXT_PUBLIC_* vars are inlined at build from .env.local (copied into the
 # context) plus the substitutions below; server vars are set at runtime in step 4.
+# ── 2c. NO PLACEHOLDERS (owner law, 2026-07-25): a paying-customer build never ──
+# ships an embed with __PLACEHOLDER__ addresses on a chain we are live on. The
+# values live in web/.env.local (canonical sources: script/mirror-manifest.json +
+# web/lib/chains.ts); the build receives them as substitutions. Missing any of
+# the four live-chain values ABORTS the deploy — loud beats dormant. The zkSync
+# pair is optional (chain never broadcast; its USD-only fallback is the honest
+# state until an EraVM broadcast exists).
+# `|| true` because a var that is legitimately absent (the optional zkSync pair)
+# makes grep exit 1 — under `set -euo pipefail` that killed the whole deploy
+# silently right after secret-vaulting. Absent stays absent; the gate below
+# decides which ones are allowed to be.
+embed_var() { grep "^${1}=" "$REPO_ROOT/web/.env.local" | head -1 | cut -d= -f2- || true; }
+ROUTER_ARC="$(embed_var NEXT_PUBLIC_ROUTER_ARC)"
+USDC_ARC="$(embed_var NEXT_PUBLIC_USDC_ARC)"
+ROUTER_BASE="$(embed_var NEXT_PUBLIC_ROUTER_BASE_SEPOLIA)"
+USDC_BASE="$(embed_var NEXT_PUBLIC_USDC_BASE_SEPOLIA)"
+ROUTER_ZK="$(embed_var NEXT_PUBLIC_ROUTER_ZKSYNC_SEPOLIA)"
+USDC_ZK="$(embed_var NEXT_PUBLIC_USDC_ZKSYNC_SEPOLIA)"
+MISSING_ADDRS=""
+[[ -n "$ROUTER_ARC" ]] || MISSING_ADDRS="$MISSING_ADDRS NEXT_PUBLIC_ROUTER_ARC"
+[[ -n "$USDC_ARC" ]] || MISSING_ADDRS="$MISSING_ADDRS NEXT_PUBLIC_USDC_ARC"
+[[ -n "$ROUTER_BASE" ]] || MISSING_ADDRS="$MISSING_ADDRS NEXT_PUBLIC_ROUTER_BASE_SEPOLIA"
+[[ -n "$USDC_BASE" ]] || MISSING_ADDRS="$MISSING_ADDRS NEXT_PUBLIC_USDC_BASE_SEPOLIA"
+if [[ -n "$MISSING_ADDRS" ]]; then
+  echo "deploy-web: REFUSING to build — live-chain embed addresses missing from web/.env.local:"
+  echo "   $MISSING_ADDRS"
+  echo "  Fill them from script/mirror-manifest.json + web/lib/chains.ts. No placeholders in prod."
+  exit 1
+fi
+
 echo "==> building ${IMAGE}"
+# _CACHE_DEPS keeps a deps-stage image in the registry so `npm ci` only re-runs
+# when the lockfile actually changed — a cold Cloud Build machine pulls it and
+# the dependency layer cache-hits instead of reinstalling the world every deploy.
+CACHE_DEPS="${REGION}-docker.pkg.dev/${PROJ}/access0x1/web:deps-cache"
 gcloud builds submit --config cloudbuild.yaml \
-  --substitutions="_IMAGE=${IMAGE},_DYNAMIC_ENV=${DYN_ENV},_DEFAULT_CHAIN_ID=${DEFAULT_CHAIN_ID}" \
+  --substitutions="_IMAGE=${IMAGE},_DYNAMIC_ENV=${DYN_ENV},_DEFAULT_CHAIN_ID=${DEFAULT_CHAIN_ID},_CACHE_DEPS=${CACHE_DEPS},_ROUTER_ARC=${ROUTER_ARC},_USDC_ARC=${USDC_ARC},_ROUTER_BASE_SEPOLIA=${ROUTER_BASE},_USDC_BASE_SEPOLIA=${USDC_BASE},_ROUTER_ZKSYNC_SEPOLIA=${ROUTER_ZK},_USDC_ZKSYNC_SEPOLIA=${USDC_ZK}" \
   .
 
 # ── 4. Deploy it, WITH every integration's runtime env ───────────────────────

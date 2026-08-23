@@ -20,6 +20,49 @@ review every contribution on its technical merits.
 
 ---
 
+## For a protocol or company adapting this repo to you
+
+**Start with your own page: [`docs/FOR-PROTOCOLS.md`](docs/FOR-PROTOCOLS.md).** It answers three
+questions per protocol — what we call, what we learned by calling it that your docs do not say, and
+what we would change — with the file path behind every claim. Reading it is the fastest way to see
+whether we got your stack right.
+
+**This lane exists because the integration we wrote for you is our reading of your docs, and you
+know what it should have been.** If your protocol appears in the README's Partners table — or
+should — you are invited to change the code, not just report it. Nothing to sign, nothing to pay,
+MIT throughout.
+
+**What you can ask for, and what happens:**
+
+| You want | Do this | What we do |
+| --- | --- | --- |
+| The integration corrected | Open an issue titled `integration(<you>): …` naming the file and the right pattern | Treated as a defect, not a suggestion — a public reference teaching the wrong pattern hurts you more than us |
+| To write it yourself | PR against `dev`, normal green gate | Reviewed on technical merit; you get authorship in the log |
+| Us to build to your interface | Issue with a link to the spec, event shape, resolver, or rubric | We prefer implementing yours over inventing a parallel one |
+| Your chain supported | Issue naming the chain + its RPC and explorer | Breadth is chosen by integrator demand; a named ask beats our guessing |
+| A config seam that makes adoption trivial for your users | Describe the shape you want | Every seam is env-gated already; adding yours is usually a config file, not a rewrite |
+
+**Two rules that will not bend, and they protect your users more than us:**
+
+1. **Every seam stays env-gated and removable.** Blank config is a clean no-op, never a blocked
+   payment. What we build for your protocol must never become a dependency your users cannot
+   escape — and it means your outage is not their outage.
+2. **No claim ships without its proof.** A deployed address comes from a committed broadcast
+   record, a count comes from a fresh run, and `deployed` / `verified` / `usable` are three
+   different words. That discipline is also what makes the reference trustworthy to cite.
+
+**Where to start reading:** [`docs/FOR-PROTOCOLS.md`](docs/FOR-PROTOCOLS.md) for your page,
+[`README.md`](README.md#field-notes--what-each-integration-taught-us-and-the-file-that-proves-it) for
+the same findings as a one-line index, [`docs/OPTIONAL-SEAMS.md`](docs/OPTIONAL-SEAMS.md) for how a
+seam is wired and disabled, and [`FEEDBACK.md`](FEEDBACK.md) for the shape of the feedback we file
+upstream — the same specificity we are asking of you.
+
+**A correction is worth more than a new integration.** A finding on your page that is wrong is a
+public reference teaching a wrong pattern, which costs you more than it costs us. Open an issue
+titled `integration(<you>): …` naming the row and what it should say, and it is treated as a defect.
+
+---
+
 ## Prerequisites
 
 - **[Foundry](https://book.getfoundry.sh/getting-started/installation)** (`forge`,
@@ -158,7 +201,7 @@ make analyze           # umbrella: 4naly3er + aderyn + slither
   before committing.
 - **Config is one registry entry.** Every env var the web app reads is declared in
   `web/lib/config/integrations.ts` — that one table drives `env:doctor`, the status
-  probe, **and the deploy** (`web/scripts/deploy-env.mjs` derives the Cloud Run env
+  probe, **and the deploy** (`web/scripts/doctor/deploy-env.mjs` derives the Cloud Run env
   from it). A var read by code but **not** declared is invisible to the doctor and is
   silently dropped at deploy, so the feature ships dark even when the operator set it.
   When you read a new `process.env.X`: (1) add it to `integrations.ts` — `secret: true`

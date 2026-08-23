@@ -1,0 +1,26 @@
+# docker-compose.dev.yml — LOCAL DEV ONLY: the durable-store Postgres the web app's
+# key→JSON stores (lib/storage/durableKv.ts → postgresKvStore.ts) and the durable
+# replay store persist into. Nothing here is a production secret — throwaway local
+# credentials for a localhost-bound container.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#   export TEST_DATABASE_URL=postgres://postgres:dev@127.0.0.1:5433/ax1dev   # tests
+#   # dev server durability:  NULLIFIER_STORE_URL=<same url>  (or DATABASE_URL)
+#   npm run test:integration    # runs the persistence proof against it
+#
+# The schema needs NO migration step: the adapters run their idempotent
+# CREATE TABLE IF NOT EXISTS on first use (see postgresKvStore.KV_STORE_DDL).
+services:
+  ax1-postgres-dev:
+    image: postgres:16-alpine
+    container_name: ax1-postgres-dev
+    ports:
+      - '127.0.0.1:5433:5432'
+    environment:
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: ax1dev
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 3s
+      retries: 10

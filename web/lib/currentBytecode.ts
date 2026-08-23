@@ -15,27 +15,27 @@ export interface ContractBytecode {
  *  on-chain hash (computed the SAME way) against these. */
 export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
   "Access0x1Bookings": {
-    "codeHash": "0x6456d1e10a37863a5ba5c5be7bbb7027cbafe179213e73623d53171a6e1e116b",
+    "codeHash": "0x2151db999d3d8fb42d484fcf67575802a9a057f086b1144852ff73789ecdfac9",
     "immutableRanges": [
       [
-        5158,
+        5184,
         32
       ],
       [
-        5361,
+        5387,
         32
       ]
     ]
   },
   "Access0x1Bookings.impl": {
-    "codeHash": "0x6456d1e10a37863a5ba5c5be7bbb7027cbafe179213e73623d53171a6e1e116b",
+    "codeHash": "0x2151db999d3d8fb42d484fcf67575802a9a057f086b1144852ff73789ecdfac9",
     "immutableRanges": [
       [
-        5158,
+        5184,
         32
       ],
       [
-        5361,
+        5387,
         32
       ]
     ]
@@ -195,14 +195,14 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     "immutableRanges": []
   },
   "Access0x1Rebates.impl": {
-    "codeHash": "0x31ee6ae038fef251b34a9aeb0277f793e54041529f675d1818eaab1b2f7e9b53",
+    "codeHash": "0x7509776eeac84909d0ce65d4aec89e2557175cd43e1b57ecb440a720b6064eea",
     "immutableRanges": [
       [
-        1807,
+        1865,
         32
       ],
       [
-        2209,
+        2267,
         32
       ]
     ]
@@ -212,27 +212,27 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     "immutableRanges": []
   },
   "Access0x1Router": {
-    "codeHash": "0xd29606cc6661991f348792f57082f871dbcd6fe54d1c69153cfc127b503c46bd",
+    "codeHash": "0x0a7f12c71ae80cc76bafbac2d4a80c4e3a127c7e547200a7b01cd5912edf40ea",
     "immutableRanges": [
       [
-        5217,
+        5306,
         32
       ],
       [
-        5421,
+        5510,
         32
       ]
     ]
   },
   "Access0x1Router.impl": {
-    "codeHash": "0xd29606cc6661991f348792f57082f871dbcd6fe54d1c69153cfc127b503c46bd",
+    "codeHash": "0x0a7f12c71ae80cc76bafbac2d4a80c4e3a127c7e547200a7b01cd5912edf40ea",
     "immutableRanges": [
       [
-        5217,
+        5306,
         32
       ],
       [
-        5421,
+        5510,
         32
       ]
     ]
@@ -323,7 +323,7 @@ export const CURRENT_BYTECODE: Readonly<Record<string, ContractBytecode>> = {
     "immutableRanges": []
   },
   "GaslessPayIn.impl": {
-    "codeHash": "0xb6cc92ccdea61ff90a56b197242e9f7a4d1469a86329f458251daf65cbfbd573",
+    "codeHash": "0x5228d27fd0a125dbc10b6b6b10a343dbf9f2a75ed22bc1f8a6e2fd85fdbdda22",
     "immutableRanges": [
       [
         3078,

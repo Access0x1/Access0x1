@@ -42,9 +42,25 @@ function baseReq(over: Partial<SwapRequest> = {}): SwapRequest {
 }
 
 describe('Uniswap Trading API rail (Base)', () => {
-  it('quote then gasless /order by default, customFee=0', async () => {
+  // Canonical mock responses (live-verified shapes, 2026-07-25): CLASSIC nests the output on
+  // `quote.output`; UniswapX carries a Dutch-auction order with start/end amounts instead.
+  const classicQuote = (amount = '995000') => ({
+    routing: 'CLASSIC',
+    quote: { output: { token: PAYOUT, amount } },
+    permitData: null,
+  })
+  const dutchQuote = (endAmount = '995000', startAmount = '999000') => ({
+    routing: 'DUTCH_V2',
+    quote: { orderInfo: { outputs: [{ startAmount, endAmount }] } },
+    permitData: { domain: {} },
+  })
+  const swapTx = () => ({
+    swap: { to: '0xrouter', from: MERCHANT, data: '0xcafe', value: '0', chainId: 84532 },
+  })
+
+  it('a UniswapX quote routes to /order with the quote spread in (permitData stripped)', async () => {
     const fetchImpl = vi.fn<FetchLike>(async (url) => {
-      if (url.endsWith('/quote')) return json({ amountOut: '995000', quoteId: 'q1' })
+      if (url.endsWith('/quote')) return json(dutchQuote())
       if (url.endsWith('/order')) return json({ txHash: '0xorder' })
       return json({ error: 'unexpected' }, 500)
     })
@@ -52,17 +68,31 @@ describe('Uniswap Trading API rail (Base)', () => {
     const res = await runPayoutSwap(baseReq(), client)
     expect(res.swapped).toBe(true)
     expect(res.txHash).toBe('0xorder')
-    // The order body carries customFeeBps: 0 (sole monetization is the router fee-split).
+    // The documented execute body: the quote response fields spread in — never wrapped,
+    // never re-fetched — with permitData stripped (the wallet owner signs permits).
     const orderCall = fetchImpl.mock.calls.find((c) => String(c[0]).endsWith('/order'))!
     const body = JSON.parse((orderCall[1] as RequestInit).body as string)
-    expect(body.customFeeBps).toBe(0)
-    expect(body.minAmountOut).toBe('990000')
+    expect(body.routing).toBe('DUTCH_V2')
+    expect(body.quote).toBeDefined()
+    expect(body.permitData).toBeUndefined()
   })
 
-  it('preferGasless=false uses classic /swap', async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
-      if (url.endsWith('/quote')) return json({ amountOut: '995000', quoteId: 'q1' })
-      if (url.endsWith('/swap')) return json({ txHash: '0xswap' })
+  it('UniswapX slippage uses the auction FLOOR (endAmount) — a decaying fill cannot sneak past', async () => {
+    // startAmount clears the 990000 floor; endAmount does not. The floor must win.
+    const fetchImpl = vi.fn<FetchLike>(async (url) => {
+      if (url.endsWith('/quote')) return json(dutchQuote('980000', '999000'))
+      return json({ error: 'unexpected' }, 500)
+    })
+    const client = createUniswapTradingApiClient({ baseUrl: 'https://api', fetchImpl })
+    const res = await runPayoutSwap(baseReq(), client)
+    expect(res.swapped).toBe(false)
+    expect(res.reason).toBe('slippage-exceeded')
+  })
+
+  it('classic mode forces a CLASSIC quote and surfaces the ready-to-sign /swap tx', async () => {
+    const fetchImpl = vi.fn<FetchLike>(async (url) => {
+      if (url.endsWith('/quote')) return json(classicQuote())
+      if (url.endsWith('/swap')) return json(swapTx())
       return json({ error: 'unexpected' }, 500)
     })
     const client = createUniswapTradingApiClient({
@@ -71,7 +101,33 @@ describe('Uniswap Trading API rail (Base)', () => {
       preferGasless: false,
     })
     const res = await runPayoutSwap(baseReq(), client)
-    expect(res.txHash).toBe('0xswap')
+    expect(res.swapped).toBe(true)
+    // /swap answers with an UNSIGNED transaction — the merchant wallet signs + submits.
+    expect(res.txHash).toBeUndefined()
+    expect(res.unsignedTx).toMatchObject({ to: '0xrouter', data: '0xcafe' })
+    // classic mode pins the routingPreference so the quote stays /swap-able.
+    const quoteCall = fetchImpl.mock.calls.find((c) => String(c[0]).endsWith('/quote'))!
+    const body = JSON.parse((quoteCall[1] as RequestInit).body as string)
+    expect(body.routingPreference).toBe('CLASSIC')
+    expect(body.tokenInChainId).toBe(String(baseSepolia.id))
+    expect(body.amount).toBe('1000000')
+    expect(body.type).toBe('EXACT_INPUT')
+  })
+
+  it('an expired /swap (empty calldata) is rejected, never surfaced as executable', async () => {
+    const fetchImpl = vi.fn<FetchLike>(async (url) => {
+      if (url.endsWith('/quote')) return json(classicQuote())
+      if (url.endsWith('/swap')) return json({ swap: { to: '0xrouter', data: '0x' } })
+      return json({ error: 'unexpected' }, 500)
+    })
+    const client = createUniswapTradingApiClient({
+      baseUrl: 'https://api',
+      fetchImpl,
+      preferGasless: false,
+    })
+    const res = await runPayoutSwap(baseReq(), client)
+    expect(res.swapped).toBe(false)
+    expect(res.reason).toBe('execute-failed')
   })
 
   it('a non-ok /quote surfaces as quote-failed (never blocks)', async () => {
@@ -115,14 +171,16 @@ describe('Uniswap Trading API rail (Base)', () => {
     await expect(client.checkApproval!(baseReq())).rejects.toThrow('/check_approval failed (502)')
   })
 
-  it('the three execution modes route to /order, /swap, /swap_7702 (business/user/agent)', async () => {
-    for (const [mode, path] of [
-      ['gasless', '/order'],
-      ['classic', '/swap'],
-      ['smart-account', '/swap_7702'],
+  it('the three execution modes land on /order, /swap, /swap_7702 (business/user/agent)', async () => {
+    // The endpoint follows the QUOTE's routing (the official rule); smart-account overrides
+    // to /swap_7702. gasless gets a UniswapX quote, the other two a CLASSIC one.
+    for (const [mode, quoteBody, path] of [
+      ['gasless', dutchQuote(), '/order'],
+      ['classic', classicQuote(), '/swap'],
+      ['smart-account', classicQuote(), '/swap_7702'],
     ] as const) {
       const fetchImpl = vi.fn<FetchLike>(async (url) => {
-        if (url.endsWith('/quote')) return json({ amountOut: '995000', quoteId: 'q1' })
+        if (url.endsWith('/quote')) return json(quoteBody)
         if (url.endsWith(path)) return json({ txHash: `0x${mode}` })
         return json({ error: `unexpected ${url}` }, 500)
       })
@@ -144,7 +202,8 @@ describe('Uniswap classic rail (zkSync) + Blink Recovery', () => {
   }
   const swapFetch = () =>
     vi.fn(async (url: string) => {
-      if (url.endsWith('/quote')) return json({ amountOut: '995000' })
+      if (url.endsWith('/quote'))
+        return json({ routing: 'CLASSIC', quote: { output: { amount: '995000' } } })
       if (url.endsWith('/swap')) return json({ amountOut: '995000', rawTx: '0xraw' })
       return json({ error: 'unexpected' }, 500)
     })

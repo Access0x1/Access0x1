@@ -76,10 +76,17 @@ while read -r NAME ADDR; do
   # constructor args (e.g. a directly-deployed mock feed) — where Etherscan CAN read the creation tx.
   # A CreateX proxy that somehow missed deploy-time --verify is the one case neither pass fixes (its
   # args aren't fetchable) — re-run `make deploy-<chain>`, whose --verify knows them.
+  # WATCH_ARGS — some Etherscan-protocol forks return the submit GUID in a field forge does not read,
+  # so `--watch` polls `checkverifystatus?guid=undefined` and burns 8x15s per contract while the
+  # contract has ALREADY verified (proven on 0G Galileo 16602, 2026-08-23: ERC1967Proxy came back
+  # "Pass - Verified" while forge was still reporting poll failures). Set VERIFY_NO_WATCH=1 for such a
+  # chain: submit, move on, and confirm out-of-band with `make verify-status CHAIN=<id>`.
+  WATCH_ARGS=(--watch --retries 15 --delay 6)
+  [ "${VERIFY_NO_WATCH:-0}" = "1" ] && WATCH_ARGS=()
   if verify_with_retry 5 "$ADDR" "$TARGET" \
-        "${VERIFIER_ARGS[@]}" --rpc-url "$RPC" --watch --retries 15 --delay 6 \
+        "${VERIFIER_ARGS[@]}" --rpc-url "$RPC" "${WATCH_ARGS[@]}" \
      || verify_with_retry 5 "$ADDR" "$TARGET" \
-        "${VERIFIER_ARGS[@]}" --rpc-url "$RPC" --guess-constructor-args --watch --retries 15 --delay 6; then
+        "${VERIFIER_ARGS[@]}" --rpc-url "$RPC" --guess-constructor-args "${WATCH_ARGS[@]}"; then
     echo "    OK ${NAME}"
     [ -n "${VERIFY_RESULTS:-}" ] && printf 'PASS\t%s\t%s\n' "$CHAIN_ID" "$NAME" >> "$VERIFY_RESULTS"
   else

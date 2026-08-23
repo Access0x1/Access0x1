@@ -5,8 +5,9 @@
   },
   "hero": {
     "eyebrow": "Pagamentos · identidade · agentes — uma infraestrutura aberta",
-    "headline": "Receba diretamente na sua carteira — dinheiro que nenhuma empresa pode congelar, reter ou reverter",
+    "headline": "Os pagamentos são liquidados diretamente na carteira da sua empresa, sem que a Access0x1 assuma a custódia.",
     "subhead": "Registe-se uma vez, partilhe um link e os pagamentos são liquidados diretamente na sua carteira, em USDC — sem intermediário, sem escrever código, sem gerir gas. A mesma infraestrutura aberta também prova a identidade e deixa os agentes pagar dentro dos limites que definir.",
+    "disclosure": "A Access0x1 fornece software de roteamento e liquidação de pagamentos. Emissores de ativos, provedores de carteira e redes podem aplicar os seus próprios controlos.",
     "hackerPack": "Detentor verificado do ETHGlobal Hacker Pack"
   },
   "cta": {
@@ -14,12 +15,14 @@
     "secondary": "Pergunte como funciona"
   },
   "integrations": {
-    "heading": "Com tecnologia de, e ativo em",
+    "heading": "Com tecnologia de — e ativo em",
     "roles": {
       "Chainlink": "Feeds de preço em USD + keepers de Automação",
       "Arc": "Rede de liquidação nativa em USDC (chain id 5042002)",
       "Base": "Liquidação L2 de baixo custo",
-      "zkSync": "Liquidação em ZK-rollup"
+      "zkSync": "Liquidação em ZK-rollup",
+      "World": "Prova de humanidade (World ID) — o degrau de humano verificado",
+      "Unichain": "Liquidação na L2 nativa da Uniswap"
     }
   },
   "features": {
@@ -53,6 +56,26 @@
       "ens": {
         "title": "Identidade ENS",
         "description": "Registe o seu endereço de recebimento com um nome ENS e ele é resolvido on-chain antes de ser guardado. O checkout mostra depois esse nome apenas quando o ENS prova que ele resolve de volta para o endereço exato — caso contrário, o comprador vê o endereço em bruto."
+      },
+      "ownName": {
+        "title": "O teu nome, teu",
+        "description": "Compra um nome .eth verdadeiro sem sair da app — commit, os 60 segundos obrigatórios, registo. As duas transações são assinadas pela tua própria carteira; nunca tocamos numa chave."
+      },
+      "verification": {
+        "title": "Escada de verificação",
+        "description": "Sessão iniciada → humano verificado com World ID → nome verificado, num único selo com um botão para o próximo degrau. Confiança que valida identidade e escritas — nunca um pagamento."
+      },
+      "aiInference": {
+        "title": "IA à tua maneira",
+        "description": "Cada funcionalidade de IA pode correr na Anthropic ou na inferência descentralizada da 0G Compute — uma definição, e as respostas dizem qual delas respondeu."
+      },
+      "payoutSwap": {
+        "title": "Recebe em qualquer moeda",
+        "description": "Liquida em USDC, guarda ou troca via Uniswap ou 1inch sem taxa adicional — depois da liquidação, para que uma troca nunca quebre um pagamento."
+      },
+      "proofOfPayment": {
+        "title": "Prova de Pagamento",
+        "description": "\"Chegou?\" respondido pela própria blockchain: a última liquidação com o hash da transação que qualquer pessoa pode verificar — sem confiar em dashboards."
       }
     }
   },
@@ -70,5 +93,16 @@
   },
   "switcher": {
     "label": "Idioma"
+  },
+  "judges": {
+    "heading": "Júri — não acreditem só na nossa palavra",
+    "sub": "Esta página são afirmações; o assistente são recibos. Responde a partir da documentação do próprio repositório — contratos, invariantes, deployments — e diz \"não está na documentação\" em vez de inventar.",
+    "prompts": [
+      "Como funciona realmente a custódia zero?",
+      "O que acontece se o feed da Chainlink estiver obsoleto a meio de um pagamento?",
+      "Mostra-me o endereço espelho CREATE3 e as chains onde está ativo.",
+      "O que encontrou e corrigiu a vossa própria auditoria?"
+    ],
+    "cta": "Perguntar ao repositório, ao vivo"
   }
 }

@@ -73,7 +73,7 @@ contract Upgrade is Script {
     bytes32 private constant IMPL_SLOT =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-    function run() external {
+    function run() external virtual {
         string memory module = vm.envString("MODULE");
         address proxy = vm.envAddress("PROXY");
         // The broadcaster — set via `--sender`. During both simulation and broadcast this is the
@@ -132,7 +132,9 @@ contract Upgrade is Script {
     /// @notice Deploy a FRESH implementation for `module`. Every module's constructor runs
     ///         `_disableInitializers()` (so the impl can never be initialized directly) and takes no
     ///         args, so `new C()` is all that is needed. keccak dispatch keeps it a pure lookup.
-    function _deployImpl(string memory module) private returns (address) {
+    /// @dev    `internal` (not private) so {UpgradeAll} reuses this exact dispatch — one list of
+    ///         constructible modules, never two that can drift.
+    function _deployImpl(string memory module) internal returns (address) {
         bytes32 k = keccak256(bytes(module));
         if (k == keccak256("Access0x1Router")) return address(new Access0x1Router());
         if (k == keccak256("PaymentLanes")) return address(new PaymentLanes());

@@ -66,7 +66,7 @@ export function BuyerConnectButton(): ReactNode {
         type="button"
         disabled={isPending || !only}
         onClick={() => only && connect({ connector: only })}
-        className="rounded-lg bg-rail px-4 py-2 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg bg-rail px-4 py-2 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isPending ? 'Connecting…' : 'Connect wallet'}
       </button>
@@ -79,7 +79,7 @@ export function BuyerConnectButton(): ReactNode {
       <button
         type="button"
         onClick={() => setPickerOpen(true)}
-        className="rounded-lg bg-rail px-4 py-2 font-medium text-white transition-opacity hover:opacity-90"
+        className="rounded-lg bg-rail px-4 py-2 font-medium text-primary-foreground transition-opacity hover:opacity-90"
       >
         Connect wallet
       </button>

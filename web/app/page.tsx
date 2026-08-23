@@ -10,6 +10,7 @@ import { Hero } from '@/components/marketing/Hero'
 import { FeatureGrid } from '@/components/marketing/FeatureGrid'
 import { IntegrationStrip } from '@/components/marketing/IntegrationStrip'
 import { LandingCTA } from '@/components/marketing/LandingCTA'
+import { JudgesCorner } from '@/components/marketing/JudgesCorner'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { LocalePrompt } from '@/components/LocalePrompt'
 import { getLocale, getLocaleContext } from '@/lib/i18n/locale'
@@ -52,17 +53,27 @@ export default async function Home(): Promise<ReactNode> {
       {/* Trust strip: Chainlink + the settlement chains. */}
       <IntegrationStrip integrations={dict.integrations} />
 
-      {/* Calçada ribbon — the Lisbon mosaic border between the strip and grid. */}
+      {/* Calçada ribbon — the Lisbon mosaic border between the strip and proof. */}
+      <CalcadaDivider className="py-2" />
+
+      {/* Evidence, immediately after the claim that needs it. The hero and the
+          strip are assertions; this is the part a visitor can check without a
+          wallet, an account, or a single click of trust. It used to sit BELOW the
+          seven-card capability grid, which meant a sceptical reader had to scroll
+          past every remaining claim before meeting the first piece of proof — and
+          the reader most worth convincing is the one who leaves before that.
+          Claim, then proof, then detail: the grid reads very differently once you
+          already believe the thing works. */}
+      <ProofBand />
+
+      {/* Calçada ribbon — the border between the proof and the capability grid. */}
       <CalcadaDivider className="py-2" />
 
       {/* The capability grid across the contract surface. */}
       <FeatureGrid features={dict.features} />
 
-      {/* Evidence, before the second ask. Everything above this point is a claim;
-          this is the part a visitor can check without a wallet, an account, or a
-          single click of trust — and it was previously reachable from nowhere. */}
-      <CalcadaDivider className="py-2" />
-      <ProofBand />
+      {/* Judges / sceptics: the receipts counter — ask the repo's own docs, live. */}
+      <JudgesCorner judges={dict.judges} />
 
       {/* Closing call-to-action — a second, explicit path into onboarding. */}
       <section className="mx-auto w-full max-w-3xl px-6 pb-28 pt-8 text-center">

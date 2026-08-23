@@ -1,8 +1,7 @@
 {
   "name": "@access0x1/react",
   "version": "0.1.0",
-  "private": true,
-  "description": "viem/wagmi-native React SDK for Access0x1 — a zero-custody, USD-priced crypto payment button you can drop into any React app in under five minutes.",
+  "description": "viem/wagmi-native React SDK for Access0x1 \u2014 a zero-custody, USD-priced crypto payment button you can drop into any React app in under five minutes.",
   "license": "MIT",
   "author": "Access0x1",
   "homepage": "https://github.com/Access0x1/Access0x1/tree/main/packages/react#readme",
@@ -53,15 +52,15 @@
     }
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.1.0",
-    "@types/react": "^19.2.17",
-    "happy-dom": "^20.11.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "typescript": "^6.0.3",
-    "viem": "^2.55.2",
-    "vitest": "^4.1.10"
+    "@types/react": "^19.2.18",
+    "happy-dom": "^20.11.6",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^7.0.2",
+    "viem": "^2.55.19",
+    "vitest": "^4.1.11"
   },
   "keywords": [
     "access0x1",

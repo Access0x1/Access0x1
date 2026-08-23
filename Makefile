@@ -12,6 +12,14 @@ ANVIL_SENDER ?= 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 # match what you actually imported (e.g. DEPLOYER_ACCOUNT=default) — `cast wallet list` shows names.
 DEPLOYER_ACCOUNT ?= deployer
 
+# Silence Node's DEP0040 punycode deprecation. It comes from TRANSITIVE deps we do not
+# control — @dynamic-labs/iconic -> url@0.11 -> punycode@1.3, and eslint -> ajv -> uri-js
+# -> punycode@2.3 — so there is nothing in our source to fix and the warning is pure noise
+# on every `make sync`. Suppress the ONE warning id, never all warnings (a blanket
+# --no-deprecation would hide a real deprecation in our own code). Appended, so an operator's
+# own NODE_OPTIONS survives.
+export NODE_OPTIONS := $(strip $(NODE_OPTIONS) --disable-warning=DEP0040)
+
 # Public RPC defaults — so every `make deploy-<chain>` (and the preview) works with ZERO .env setup.
 # A value set in .env always wins (set <CHAIN>_RPC_URL to your Alchemy/Tenderly URL for reliability —
 # public endpoints rate-limit). Every endpoint below was verified live + chainId-matched 2026-06-17.
@@ -302,11 +310,15 @@ prune-branches-confirm: _prune-fresh ## DELETE the git-proven-merged remote bran
 	@rm -f /tmp/access0x1-prune.txt
 	@bash scripts/prune-merged-branches.sh --confirm
 
-deploy-web: ## Build + ship the web app to Cloud Run (DYN_ENV=<dynamic-env-id> required)
+deploy-web: ## Build + ship the web app to Cloud Run (Dynamic env id auto-derived from web/.env.local)
 	@bash scripts/deploy-web.sh
 
 deploy-inventory: ## What is deployed, what is dead, and is anything deployed twice?
 	@node scripts/deploy-inventory.mjs
+
+check-claims: ## Assert every count written in README prose matches what actually proves it
+	@node web/scripts/check-chain-claims.mjs
+	@node web/scripts/check-contract-claims.mjs
 
 sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status + deployed ABIs + test-count badge
 	@echo "sync 1/6  web deployment maps"
@@ -464,6 +476,32 @@ cre-sim: ## Simulate the CRE workflow (the demoable artifact; deploy is Early-Ac
 # ── Everything ──────────────────────────────────────────────────────────────────
 all: install gate ## Install everything, then run the full green gate
 
+# ── Upgrade EVERY live mirror module on a chain to a fresh impl — ONE broadcast, one ──
+# ── password; impls auto-verify under VERIFY_ES. Same address, today's code. ──
+# Complements the per-module `upgrade-<chain> MODULE=X` rail below: same Upgrade dispatch, same
+# `upgrade-guard` storage gate in front, but all 19 modules in a single signed run. The prep step
+# derives the module→proxy set from script/mirror-manifest.json (broadcast-derived, never typed);
+# UpgradeAll skips modules with no code on the chain and skips-with-a-loud-WARN any module the
+# sender does not own (the known misowned pairs), so one bad pair never blocks a whole chain.
+out/upgrade-set.json: script/mirror-manifest.json
+	@mkdir -p out
+	@python3 -c "import json; m=json.load(open('script/mirror-manifest.json'))['contracts']; json.dump({'targets':[{'name':k[:-6],'proxy':v} for k,v in sorted(m.items()) if k.endswith('.proxy')]}, open('out/upgrade-set.json','w'))"
+
+upgrade-all-ethereum-sepolia: upgrade-guard out/upgrade-set.json ## Upgrade ALL live modules on Ethereum Sepolia (one broadcast)
+	@DEPLOYER=$(DEPLOYER) UPGRADE_SET=out/upgrade-set.json forge script script/UpgradeAll.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+upgrade-all-base-sepolia: upgrade-guard out/upgrade-set.json ## Upgrade ALL live modules on Base Sepolia (one broadcast)
+	@DEPLOYER=$(DEPLOYER) UPGRADE_SET=out/upgrade-set.json forge script script/UpgradeAll.s.sol --rpc-url $(BASE_SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+
+upgrade-all-arc: upgrade-guard out/upgrade-set.json ## Upgrade ALL live modules on Arc testnet (one broadcast)
+	@DEPLOYER=$(DEPLOYER) UPGRADE_SET=out/upgrade-set.json forge script script/UpgradeAll.s.sol --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
+
+# 0G note: the CREATE3 mirror set answers live on Galileo (verify: `cast call` the manifest
+# addresses) but its original deploy broadcast was never committed — THIS run writes the fresh,
+# committed, dated record against those same mirror addresses. 2 gwei priority per deploy-galileo.
+upgrade-all-galileo: upgrade-guard out/upgrade-set.json ## Upgrade ALL live modules on 0G Galileo (one broadcast)
+	@DEPLOYER=$(DEPLOYER) UPGRADE_SET=out/upgrade-set.json forge script script/UpgradeAll.s.sol --rpc-url $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --with-gas-price 4000000000 --priority-gas-price 2000000000 -vvvv
+
 # ── More test networks (keystore `deployer`; set each RPC + *SCAN_API_KEY in .env) ──
 deploy-ethereum-sepolia: ## Deploy to Ethereum Sepolia (etherscan verify)
 	@forge script script/DeployAll.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
@@ -537,14 +575,32 @@ verify-arbitrum-sepolia: ## Verify deployed Arbitrum Sepolia contracts (Ethersca
 verify-polygon-amoy: ## Verify deployed Polygon Amoy contracts (Etherscan V2)
 	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 80002 $(POLYGON_AMOY_RPC_URL)
 
-verify-galileo: ## Verify deployed 0G Galileo contracts (Blockscout; set GALILEO_VERIFIER_URL)
-	./script/verify-blockscout.sh 16602 $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) $(GALILEO_VERIFIER_URL)
+# 0G Galileo's explorer is a CONFLUX-SCAN FORK, not Blockscout — its action list carries `cfxsupply`,
+# and forge's `--verifier blockscout` call shape gets rejected with "unknown action type" (proven
+# 2026-07-26). It DOES speak the Etherscan module/action protocol (`verifysourcecode` +
+# `checkverifystatus`) at /open/api — note /api and /api/v2 return the explorer's SPA HTML, so the
+# path matters. Hence the etherscan script with an explicit verifier URL, and a placeholder key (the
+# endpoint takes no key; the flag is required by forge).
+verify-galileo: ## Verify deployed 0G Galileo contracts (Etherscan-protocol at /open/api — no key needed)
+	VERIFY_NO_WATCH=1 ./script/verify-etherscan.sh 16602 $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) $(or $(GALILEO_VERIFIER_URL),https://chainscan-galileo.0g.ai/open/api) none
+	@echo ""
+	@echo "Submitted. This explorer verifies asynchronously and forge cannot poll it — confirm with:"
+	@echo "  make verify-status CHAIN=16602"
+
+verify-status: ## Read REAL verification status from the explorer: CHAIN=<id> (reads deployments/<id>.json)
+	@test -n "$(CHAIN)" || { echo "set CHAIN=<chainId>"; exit 1; }
+	@./script/verify-status.sh $(CHAIN)
 
 # Generic verifier for ANY chain that lacks a dedicated verify-<chain> target above (deployed now or in
 # the future) — so every chain "just works" without 50 near-identical targets. Etherscan V2 by default
 # (one key, routed by chain id); pass VERIFIER_URL for a Blockscout chain. Examples:
 #   make verify-chain CHAIN=560048 RPC=$HOODI_RPC_URL                                   # Etherscan V2 (Hoodi)
 #   make verify-chain CHAIN=42431  RPC=$TEMPO_RPC_URL VERIFIER_URL=https://explore.testnet.tempo.xyz/api/
+# ⚠️ V2-era chains (e.g. Unichain Sepolia 1301): forge's `--chain <id>` alias routes to the LEGACY
+#   per-chain explorer API, which rejects the unified V2 key ("Invalid API Key") — and VERIFIER_URL=
+#   here routes to the BLOCKSCOUT script, which is wrong too. Call the etherscan script directly with
+#   the V2 endpoint as $3 (proven on 1301, 38/38 verified 2026-08-17):
+#   ETHERSCAN_API_KEY=$KEY script/verify-etherscan.sh 1301 $RPC "https://api.etherscan.io/v2/api?chainid=1301" "$KEY"
 verify-chain: ## Verify ANY deployed chain: CHAIN=<id> RPC=<url> [VERIFIER_URL=<blockscout-api>]
 	@test -n "$(CHAIN)" || { echo "set CHAIN=<chainId>"; exit 1; }
 	@test -n "$(RPC)" || { echo "set RPC=<rpcUrl>"; exit 1; }
@@ -657,27 +713,31 @@ deploy-tempo: ## Deploy to Tempo Moderato (chainId 42431; TIP-20 stablecoin fees
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 #  This repo is TESTNET-ONLY today and UNAUDITED. There is NO mainnet deployment and NO mainnet
 #  claim. The targets below exist ONLY so each chain has a mainnet PROFILE alongside its testnet one
-#  (config/readiness). They move REAL money on a LIVE chain — running one before a completed
-#  third-party security audit is forbidden (money paths, law #5 + #4). Each recipe deliberately STOPS
-#  with a confirm gate (`MAINNET_AUDITED=yes`) so an accidental `make deploy-<chain>-mainnet` is a
-#  no-op, never a broadcast. HelperConfig reads every address from `<CHAIN>_MAINNET_*` env (default
-#  address(0) ⇒ skipped); NOTHING is hardcoded. Verifier per chain mirrors the testnet target.
+#  (config/readiness). They move REAL money on a LIVE chain, with no undo. The operator owns the
+#  security posture (an external audit is available/welcome but NOT a required gate — see
+#  audit/first-party-auditor/ + docs/MAINNET-CUSTODY.md). Each recipe deliberately STOPS with a
+#  real-funds confirm gate (`MAINNET_CONFIRM=yes`) so an accidental `make deploy-<chain>-mainnet`
+#  is a no-op, never a fat-fingered broadcast. HelperConfig reads every address from
+#  `<CHAIN>_MAINNET_*` env (default address(0) ⇒ skipped); NOTHING is hardcoded. Verifier per chain
+#  mirrors the testnet target.
 #
-#  To actually deploy AFTER an audit: set MAINNET_AUDITED=yes on the command line, e.g.
-#    make deploy-base-mainnet MAINNET_AUDITED=yes
+#  To actually deploy: set MAINNET_CONFIRM=yes on the command line, e.g.
+#    make deploy-base-mainnet MAINNET_CONFIRM=yes
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 
-# The audit gate. Every mainnet recipe runs this FIRST; it aborts unless MAINNET_AUDITED=yes is passed.
-MAINNET_AUDITED ?= no
+# The real-funds confirm gate. Every mainnet recipe runs this FIRST; it aborts unless
+# MAINNET_CONFIRM=yes is passed — fat-finger protection for a live-chain broadcast, not an audit claim.
+MAINNET_CONFIRM ?= no
 define MAINNET_GATE
-	@if [ "$(MAINNET_AUDITED)" != "yes" ]; then \
-		echo "⛔ MAINNET deploy BLOCKED — AUDIT-GATED."; \
-		echo "   This is testnet-only, unaudited software. No mainnet deployment exists or is claimed."; \
-		echo "   Do NOT run on mainnet until a third-party audit is complete (real funds, law #5)."; \
-		echo "   If (and only if) the audit is done, re-run with: MAINNET_AUDITED=yes"; \
+	@if [ "$(MAINNET_CONFIRM)" != "yes" ]; then \
+		echo "⛔ MAINNET deploy BLOCKED — real funds on a live chain."; \
+		echo "   This deploys to mainnet with REAL money. There is no undo."; \
+		echo "   The operator is responsible for the security posture (an external audit is"; \
+		echo "   available but NOT required — see audit/first-party-auditor/ + docs/MAINNET-CUSTODY.md)."; \
+		echo "   To proceed deliberately, re-run with: MAINNET_CONFIRM=yes"; \
 		exit 1; \
 	fi
-	@echo "⚠️  MAINNET deploy proceeding with MAINNET_AUDITED=yes — real funds on a live chain."
+	@echo "⚠️  MAINNET deploy proceeding with MAINNET_CONFIRM=yes — real funds on a live chain, no undo."
 endef
 
 deploy-ethereum-mainnet: ## ⛔ AUDIT-GATED: deploy to Ethereum mainnet (etherscan verify) — real funds
@@ -892,3 +952,13 @@ upgrade-zksync-sepolia: upgrade-guard ## Upgrade MODULE on zkSync Era Sepolia (3
 
 show-contracts: ## Where is the actual code? Every contract's PROXY vs IMPLEMENTATION + explorer links (add --verify to read the live EIP-1967 slot)
 	@node scripts/show-contracts.mjs $(ARGS)
+
+# ── RPC endpoints + the hook live-fire (Makefile is the interface; scripts/ implements) ──────────
+
+rpc-setup: ## Interactively set per-chain RPC URLs in .env (hidden input, chain-id validated, skip = keep)
+	@bash scripts/set-rpc-endpoints.sh
+
+livefire-sepolia: ## LIVE-FIRE the SwapReceiptHook on Ethereum Sepolia: fresh pool + 1 attributed swap (~0.002 ETH)
+	@forge script script/LiveFireSwapReceipt.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast --slow -vv
+
+.PHONY: rpc-setup livefire-sepolia

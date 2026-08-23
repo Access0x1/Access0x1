@@ -260,7 +260,19 @@ export function buildPayingFetch(
   };
 }
 
-let wired = false;
+/**
+ * The idempotency flag lives on `globalThis` for the same bundle-duality
+ * reason as the seams it guards (see dynamicAgentWallet.ts): a second module
+ * instance of this file re-running `wireAgentRuntime()` with a module-scope
+ * flag would re-wire the factory and RESET the memoised, authenticated client
+ * mid-flight. One per-process flag keeps the wiring truly once-per-boot.
+ * Deliberate flip side: the flag outlives HMR, so a dev edit to the wiring
+ * internals (buildPayingFetch, the adapter, the factory) takes effect only
+ * after a dev-server restart — the old closures stay latched until then.
+ */
+const WIRED_KEY = Symbol.for("access0x1.agent.dynamicBootWired");
+
+const globalStore = globalThis as Record<symbol, unknown>;
 
 /**
  * Install the real Dynamic client factory + paying fetch into the agent seams.
@@ -270,11 +282,11 @@ let wired = false;
  * @returns `{ wired }` — false when wiring failed (reason logged, not thrown).
  */
 export function wireAgentRuntime(): { wired: boolean } {
-  if (wired) return { wired: true };
+  if (globalStore[WIRED_KEY] === true) return { wired: true };
   try {
     setDynamicClientFactory(realDynamicClientFactory);
     setWrapFetchWithPayment((baseFetch, account) => buildPayingFetch(baseFetch, account));
-    wired = true;
+    globalStore[WIRED_KEY] = true;
     return { wired: true };
   } catch (err) {
     console.error(
@@ -287,5 +299,5 @@ export function wireAgentRuntime(): { wired: boolean } {
 
 /** Test-only: reset the idempotency latch. */
 export function __resetDynamicBootForTests(): void {
-  wired = false;
+  globalStore[WIRED_KEY] = undefined;
 }

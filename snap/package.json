@@ -1,8 +1,7 @@
 {
   "name": "@access0x1/snap",
   "version": "0.1.0",
-  "private": true,
-  "description": "Access0x1 — readable payment insight + private payout inside MetaMask",
+  "description": "Access0x1 \u2014 readable payment insight + private payout inside MetaMask",
   "license": "MIT",
   "main": "src/index.ts",
   "type": "module",
@@ -23,7 +22,14 @@
   },
   "devDependencies": {
     "@metamask/snaps-cli": "8.4.1",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vitest": "4.1.9"
-  }
+  },
+  "files": [
+    "dist",
+    "snap.manifest.json",
+    "images",
+    "README.md",
+    "LICENSE"
+  ]
 }
