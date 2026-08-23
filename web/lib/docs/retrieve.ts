@@ -245,3 +245,93 @@ export function topK(question: string, k: number = DEFAULT_TOP_K): ScoredChunk[]
     .slice(0, limit)
     .map(([chunk, score]) => ({ chunk: CHUNKS[chunk], score }))
 }
+
+/**
+ * The honesty preface that fronts a retrieval prompt.
+ *
+ * Whole-corpus mode hands the model everything, so "not in the docs" and "not in
+ * the prompt" mean the same thing there. Retrieval breaks that equivalence: a
+ * fact can be documented and simply absent from this question's passages. Left
+ * unsaid, the model would treat the excerpt as the whole corpus and answer a
+ * near-miss question with confident nonsense. Saying it restores rule 3 of
+ * {@link DOCS_GROUNDING_INSTRUCTION} — admit the gap, name the doc index.
+ */
+export const RETRIEVAL_SCOPE_NOTE = [
+  'SCOPE: the DOCUMENTATION below is the subset of the Access0x1 docs retrieved for THIS ' +
+    'question — the passages ranked most relevant, NOT the complete documentation set.',
+  'A fact absent here may still be documented elsewhere. Rule 3 governs: when these passages ' +
+    'do not contain the answer, say plainly that you do not know and point the reader to ' +
+    'docs/START-HERE.md. Never fill the gap from outside knowledge.',
+].join('\n')
+
+/** A system prompt built for one question, with the evidence behind it. */
+export interface RetrievedPrompt {
+  /** The system prompt to send: grounding instruction, scope note, passages. */
+  readonly prompt: string
+  /**
+   * Whether retrieval found anything worth sending. FALSE means the question
+   * matched nothing above {@link MIN_CHUNK_SCORE} — the caller must fall back
+   * rather than ask the model to answer from an empty context.
+   */
+  readonly matched: boolean
+  /** The passages included, best first. Empty exactly when `matched` is false. */
+  readonly chunks: readonly ScoredChunk[]
+  /** UTF-8 byte length of {@link prompt}; never above {@link RETRIEVED_PROMPT_BYTE_CEILING}. */
+  readonly bytes: number
+}
+
+/** UTF-8 byte length. Matches how the API meters a prompt. */
+function byteLength(text: string): number {
+  return new TextEncoder().encode(text).length
+}
+
+/**
+ * The per-passage citation header, byte-identical to whole-corpus mode's
+ * (lib/docs/corpus.ts) so citation rule 2 resolves the same way in both modes.
+ */
+function passageHeader(file: string): string {
+  return `\n\n===== docs/${file} =====\n`
+}
+
+/**
+ * Build the system prompt for one question out of its top-ranked passages.
+ *
+ * The grounding instruction and the scope note are ALWAYS present — a prompt
+ * that lost its rules would be a prompt that invents addresses — and passages
+ * are admitted best-first while the total stays under
+ * {@link RETRIEVED_PROMPT_BYTE_CEILING}. The first passage that would breach the
+ * ceiling ends the set: a whole section is dropped rather than cut mid-content,
+ * so a citation can never point at a truncated body (the same no-silent-
+ * truncation rule the corpus loader follows).
+ *
+ * NOT cache-controlled by design. The prompt differs per question, so a cache
+ * write would be paid on every request and read back on none — a 1.25x
+ * multiplier bought for nothing. The only stable prefix left after retrieval is
+ * the instruction block, which is far under Anthropic's minimum cacheable
+ * prefix anyway.
+ *
+ * @param question - the user's raw question text.
+ * @param k - how many passages to consider; defaults to {@link DEFAULT_TOP_K}.
+ * @returns the prompt plus the evidence and the match verdict behind it.
+ */
+export function buildRetrievedSystemPrompt(question: string, k: number = DEFAULT_TOP_K): RetrievedPrompt {
+  const preamble = [DOCS_GROUNDING_INSTRUCTION, '', RETRIEVAL_SCOPE_NOTE, '', '=== DOCUMENTATION ==='].join('\n')
+  const postamble = '\n\n=== END DOCUMENTATION ==='
+  const budget = RETRIEVED_PROMPT_BYTE_CEILING - byteLength(preamble) - byteLength(postamble)
+
+  const chunks: ScoredChunk[] = []
+  let passages = ''
+  let used = 0
+  for (const hit of topK(question, k)) {
+    const passage = passageHeader(hit.chunk.file) + hit.chunk.text
+    const cost = byteLength(passage)
+    // Budget exhausted: stop admitting rather than trim this passage in half.
+    if (used + cost > budget) break
+    passages += passage
+    used += cost
+    chunks.push(hit)
+  }
+
+  const prompt = preamble + passages + postamble
+  return { prompt, matched: chunks.length > 0, chunks, bytes: byteLength(prompt) }
+}
