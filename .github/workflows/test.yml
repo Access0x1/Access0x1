@@ -178,6 +178,16 @@ jobs:
         working-directory: web
         run: node scripts/check-chain-claims.mjs
 
+      # Same disease, one class over. The chain guard above was written on 2026-08-23; the very
+      # next number checked by hand -- the contract surface -- was also wrong ("plus 35
+      # interfaces" against 29, making its own arithmetic impossible: 41 + 35 = 76 against 70
+      # files). Counts are measured by DECLARATION rather than filename or directory, because
+      # two files declare an interface alongside their implementation and one interface lives
+      # outside src/interfaces/.
+      - name: README contract-surface claims not stale
+        working-directory: web
+        run: node scripts/check-contract-claims.mjs
+
       # The Router ABI is duplicated (curated subsets) into web/lib/contracts.ts and
       # packages/react/src/abi.ts. This asserts every fragment they declare is byte-identical
       # to the canonical forge artifact, so a drifted decoder fails CI instead of shipping.
