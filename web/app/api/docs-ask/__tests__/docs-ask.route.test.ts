@@ -11,7 +11,9 @@
  *  - capability probe: GET ⇒ { configured },
  *  - input guards: invalid JSON / missing / empty / over-long question ⇒ 400,
  *  - the per-IP limiter returns 429, and the daily never-negative meter returns
- *    429 once spent.
+ *    429 once spent,
+ *  - the cost meter captures the usage frames the stream carries WITHOUT
+ *    changing a byte of the answer the client receives.
  *
  * The Claude key never appears in any response body (it lives server-side only).
  */
@@ -39,6 +41,7 @@ vi.mock('@anthropic-ai/sdk', () => {
 })
 
 const { GET, POST, __resetDocsAskMetersForTests } = await import('../route.js')
+const { __resetDocsAskCostMeterForTests, readCostRecords } = await import('@/lib/docs/cost-meter.js')
 
 /** Build an async-iterable that yields the given text as one text_delta event. */
 function streamOf(text: string): AsyncIterable<unknown> {
@@ -66,6 +69,7 @@ function req(body: unknown, ip?: string): Request {
 beforeEach(() => {
   streamMock.mockReset()
   __resetDocsAskMetersForTests()
+  __resetDocsAskCostMeterForTests()
   vi.stubEnv('CLAUDE_API_KEY', 'sk-test-key')
   // The limiter keys on a TRUSTED proxy-set IP. Tell the route it is behind a
   // trusted proxy so the per-request x-forwarded-for IP is honored (single hop ⇒
@@ -255,5 +259,89 @@ describe('input validation', () => {
   it('rejects an over-long question with 400', async () => {
     const res = await POST(req({ question: 'x'.repeat(2001) }))
     expect(res.status).toBe(400)
+  })
+})
+
+describe('cost instrumentation — the usage frames the loop used to discard', () => {
+  /** A full stream: message_start (input side), the text, message_delta (output). */
+  function streamWithUsage(text: string, cacheRead: number, cacheWrite: number): AsyncIterable<unknown> {
+    return {
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: 'message_start',
+          message: {
+            id: 'msg_01',
+            model: 'claude-haiku-4-5',
+            usage: {
+              input_tokens: 14,
+              output_tokens: 1,
+              cache_creation_input_tokens: cacheWrite,
+              cache_read_input_tokens: cacheRead,
+            },
+          },
+        }
+        yield { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }
+        yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } }
+        yield { type: 'content_block_stop', index: 0 }
+        yield { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 96 } }
+        yield { type: 'message_stop' }
+      },
+    }
+  }
+
+  it('records one costed answer per stream and leaves the streamed text untouched', async () => {
+    streamMock.mockReturnValue(streamWithUsage('Priced in USD (docs/FAQ.md).', 130_412, 0))
+
+    const res = await POST(req({ question: 'How is a payment priced?' }))
+
+    // The user-visible contract is byte-identical to the uninstrumented route.
+    expect(await res.text()).toBe('Priced in USD (docs/FAQ.md).')
+
+    const records = readCostRecords()
+    expect(records).toHaveLength(1)
+    expect(records[0].cacheState).toBe('read')
+    expect(records[0].cacheReadInputTokens).toBe(130_412)
+    expect(records[0].inputTokens).toBe(14)
+    // message_delta carries the CUMULATIVE output count, not an increment.
+    expect(records[0].outputTokens).toBe(96)
+    expect(records[0].costUsd).toBeGreaterThan(0)
+  })
+
+  it('marks a cold turn as a cache WRITE — the expensive 1.25x side', async () => {
+    streamMock.mockReturnValue(streamWithUsage('ok', 0, 130_412))
+
+    // Drain the body: the meter is written when the stream finishes, by design.
+    await (await POST(req({ question: 'What is the router?' }))).text()
+
+    const [record] = readCostRecords()
+    expect(record.cacheState).toBe('write')
+    expect(record.cacheCreationInputTokens).toBe(130_412)
+  })
+
+  it('still delivers the partial answer and meters it when the stream dies mid-flight', async () => {
+    streamMock.mockReturnValue({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: 'message_start',
+          message: { usage: { input_tokens: 14, output_tokens: 1, cache_read_input_tokens: 130_412 } },
+        }
+        yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'partial' } }
+        throw new Error('upstream died')
+      },
+    })
+
+    const res = await POST(req({ question: 'anything' }))
+
+    expect(await res.text()).toBe('partial\n\n[stream interrupted]')
+    // The tokens were still billed, so they are still metered.
+    expect(readCostRecords()).toHaveLength(1)
+  })
+
+  it('records nothing for a stream that reported no usage at all', async () => {
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    await (await POST(req({ question: 'anything' }))).text()
+
+    expect(readCostRecords()).toHaveLength(0)
   })
 })
