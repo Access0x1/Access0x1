@@ -250,7 +250,7 @@ test/                        # unit · attack · invariant (2,071 tests)
 ```
 
 The full first-party surface is **39 production contracts + 2 libraries** (41 `.sol` files in
-`src/` excluding interfaces, plus 35 interfaces): the money spine (`Access0x1Router`), the receipt
+`src/` excluding interfaces, plus 29 interface-only files — 70 in `src/` altogether): the money spine (`Access0x1Router`), the receipt
 ledger (`PaymentLanes`), the agent-auth ledger (`SessionGrant`), the per-chain reference
 (`ChainRegistry`), the CRE audit consumer (`Access0x1Receiver`), the house-token factory +
 its `HouseToken`, the five commerce primitives (subscriptions · bookings · invoices · gift cards ·
