@@ -236,3 +236,32 @@ describe('buildRetrievedSystemPrompt', () => {
     }
   })
 })
+
+describe('address-shaped questions — the answer, not a favourite file', () => {
+  /**
+   * The reviewer of this branch flagged that `docs/CHAIN-ADDRESSES.md` never
+   * reaches the top-8 for address questions, and read that as a quality gap. It
+   * is not one, and the distinction is the whole point of these cases: what
+   * matters is whether the ANSWER reaches the model, never whether one favoured
+   * file ranks. Arc's USDC address is documented in ARC-DEPLOY.md and
+   * DEPLOY-TESTNETS.md as well, and those chunks concentrate the question's terms
+   * better than a wide table does — so retrieval returns them instead, and the
+   * model can answer.
+   *
+   * Asserting file rank here would have driven a fix for a problem that does not
+   * exist. These assert the retrieved prompt CONTAINS the literal answer.
+   */
+  const CASES: ReadonlyArray<readonly [string, string]> = [
+    ['what is the USDC address on Arc?', '0x3600000000000000000000000000000000000000'],
+    ['what is the router address on Base Sepolia?', '0xe92244e3368561faf21648146511DeDE3a475EB5'],
+    ['which chains is the mirror on?', '0xe92244e3368561faf21648146511DeDE3a475EB5'],
+    ['which testnets are supported?', 'Sepolia'],
+  ]
+
+  for (const [question, answer] of CASES) {
+    it(`surfaces the literal answer for: ${question}`, () => {
+      const { prompt } = buildRetrievedSystemPrompt(question)
+      expect(prompt.toLowerCase()).toContain(answer.toLowerCase())
+    })
+  }
+})
