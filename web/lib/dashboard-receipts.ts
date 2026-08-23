@@ -28,11 +28,14 @@ export const PAYMENT_RECEIVED_EVENT = parseAbiItem(
   'event PaymentReceived(uint256 indexed merchantId, address indexed buyer, address indexed token, uint256 grossAmount, uint256 feeAmount, uint256 netAmount, uint256 usdAmount8, bytes32 orderId, uint64 srcChainSelector)',
 )
 
-// Stay under the public-RPC eth_getLogs range cap (Base Sepolia enforces 2000),
-// and bound the window count so a sparse merchant can't fan a "recent receipts"
-// view into hundreds of RPC calls — the subgraph is the unbounded source.
-const WINDOW = 1800n
-const MAX_WINDOWS = 60 // ~108k blocks of lookback before deferring to the subgraph
+// Stay under the TIGHTEST public-RPC eth_getLogs range cap we've hit in the wild:
+// Base Sepolia enforces 2000, but thirdweb's Ethereum Sepolia endpoint enforces
+// 1000 ("Maximum allowed number of requested blocks is 1000") — so the window must
+// sit under 1000 or the receipts read hard-fails on that chain. Window count is
+// bounded so a sparse merchant can't fan a "recent receipts" view into hundreds of
+// RPC calls — the subgraph is the unbounded source.
+const WINDOW = 999n
+const MAX_WINDOWS = 108 // ≈108k blocks of lookback (unchanged depth) before deferring to the subgraph
 const WANT = 50
 
 /** The configured subgraph query URL, or undefined when the seam is dormant. */

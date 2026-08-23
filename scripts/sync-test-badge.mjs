@@ -62,6 +62,18 @@ const CLAIMS = [
     format: (n) => n.toLocaleString('en-US'),
     label: 'prose count',
   },
+  {
+    // repo tree: "test/  # unit · attack · invariant (1,989 tests)"
+    re: /(unit · attack · invariant \()(\d[\d,]*)( tests\))/,
+    format: (n) => n.toLocaleString('en-US'),
+    label: 'tree comment',
+  },
+  {
+    // proof table row: "| Tests | **1,989 green** (Foundry) — ..."
+    re: /(\| Tests \| \*\*)(\d[\d,]*)( green\*\* \(Foundry\))/,
+    format: (n) => n.toLocaleString('en-US'),
+    label: 'proof-table row',
+  },
 ];
 
 const write = process.argv.includes('--write');

@@ -128,6 +128,14 @@ function loadMirrorByAddress() {
 function parseBroadcastData(data, mirrorByAddress = new Map(), { tagMirror = false } = {}) {
   const byName = new Map()
   for (const tx of data?.transactions ?? []) {
+    // 0) A SIMULATED run records the same contractName and the same PREDICTED contractAddress
+    //    as a real one -- only a broadcast transaction carries a hash. Skipping this check let
+    //    a dry run masquerade as a deploy: Tempo (42431) reached the README as eight live
+    //    addresses with explorer links while both of its run files carried ten transactions and
+    //    zero hashes, and the chain held no code at any of them. The gate belongs here at the
+    //    transaction level so it covers the additionalContracts branch below too, since those
+    //    ride on this same transaction.
+    if (typeof tx.hash !== 'string' || tx.hash.length === 0) continue
     // 1) Legacy: a directly-named top-level CREATE.
     if (tx.transactionType === 'CREATE' && tx.contractName && tx.contractAddress) {
       const entry = {

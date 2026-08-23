@@ -560,7 +560,9 @@ contract Access0x1RebatesTest is Test, ProxyDeployer {
 
         // Settlement stood; the rebate is parked, claimable, and the key is consumed.
         assertEq(rebates.withdrawable(buyer, address(blk)), rebate, "queued for pull");
-        assertTrue(rebates.claimedOrder(merchantId, orderId));
+        assertTrue(
+            rebates.claimedOrder(fresh, orderId), "key consumed in the paying merchant's ledger"
+        );
         (,,,,, uint256 funded) = rebates.promos(fresh);
         assertEq(funded, 100e6 - rebate, "pool decremented despite queue");
 

@@ -10,8 +10,20 @@
  * Trading API request/response. The HTTP transport is the injectable {@link FetchLike} seam so
  * the whole rail unit-tests offline against mocked Trading API JSON.
  *
- * @warn BOOTH-CONFIRM the Trading API base URL, request body field names, and the
- *   `/quote` vs `/order` vs `/swap` selection at the event before any mainnet use.
+ * @verified 2026-07-25 against the LIVE Trading API (trade-api.gateway.uniswap.org/v1) with a
+ *   real key: the `/quote` request/response shapes below returned HTTP 200 with a CLASSIC
+ *   routing on Base mainnet (read-only probe; no funds moved). Three findings baked in here:
+ *   (1) `tokenInChainId`/`tokenOutChainId` are STRINGS and the amount field is `amount` —
+ *   the previously assumed `{chainId, amountIn}` body 4xxes; (2) the 200 response nests the
+ *   output under `quote.output.amount` (CLASSIC) or `quote.orderInfo.outputs[0]` (UniswapX) —
+ *   there is no top-level `amountOut`; (3) testnet coverage is PER-CHAIN: Ethereum Sepolia
+ *   (11155111) IS served — a real priced one-hop CLASSIC quote (USDC→WETH) with a gas
+ *   estimate — while Base Sepolia answered `ResourceNotFound: No quotes available` for the
+ *   same canonical pair. The home-chain testnet leg is therefore live-quotable today; Base
+ *   Sepolia is not (recorded in FEEDBACK.md).
+ * @warn The execute leg needs the merchant's signature (Permit2 / UniswapX order signing) —
+ *   that leg lives with the wallet owner, never this seam. `/swap_7702`'s REST path is still
+ *   the assumed part (the RPC method `Swap7702` is verified in `@uniswap/client-trading`).
  */
 
 import type {
@@ -19,23 +31,43 @@ import type {
   RailExecution,
   RailQuote,
   SwapRequest,
+  UnsignedSwapTx,
 } from '../types.js'
 
 /** A fetch implementation (the global `fetch`, or a test mock). */
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>
 
-/** Shape of the Trading API `/quote` response we depend on (subset). */
-interface TradingApiQuote {
-  /** Expected output amount, atomic in the output token's decimals, as a string. */
-  amountOut: string
-  /** Opaque routing payload echoed back into `/order` or `/swap`. */
-  quoteId: string
+/**
+ * The `/quote` response subset we depend on, covering both routing families
+ * (live-verified CLASSIC; UniswapX per the official reference).
+ */
+interface TradingApiQuoteResponse {
+  /** CLASSIC | WRAP | UNWRAP | DUTCH_V2 | DUTCH_V3 | PRIORITY | DUTCH_LIMIT | … */
+  routing?: string
+  quote?: {
+    /** CLASSIC family: the expected output leg. */
+    output?: { token?: string; amount?: string }
+    /** UniswapX family: the Dutch-auction order (no `output` field exists here). */
+    orderInfo?: {
+      outputs?: readonly { startAmount?: string; endAmount?: string }[]
+    }
+  }
+  /** Permit2 payload — stripped before any execute call, handled by the wallet owner. */
+  permitData?: unknown
+  /**
+   * The Permit2 grant as a ready-to-sign transaction (requested via
+   * `generatePermitAsTransaction: true`). Stripped from the execute body like
+   * permitData, but SURFACED on the execution result — it must land on-chain
+   * BEFORE the swap tx, or the Universal Router reverts.
+   */
+  permitTransaction?: { to?: string; data?: string; value?: string } | null
 }
 
-/** Shape of the Trading API `/order` (gasless) or `/swap` response we depend on (subset). */
-interface TradingApiExecution {
-  /** The submitted transaction / order hash. */
-  txHash: string
+/** The `/swap` response: a ready-to-sign transaction (never a hash — nothing was submitted). */
+interface TradingApiSwapResponse {
+  swap?: { to?: string; from?: string; data?: string; value?: string; chainId?: number; gasLimit?: string }
+  /** Some mocked/alternate paths respond with a landed hash; accepted when present. */
+  txHash?: string
 }
 
 /**
@@ -73,6 +105,19 @@ export interface UniswapTradingApiConfig {
   readonly executionMode?: UniswapExecutionMode
 }
 
+/**
+ * Pull the output amount out of a quote response, by routing family. UniswapX quotes use the
+ * auction FLOOR (`outputs[0].endAmount`) — the worker's `minAmountOut` check must hold at the
+ * worst-case fill, and the best-case `startAmount` could pass the floor then decay below it.
+ */
+function quotedAmountOut(body: TradingApiQuoteResponse): bigint | null {
+  const classic = body.quote?.output?.amount
+  if (classic) return BigInt(classic)
+  const floor = body.quote?.orderInfo?.outputs?.[0]?.endAmount
+  if (floor) return BigInt(floor)
+  return null
+}
+
 /** Build the Base Uniswap Trading API rail client. */
 export function createUniswapTradingApiClient(
   config: UniswapTradingApiConfig,
@@ -84,8 +129,8 @@ export function createUniswapTradingApiClient(
     rail: 'uniswap-trading-api',
 
     /**
-     * Approval pre-check (`/check_approval` — field names verified against Uniswap's generated
-     * client): `{walletAddress, token, amount, chainId}` → `{requestId, approval}`. An absent
+     * Approval pre-check (`/check_approval` — shape matches the official reference exactly):
+     * `{walletAddress, token, amount, chainId}` → `{requestId, approval}`. An absent
      * `approval` means the token is already approved; a present one is the ready-to-sign tx the
      * wallet owner submits BEFORE `execute`. Completes the documented quote→approval→swap flow.
      */
@@ -110,50 +155,85 @@ export function createUniswapTradingApiClient(
       return { needed: approval !== null, approval }
     },
 
+    /**
+     * The canonical `/quote` request (live-verified 2026-07-25): chain ids travel as STRINGS
+     * in `tokenInChainId`/`tokenOutChainId`, the input amount as `amount`, and `type` selects
+     * exact-input pricing. The full response is carried on the returned quote so `execute`
+     * can spread it back per the documented flow, without a second round-trip.
+     */
     async quote(req: SwapRequest): Promise<RailQuote> {
       const res = await fetchImpl(`${baseUrl}/quote`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          chainId: req.chainId,
+          swapper: req.merchant,
           tokenIn: req.usdc,
           tokenOut: req.payoutToken,
-          amountIn: req.amountUsdc.toString(),
-          swapper: req.merchant,
+          tokenInChainId: String(req.chainId),
+          tokenOutChainId: String(req.chainId),
+          amount: req.amountUsdc.toString(),
+          type: 'EXACT_INPUT',
+          // classic mode FORCES a /swap-able route; the others let BEST_PRICE reach the
+          // UniswapX auction (whose quote then routes to /order per the official rule).
+          routingPreference: mode === 'classic' ? 'CLASSIC' : 'BEST_PRICE',
+          // The Permit2 grant as a READY-TO-SIGN TRANSACTION instead of an EIP-712
+          // payload. Live lesson (2026-07-25, Sepolia): /check_approval covers only the
+          // ERC20→Permit2 leg — the Permit2→Router grant normally rides the signed
+          // permitData this seam strips, and without it the Universal Router execute
+          // reverts on a funded, ERC20-approved wallet. permit-as-transaction fits this
+          // rail's whole model: every artifact is a tx the wallet owner signs.
+          generatePermitAsTransaction: true,
         }),
       })
       if (!res.ok) {
         throw new Error(`Uniswap Trading API /quote failed (${res.status})`)
       }
-      const body = (await res.json()) as TradingApiQuote
-      if (!body.amountOut) throw new Error('Uniswap Trading API /quote returned no amountOut')
-      // Carry the routing id on the quote so execute() can echo it without a second round-trip.
-      return { amountOut: BigInt(body.amountOut), quoteId: body.quoteId } as RailQuote & {
-        quoteId: string
+      const body = (await res.json()) as TradingApiQuoteResponse
+      const amountOut = quotedAmountOut(body)
+      if (amountOut === null) {
+        throw new Error('Uniswap Trading API /quote returned no output amount')
       }
+      // Carry the FULL response so execute() can spread it back (the API expects the quote
+      // response fields in the execute body — never wrapped, never re-fetched).
+      return { amountOut, raw: body } as RailQuote & { raw: TradingApiQuoteResponse }
     },
 
+    /**
+     * Execute = spread the quote response into the body (the documented flow), with
+     * `permitData`/`permitTransaction` stripped — the wallet owner handles permits. The
+     * endpoint is DERIVED from the quote's `routing` (the official rule: DUTCH_V2/V3/
+     * PRIORITY → `/order`; CLASSIC/WRAP/UNWRAP/BRIDGE → `/swap`); the smart-account mode
+     * overrides to `/swap_7702`. `/swap` answers with a READY-TO-SIGN transaction
+     * (`{swap: {...}}`), surfaced as `unsignedTx`; a landed `txHash` is accepted where a
+     * submitting path provides one.
+     */
     async execute(req: SwapRequest, quote: RailQuote): Promise<RailExecution> {
-      const route = ROUTE_FOR_MODE[mode]
-      const quoteId = (quote as RailQuote & { quoteId?: string }).quoteId
+      const raw = (quote as RailQuote & { raw?: TradingApiQuoteResponse }).raw ?? {}
+      const uniswapX = /^(DUTCH|PRIORITY)/.test(raw.routing ?? '')
+      const route =
+        mode === 'smart-account' ? ROUTE_FOR_MODE[mode] : uniswapX ? 'order' : 'swap'
+      const { permitData: _pd, permitTransaction: _pt, ...cleanQuote } = raw
       const res = await fetchImpl(`${baseUrl}/${route}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          quoteId,
-          swapper: req.merchant,
-          // Belt-and-suspenders: pass the floor to the rail too (the worker also enforces it).
-          minAmountOut: req.minAmountOut.toString(),
-          // SOLE monetization is the on-chain router fee-split — App Kit/Trading-API fee = 0 (law #4).
-          customFeeBps: 0,
-        }),
+        body: JSON.stringify(cleanQuote),
       })
       if (!res.ok) {
         throw new Error(`Uniswap Trading API /${route} failed (${res.status})`)
       }
-      const body = (await res.json()) as TradingApiExecution
-      if (!body.txHash) throw new Error(`Uniswap Trading API /${route} returned no txHash`)
-      return { txHash: body.txHash, rail: 'uniswap-trading-api' }
+      const body = (await res.json()) as TradingApiSwapResponse
+      // The quote's permit-as-transaction rides along on the result: the wallet owner
+      // must land it BEFORE the swap tx (the Permit2→Router grant the swap relies on).
+      const pt = raw.permitTransaction
+      const permitTx =
+        pt?.to && pt.data && pt.data !== '0x' ? (pt as UnsignedSwapTx) : undefined
+      if (body.txHash) return { txHash: body.txHash, rail: 'uniswap-trading-api', permitTx }
+      const swap = body.swap
+      // Guard per the official reference: empty calldata means the quote expired server-side.
+      if (!swap?.to || !swap.data || swap.data === '0x') {
+        throw new Error(`Uniswap Trading API /${route} returned no executable transaction`)
+      }
+      return { unsignedTx: swap as UnsignedSwapTx, rail: 'uniswap-trading-api', permitTx }
     },
   }
 }

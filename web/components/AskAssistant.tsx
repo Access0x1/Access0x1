@@ -94,7 +94,7 @@ export function AskAssistant({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 rounded-full bg-ink px-4 py-2 text-sm text-white shadow-lg hover:opacity-90"
+        className="fixed bottom-4 right-4 rounded-full bg-ink px-4 py-2 text-sm text-background shadow-lg hover:opacity-90"
       >
         Ask Access0x1
       </button>
@@ -129,7 +129,7 @@ export function AskAssistant({
         <button
           type="submit"
           disabled={loading}
-          className="rounded-lg bg-rail px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          className="rounded-lg bg-rail px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {loading ? 'Thinking…' : 'Ask'}
         </button>

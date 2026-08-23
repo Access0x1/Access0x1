@@ -82,9 +82,45 @@ export class ConfigMissing extends Error {
  * and tests inject a mock. Keeping the default a throw (rather than a half-real client)
  * makes a missing wiring loud instead of silent.
  */
-let clientFactory: DynamicClientFactory = () => {
+const defaultClientFactory: DynamicClientFactory = () => {
   throw new ConfigMissing("DYNAMIC_CLIENT_FACTORY");
 };
+
+/**
+ * Design decision #2 (globalThis-backed latch): webpack splits
+ * `instrumentation.ts` and each route into SEPARATE module instances in one
+ * Node process — in dev as separate compilations, and in the standalone PROD
+ * build too (the route scope-hoists its own verbatim copy of this module
+ * while instrumentation loads it via an async chunk; verified empirically in
+ * `.next/server`, 2026-07-26). Boot wires copy A's factory, the route reads
+ * copy B's default throw, and `/api/agent/pay` answers 503 `not_configured`
+ * despite a successful wiring. Module state is per-INSTANCE; the latch must
+ * be per-PROCESS, so all mutable state lives on `globalThis` under a
+ * `Symbol.for` key every copy resolves to the same slot (a rebuilt dev module
+ * re-attaches to the same store instead of orphaning the wiring). One
+ * process, one latch, auth at most once — now true in every topology.
+ */
+interface WalletModuleState {
+  clientFactory: DynamicClientFactory;
+  client: DynamicEvmWalletClient | null;
+  authPromise: Promise<DynamicEvmWalletClient> | null;
+  account: AgentAccount | null;
+  accountPromise: Promise<AgentAccount> | null;
+}
+
+const STATE_KEY = Symbol.for("access0x1.agent.dynamicWalletState");
+
+const globalStore = globalThis as Record<symbol, unknown>;
+if (globalStore[STATE_KEY] === undefined) {
+  globalStore[STATE_KEY] = {
+    clientFactory: defaultClientFactory,
+    client: null,
+    authPromise: null,
+    account: null,
+    accountPromise: null,
+  } satisfies WalletModuleState;
+}
+const state = globalStore[STATE_KEY] as WalletModuleState;
 
 /**
  * Inject the Dynamic client factory. Called once at app boot with the real
@@ -95,13 +131,11 @@ let clientFactory: DynamicClientFactory = () => {
  * @returns void
  */
 export function setDynamicClientFactory(factory: DynamicClientFactory | null): void {
-  clientFactory = factory ?? (() => {
-    throw new ConfigMissing("DYNAMIC_CLIENT_FACTORY");
-  });
-  client = null;
-  authPromise = null;
-  account = null;
-  accountPromise = null;
+  state.clientFactory = factory ?? defaultClientFactory;
+  state.client = null;
+  state.authPromise = null;
+  state.account = null;
+  state.accountPromise = null;
 }
 
 /** Read a required server env var or throw {@link ConfigMissing}. */
@@ -113,11 +147,6 @@ function requireEnv(name: string): string {
   return value;
 }
 
-let client: DynamicEvmWalletClient | null = null;
-let authPromise: Promise<DynamicEvmWalletClient> | null = null;
-let account: AgentAccount | null = null;
-let accountPromise: Promise<AgentAccount> | null = null;
-
 /**
  * Get the authenticated Dynamic client, authenticating exactly once per process
  * (design decision #1). Concurrent callers await the same in-flight auth promise, so
@@ -127,19 +156,19 @@ let accountPromise: Promise<AgentAccount> | null = null;
  * @throws {ConfigMissing} if `DYNAMIC_ENVIRONMENT_ID` or `DYNAMIC_AUTH_TOKEN` is unset.
  */
 export async function getAgentClient(): Promise<DynamicEvmWalletClient> {
-  if (client) {
-    return client;
+  if (state.client) {
+    return state.client;
   }
-  if (!authPromise) {
+  if (!state.authPromise) {
     const environmentId = requireEnv("DYNAMIC_ENVIRONMENT_ID");
     const authToken = requireEnv("DYNAMIC_AUTH_TOKEN");
-    const fresh = clientFactory(environmentId);
-    authPromise = fresh.authenticateApiToken(authToken).then(() => {
-      client = fresh;
+    const fresh = state.clientFactory(environmentId);
+    state.authPromise = fresh.authenticateApiToken(authToken).then(() => {
+      state.client = fresh;
       return fresh;
     });
   }
-  return authPromise;
+  return state.authPromise;
 }
 
 /**
@@ -153,22 +182,22 @@ export async function getAgentClient(): Promise<DynamicEvmWalletClient> {
  * @throws {ConfigMissing} if `WALLET_PASSWORD` (or any auth env var) is unset.
  */
 export async function getOrCreateAgentAccount(): Promise<AgentAccount> {
-  if (account) {
-    return account;
+  if (state.account) {
+    return state.account;
   }
-  if (!accountPromise) {
-    accountPromise = (async () => {
+  if (!state.accountPromise) {
+    state.accountPromise = (async () => {
       const c = await getAgentClient();
       const password = requireEnv("WALLET_PASSWORD");
       const walletId = process.env.AGENT_WALLET_ID;
       const acct = walletId
         ? await c.getWalletAccount({ walletId, password })
         : await c.createWalletAccount({ password });
-      account = acct;
+      state.account = acct;
       return acct;
     })();
   }
-  return accountPromise;
+  return state.accountPromise;
 }
 
 /**
@@ -189,8 +218,8 @@ export async function agentAddress(): Promise<Hex> {
  * @returns void
  */
 export function __resetWalletForTests(): void {
-  client = null;
-  authPromise = null;
-  account = null;
-  accountPromise = null;
+  state.client = null;
+  state.authPromise = null;
+  state.account = null;
+  state.accountPromise = null;
 }

@@ -91,8 +91,12 @@ The **Ask-the-docs** assistant (`/api/docs-ask`, the `DocsAssistant` widget) fol
 inference switch. With `AI_INFERENCE_PROVIDER=zerog` the same doc-grounded corpus is answered on 0G
 Compute, and every response carries an `x-inference-provider` header the UI renders as a badge —
 **"Computed on 0G Compute"** vs "Answered by Claude". That badge is the visible, judge-facing proof
-that inference ran on 0G. (For 0G's smaller-context models, cap the corpus with
-`DOCS_CORPUS_MAX_BYTES` so the grounding prompt fits the provider's context window.)
+that inference ran on 0G. Grounding happens before the provider is chosen, so 0G receives the same
+prompt Claude would: by default (`DOCS_ASK_MODE=rag`) only the documentation passages the question
+ranks for — measured at 6,479–9,660 bytes on the five one-click questions — which fits a
+smaller-context model without further tuning. Whole-corpus grounding (`DOCS_ASK_MODE=corpus`) sends
+roughly 130K tokens instead; on that path, cap it with `DOCS_CORPUS_MAX_BYTES` so the prompt fits
+the provider's context window.
 
 ## Scope / honesty
 

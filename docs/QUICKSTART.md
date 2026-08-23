@@ -371,11 +371,12 @@ Chainlink feed address on every chain** (each re-verified on-chain on 2026-06-17
 | **Base Sepolia** | `84532` | `0x036CbD…dCF7e` | The primary EVM example chain. Source-verified. Carries the live example merchant. |
 | **zkSync Sepolia** | `300` | see [CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) | Deployed via the dedicated EraVM path at the shared mirror address; source-verification pending. |
 
-Beyond these three, the **CREATE3 mirror** (one address — see below) is live on a total of **nine
+Beyond these three, the **CREATE3 mirror** (one address — see below) is live on a total of **ten
 testnets**: Arc, Base Sepolia, **Ethereum Sepolia (11155111)**, **Optimism Sepolia (11155420)**,
 **Avalanche Fuji (43113)**, **Robinhood Chain (46630)**, **Arbitrum Sepolia (421614)**, **Celo
-Sepolia (11142220)**, and **zkSync Sepolia (300)** — source-verified on seven of them. Three earlier chains (**Ethereum Hoodi
-(560048)**, **0G Galileo (16602)**, **Tempo (42431)**) carry **pre-mirror** per-chain deploys, with
+Sepolia (11142220)**, **zkSync Sepolia (300)**, and **0G Galileo (16602)** — source-verified on
+seven of them. Two earlier chains (**Ethereum Hoodi (560048)**, **Tempo (42431)**) carry
+**pre-mirror** per-chain deploys, with
 ~30 more testnets one-command deploy-ready. The per-chain USDC token and Chainlink feed addresses for
 all of them live in [docs/CHAIN-ADDRESSES.md](CHAIN-ADDRESSES.md) — the single source of truth for
 those addresses; the live mirror/per-chain status is the
@@ -395,9 +396,9 @@ those addresses; the live mirror/per-chain status is the
 0xe92244e3368561faf21648146511DeDE3a475EB5
 ```
 
-This same address is live on **nine testnets** today (Arc `5042002`, Base Sepolia `84532`, Ethereum
+This same address is live on **eleven testnets** today (Arc `5042002`, Base Sepolia `84532`, Unichain Sepolia `1301`, Ethereum
 Sepolia `11155111`, Optimism Sepolia `11155420`, Avalanche Fuji `43113`, Robinhood `46630`, Arbitrum
-Sepolia `421614`, Celo Sepolia `11142220`, zkSync Sepolia `300`) and source-verified on seven of them; it resolves on every
+Sepolia `421614`, Celo Sepolia `11142220`, zkSync Sepolia `300`, 0G Galileo `16602`) and source-verified on seven of them; it resolves on every
 further chain as it is cut over (see [`MIRROR-CUTOVER.md`](MIRROR-CUTOVER.md)). The only other per-chain
 value is the USDC `token` address — the contract code is the same multi-tenant router everywhere. The
 canonical, broadcast-derived set is published once in
