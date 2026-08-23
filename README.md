@@ -357,7 +357,19 @@ costs a redeploy), then `make verify-<chain>` submits sources from the recorded
 `deployments/<chainId>.json` (or the broadcast). It works regardless of CREATE3 — verification reads
 the on-chain runtime bytecode, so the factory-CALL deploy shape is irrelevant. Per-explorer routing is
 automatic: Etherscan V2 (one key) for Base/Sepolia/Optimism/Arbitrum/Polygon, Blockscout for
-Arc/Robinhood/0G (`make verify-galileo`), Routescan for Avalanche Fuji.
+Arc/Robinhood, Routescan for Avalanche Fuji, and the Etherscan module/action protocol at
+`/open/api` for 0G Galileo (`make verify-galileo`, no key needed — 0G's explorer is a Conflux-scan
+fork that rejects Blockscout-shaped calls).
+
+Some explorer forks return the submit GUID in a field `forge` does not read, so `--watch` polls
+`guid=undefined` and reports failure for a contract that has **already verified**. Those chains set
+`VERIFY_NO_WATCH=1` (Galileo does) and confirm out-of-band against the explorer itself:
+
+```sh
+make verify-status CHAIN=16602     # one line per contract + a verified/total tally
+```
+
+Trust that tally over the verify run's own output — the explorer is the only authority.
 
 ### Run the web app
 
