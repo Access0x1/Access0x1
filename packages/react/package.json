@@ -58,7 +58,7 @@
     "happy-dom": "^20.11.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "viem": "^2.55.19",
     "vitest": "^4.1.11"
   },
