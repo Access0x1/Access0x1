@@ -1002,6 +1002,32 @@ Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed on eleven testnets via 
 
 ## Partners & Integrations
 
+### Why these integrations exist — the repo is built to give something back
+
+**Access0x1 is built in public so that the protocols it uses get something out of it.** That is a
+design constraint, not a courtesy line, and it decides how every integration below is written:
+
+- **A working reference, not a logo.** Each seam is real code on a real testnet with a real
+  transaction behind it, in a public MIT repo. A protocol's team — or the next builder reading it
+  — can open the file, run the command, and see the integration work end to end. Uniswap gets a
+  v4 hook and a payout rail built against the live Trading API; Chainlink gets a feed read
+  **inside** the settlement transaction rather than a frontend price. Both are patterns anyone
+  can copy.
+- **Feedback with receipts.** Every integration that cost us time produces written, specific
+  feedback naming the page, the field, and the transaction where it went wrong —
+  [`FEEDBACK.md`](FEEDBACK.md) is the Uniswap one. A bug report with a reproduction is worth more
+  to a protocol than another integration, and it is the part most projects skip.
+- **Standards over bespoke.** Where a protocol publishes an event shape, a resolver interface, or
+  a security rubric, this repo emits and scores against **theirs**, so the output is legible to
+  their indexers and tooling instead of only to ours.
+- **Composition over dependency.** Every seam is env-gated and fail-soft: blank config is a clean
+  no-op, never a blocked payment. That keeps each integration removable, which is what makes it
+  an honest recommendation rather than a lock-in — and it means a partner's outage is never our
+  users' outage.
+
+Testnet-only, so the offer is not revenue: it is **usage, a reference implementation, and
+evidence** — which is what an open protocol actually runs on.
+
 Every integration below is real, lives in this repo, and is env-gated + fail-soft (blank config ⇒ a clean
 no-op, never a blocked payment). The detail for each — file paths and exact behaviour — is in
 [Built on](#built-on) right after this table.
