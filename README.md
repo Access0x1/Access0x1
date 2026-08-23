@@ -27,7 +27,7 @@ Access0x1 is the umbrella layer everything plugs into — non-custodial payments
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 <!-- The test count is bound to `forge test --list` and CI-ENFORCED: scripts/sync-test-badge.mjs fails CI if this number drifts from the real suite, so it can't go stale silently. The CI badge above is the live green/red "they pass" signal. Update after adding tests: `node scripts/sync-test-badge.mjs --write`. -->
-[![Tests](https://img.shields.io/badge/Tests-2068%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/Tests-2071%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -246,7 +246,7 @@ src/
 └── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (2,068 tests)
+test/                        # unit · attack · invariant (2,071 tests)
 ```
 
 The full first-party surface is **39 production contracts + 2 libraries** (41 `.sol` files in
@@ -321,7 +321,7 @@ git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
 make install           # forge submodules + npm (@chainlink) + web + SDK — one command
 make build             # forge build
-make test              # 2,068 tests, all green
+make test              # 2,071 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
@@ -977,7 +977,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **2,068 green** (Foundry) — unit · attack · invariant — plus 1,955 web/SDK unit tests |
+| Tests | **2,071 green** (Foundry) — unit · attack · invariant — plus 2,029 web/SDK unit tests |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
@@ -1001,6 +1001,56 @@ Chainlink contracts 1.5.0 (Data Feeds + CRE). **Deployed on eleven testnets via 
 ---
 
 ## Partners & Integrations
+
+### Why these integrations exist — the repo is built to give something back
+
+**Access0x1 is built in public so that the protocols it uses get something out of it.** That is a
+design constraint, not a courtesy line, and it decides how every integration below is written:
+
+- **A working reference, not a logo.** Each seam is real code on a real testnet with a real
+  transaction behind it, in a public MIT repo. A protocol's team — or the next builder reading it
+  — can open the file, run the command, and see the integration work end to end. Uniswap gets a
+  v4 hook and a payout rail built against the live Trading API; Chainlink gets a feed read
+  **inside** the settlement transaction rather than a frontend price. Both are patterns anyone
+  can copy.
+- **Feedback with receipts.** Every integration that cost us time produces written, specific
+  feedback naming the page, the field, and the transaction where it went wrong —
+  [`FEEDBACK.md`](FEEDBACK.md) is the Uniswap one. A bug report with a reproduction is worth more
+  to a protocol than another integration, and it is the part most projects skip.
+- **Standards over bespoke.** Where a protocol publishes an event shape, a resolver interface, or
+  a security rubric, this repo emits and scores against **theirs**, so the output is legible to
+  their indexers and tooling instead of only to ours.
+- **Composition over dependency.** Every seam is env-gated and fail-soft: blank config is a clean
+  no-op, never a blocked payment. That keeps each integration removable, which is what makes it
+  an honest recommendation rather than a lock-in — and it means a partner's outage is never our
+  users' outage.
+
+Testnet-only, so the offer is not revenue: it is **usage, a reference implementation, and
+evidence** — which is what an open protocol actually runs on.
+
+### An open invitation to the protocols and companies in this table
+
+**If you build one of the things this repo integrates, come and change it.** The integration
+that exists is our reading of your docs; you know what it should have been. That gap is worth
+more to both of us closed than politely tolerated, so this is a standing invitation to act on it:
+
+- **Tell us the integration is wrong, and how.** An issue that says *"you are using the deprecated
+  endpoint / this is not the pattern we recommend / the event shape should be ours"* gets fixed —
+  and it is worth more to us than a compliment, because a public reference implementation that
+  teaches the wrong pattern is actively harmful to you.
+- **Send the PR yourself.** Rewrite your own seam. You have commit-level knowledge nobody outside
+  your team has, the code is MIT, and the [contributing guide](CONTRIBUTING.md#for-a-protocol-or-company-adapting-this-repo-to-you)
+  has a lane written specifically for this.
+- **Ask us to build to your interface.** A standard you are shipping, an event shape you want
+  indexers to see, a resolver or rubric you want conformance against — we would rather implement
+  yours than invent a parallel one.
+- **Shape the repo to fit your stack.** Chains you want supported, a config seam that would make
+  adoption trivial for your users, a reference deployment on your network: say so. Breadth here
+  is chosen by integrator demand, not by us guessing.
+
+There is no partnership to sign and nothing to pay. The repo is MIT, the maintainer merges on a
+green gate, and the only standing rule is the one above — every seam stays env-gated and
+removable, so what we build for you never becomes a dependency your users cannot escape.
 
 Every integration below is real, lives in this repo, and is env-gated + fail-soft (blank config ⇒ a clean
 no-op, never a blocked payment). The detail for each — file paths and exact behaviour — is in
