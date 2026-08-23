@@ -10,11 +10,22 @@ import { getDictionary } from '@/lib/i18n/get-dictionary'
  * /vision — what gets built on the rail.
  *
  * The six product concepts the rail exists to make possible, plus the
- * deployment recipe that makes them credible. Every entry passes one bar: it
- * must be impossible on rails that can freeze, censor, or quietly change the
- * deal. Written in primitives (escrow, proof of personhood, state channels) —
- * no vendor names, no partnership claims. VISION, not shipped features: the
- * rail itself runs on test networks today.
+ * deployment recipe that makes them credible. Every entry passes one bar: the
+ * rule has to live in a published contract rather than in a policy page.
+ * Written in primitives (escrow, proof of personhood, state channels) — no
+ * vendor names, no partnership claims. VISION, not shipped features: the rail
+ * itself runs on test networks today.
+ *
+ * CLAIM SCOPE (2026-07-30 review). This page may not assert that a refund is
+ * unblockable, that contracts are immutable, or that no party can interfere.
+ * Verified against source + chain: `Refunds` requires the MERCHANT to fund and
+ * authorize before the buyer's `claim` is available; `Access0x1Escrow.cancel`
+ * is SELLER-only (its permissionless `claimAfterTimeout` releases to the
+ * SELLER); only `Access0x1Bookings.cancel` admits the PAYER as a caller, and
+ * even there the outcome is set by the policy snapshot, which may define a
+ * no-refund window. Every one of these is a UUPS proxy whose upgrade authority
+ * is a live EOA (0xa121…8d73 on all eight mirror testnets), so no copy here may
+ * promise the rules cannot change.
  *
  * Pure presentational, server-renderable: no hooks, no client JS. Styling
  * rides the existing brand chassis (background / foreground / primary /
@@ -24,10 +35,11 @@ import { getDictionary } from '@/lib/i18n/get-dictionary'
 export const metadata: Metadata = {
   title: 'Vision — what gets built on the rail | Access0x1',
   description:
-    'Six products, one bar: each must be impossible on rails that can freeze, ' +
-    'censor, or quietly change the deal. Refunds that cannot be blocked, tickets ' +
-    'that cannot be rugged, businesses that cannot be turned off — built on the ' +
-    'open-source rail for onchain identity and USD-priced payments in USDC.',
+    'Six products, one bar: the rule lives in a published contract you can ' +
+    'inspect and call yourself, not in a policy page. Refunds whose payout the ' +
+    'merchant cannot withhold, resale terms that travel with the ticket, and ' +
+    'treasuries that keep paying — built on the open-source rail for onchain ' +
+    'identity and USD-priced payments in USDC. Runs on test networks today.',
 }
 
 interface Concept {
@@ -46,13 +58,17 @@ const CONCEPTS: readonly Concept[] = [
   {
     id: 'unblockable-refund',
     n: 1,
-    title: 'The Unblockable Refund',
-    thesis: 'Commerce where the refund is physics, not policy.',
+    title: 'The refund a merchant cannot withhold',
+    thesis: 'The payout path has no approval step and no pause.',
     body:
-      'Every checkout escrows into a contract with a refund window that nobody — ' +
-      'not the merchant, not us, not a court order to a server — can block, ' +
-      'because there is no server. A processor can freeze a payout; a contract ' +
-      'with no pause on the exit path cannot.',
+      'A deposit booking can be cancelled by the payer, not only by the ' +
+      'merchant, and what comes back is set by a cancellation policy snapshotted ' +
+      'when the booking was made — an operator cannot raise the fee after the ' +
+      'fact. Once a refund is owed, the payout cannot be withheld: there is no ' +
+      'approval step and no pause on the exit path, and a transfer that fails ' +
+      'lands in a pull-map the payer claims themselves. What it is not is ' +
+      'unconditional — the policy can define a no-refund window, and the ' +
+      'settlement asset and network still apply their own rules.',
   },
   {
     id: 'one-human-one-x',
@@ -62,9 +78,10 @@ const CONCEPTS: readonly Concept[] = [
     body:
       'A discount each human can claim exactly once across every merchant on the ' +
       'rail. Reviews provably written by a unique human who provably paid — the ' +
-      'receipt is on-chain. Fair-queue ticket drops where bots are ' +
-      'cryptographically impossible. It takes zero-knowledge proof of personhood ' +
-      'joined to an unforgeable payment record, and that join only exists here.',
+      'receipt is on-chain. Fair-queue ticket drops where a second entry costs a ' +
+      'second proof of personhood, so scripting one wallet into a thousand stops ' +
+      'paying. It takes zero-knowledge proof of personhood joined to a payment ' +
+      'record, and that join only exists here.',
   },
   {
     id: 'unruggable-ticket',
@@ -74,9 +91,10 @@ const CONCEPTS: readonly Concept[] = [
     body:
       'A ticket whose resale price cap, organizer royalty, and automatic ' +
       'refund-if-cancelled live inside the asset itself — and the only market it ' +
-      'trades on enforces those rules at swap time. Scalpers cannot scalp, venues ' +
-      'cannot rug, and nobody can quietly change the deal, because the contract ' +
-      'is immutable.',
+      'trades on enforces those rules at swap time. Scalpers cannot scalp and ' +
+      'venues cannot rug, because those rules are fixed in the ticket contract at ' +
+      'mint rather than in a policy page — and shipping it means freezing that ' +
+      'contract’s upgrade path first.',
   },
   {
     id: 'immortal-business',
@@ -87,7 +105,8 @@ const CONCEPTS: readonly Concept[] = [
       'A merchant whose treasury streams payroll and pays suppliers on its own. ' +
       'If the owner’s heartbeat stops — no signed check-in — the contract ' +
       'executes succession: funds stream to heirs and staff on a schedule. No ' +
-      'probate, no custodian, no off switch.',
+      'probate and no custodian in the loop — the schedule runs from the ' +
+      'contract, not from an office that can close.',
   },
   {
     id: 'pay-per-second',
@@ -108,12 +127,13 @@ const CONCEPTS: readonly Concept[] = [
     body:
       'An agent with its own wallet: it earns fees on the rail, pays for its own ' +
       'inference and storage, and renews its own existence through decentralized ' +
-      'automation. Nobody can fire it, defund it, or turn it off.',
+      'automation. It is not an employee to fire or a subscription to cancel — ' +
+      'it keeps running as long as it can pay its own bills.',
   },
 ]
 
 const RECIPE_ITEMS: readonly string[] = [
-  'Immutable contracts — no proxy; roles renounced or burned to a timelock.',
+  'Frozen contracts — no live upgrade path; ownership renounced or held by a timelock.',
   'Frontend on IPFS + ENS — no host to seize, no DNS to hijack.',
   'Permissionless indexing — anyone can rebuild the history from the chain.',
   'Receipts and documents anchored on public networks — provable forever.',
@@ -132,12 +152,12 @@ export default async function VisionPage(): Promise<ReactNode> {
           The vision — what gets built on this rail
         </span>
         <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
-          Six products. One bar: impossible anywhere else.
+          Six products. One bar: the rule lives in the contract.
         </h1>
         <p className="max-w-xl text-balance text-lg text-muted-foreground">
-          Each of these must be impossible on rails that can freeze, censor, or
-          quietly change the deal. That is the point of building on an open,
-          immutable rail — the guarantee lives in the contract.
+          Each of these needs a rule you can inspect and call yourself, not a
+          policy you have to take on trust. That is the point of building on an
+          open rail — the terms are published where anyone can read them.
         </p>
       </header>
 
@@ -169,8 +189,9 @@ export default async function VisionPage(): Promise<ReactNode> {
           The &ldquo;never taken down&rdquo; recipe
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Everything above ships on the same stack, so the guarantee is
-          structural:
+          Everything above has to clear the same bar before it ships. This is
+          the requirement, not a description of today &mdash; the rail&rsquo;s
+          contracts are still upgradeable by their deployer:
         </p>
         <ul className="mt-5 flex flex-col gap-3">
           {RECIPE_ITEMS.map((item) => (
@@ -184,7 +205,7 @@ export default async function VisionPage(): Promise<ReactNode> {
           ))}
         </ul>
         <p className="mt-7 font-display text-lg font-semibold text-primary">
-          &ldquo;We couldn&rsquo;t rug you if we wanted to.&rdquo;
+          &ldquo;The bar: you shouldn&rsquo;t have to trust us.&rdquo;
         </p>
       </section>
 

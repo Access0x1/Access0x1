@@ -33,8 +33,11 @@ WORKDIR /app
 
 # Only the manifests so this layer caches until dependencies change.
 COPY package.json package-lock.json ./
-# `npm ci` is deterministic and respects the lockfile exactly.
-RUN npm ci
+# `npm ci` is deterministic and respects the lockfile exactly. Quiet on purpose:
+# `--loglevel=error` drops the transitive-dependency deprecation wall (not ours to
+# fix, drowns real errors), and `--no-audit --no-fund` skips two network round
+# trips that add time and noise to every build.
+RUN npm ci --loglevel=error --no-audit --no-fund
 
 # --- Stage 2: builder --------------------------------------------------------
 FROM node:${NODE_VERSION} AS builder

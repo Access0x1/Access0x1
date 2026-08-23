@@ -579,10 +579,15 @@ claim safe to ship: on every chain, avoid copy that claims the payment costs not
 
 ### `CHAINS`
 
-A `const` record keyed by [`ChainKey`](#the-chain-registry). The lead (deployed) set is
-`arcTestnet`, `baseSepolia`, and `zksyncSepolia`; the remaining keys (`zeroGGalileo`,
-`monadTestnet`, `berachainBepolia`, `seiTestnet`, `megaethTestnet`) are **known-but-not-yet-deployed**
-targets — config-only, deploy pending, with `usdc: undefined` until a Circle token is confirmed.
+A `const` record keyed by [`ChainKey`](#the-chain-registry). These keys are the SDK's
+config registry, NOT the deployment truth — the CREATE3 mirror router is live on ten
+testnets (7 source-verified; [docs/CHAIN-ADDRESSES.md](../docs/CHAIN-ADDRESSES.md) is
+authoritative). `arcTestnet`, `baseSepolia`, and `zksyncSepolia` carry full config;
+`zeroGGalileo` carries the mirror router on-chain even though no committed
+`broadcast/` record lists it at that address, so a manifest-derived count misses it;
+keys like `monadTestnet`,
+`berachainBepolia`, `seiTestnet`, `megaethTestnet` are config-only, with
+`usdc: undefined` until a Circle token is confirmed.
 
 | Key | Name | chainId | `usdc` | `usdcIsNativeGas` |
 | --- | --- | --- | --- | --- |

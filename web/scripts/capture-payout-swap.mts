@@ -1,41 +1,55 @@
 /**
- * capture-payout-swap.mts — drive ONE real Base-Sepolia payout-swap through the wired
- * Uniswap Trading API rail and print the resulting tx hash.
+ * capture-payout-swap.mts — drive ONE real payout-swap through the wired Uniswap Trading
+ * API rail, END TO END, and print the landed tx hash.
  *
  * This is the operator-run capture step for the "Receive In Any Coin" payout leg. It uses the
  * EXACT production wiring: `buildPayoutSwapDeps()` reads the same server env the
- * `/api/payout-swap` route reads, `selectPayoutSwapClient(baseSepolia.id, deps)` picks the Base
- * rail (`createUniswapTradingApiClient`), and `runPayoutSwap()` runs quote → slippage-floor →
- * gasless UniswapX `/order`. A green run is therefore proof the shipped rail works end-to-end
- * against a live endpoint — nothing bespoke is re-implemented here.
+ * `/api/payout-swap` route reads, `selectPayoutSwapClient(chainId, deps)` picks the Trading
+ * API rail, and `runPayoutSwap()` runs quote → slippage-floor → execute. The rail returns the
+ * `/swap` READY-TO-SIGN transaction (live-verified shape, 2026-07-25) — this script then
+ * completes the loop the way a merchant wallet would: it signs and broadcasts the approval
+ * (when `/check_approval` says one is needed) and the swap tx with the burner key, waits for
+ * the receipt, and prints the explorer link. A green run is proof the shipped rail works
+ * end-to-end against the live endpoint — nothing bespoke is re-implemented here.
  *
- * Non-custodial: the merchant/seller wallet is the swapper. The script derives that wallet's
- * ADDRESS from a funded burner key (env, never hardcoded) and passes it as the `merchant` of the
- * swap request; the key never leaves this process and is never logged.
+ * CHAIN: defaults to **Ethereum Sepolia (11155111)** — the app's home chain, and the one
+ * testnet where the Trading API returned a real priced quote when probed (Base Sepolia
+ * answered "No quotes available" the same day). Override with `CAPTURE_CHAIN_ID=84532`.
+ *
+ * Non-custodial framing: the burner IS the merchant/swapper — its key stays in this process,
+ * signs only its own transactions, and is never logged.
  *
  * REQUIRED env (a missing var throws a named error listing exactly what is absent — no silent
  * fallback, never a hardcoded key):
- *   UNISWAP_TRADING_API_URL  — Trading API base URL (the Base rail base). Absent ⇒ the rail is dormant.
+ *   UNISWAP_TRADING_API_URL  — Trading API base URL. Absent ⇒ the rail is dormant.
  *   UNISWAP_TRADING_API_KEY  — Trading API `x-api-key` (server-only).
- *   SELLER_PRIVATE_KEY       — funded Base-Sepolia burner EOA (the merchant/swapper); 0x + 64 hex.
- *   CAPTURE_USDC_ADDRESS     — the settled-USDC token address on Base Sepolia (the swap input).
- *   CAPTURE_PAYOUT_TOKEN     — the merchant's payout token address (the swap output).
+ *   SELLER_PRIVATE_KEY       — funded burner EOA on the capture chain (gas + the input USDC).
+ *   CAPTURE_USDC_ADDRESS     — the settled-USDC token address on the capture chain (swap input).
+ *   CAPTURE_PAYOUT_TOKEN     — the merchant's payout token address (swap output).
  * OPTIONAL env (documented defaults):
- *   CAPTURE_AMOUNT_USDC      — settled USDC to swap, ATOMIC base units. Default "1000000" (1 USDC, 6 dec).
+ *   CAPTURE_CHAIN_ID         — capture chain id. Default "11155111" (Ethereum Sepolia).
+ *   CAPTURE_RPC_URL          — RPC to broadcast through. Default: the chain's public default.
+ *   CAPTURE_AMOUNT_USDC      — settled USDC to swap, ATOMIC base units. Default "1000000" (1 USDC).
  *   CAPTURE_MIN_AMOUNT_OUT   — slippage floor, ATOMIC in the payout token's decimals. Default "0".
  *
  * RUN (from `web/`):
  *   npm run capture:swap
- *   # or directly:
- *   tsx scripts/capture-payout-swap.mts
  *
- * On success it prints the swap tx hash and a `https://sepolia.basescan.org/tx/<hash>` link. A
- * skipped or failed swap prints the worker's reason + detail and exits non-zero — the rail never
- * throws across the settlement boundary, so this script surfaces the outcome instead of masking it.
+ * On success it prints the landed swap tx hash + the chain's explorer link. A skipped or
+ * failed swap prints the worker's reason + detail and exits non-zero — the rail never throws
+ * across the settlement boundary, so this script surfaces the outcome instead of masking it.
  */
-import { getAddress, type Address, type Hex } from 'viem'
+import {
+  createPublicClient,
+  createWalletClient,
+  getAddress,
+  http,
+  type Address,
+  type Chain,
+  type Hex,
+} from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { baseSepolia } from 'viem/chains'
+import { baseSepolia, sepolia } from 'viem/chains'
 
 import { buildPayoutSwapDeps } from '../lib/payout-swap/deps-from-env.js'
 import {
@@ -43,6 +57,8 @@ import {
   selectPayoutSwapClient,
   type SwapRequest,
 } from '../lib/payout-swap/index.js'
+import type { UnsignedSwapTx } from '../lib/payout-swap/types.js'
+import { loadLocalEnv } from './load-local-env.mts'
 
 /** The env this capture requires, checked as a set so one throw lists every gap. */
 const REQUIRED_ENV = [
@@ -58,18 +74,28 @@ const DEFAULT_AMOUNT_USDC = 1_000_000n
 /** Default slippage floor when `CAPTURE_MIN_AMOUNT_OUT` is unset (0 ⇒ any non-reverting quote passes). */
 const DEFAULT_MIN_AMOUNT_OUT = 0n
 
+/**
+ * The chains this capture can target — exactly the testnets the Trading API rail is mapped
+ * to in `capabilities.ts`, with each chain's canonical explorer. Ethereum Sepolia first: it
+ * is the app's home chain and the live-verified one.
+ */
+const CAPTURE_CHAINS: ReadonlyMap<number, { chain: Chain; explorer: string }> = new Map([
+  [sepolia.id, { chain: sepolia, explorer: 'https://sepolia.etherscan.io' }],
+  [baseSepolia.id, { chain: baseSepolia, explorer: 'https://sepolia.basescan.org' }],
+])
+
 /** Thrown when required capture env is missing — carries every missing NAME, never a value. */
 class MissingCaptureEnvError extends Error {
   constructor(missing: readonly string[]) {
     super(
       `capture-payout-swap: missing required env: ${missing.join(', ')}. ` +
-        `Set each one (SELLER_PRIVATE_KEY is a funded Base-Sepolia burner — never hardcode a key).`,
+        `Set each one (SELLER_PRIVATE_KEY is a funded testnet burner — never hardcode a key).`,
     )
     this.name = 'MissingCaptureEnvError'
   }
 }
 
-/** Thrown when a supplied env value is present but malformed (address / key / amount). */
+/** Thrown when a supplied env value is present but malformed (address / key / amount / chain). */
 class InvalidCaptureEnvError extends Error {
   constructor(message: string) {
     super(`capture-payout-swap: ${message}`)
@@ -116,10 +142,22 @@ function atomicAmount(name: string, raw: string, fallback: bigint): bigint {
   return value
 }
 
-/** Build the Base-Sepolia swap request from validated env + the derived merchant address. */
-function buildRequest(merchant: Address): SwapRequest {
+/** Resolve the capture chain from env (default: Ethereum Sepolia, the live-verified home chain). */
+function resolveChain(): { chain: Chain; explorer: string } {
+  const raw = env('CAPTURE_CHAIN_ID')
+  const id = raw === '' ? sepolia.id : Number(raw)
+  const entry = CAPTURE_CHAINS.get(id)
+  if (!entry) {
+    const known = [...CAPTURE_CHAINS.keys()].join(', ')
+    throw new InvalidCaptureEnvError(`CAPTURE_CHAIN_ID must be one of {${known}}, got "${raw}"`)
+  }
+  return entry
+}
+
+/** Build the swap request from validated env + the derived merchant address. */
+function buildRequest(chainId: number, merchant: Address): SwapRequest {
   return {
-    chainId: baseSepolia.id,
+    chainId,
     usdc: requireAddress('CAPTURE_USDC_ADDRESS', env('CAPTURE_USDC_ADDRESS')),
     payoutToken: requireAddress('CAPTURE_PAYOUT_TOKEN', env('CAPTURE_PAYOUT_TOKEN')),
     merchant,
@@ -128,32 +166,99 @@ function buildRequest(merchant: Address): SwapRequest {
   }
 }
 
-/** Capture one real Base-Sepolia payout-swap: validate env, wire the rail, run it, print the tx. */
+/** Sign + broadcast one prepared tx with the burner and wait for its receipt. */
+async function signAndLand(
+  label: string,
+  tx: { to: string; data: string; value?: string },
+  wallet: ReturnType<typeof createWalletClient>,
+  reader: ReturnType<typeof createPublicClient>,
+): Promise<Hex> {
+  const hash = await wallet.sendTransaction({
+    account: wallet.account!,
+    chain: wallet.chain,
+    to: getAddress(tx.to),
+    data: tx.data as Hex,
+    value: tx.value ? BigInt(tx.value) : 0n,
+  })
+  console.log(`${label} broadcast: ${hash} — waiting for the receipt…`)
+  const receipt = await reader.waitForTransactionReceipt({ hash })
+  if (receipt.status !== 'success') {
+    throw new Error(`${label} tx ${hash} reverted on-chain`)
+  }
+  return hash
+}
+
+/**
+ * Capture one real payout-swap: validate env, wire the rail, run it, then complete the
+ * merchant-wallet leg (approval + the ready-to-sign swap) with the burner and print the tx.
+ */
 async function main(): Promise<void> {
+  // Standalone scripts read only process.env — pull in web/.env.local first (a var
+  // exported in the shell still wins), same as mvp-presentation + fund-gateway.
+  loadLocalEnv()
+
   // Fail-fast: check the whole required set at once so the error lists every gap, not just the first.
   const missing = REQUIRED_ENV.filter((name) => env(name) === '')
   if (missing.length > 0) throw new MissingCaptureEnvError(missing)
 
+  const { chain, explorer } = resolveChain()
+
   // Derive the merchant/swapper ADDRESS from the funded burner key; the key itself is never logged.
   const account = privateKeyToAccount(requirePrivateKey(env('SELLER_PRIVATE_KEY')))
-  const req = buildRequest(account.address)
+  const req = buildRequest(chain.id, account.address)
 
-  // Exact production wiring: env → deps → the Base rail client. Base Sepolia is a capable chain,
-  // so a missing config throws inside selectPayoutSwapClient; the null branch narrows the type.
+  // Exact production wiring: env → deps → the rail client for the capture chain.
   const deps = buildPayoutSwapDeps()
-  const client = selectPayoutSwapClient(baseSepolia.id, deps)
+  const client = selectPayoutSwapClient(chain.id, deps)
   if (!client) {
     throw new InvalidCaptureEnvError(
-      'Base Sepolia resolved no payout-swap rail — check UNISWAP_TRADING_API_URL',
+      `${chain.name} resolved no payout-swap rail — check UNISWAP_TRADING_API_URL`,
     )
   }
 
-  console.log(`Swapper (merchant): ${account.address}`)
-  console.log(
-    `Swapping ${req.amountUsdc} USDC base units -> ${req.payoutToken} on Base Sepolia ` +
-      `(floor ${req.minAmountOut})…`,
-  )
+  const rpc = env('CAPTURE_RPC_URL') || chain.rpcUrls.default.http[0]
+  const wallet = createWalletClient({ account, chain, transport: http(rpc) })
+  const reader = createPublicClient({ chain, transport: http(rpc) })
 
+  console.log(`Swapper (merchant): ${account.address} on ${chain.name}`)
+
+  // Pre-flight: prove the burner actually HOLDS the input before touching the chain.
+  // Without this, an unfunded burner still lands the (pointless) approval, then buys a
+  // Universal-Router revert with real gas — the exact failure the first live run hit.
+  const usdcBalance = (await reader.readContract({
+    address: req.usdc,
+    abi: [
+      {
+        type: 'function',
+        name: 'balanceOf',
+        stateMutability: 'view',
+        inputs: [{ name: 'owner', type: 'address' }],
+        outputs: [{ name: '', type: 'uint256' }],
+      },
+    ],
+    functionName: 'balanceOf',
+    args: [account.address],
+  })) as bigint
+  if (usdcBalance < req.amountUsdc) {
+    throw new InvalidCaptureEnvError(
+      `burner ${account.address} holds ${usdcBalance} of ${req.usdc} but the swap needs ` +
+        `${req.amountUsdc} — fund it first (no tx was sent, no gas spent)`,
+    )
+  }
+
+  // Approval pre-step, exactly as a merchant wallet would run it: ask the rail, sign what it hands back.
+  if (client.checkApproval) {
+    const check = await client.checkApproval(req)
+    if (check.needed && check.approval) {
+      await signAndLand('approval', check.approval, wallet, reader)
+    } else {
+      console.log('approval: not needed (already approved)')
+    }
+  }
+
+  console.log(
+    `Swapping ${req.amountUsdc} USDC base units -> ${req.payoutToken} (floor ${req.minAmountOut})…`,
+  )
   const result = await runPayoutSwap(req, client)
 
   if (!result.swapped) {
@@ -165,9 +270,26 @@ async function main(): Promise<void> {
     return
   }
 
-  console.log(`Swapped via ${result.rail}. amountOut=${result.amountOut}`)
-  console.log(`tx: ${result.txHash}`)
-  console.log(`https://sepolia.basescan.org/tx/${result.txHash}`)
+  // The Permit2 grant lands FIRST when the API handed one back (permit-as-transaction):
+  // the swap's Universal Router pull relies on it — the live lesson behind PR #300.
+  if (result.permitTx) {
+    await signAndLand('permit2', result.permitTx as UnsignedSwapTx, wallet, reader)
+  }
+
+  // Two honest endings: a rail that submitted (txHash) or one that prepared (unsignedTx) —
+  // the Trading API does the latter; the burner completes it the way the merchant wallet would.
+  let landed: Hex
+  if (result.txHash) {
+    landed = result.txHash as Hex
+  } else if (result.unsignedTx) {
+    landed = await signAndLand('swap', result.unsignedTx as UnsignedSwapTx, wallet, reader)
+  } else {
+    throw new Error('rail reported swapped without a txHash or an unsignedTx — wiring bug')
+  }
+
+  console.log(`Swapped via ${result.rail}. quoted amountOut=${result.amountOut}`)
+  console.log(`tx: ${landed}`)
+  console.log(`${explorer}/tx/${landed}`)
 }
 
 // Run only when invoked directly (never when imported by a test).

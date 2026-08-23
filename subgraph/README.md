@@ -1,13 +1,19 @@
 # Access0x1 subgraph — payment history (open analytics)
 
 A [The Graph](https://thegraph.com) subgraph that indexes the **public**
-`Access0x1Router.PaymentReceived` event into a queryable payment history +
-per-merchant totals. It is **protocol-level, open infrastructure**: anyone
-integrating Access0x1 can query it. The Access0x1 dashboard reads router events
-directly on-chain today (`web/lib/contracts.ts`); it *can* switch to this subgraph
-for a payments view once the query proxy + Studio key are wired — this subgraph is
-the ready integration point (now retargeted to the mirror router), not yet a live
-dependency of the dashboard.
+`Access0x1Router.PaymentReceived` + full merchant-lifecycle events into a
+queryable payment history + per-merchant totals. It is **protocol-level, open
+infrastructure**: anyone integrating Access0x1 can query it. The Access0x1
+dashboard (`web/lib/dashboard-receipts.ts`) already reads a merchant's receipts
+from this subgraph FIRST when `NEXT_PUBLIC_ACCESS0X1_SUBGRAPH_URL` is set,
+falling back to a bounded on-chain `getLogs` scan otherwise (fail-soft; the
+env is unset — dormant — by default in every deployment today). The
+`/network` page (`web/lib/graph-analytics.ts`) reads a network-wide top-merchants
+ranking from the same subgraph with no chain fallback at all, since that
+ranking can't be reconstructed from a bounded per-contract log scan. The
+remaining step to make either live in a given deployment is operational, not
+code: deploying this manifest to a Subgraph Studio project and setting the env
+var to the resulting query URL (owner-gated: Studio account + deploy key).
 
 ## Why it's safe to depend on (and why it isn't a dependency)
 

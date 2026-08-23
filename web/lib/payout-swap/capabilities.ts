@@ -15,7 +15,7 @@
  * There is deliberately NO 1inch row — see the note in the table below.
  */
 
-import { baseSepolia, polygonAmoy, zksyncSepoliaTestnet } from 'viem/chains'
+import { baseSepolia, polygonAmoy, sepolia, zksyncSepoliaTestnet } from 'viem/chains'
 
 import { arcTestnet } from '../chains.js'
 import type { ChainSwapCapability, SwapRail } from './types.js'
@@ -23,12 +23,17 @@ import type { ChainSwapCapability, SwapRail } from './types.js'
 /** The capability table: chainId → its same-chain swap rail. Absent ⇒ not capable. */
 const CAPABILITIES: ReadonlyMap<number, SwapRail> = new Map<number, SwapRail>([
   [arcTestnet.id, 'circle-app-kit'],
-  // Base Sepolia: the Trading API's TESTNET coverage is UNCONFIRMED — FEEDBACK.md
-  // ("Testnet coverage was hard to confirm") says we have the code but not a
-  // confirmed testnet endpoint to point it at. The row stays because the rail is
-  // env-gated and dormant without `UNISWAP_TRADING_API_URL`, so it promises nothing
-  // an operator has not themselves supplied — but it is held to the same standard
-  // that deleted the 1inch row below, and it must not be described as proven.
+  // Ethereum Sepolia — the app's HOME chain — is LIVE-VERIFIED (2026-07-25): a real
+  // `/quote` against the production Trading API returned HTTP 200, CLASSIC routing,
+  // a priced one-hop USDC→WETH route with a gas estimate. This is the one testnet
+  // row backed by an actual served quote, not an assumption.
+  [sepolia.id, 'uniswap-trading-api'],
+  // Base Sepolia: probed the same day with the same canonical request — the API
+  // answered `ResourceNotFound: "No quotes available"` for the canonical USDC→WETH
+  // pair. That reads as no ROUTING there today (possibly pair-specific), not a
+  // protocol error. The row stays because the rail is env-gated and dormant without
+  // `UNISWAP_TRADING_API_URL`, so it promises nothing an operator has not themselves
+  // supplied — but a Base-Sepolia swap must never be described as proven.
   [baseSepolia.id, 'uniswap-trading-api'],
   [zksyncSepoliaTestnet.id, 'uniswap-classic'],
   // NO 1inch ENTRY, DELIBERATELY. `polygonAmoy → 'one-inch'` used to live here and it

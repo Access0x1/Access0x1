@@ -88,12 +88,21 @@ export function createPostgresKvStore(
     if (!poolPromise) {
       poolPromise = (async () => {
         // Lazy dynamic import: `pg` is only loaded when a durable store is actually
-        // configured. The specifier is computed so the typecheck does NOT depend on
-        // `pg`/`@types/pg` being installed — `pg` is an OPTIONAL peer the operator
-        // installs to use the durable store. Tests use the `injectedPool` seam, so
-        // no live DB is required.
-        const specifier: string = ['p', 'g'].join('')
-        const imported = (await import(/* @vite-ignore */ specifier)) as unknown as
+        // configured. LITERAL import + the next.config seams (2026-08-17, learned
+        // the hard way — three failure modes, one per bundling surface):
+        //   • SERVER: webpack compiles a COMPUTED import('pg') into a lookup in
+        //     its own module map, where pg was never registered — so production
+        //     threw "Cannot find module 'pg'" WITH pg sitting on disk. The
+        //     literal import + `pg: 'commonjs pg'` server external makes webpack
+        //     emit a real runtime require, resolved from the release's
+        //     node_modules.
+        //   • CLIENT: a literal import hard-fails the browser bundle on node
+        //     built-ins — `resolve.fallback.pg = false` compiles this to an
+        //     empty module client-side (never evaluated: no URL exists there).
+        //   • TRACER: `outputFileTracingIncludes` ships the pg family into
+        //     `output: standalone`; the deploy script guard refuses a bundle
+        //     without it.
+        const imported = (await import('pg')) as unknown as
           | PgModule
           | { default: PgModule }
         const mod: PgModule =

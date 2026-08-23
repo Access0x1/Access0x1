@@ -137,6 +137,28 @@ export function getDocsCorpusBytes(): number {
 }
 
 /**
+ * The vendored entries that survived the byte cap, in corpus order — the same
+ * documents {@link getDocsCorpus} concatenates, still separated per file.
+ *
+ * Retrieval (lib/docs/retrieve.ts) indexes THESE rather than the raw
+ * `DOCS_CORPUS`, so one cap policy governs both modes: a document the cap
+ * dropped is absent from the whole-corpus prompt and unretrievable alike, and
+ * the two assistants can never cite a file the other cannot see.
+ */
+const INCLUDED_ENTRIES: readonly DocsCorpusEntry[] = (
+  DOCS_CORPUS as readonly DocsCorpusEntry[]
+).filter((entry) => ASSEMBLED.includedFiles.includes(entry.file))
+
+/**
+ * The per-file documentation entries included in the assembled corpus.
+ *
+ * @returns the surviving `{ file, content }` entries, in corpus order.
+ */
+export function getIncludedDocEntries(): readonly DocsCorpusEntry[] {
+  return INCLUDED_ENTRIES
+}
+
+/**
  * The grounding instruction for the documentation assistant. Kept as its own
  * export so a test can assert the route sends it and it can be reused verbatim.
  * It pins the model to the corpus, requires per-claim citations, forbids inventing

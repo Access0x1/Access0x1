@@ -11,8 +11,12 @@
  * Non-custodial: the merchant wallet signs; the injected {@link FetchLike} (Trading API) and
  * {@link SubmitRawTx} (RPC, optionally Blink) seams keep the rail unit-testable offline.
  *
- * @warn BOOTH-CONFIRM the zkSync Trading API `/swap` payload, the Universal Router address, and
- *   whether Blink's originator RPC covers zkSync at the event.
+ * @warn The `/swap` leg below still carries the ASSUMED payload/response (`{rawTx}`) — the
+ *   live API (verified 2026-07-25 on the Trading API rail) answers `/swap` with an UNSIGNED
+ *   `{swap: {...}}` transaction, so this leg needs the merchant-signing seam before any live
+ *   use. The rail is dormant today (no zkSync RPC env), and the Trading API serves no testnet
+ *   routing at all — see uniswapTradingApi.ts `@verified` + FEEDBACK.md. The `/quote` leg IS
+ *   canonical (fixed with the same live-verified shape as the Trading API rail).
  */
 
 import type {
@@ -31,9 +35,9 @@ interface ClassicSwapResponse {
   rawTx: string
 }
 
-/** Shape of the classic `/quote` response we depend on (subset). */
+/** The canonical `/quote` response subset (CLASSIC routing nests the output on `quote`). */
 interface ClassicQuoteResponse {
-  amountOut: string
+  quote?: { output?: { amount?: string } }
 }
 
 /**
@@ -75,18 +79,25 @@ export function createUniswapClassicClient(
       const res = await fetchImpl(`${baseUrl}/quote`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
+        // The canonical, live-verified shape (2026-07-25): STRING chain ids in
+        // `tokenInChainId`/`tokenOutChainId`, the input as `amount`, CLASSIC forced so the
+        // execute leg stays on `/swap` (the only route this rail's submit model serves).
         body: JSON.stringify({
-          chainId: req.chainId,
+          swapper: req.merchant,
           tokenIn: req.usdc,
           tokenOut: req.payoutToken,
-          amountIn: req.amountUsdc.toString(),
-          swapper: req.merchant,
+          tokenInChainId: String(req.chainId),
+          tokenOutChainId: String(req.chainId),
+          amount: req.amountUsdc.toString(),
+          type: 'EXACT_INPUT',
+          routingPreference: 'CLASSIC',
         }),
       })
       if (!res.ok) throw new Error(`Uniswap classic /quote failed (${res.status})`)
       const body = (await res.json()) as ClassicQuoteResponse
-      if (!body.amountOut) throw new Error('Uniswap classic /quote returned no amountOut')
-      return { amountOut: BigInt(body.amountOut) }
+      const amount = body.quote?.output?.amount
+      if (!amount) throw new Error('Uniswap classic /quote returned no output amount')
+      return { amountOut: BigInt(amount) }
     },
 
     async execute(req: SwapRequest, _quote: RailQuote): Promise<RailExecution> {

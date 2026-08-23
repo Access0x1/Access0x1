@@ -21,6 +21,22 @@
 #_ROUTER_ZKSYNC_SEPOLIA=0x...,_USDC_ZKSYNC_SEPOLIA=0x...,_ZKSYNC_SEPOLIA_RPC_URL=https://... \
 #     .
 steps:
+  # --- Warm the dependency-layer cache (optional, controlled by _CACHE_DEPS) ---
+  # Every Cloud Build machine starts with an EMPTY Docker cache, so `npm ci`
+  # re-installed the whole tree on every deploy even with an unchanged lockfile.
+  # Fix: pull the previous build's deps-stage image and rebuild JUST that stage
+  # against it — near-instant on a cache hit — which seeds the local layer cache
+  # the main build below then hits for its own stage-1. Empty _CACHE_DEPS (the
+  # default) skips all of this and behaves exactly as before.
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ -n "${_CACHE_DEPS}" ]; then
+          docker pull "${_CACHE_DEPS}" || echo "no previous deps cache — cold install this once"
+          docker build --target deps --cache-from "${_CACHE_DEPS}" -t "${_CACHE_DEPS}" .
+        fi
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -55,6 +71,15 @@ steps:
       - '-f'
       - 'Dockerfile'
       - '.'
+  # --- Publish the refreshed deps cache for the NEXT build (never fatal) -------
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ -n "${_CACHE_DEPS}" ]; then
+          docker push "${_CACHE_DEPS}" || echo "deps-cache push failed — next build goes cold, nothing else breaks"
+        fi
 # Default every NEXT_PUBLIC_* substitution to empty so `gcloud builds submit`
 # without an override still builds (feature stays OFF / fail-soft, matching the
 # Dockerfile's "leave any unset to keep that feature off"). _IMAGE has no default
@@ -72,6 +97,9 @@ substitutions:
   _ROUTER_ZKSYNC_SEPOLIA: ''
   _USDC_ZKSYNC_SEPOLIA: ''
   _ZKSYNC_SEPOLIA_RPC_URL: ''
+  # Registry tag for the deps-stage cache image (e.g. …/web:deps-cache). Empty ⇒
+  # no caching, exactly the old behavior. Supplied by scripts/deploy-web.sh.
+  _CACHE_DEPS: ''
 images:
   - '${_IMAGE}'
 options:

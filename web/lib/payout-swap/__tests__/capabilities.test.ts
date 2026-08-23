@@ -6,7 +6,7 @@
  * missing dependency for a capable chain (a wiring bug) but returns null for an uncapable one.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { baseSepolia, zksyncSepoliaTestnet } from 'viem/chains'
+import { baseSepolia, sepolia, zksyncSepoliaTestnet } from 'viem/chains'
 
 import { arcTestnet } from '../../chains.js'
 import { getSwapCapability, isSwapCapable } from '../capabilities.js'
@@ -18,6 +18,13 @@ describe('getSwapCapability — rail per chain', () => {
       chainId: arcTestnet.id,
       canSwap: true,
       rail: 'circle-app-kit',
+    })
+  })
+  it('Ethereum Sepolia (the home chain) → uniswap-trading-api (live-verified 2026-07-25)', () => {
+    expect(getSwapCapability(sepolia.id)).toEqual({
+      chainId: sepolia.id,
+      canSwap: true,
+      rail: 'uniswap-trading-api',
     })
   })
   it('Base → uniswap-trading-api', () => {

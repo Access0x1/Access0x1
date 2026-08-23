@@ -63,6 +63,13 @@ function createsIn(file, expectedChainId) {
   return (data.transactions ?? [])
     .filter((t) => typeof t.transactionType === 'string' && t.transactionType.startsWith('CREATE'))
     .filter((t) => t.contractName && t.contractAddress)
+    // A SIMULATED run records the same contractName and the same PREDICTED contractAddress as a
+    // real one; only a broadcast transaction carries a hash. Without this filter a dry run is
+    // indistinguishable from a deploy, which is how eight Tempo (42431) addresses reached the
+    // README with clickable explorer links while the chain held no code at any of them --
+    // both of that chain's run files carry ten transactions and zero hashes. Law #4 says an
+    // address that is not on-chain is not claimed, and the hash is what evidences on-chain.
+    .filter((t) => typeof t.hash === 'string' && t.hash.length > 0)
     .map((t) => ({ name: t.contractName, address: String(t.contractAddress).toLowerCase() }))
 }
 

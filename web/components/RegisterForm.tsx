@@ -279,11 +279,11 @@ export function RegisterForm({
             Resolving ENS name…
           </span>
         ) : resolvedFeeRecipient ? (
-          <span className="text-xs text-green-700" data-testid="ens-resolved">
+          <span className="text-xs text-success" data-testid="ens-resolved">
             Resolved to {resolvedFeeRecipient}
           </span>
         ) : ensError ? (
-          <span className="text-xs text-red-600" data-testid="ens-error">
+          <span className="text-xs text-destructive" data-testid="ens-error">
             {ensError}
           </span>
         ) : null}
@@ -292,7 +292,7 @@ export function RegisterForm({
 
       {error ? (
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
           {/* The gas cliff is the merchant path's dead end: someone who signed in with
               email or Google holds a fresh embedded wallet with a zero balance, and the
               fix is entirely OUTSIDE the app. Naming the chain and linking its faucet is
@@ -342,7 +342,7 @@ export function RegisterForm({
           <button
             type="submit"
             disabled={submitting || !live.isSupported}
-            className="rounded-lg bg-rail px-4 py-2.5 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-rail px-4 py-2.5 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? 'Registering…' : 'Create payment link'}
           </button>
@@ -360,7 +360,7 @@ export function RegisterForm({
         <button
           type="button"
           onClick={() => setShowAuthFlow(true)}
-          className="rounded-lg bg-rail px-4 py-2.5 font-medium text-white transition-opacity hover:opacity-90"
+          className="rounded-lg bg-rail px-4 py-2.5 font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           Sign in to continue
         </button>

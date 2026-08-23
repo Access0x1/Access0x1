@@ -36,6 +36,7 @@ you set · where the value comes from · how to confirm it's live · what "off" 
 | **Flow** | pay-in-any-token at checkout | `NEXT_PUBLIC_FLOW_ENABLED=true`, `FLOW_PROVIDER`, `FLOW_SERVER_KEY` | a swap aggregator |
 | **Paymaster** | sponsored (gasless) UX off-Arc | `PAYMASTER_ENABLED=true`, `NEXT_PUBLIC_PAYMASTER_URL`, `NEXT_PUBLIC_PAYMASTER_CHAIN_ID` | any ERC-4337 bundler |
 | **Walrus** (Sui) | un-takedownable checkout mirror | Sui testnet account + publish step | sui.io testnet faucet |
+| **The Graph** | indexed analytics + receipt history | `NEXT_PUBLIC_ACCESS0X1_SUBGRAPH_URL` | thegraph.com Studio (deploy `subgraph/`) |
 
 **Rule of thumb:** a `*_ENABLED=true` flag alone does nothing — every gate checks the
 flag **and** its credential, so a half-set seam stays safely dormant. Set both.
@@ -138,6 +139,21 @@ flag **and** its credential, so a half-set seam stays safely dormant. Set both.
 
 ---
 
+### The Graph — indexed analytics + receipt history
+
+Deploy [`subgraph/`](../subgraph) to Studio and set `NEXT_PUBLIC_ACCESS0X1_SUBGRAPH_URL` to the query
+endpoint. Blank ⇒ both readers ([`web/lib/graph-analytics.ts`](../web/lib/graph-analytics.ts),
+[`web/lib/dashboard-receipts.ts`](../web/lib/dashboard-receipts.ts)) report dormant and the UI falls
+back to a bounded per-contract `getLogs` window.
+
+One read has **no fallback**: the cross-entity top-N merchant leaderboard is precisely the query a
+bounded log window cannot answer, so it exists only with the index on. `_meta.block.number` and
+`hasIndexingErrors` come back with every query, so a UI labels data "as of block N" rather than
+trusting a lagging indexer.
+
+`codegen` and `build` inside `subgraph/` validate the manifest and mappings offline — no Studio
+account is needed to check a change.
+
 ## Not env-activatable (by design)
 
 - **Circle App Kit swap** ([`web/lib/payout-swap/rails/circleAppKit.ts`](../web/lib/payout-swap/rails/circleAppKit.ts))
@@ -145,7 +161,9 @@ flag **and** its credential, so a half-set seam stays safely dormant. Set both.
   env: App Kit is a **browser** SDK that runs on the merchant's own wallet (non-custodial),
   so it belongs in a client flow, not the server-side payout-swap worker. Activating it is
   an SDK-install + client-wiring task, not a config value.
-- **Yellow** and **The Graph** are out of scope for this build and are not wired.
+- **Yellow** is out of scope for this build and is not wired. (**The Graph** was listed on this line
+  historically and that was wrong: the subgraph and both of its readers are built and env-gated — see
+  the section above.)
 
 ## Where each gate lives (source of truth)
 

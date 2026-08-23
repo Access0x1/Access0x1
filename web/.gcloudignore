@@ -5,6 +5,11 @@
 .git
 node_modules/
 .next/
+# The design-sync bundle (20MB of component screenshots + contact sheets). It is
+# a local design-review artifact, gitignored, and nothing in the image reads it —
+# but this file REPLACES the .gitignore fallback rather than extending it, so an
+# entry ignored by git still uploads unless it is named here.
+ds-bundle/
 coverage/
 playwright-report/
 test-results/
