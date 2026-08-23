@@ -1,6 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 
 import { buildDocsSystemPrompt } from '@/lib/docs/corpus.js'
+import {
+  DOCS_ASK_DAILY_REQUEST_CAP,
+  EMPTY_USAGE,
+  mergeUsageFrame,
+  recordAnswerUsage,
+  type AnswerUsage,
+} from '@/lib/docs/cost-meter.js'
 import { InferenceError, isInferenceConfigured, runInference, selectedProvider } from '@/lib/ai/inference'
 
 export const dynamic = 'force-dynamic'
@@ -36,13 +43,23 @@ export const dynamic = 'force-dynamic'
  * block marked `cache_control: ephemeral`. Anthropic then caches the corpus and
  * charges cache-read (~0.1x) on every subsequent request; only the per-request
  * question is uncached. The model is Haiku (200K context — the corpus fits).
+ *
+ * That win is conditional, which is why the route MEASURES it. A cache write
+ * costs 1.25x, so below a 21.74% hit rate the cached block bills MORE than
+ * sending the corpus uncached. The streaming loop folds every `message_start` /
+ * `message_delta` usage frame into lib/docs/cost-meter.ts, which costs the answer
+ * and keeps the last 50 on a bounded ring buffer; GET /api/docs-ask/meter serves
+ * the resulting hit rate and daily projection. Token counts only — no question,
+ * no answer, no IP is ever recorded.
  */
 
 const MODEL = 'claude-haiku-4-5'
 const MAX_TOKENS = 1024
 const RATE_LIMIT = 10 // requests per window
 const RATE_WINDOW_MS = 60_000 // 1 minute
-const DAILY_REQUEST_CAP = 500 // never-negative meter: hard ceiling per UTC day
+// The cap lives in the cost meter so the daily SPEND projection served by
+// /api/docs-ask/meter can never drift away from the request ceiling it projects.
+const DAILY_REQUEST_CAP = DOCS_ASK_DAILY_REQUEST_CAP // never-negative meter: hard ceiling per UTC day
 const DAILY_TOKEN_CAP = DAILY_REQUEST_CAP * MAX_TOKENS // hard server-side spend cap
 const MAX_QUESTION_LEN = 2000
 
@@ -281,13 +298,19 @@ export async function POST(request: Request): Promise<Response> {
   const encoder = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      // The usage frames ride the SAME stream as the text: `message_start`
+      // carries the input side (uncached / cache-write / cache-read) and
+      // `message_delta` carries the final output count. Folding them into an
+      // accumulator costs one call per event and forwards nothing extra, so the
+      // bytes the client receives stay exactly what they were.
+      let usage: AnswerUsage = EMPTY_USAGE
       try {
         for await (const event of anthropicStream) {
+          usage = mergeUsageFrame(usage, event)
           if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
             controller.enqueue(encoder.encode(event.delta.text))
           }
         }
-        controller.close()
       } catch {
         // Mid-stream failure: close cleanly with a short marker rather than
         // throwing (the client already has partial text). Never leak internals.
@@ -295,6 +318,15 @@ export async function POST(request: Request): Promise<Response> {
           controller.enqueue(encoder.encode('\n\n[stream interrupted]'))
         } catch {
           // controller may already be closed — ignore.
+        }
+      } finally {
+        // Metered only AFTER the stream drains, and never allowed to affect it:
+        // a throw here would strand a finished answer, so metering stays
+        // best-effort and swallows its own failures.
+        try {
+          recordAnswerUsage(usage)
+        } catch {
+          // A broken meter must never break an answer.
         }
         controller.close()
       }
