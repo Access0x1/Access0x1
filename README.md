@@ -152,7 +152,7 @@ All shipped, all testnet-live or one env var from it — nothing on this list is
 | **Buy a real .eth name in-app** — commit → 60s → register, signed by your own wallet | `lib/ens/registrar` + `ownName` step engine | `/name` |
 | **Resolve payments to live names** — `pay.<business>.eth` answers from current router state, not a static record | `Access0x1PaymentResolver` + CCIP-Read gateway | ENS resolution |
 | **Climb the verification ladder** — signed-in → verified human (World ID) → verified name, one chip | Dynamic + World ID + ENSIP-19 | `/verify` |
-| **Receive in any coin** — post-settlement swaps, zero added fee, on-chain swap receipts | Uniswap (Trading API / classic / v4 hook) · 1inch | payout settings |
+| **Receive in any coin** — post-settlement swaps, zero added fee | Uniswap (Trading API / classic) · 1inch (dormant — no testnet) | payout settings |
 | **Prove a payment landed** — the last settlement with its verifiable tx hash, read from logs | `lib/proof/lastPayment` | Proof of Payment |
 | **Verify the deployment yourself** — live bytecode diffed against this repo, per chain, in your browser | `/deployments` + `currentBytecode` | [access0x1.click/deployments](https://access0x1.click/deployments) |
 | **Send a payment link in chat** — Telegram link mode (bot never holds a key) | `/api/chat/telegram` | chat payments |

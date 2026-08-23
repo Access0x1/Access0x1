@@ -103,8 +103,8 @@ const FEATURE_ORDER = [
     key: 'payoutSwap',
     contract: 'lib/payout-swap (Uniswap · 1inch rails)',
     glyph: '🔄',
-    dev: 'Merchants receive in any coin: settled USDC swaps through Uniswap (Trading API / classic / v4 hook) or 1inch, zero added fee, entirely AFTER settlement. The v4 SwapReceiptHook writes an on-chain receipt per swap.',
-    caveat: 'Strictly off the money path — a rail failure degrades to "you keep USDC", it can never block or alter the payment itself.',
+    dev: 'Merchants receive in any coin: settled USDC swaps through Uniswap (Trading API / classic) or 1inch, zero added fee, entirely AFTER settlement.',
+    caveat: 'Strictly off the money path — a rail failure degrades to "you keep USDC", it can never block or alter the payment itself. 1inch serves no testnet, so no chain maps to that rail here; the v4 SwapReceiptHook is a pool-side contract and never one of these payout rails.',
   },
   {
     key: 'proofOfPayment',
