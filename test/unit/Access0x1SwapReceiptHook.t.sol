@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
+import { Vm } from "forge-std/Vm.sol";
 
 import { Access0x1SwapReceiptHook } from "../../src/uniswap/Access0x1SwapReceiptHook.sol";
 import { DeploySwapReceiptHook } from "../../script/DeploySwapReceiptHook.s.sol";
@@ -184,6 +185,73 @@ contract Access0x1SwapReceiptHookTest is Test {
             hook.REQUIRED_HOOK_FLAGS(),
             "mined address must carry exactly the AFTER_SWAP flag"
         );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        FUZZ — the hookData decode path
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice ANY hookData — any length, any content — must yield a receipt and never revert.
+    ///         `hookData` is the only caller-controlled input this hook has, and the contract's
+    ///         documented posture is that malformed data attributes garbage-but-harmlessly rather
+    ///         than failing someone's swap. The fixed cases probe three hand-picked lengths; only
+    ///         the fuzzer walks the byte space that posture actually claims to cover.
+    /// @dev    Asserts the shape (one receipt, correct topic, zero delta) instead of re-deriving
+    ///         the decoded values — a test that mirrors the implementation's own arithmetic proves
+    ///         nothing about it. Round-tripping is pinned separately below.
+    function testFuzz_AfterSwap_ArbitraryHookData_NeverReverts(bytes calldata hookData) public {
+        vm.recordLogs();
+
+        vm.prank(manager);
+        (bytes4 selector, int128 hookDelta) =
+            hook.afterSwap(swapper, _key(), _params(), BalanceDelta.wrap(0), hookData);
+
+        assertEq(selector, IHooks.afterSwap.selector, "fuzz: must return the afterSwap selector");
+        assertEq(hookDelta, 0, "fuzz: the hook must never take currency");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 1, "fuzz: exactly one receipt per swap");
+        assertEq(logs[0].topics[0], SwapReceipt.selector, "fuzz: that log must be a SwapReceipt");
+    }
+
+    /// @notice Attribution round-trips across the WHOLE (merchantId, orderRef) domain, not the two
+    ///         literals the fixed tests pin. Encode into hookData, decode back out of the event:
+    ///         lossless for every value, boundaries (0, type(uint256).max) included.
+    function testFuzz_AfterSwap_Attribution_RoundTrips(uint256 merchantId, bytes32 orderRef)
+        public
+    {
+        PoolKey memory key = _key();
+        bytes memory hookData = abi.encode(merchantId, orderRef);
+        assertEq(hookData.length, 64, "fuzz: two static words encode to exactly the threshold");
+
+        vm.expectEmit(true, true, true, true);
+        emit SwapReceipt(key.toId(), swapper, merchantId, orderRef, 0);
+
+        vm.prank(manager);
+        hook.afterSwap(swapper, key, _params(), BalanceDelta.wrap(0), hookData);
+    }
+
+    /// @notice EVERY length under the 64-byte threshold attributes 0/0, whatever the bytes hold.
+    ///         The fixed suite pins length 0 and length 63; the sixty-two lengths between them are
+    ///         each a distinct calldata shape and none of them was ever exercised.
+    function testFuzz_AfterSwap_ShortHookData_Unattributed(
+        bytes32 wordA,
+        bytes32 wordB,
+        uint8 lenSeed
+    ) public {
+        uint256 len = bound(lenSeed, 0, 63);
+        bytes memory source = bytes.concat(wordA, wordB);
+        bytes memory short = new bytes(len);
+        for (uint256 i; i < len; ++i) {
+            short[i] = source[i];
+        }
+
+        PoolKey memory key = _key();
+        vm.expectEmit(true, true, true, true);
+        emit SwapReceipt(key.toId(), swapper, 0, bytes32(0), 0);
+
+        vm.prank(manager);
+        hook.afterSwap(swapper, key, _params(), BalanceDelta.wrap(0), short);
     }
 
     function _liquidityParams() internal pure returns (ModifyLiquidityParams memory) {

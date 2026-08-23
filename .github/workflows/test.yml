@@ -169,6 +169,25 @@ jobs:
         working-directory: web
         run: node scripts/sync-web-test-badge.mjs --check
 
+      # The two tables above are derived and guarded; the COUNTS quoted in prose were not.
+      # Four hand-typed places said "source-verified on eight" while Avalanche Fuji had in fact
+      # been verified, and a fifth copy in another file disagreed with all four. This binds
+      # every prose count -- and the inline list of verified chain names -- to the tables that
+      # prove them. No network: it compares committed text against committed text.
+      - name: README chain claims not stale
+        working-directory: web
+        run: node scripts/check-chain-claims.mjs
+
+      # Same disease, one class over. The chain guard above was written on 2026-08-23; the very
+      # next number checked by hand -- the contract surface -- was also wrong ("plus 35
+      # interfaces" against 29, making its own arithmetic impossible: 41 + 35 = 76 against 70
+      # files). Counts are measured by DECLARATION rather than filename or directory, because
+      # two files declare an interface alongside their implementation and one interface lives
+      # outside src/interfaces/.
+      - name: README contract-surface claims not stale
+        working-directory: web
+        run: node scripts/check-contract-claims.mjs
+
       # The Router ABI is duplicated (curated subsets) into web/lib/contracts.ts and
       # packages/react/src/abi.ts. This asserts every fragment they declare is byte-identical
       # to the canonical forge artifact, so a drifted decoder fails CI instead of shipping.

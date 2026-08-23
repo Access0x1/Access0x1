@@ -94,7 +94,7 @@ export function ProofBand({ className }: { className?: string }): ReactNode {
           id="proof-band-heading"
           className="mt-4 font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl"
         >
-          One CREATE3 mirror address across ten testnets.
+          One CREATE3 mirror address across {CONFIRMED_MIRROR_COUNT} testnets.
         </h2>
         <p className="mt-2 max-w-xl text-balance text-center text-sm text-muted-foreground">
           Not a roadmap — the mirror count is checked against each chain&rsquo;s own RPC,

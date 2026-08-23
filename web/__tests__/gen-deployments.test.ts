@@ -24,9 +24,9 @@ describe('parseBroadcastData — CREATE txs only', () => {
   it('keeps CREATE deployments and drops CALL txs', () => {
     const out = parseBroadcastData({
       transactions: [
-        { transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0xAaA1' },
+        { hash: '0xfeed', transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0xAaA1' },
         { transactionType: 'CALL', contractName: 'Access0x1Router', contractAddress: '0xBbB2' },
-        { transactionType: 'CREATE', contractName: 'PaymentLanes', contractAddress: '0xCcC3' },
+        { hash: '0xfeed', transactionType: 'CREATE', contractName: 'PaymentLanes', contractAddress: '0xCcC3' },
       ],
     })
     expect(out).toEqual([
@@ -38,9 +38,9 @@ describe('parseBroadcastData — CREATE txs only', () => {
   it('skips entries missing a name or address', () => {
     const out = parseBroadcastData({
       transactions: [
-        { transactionType: 'CREATE', contractAddress: '0xDdD4' }, // no name
-        { transactionType: 'CREATE', contractName: 'Nameless' }, // no address
-        { transactionType: 'CREATE', contractName: 'Good', contractAddress: '0xEeE5' },
+        { hash: '0xfeed', transactionType: 'CREATE', contractAddress: '0xDdD4' }, // no name
+        { hash: '0xfeed', transactionType: 'CREATE', contractName: 'Nameless' }, // no address
+        { hash: '0xfeed', transactionType: 'CREATE', contractName: 'Good', contractAddress: '0xEeE5' },
       ],
     })
     expect(out).toEqual([{ contractName: 'Good', address: '0xeee5' }])
@@ -49,8 +49,8 @@ describe('parseBroadcastData — CREATE txs only', () => {
   it('lets the LAST CREATE for a name win (most-recent address)', () => {
     const out = parseBroadcastData({
       transactions: [
-        { transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0x1111' },
-        { transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0x2222' },
+        { hash: '0xfeed', transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0x1111' },
+        { hash: '0xfeed', transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0x2222' },
       ],
     })
     expect(out).toEqual([{ contractName: 'Access0x1Router', address: '0x2222' }])
@@ -82,6 +82,48 @@ describe('chainMeta — display metadata from viem, no invented explorer', () =>
   })
 })
 
+describe('parseBroadcastData — a SIMULATED run is not a deploy', () => {
+  // Foundry records the same contractName and the same PREDICTED contractAddress for a dry run
+  // as for a real one. Only a broadcast transaction carries a hash. Tempo (42431) reached the
+  // README as eight live addresses with explorer links on the strength of exactly this
+  // confusion, while the chain held no code at any of them.
+  it('drops a CREATE with no transaction hash', () => {
+    const out = parseBroadcastData({
+      transactions: [
+        { transactionType: 'CREATE', contractName: 'NeverBroadcast', contractAddress: '0xDead' },
+      ],
+    })
+    expect(out).toEqual([])
+  })
+
+  it('drops additionalContracts riding on a hashless CALL', () => {
+    const mirror = new Map([['0xe92244e3368561faf21648146511dede3a475eb5', 'Access0x1Router.proxy']])
+    const out = parseBroadcastData(
+      {
+        transactions: [
+          {
+            transactionType: 'CALL',
+            additionalContracts: [
+              { transactionType: 'CREATE3', contractName: null, address: '0xE92244e3368561fAF21648146511DeDE3a475EB5' },
+            ],
+          },
+        ],
+      },
+      mirror,
+    )
+    expect(out).toEqual([])
+  })
+
+  it('keeps the same CREATE once a hash is present', () => {
+    const out = parseBroadcastData({
+      transactions: [
+        { hash: '0xabc', transactionType: 'CREATE', contractName: 'Broadcast', contractAddress: '0xBeef' },
+      ],
+    })
+    expect(out).toEqual([{ contractName: 'Broadcast', address: '0xbeef' }])
+  })
+})
+
 describe('parseBroadcastData — CREATE3 mirror via additionalContracts', () => {
   // A two-entry slice of the canonical mirror manifest (address -> label).
   const mirror = new Map([
@@ -94,6 +136,7 @@ describe('parseBroadcastData — CREATE3 mirror via additionalContracts', () => 
       {
         transactions: [
           {
+            hash: '0xfeed', // a real broadcast; a hashless tx is a simulation and is dropped
             transactionType: 'CALL', // the CreateX factory call — itself never a product contract
             additionalContracts: [
               // a CreateX CREATE2 proxy shim — NOT in the manifest, must be dropped
@@ -147,7 +190,7 @@ describe('resolveArtifact — deployment name -> bytecode artifact', () => {
 
 describe('parseBroadcastChainDir — a config run must never erase a chain', () => {
   const CREATE_RUN = (name: string, address: string) => ({
-    transactions: [{ transactionType: 'CREATE', contractName: name, contractAddress: address }],
+    transactions: [{ hash: '0xfeed', transactionType: 'CREATE', contractName: name, contractAddress: address }],
   })
   const CALL_ONLY_RUN = {
     transactions: [
@@ -216,8 +259,8 @@ describe('parseBroadcastChainDir — union across history (add-on deploys keep t
       join(dir, 'run-1000.json'),
       JSON.stringify({
         transactions: [
-          { transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0xAaA1' },
-          { transactionType: 'CREATE', contractName: 'Access0x1Escrow', contractAddress: '0xBbB2' },
+          { hash: '0xfeed', transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0xAaA1' },
+          { hash: '0xfeed', transactionType: 'CREATE', contractName: 'Access0x1Escrow', contractAddress: '0xBbB2' },
         ],
       }),
     )
@@ -226,8 +269,8 @@ describe('parseBroadcastChainDir — union across history (add-on deploys keep t
       join(dir, 'run-2000.json'),
       JSON.stringify({
         transactions: [
-          { transactionType: 'CREATE', contractName: 'Access0x1Rebates', contractAddress: '0xCcC3' },
-          { transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0xDdD4' },
+          { hash: '0xfeed', transactionType: 'CREATE', contractName: 'Access0x1Rebates', contractAddress: '0xCcC3' },
+          { hash: '0xfeed', transactionType: 'CREATE', contractName: 'Access0x1Router', contractAddress: '0xDdD4' },
         ],
       }),
     )
