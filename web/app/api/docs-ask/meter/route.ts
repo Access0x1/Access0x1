@@ -1,5 +1,4 @@
 import {
-  CACHE_BREAK_EVEN_HIT_RATE,
   COST_RING_CAPACITY,
   DOCS_ASK_DAILY_REQUEST_CAP,
   HAIKU_4_5_PRICES,
@@ -16,8 +15,9 @@ export const dynamic = 'force-dynamic'
  *
  * The assistant marks its ~130K-token corpus `cache_control: ephemeral`. Anthropic
  * bills that block at 1.25x on a cache WRITE and 0.1x on a cache READ, so caching
- * beats sending the corpus uncached ONLY above a 21.74% hit rate
- * ({@link CACHE_BREAK_EVEN_HIT_RATE}). Against sporadic traffic and a 5-minute
+ * beats sending the corpus uncached ONLY above a 21.74% hit rate, served here as
+ * `summary.breakEvenHitRate` so a client compares against it without hard-coding
+ * the constant. Against sporadic traffic and a 5-minute
  * default cache TTL, which side of that line a deployment sits on is an empirical
  * question — this endpoint answers it from measured `usage`, never from a model.
  *
