@@ -8,6 +8,7 @@ import {
   recordAnswerUsage,
   type AnswerUsage,
 } from '@/lib/docs/cost-meter.js'
+import { DEFAULT_TOP_K, buildRetrievedSystemPrompt } from '@/lib/docs/retrieve.js'
 import { InferenceError, isInferenceConfigured, runInference, selectedProvider } from '@/lib/ai/inference'
 
 export const dynamic = 'force-dynamic'
@@ -38,19 +39,30 @@ export const dynamic = 'force-dynamic'
  *  - The limiter keys on a TRUSTED proxy-set IP (via `ASK_TRUST_PROXY`), never
  *    the raw first `x-forwarded-for` value. See {@link clientIp}.
  *
- * Efficiency — PROMPT CACHING: the ~124K-token docs corpus is stable for the life
- * of the process, so the system prompt is built ONCE and sent as a single text
- * block marked `cache_control: ephemeral`. Anthropic then caches the corpus and
- * charges cache-read (~0.1x) on every subsequent request; only the per-request
- * question is uncached. The model is Haiku (200K context — the corpus fits).
+ * Efficiency — TWO GROUNDING MODES, selected by `DOCS_ASK_MODE`:
  *
- * That win is conditional, which is why the route MEASURES it. A cache write
- * costs 1.25x, so below a 21.74% hit rate the cached block bills MORE than
- * sending the corpus uncached. The streaming loop folds every `message_start` /
- * `message_delta` usage frame into lib/docs/cost-meter.ts, which costs the answer
- * and keeps the last 50 on a bounded ring buffer; GET /api/docs-ask/meter serves
- * the resulting hit rate and daily projection. Token counts only — no question,
- * no answer, no IP is ever recorded.
+ *  - `rag` (the DEFAULT) sends only the documentation passages this question
+ *    ranks for, retrieved by the BM25 index in lib/docs/retrieve.ts. Measured on
+ *    the five one-click questions the prompt runs 6,479–9,660 bytes against
+ *    497,739 for the whole corpus — a bill that is the same warm or cold,
+ *    because it no longer depends on a cache being hot.
+ *  - `corpus` restores the previous behavior verbatim: the whole ~496KB corpus,
+ *    built ONCE and sent as a single `cache_control: ephemeral` block so
+ *    Anthropic caches it and charges cache-read (~0.1x) on repeat requests. It
+ *    is the recall-maximizing mode, the A/B control, and the fallback.
+ *
+ * WHY the retrieval prompt carries NO cache block: it differs per question, so a
+ * cache write would be paid on every request and read back on none — buying a
+ * 1.25x multiplier for nothing. What is left of a stable prefix after retrieval
+ * is the instruction text, far under Anthropic's minimum cacheable prefix.
+ *
+ * The corpus mode's win is conditional, which is why the route MEASURES it. A
+ * cache write costs 1.25x, so below a 21.74% hit rate the cached block bills
+ * MORE than sending the corpus uncached. The streaming loop folds every
+ * `message_start` / `message_delta` usage frame into lib/docs/cost-meter.ts,
+ * which costs the answer and keeps the last 50 on a bounded ring buffer; GET
+ * /api/docs-ask/meter serves the resulting hit rate and daily projection. Token
+ * counts only — no question, no answer, no IP is ever recorded.
  */
 
 const MODEL = 'claude-haiku-4-5'
@@ -75,6 +87,68 @@ const SYSTEM_PROMPT = buildDocsSystemPrompt()
 const SYSTEM_BLOCKS: Anthropic.TextBlockParam[] = [
   { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
 ]
+
+/** How a question is grounded — see the `DOCS_ASK_MODE` note in the file header. */
+type DocsAskMode = 'rag' | 'corpus'
+
+/**
+ * Resolve the grounding mode from `DOCS_ASK_MODE`.
+ *
+ * Retrieval is the DEFAULT because it is the cheaper path and the only one whose
+ * cost is independent of traffic shape. `corpus` is the explicit opt-out, kept
+ * permanently: a retrieval regression must never mean a broken assistant, and
+ * whole-corpus recall is the control an answer-quality A/B measures against.
+ * Anything other than the literal `corpus` reads as `rag`, so a typo degrades
+ * toward the cheap path rather than silently restoring the expensive one.
+ */
+function docsAskMode(): DocsAskMode {
+  return (process.env.DOCS_ASK_MODE ?? '').trim().toLowerCase() === 'corpus' ? 'corpus' : 'rag'
+}
+
+/**
+ * How many passages retrieval may send. Reads `DOCS_ASK_TOP_K` and falls back to
+ * {@link DEFAULT_TOP_K} for a blank, non-numeric, or non-positive value — never
+ * a silent zero, which would ground the model in nothing.
+ */
+function docsAskTopK(): number {
+  const raw = Number((process.env.DOCS_ASK_TOP_K ?? '').trim())
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_TOP_K
+}
+
+/** The system prompt chosen for one question, in both shapes the providers need. */
+interface GroundedPrompt {
+  /** The prompt as plain text — what the OpenAI-compatible providers take. */
+  readonly text: string
+  /** The same prompt as Anthropic system blocks. */
+  readonly blocks: Anthropic.TextBlockParam[]
+  /** Which mode actually produced it, after any fallback. */
+  readonly mode: DocsAskMode
+}
+
+/**
+ * Ground one question: the retrieved passages in `rag` mode, the whole corpus in
+ * `corpus` mode.
+ *
+ * Retrieval that finds NOTHING above its relevance floor falls back to the whole
+ * corpus rather than asking the model to answer from an empty context. That
+ * costs a whole-corpus request in the rare no-match case, which is exactly what
+ * every request cost before this change — the daily cap already bounds that
+ * ceiling, so the fallback can restore the old bill and never exceed it.
+ *
+ * The retrieval prompt is deliberately sent WITHOUT `cache_control`: a
+ * per-question prefix would pay the 1.25x write on every request and read it
+ * back on none.
+ *
+ * @param question - the user's question, already validated.
+ * @returns the prompt to send, plus the mode that produced it.
+ */
+function groundQuestion(question: string): GroundedPrompt {
+  const corpus: GroundedPrompt = { text: SYSTEM_PROMPT, blocks: SYSTEM_BLOCKS, mode: 'corpus' }
+  if (docsAskMode() === 'corpus') return corpus
+  const retrieved = buildRetrievedSystemPrompt(question, docsAskTopK())
+  if (!retrieved.matched) return corpus
+  return { text: retrieved.prompt, blocks: [{ type: 'text', text: retrieved.prompt }], mode: 'rag' }
+}
 
 // --- meters, pinned on globalThis under a key SEPARATE from /api/ask so the two
 //     assistants never share a budget ---
@@ -248,12 +322,16 @@ export async function POST(request: Request): Promise<Response> {
   //     Access0x1 Compute (our hosted AWS-backed endpoint), the SAME grounded corpus is answered
   //     there. Non-streamed (one completion), tagged with the x-inference-provider header the UI
   //     badges. The Anthropic path below is otherwise unchanged.
+  // Ground the question ONCE, before the provider fork: both transports send the
+  // same prompt, and retrieval is what keeps it inside a 128K-context model.
+  const grounded = groundQuestion(question)
+
   const activeProvider = selectedProvider()
   if (activeProvider !== 'anthropic') {
     try {
       const result = await runInference({
         provider: activeProvider,
-        system: SYSTEM_PROMPT,
+        system: grounded.text,
         prompt: question,
         maxTokens: MAX_TOKENS,
       })
@@ -264,6 +342,7 @@ export async function POST(request: Request): Promise<Response> {
           'cache-control': 'no-store',
           'x-inference-provider': activeProvider,
           'x-inference-model': result.model,
+          'x-docs-ask-mode': grounded.mode,
         },
       })
     } catch (err) {
@@ -280,14 +359,15 @@ export async function POST(request: Request): Promise<Response> {
   const client = new Anthropic({ apiKey })
 
   // Stream the answer back as plain text. The SDK streams content_block_delta
-  // text events; we forward only the text deltas to the client. The system corpus
-  // is sent as a cached block (see SYSTEM_BLOCKS) so only the question is uncached.
+  // text events; we forward only the text deltas to the client. The system blocks
+  // come from groundQuestion — retrieved passages with no cache_control, or the
+  // whole cached corpus.
   let anthropicStream: ReturnType<typeof client.messages.stream>
   try {
     anthropicStream = client.messages.stream({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: SYSTEM_BLOCKS,
+      system: grounded.blocks,
       messages: [{ role: 'user', content: question }],
     })
   } catch (err) {
@@ -340,6 +420,7 @@ export async function POST(request: Request): Promise<Response> {
       'cache-control': 'no-store',
       'x-accel-buffering': 'no',
       'x-inference-provider': 'anthropic',
+      'x-docs-ask-mode': grounded.mode,
     },
   })
 }

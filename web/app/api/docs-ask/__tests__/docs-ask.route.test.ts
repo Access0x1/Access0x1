@@ -96,7 +96,7 @@ describe('happy path (mocked SDK)', () => {
     expect(text).not.toContain('sk-test-key')
   })
 
-  it('calls Claude Haiku with the docs system prompt sent as a cache-controlled block', async () => {
+  it('calls Claude Haiku with a grounded, retrieval-sized system prompt and NO cache block', async () => {
     streamMock.mockReturnValue(streamOf('ok'))
 
     await POST(req({ question: 'How is a payment priced?' }))
@@ -108,17 +108,19 @@ describe('happy path (mocked SDK)', () => {
       messages: { role: string; content: string }[]
     }
     expect(params.model).toBe('claude-haiku-4-5')
-    // System is a text-block ARRAY (not a bare string) so it can be cached.
+    // System stays a text-block ARRAY (not a bare string) so the corpus mode can
+    // still attach cache_control to it.
     expect(Array.isArray(params.system)).toBe(true)
     expect(params.system).toHaveLength(1)
     const block = params.system[0]
     expect(block.type).toBe('text')
-    // The corpus is marked for prompt caching — the key efficiency win.
-    expect(block.cache_control).toEqual({ type: 'ephemeral' })
-    // The grounding instruction + a real doc citation header are present.
+    // A per-question prefix is never re-read, so caching it would buy a 1.25x
+    // write multiplier and nothing else.
+    expect(block.cache_control).toBeUndefined()
+    // The grounding instruction and a real doc citation header are present.
     expect(block.text).toContain('documentation assistant')
     expect(block.text).toContain('Cite the source doc filename')
-    expect(block.text).toContain('===== docs/FAQ.md =====')
+    expect(block.text).toMatch(/===== docs\/\S+\.md =====/)
     expect(params.messages[0]).toEqual({ role: 'user', content: 'How is a payment priced?' })
   })
 })
