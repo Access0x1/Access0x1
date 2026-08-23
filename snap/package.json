@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@metamask/snaps-cli": "8.4.1",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vitest": "4.1.9"
   },
   "files": [
