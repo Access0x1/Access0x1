@@ -320,7 +320,7 @@ export function CheckoutModeForm({
         type="button"
         onClick={() => void handleSave()}
         disabled={saving || (isCasino && !operatorVerified)}
-        className="self-start rounded-lg bg-rail px-4 py-3 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="self-start rounded-lg bg-rail px-4 py-3 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {saving
           ? 'Saving…'

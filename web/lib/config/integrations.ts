@@ -63,6 +63,14 @@ export interface Integration {
   readonly unlocks: string
   /** How much its absence costs. */
   readonly impact: IntegrationImpact
+  /**
+   * Who made the tool: `ours` = built in-house (the machinery this repo authors —
+   * config, keys you generate, seams we wrote); `partner` = a third party's product
+   * we integrate (sponsor or vendor). Drives `env:doctor --tools`, which lists the
+   * two families separately — partners are listed with the standing note that not
+   * all of them sponsor every event we build at; we use them either way.
+   */
+  readonly origin: 'ours' | 'partner'
   /** Where an operator gets the credentials (official source — never a guess). */
   readonly where: string
   /**
@@ -97,6 +105,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Uniswap Trading API',
     unlocks: 'Receive-in-any-coin payout swaps (gasless / classic / smart-account) off the money path.',
     impact: 'feature',
+    origin: 'partner',
     where: 'hub.uniswap.org — create an app, copy the Trading API key.',
     vars: [
       { name: 'UNISWAP_TRADING_API_URL', purpose: 'Trading API base URL', required: true },
@@ -112,6 +121,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: '1inch Swap API',
     unlocks: 'The 1inch payout rail + the agent pay-any-token quote (mainnets only — read-only on testnets).',
     impact: 'optional',
+    origin: 'partner',
     where: 'portal.1inch.dev — free Dev plan, copy the API key.',
     vars: [
       { name: 'ONEINCH_API_URL', purpose: 'Swap API base URL including the chain segment', required: true },
@@ -123,6 +133,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Claude (default AI provider)',
     unlocks: 'The docs assistant, the judge Q&A bot, and /api/ai/infer when the provider is anthropic.',
     impact: 'core',
+    origin: 'partner',
     where: 'console.anthropic.com — API keys.',
     vars: [{ name: 'CLAUDE_API_KEY', purpose: 'Anthropic API key', required: true, secret: true }],
   },
@@ -131,6 +142,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'AI provider switch',
     unlocks: 'Which backend answers inference: anthropic | zerog | access0x1 | custom (one env var).',
     impact: 'optional',
+    origin: 'ours',
     where: 'No key — a selector. Blank ⇒ anthropic.',
     vars: [
       { name: 'AI_INFERENCE_PROVIDER', purpose: 'anthropic | zerog | access0x1 | custom', hasDefault: true },
@@ -141,6 +153,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: '0G Compute (decentralized inference)',
     unlocks: 'The "Computed on 0G Compute" badge — inference served by 0G instead of Anthropic.',
     impact: 'feature',
+    origin: 'partner',
     where: 'Key mode: a 0G Compute endpoint + key. Broker mode: a funded 0G testnet wallet (see docs/0G-COMPUTE-INFERENCE.md).',
     vars: [
       { name: 'ZEROG_COMPUTE_ENDPOINT', purpose: 'OpenAI-compatible base URL (key mode)' },
@@ -155,6 +168,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Bring-your-own inference endpoint',
     unlocks: 'Any OpenAI-compatible vendor as the AI backend — no lock-in.',
     impact: 'optional',
+    origin: 'ours',
     where: "Your vendor's OpenAI-compatible base URL.",
     vars: [
       { name: 'CUSTOM_COMPUTE_ENDPOINT', purpose: 'OpenAI-compatible base URL', required: true },
@@ -167,6 +181,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Dynamic (merchant wallet auth)',
     unlocks: 'Merchant sign-in, the agent MPC server wallet, and verified-session writes.',
     impact: 'core',
+    origin: 'partner',
     where: 'app.dynamic.xyz — environment id + API token.',
     vars: [
       { name: 'NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID', purpose: 'Public environment id (client)', required: true },
@@ -183,13 +198,57 @@ export const INTEGRATIONS: readonly Integration[] = [
   },
   {
     id: 'ens-subnames',
-    label: 'ENS subnames (Namestone)',
-    unlocks: 'Issuing pay.<business>.eth subnames — the front door of onboarding.',
-    impact: 'core',
-    where: 'namestone.com — API key, plus an ENS name you control as the parent.',
+    label: 'ENS subnames — gasless issuer (⚠ SUNSET: NameStone ends Aug 3, 2026)',
+    unlocks:
+      'Gasless pay.<business>.eth subname issuance. NameStone announced shutdown effective ' +
+      'Aug 3, 2026 (also enspro.xyz/enspark.xyz) — do NOT onboard a new key. Blank ⇒ subname ' +
+      'issuance is a clean no-op; payments and the in-app .eth purchase are unaffected.',
+    // Was 'core'. A third-party with days to live cannot be a launch blocker: demoted so the
+    // doctor stops demanding a key from a dying console. The successor path is our own —
+    // the ENSv2 PaymentResolver + CCIP-Read gateway (already shipped) and the in-app .eth
+    // registrar ("Own your name"); an on-chain subname issuer replaces the gasless leg later.
+    impact: 'optional',
+    origin: 'partner',
+    where:
+      'DO NOT SIGN UP — namestone.com shuts down Aug 3, 2026. Existing keys work until then; ' +
+      'the replacement is the in-repo resolver/registrar path (lib/ens/**).',
     vars: [
-      { name: 'NAMESTONE_API_KEY', purpose: 'Namestone API key', required: true, secret: true },
+      { name: 'NAMESTONE_API_KEY', purpose: 'Legacy Namestone key (service sunsets Aug 3, 2026)', secret: true },
       { name: 'ENS_SUBNAME_PARENT', purpose: 'The ENS name subnames are issued under', required: true },
+    ],
+  },
+  {
+    id: 'ens-registrar',
+    label: 'ENS purchase — Own your name (.eth, in-app)',
+    unlocks:
+      'Buying a real .eth name from inside the app: commit → 60s → register, signed by the ' +
+      "CONNECTED wallet. Blank ⇒ the Own-your-name step is hidden; the free subname claim still works.",
+    impact: 'feature',
+    origin: 'partner',
+    where:
+      'docs.ens.domains — CONFIRM the ETHRegistrarController + Public Resolver addresses for the ' +
+      'target testnet (default Sepolia). All PUBLIC: both txs are signed client-side, zero custody.',
+    vars: [
+      {
+        name: 'NEXT_PUBLIC_ENS_REGISTRAR_CONTROLLER',
+        purpose: 'ETHRegistrarController address (CONFIRM from official ENS docs). Blank ⇒ seam OFF',
+        required: true,
+      },
+      {
+        name: 'NEXT_PUBLIC_ENS_REGISTRAR_CHAIN_ID',
+        purpose: 'Chain the registrar runs on (defaults to Sepolia 11155111 — testnet-only law)',
+        hasDefault: true,
+      },
+      {
+        name: 'NEXT_PUBLIC_ENS_REGISTRAR_RESOLVER',
+        purpose: 'Public Resolver set at registration (enables records + primary name). Blank ⇒ bare register',
+        hasDefault: true,
+      },
+      {
+        name: 'NEXT_PUBLIC_ENS_REGISTRAR_RPC_URL',
+        purpose: "RPC for registrar reads (blank ⇒ the chain's public default)",
+        hasDefault: true,
+      },
     ],
   },
   {
@@ -197,9 +256,21 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'World ID (proof of personhood)',
     unlocks: 'The verified-human checkout gate and the ✓ rung on the verification ladder.',
     impact: 'feature',
+    origin: 'partner',
     where: 'developer.worldcoin.org — create an app + action, then an API key for the sign route.',
     vars: [
       { name: 'NEXT_PUBLIC_WORLD_APP_ID', purpose: 'World app id (client)', required: true },
+      // THE REAL-vs-SIMULATOR SWITCH. Blank/anything-but-"production" ⇒ IDKit runs
+      // against the Worldcoin SIMULATOR (staging verify base) — correct for dev, but
+      // NOT a real proof of personhood. Set to "production" to verify against the
+      // real World App. It was documented in .env.example but UNDECLARED here, so the
+      // deploy silently dropped it (law 7) — an operator could flip it to production
+      // locally and the live site would keep running the simulator.
+      {
+        name: 'NEXT_PUBLIC_WORLD_ENVIRONMENT',
+        purpose: 'IDKit environment: "production" for real World App proofs; blank ⇒ staging simulator',
+        hasDefault: true,
+      },
       { name: 'WORLD_ACTION', purpose: 'The action string the buyer gate verifies', hasDefault: true },
       { name: 'WORLD_SIGNING_KEY', purpose: 'Server-only key that signs the World payload', secret: true },
       // Per-surface action overrides. Each defaults to a baked-in action string, so
@@ -217,6 +288,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'OIDC sign-in / agent identity (verify)',
     unlocks: 'The /api/oidc/verify seam — a Google (or any OIDC) token proves a human or agent identity.',
     impact: 'feature',
+    origin: 'partner',
     where:
       'Your OIDC provider console (Google by default). Issuer + JWKS default to Google; the audience ' +
       'is your client id. See lib/oidc/config.ts. Blank audience ⇒ verify reports not_configured.',
@@ -236,6 +308,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Gasless (ERC-7677 paymaster)',
     unlocks: 'Sponsored gas — the buyer pays no native token. Blank ⇒ the gasless path is hidden (fail-soft).',
     impact: 'feature',
+    origin: 'partner',
     where:
       'Your ERC-7677 paymaster provider (the JSON-RPC sponsorship URL). See lib/paymaster/config.ts. ' +
       'PAYMASTER_ENABLED is a server-only switch read at runtime — it must reach the deployed env.',
@@ -250,6 +323,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Production hardening (opt-in policy flags)',
     unlocks: 'Tighteners that are OFF by default and SET in production to fail closed. Blank ⇒ the safe dev default.',
     impact: 'feature',
+    origin: 'ours',
     where: 'You choose these per deployment — no external console. Each is a boolean/flag read at runtime.',
     vars: [
       { name: 'BRANDING_REQUIRE_VERIFIED_WRITES', purpose: 'Require a verified Dynamic JWT for branding writes (prod: on)', hasDefault: true },
@@ -262,6 +336,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Unlink (private payout leg)',
     unlocks: 'The private payout rail — the agent settles without exposing the payout address on-chain.',
     impact: 'feature',
+    origin: 'partner',
     where: 'Unlink — API key + the agent server payout key. See app/api/agent/pay/privateRail.ts.',
     vars: [
       { name: 'UNLINK_API_KEY', purpose: 'Unlink API key', required: true, secret: true },
@@ -281,6 +356,7 @@ export const INTEGRATIONS: readonly Integration[] = [
       'Card/bank→USDC top-up and cash-out, plus one-tap deposit (Blink) into the connected wallet. ' +
       'Blank ⇒ the ramp + funding buttons stay hidden, payments still work.',
     impact: 'optional',
+    origin: 'partner',
     where:
       "Ramp provider's dashboard for the server keys (never NEXT_PUBLIC_); the deposit provider's " +
       'console for the public app id. See lib/funding/blink.ts + lib/onramp/config.ts.',
@@ -328,6 +404,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'x402 seller + gateway withdraw',
     unlocks: 'Selling nanopayment-gated calls and withdrawing the gateway balance.',
     impact: 'optional',
+    origin: 'ours',
     where: 'A TESTNET key you generate. Never a wallet holding real funds.',
     vars: [
       // The PUBLIC payout wallet (the payTo in every 402 challenge). lib/x402.ts throws
@@ -344,6 +421,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Internal route secrets (fail-CLOSED)',
     unlocks: 'Gates the internal POST routes. Unset ⇒ the route REFUSES every request — by design, not a bug.',
     impact: 'feature',
+    origin: 'ours',
     where: 'Generate your own: `openssl rand -hex 32`. Shared between caller and route.',
     vars: [
       { name: 'PAYOUT_SWAP_INTERNAL_SECRET', purpose: 'Gates /api/payout-swap (503 when unset)', secret: true },
@@ -355,6 +433,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Sealed keystore (one encrypted file instead of N secrets)',
     unlocks: 'Ship every key as one encrypted `.env.sealed`; the deploy supplies only this passphrase.',
     impact: 'optional',
+    origin: 'ours',
     where: 'You generate it: `openssl rand -base64 32`. Store it in a password manager — there is NO recovery.',
     vars: [
       {
@@ -369,6 +448,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Telegram payments bot (⏸ DEFERRED)',
     unlocks: 'Chat-native payment links. Deliberately dormant — unset means a clean 503 no-op.',
     impact: 'optional',
+    origin: 'partner',
     where: 'DEFERRED — do not set up until @BotFather is verified. The real BotFather is FREE and never asks for payment.',
     vars: [
       { name: 'TELEGRAM_BOT_TOKEN', purpose: 'Bot token (blank ⇒ route is a no-op)', secret: true },
@@ -378,8 +458,9 @@ export const INTEGRATIONS: readonly Integration[] = [
   {
     id: 'agent',
     label: 'Agent (x402 earn/spend)',
-    unlocks: 'The autonomous pay loop: the agent earns and spends from its own bounded wallet.',
+    unlocks: 'The autonomous MVP presentation loop: the agent earns and spends from its own bounded wallet.',
     impact: 'core',
+    origin: 'ours',
     where: 'Set after the Dynamic wallet exists; caps/allowlist are yours to choose.',
     vars: [
       {
@@ -387,7 +468,8 @@ export const INTEGRATIONS: readonly Integration[] = [
         purpose: 'The agent MPC wallet id',
         required: true,
         mintedBy:
-          'Dynamic, on first agent boot — it is printed to the server log. Leave BLANK now, ' +
+          'Dynamic, on the first authorized POST /api/agent/pay — the minted id comes back as the ' +
+          '"agent" field of the 200 response (nothing is written to the server log). Leave BLANK now, ' +
           'then re-run this and paste it. A guessed id points the agent at a wallet that does not exist.',
       },
       { name: 'AGENT_DAILY_USD_CAP', purpose: 'Hard daily spend ceiling (0 blocks everything)', required: true },
@@ -424,6 +506,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Agent memory anchor (Walrus + provenance)',
     unlocks: 'earn → store → own: the agent’s memory content-addressed on Walrus and anchored on-chain.',
     impact: 'feature',
+    origin: 'ours',
     where: 'A Sui testnet account for Walrus; the ProvenanceRegistry address from your broadcast records.',
     vars: [
       { name: 'AGENT_STATE_ANCHOR', purpose: 'Set "true" to switch the anchor loop on', required: true },
@@ -441,6 +524,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'Contract deploy + verify (Foundry)',
     unlocks: 'Verifying deployed contracts on every Etherscan-family explorer, in one key.',
     impact: 'core',
+    origin: 'ours',
     // These are read by the Makefile + forge, which load the REPO-ROOT .env — not
     // web/.env.local. env:set writes them there so the deploy actually sees them.
     envFile: '.env',
@@ -455,6 +539,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     label: 'RPC endpoints (QuickNode or any provider)',
     unlocks: 'Reliable per-chain reads/writes. Blank ⇒ public defaults (rate-limited).',
     impact: 'optional',
+    origin: 'partner',
     where: 'quicknode.com (or any provider) — one HTTPS endpoint per chain.',
     vars: [
       { name: 'NEXT_PUBLIC_ARC_RPC_URL', purpose: 'Arc Testnet RPC (the settlement chain)', hasDefault: true },

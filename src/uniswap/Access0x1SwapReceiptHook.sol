@@ -22,8 +22,14 @@ import { ModifyLiquidityParams, SwapParams } from "@uniswap/v4-core/src/types/Po
 ///         revert {Access0x1SwapReceiptHook__HookNotImplemented}, matching the declared
 ///         {REQUIRED_HOOK_FLAGS}. v4 encodes hook permissions IN THE CONTRACT ADDRESS: a live
 ///         deployment must be CREATE2-mined so the address carries exactly the AFTER_SWAP flag
-///         (bit 6 — `Hooks.AFTER_SWAP_FLAG`). That mining is a deploy-time step; this contract is
-///         built + unit-tested, and is NOT claimed deployed until a broadcast record exists.
+///         (bit 6 — `Hooks.AFTER_SWAP_FLAG`).
+///
+///         DEPLOYED + LIVE-FIRED (Ethereum Sepolia, broadcast-recorded): mined address
+///         0x4d6cF3e12C331393880df02b53017A478A6ec040 (flag bits 0x040), pinned to the canonical
+///         PoolManager. First attributed receipt on-chain: a v4 pool initialized WITH this hook
+///         accepted the mined flags, and a live swap emitted {SwapReceipt} (merchantId 1,
+///         orderRef "A0X1-LIVEFIRE-1") — records under `broadcast/DeploySwapReceiptHook.s.sol/`
+///         and `broadcast/LiveFireSwapReceipt.s.sol/11155111/`.
 contract Access0x1SwapReceiptHook is IHooks {
     using PoolIdLibrary for PoolKey;
 

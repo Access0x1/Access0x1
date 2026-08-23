@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 
+import { durableStoreStatus } from '@/lib/storage/durableKv.js'
+
 /**
  * GET /api/health — "is the app actually serving, and WHICH build is it?"
  *
@@ -22,7 +24,13 @@ import { NextResponse } from 'next/server'
  *
  * SAFETY: names and booleans only. `commit` is public information (it is in the
  * repo), and no env VALUE is read or echoed — an unauthenticated caller learns
- * nothing they could not learn from the public git history.
+ * nothing they could not learn from the public git history. `store` is a MODE
+ * word derived from env-var PRESENCE (isDurableKvConfigured checks that a URL
+ * exists — it never returns or logs it): "postgres" tells an operator the
+ * durable layer is on, "memory" is the loud public admission that data would
+ * not survive a restart — the P0 release gate made that observable on purpose.
+ * The presence checks keep this route dependency-FREE in the sense that
+ * matters: no I/O, no database round-trip, no chain read, no auth.
  */
 export const dynamic = 'force-dynamic'
 
@@ -31,8 +39,24 @@ export async function GET(): Promise<NextResponse> {
     {
       ok: true,
       service: 'access0x1-web',
-      /** Which build is live. Set by the deploy pipeline; 'unknown' when unset. */
-      commit: (process.env.NEXT_PUBLIC_BUILD_COMMIT ?? '').trim() || 'unknown',
+      /**
+       * Which build is live. `BUILD_ID` is the RUNTIME truth on the EC2 deploy
+       * (the deploy script stamps it into the service's systemd drop-in at
+       * flip time); `NEXT_PUBLIC_BUILD_COMMIT` is the Cloud-Run-era build-time
+       * fallback. 'unknown' when neither is set.
+       */
+      commit:
+        (process.env.BUILD_ID ?? '').trim() ||
+        (process.env.NEXT_PUBLIC_BUILD_COMMIT ?? '').trim() ||
+        'unknown',
+      /**
+       * The active persistence layer, PROBED not presumed: 'postgres' only after
+       * a live round-trip succeeded (cached 60s); 'postgres-unreachable' when a
+       * URL is configured but the round-trip fails (missing driver, bad host,
+       * auth, TLS — the reason stays in server logs only); 'memory' when no
+       * URL is configured. Presence-only reporting lied twice on 2026-08-17.
+       */
+      store: await durableStoreStatus(),
       /**
        * Proves API routes are reachable. If you can read this line, a 404 on any
        * other `/api/*` path means that route is missing from THIS build — not that

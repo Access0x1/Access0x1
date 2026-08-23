@@ -222,7 +222,7 @@ export function GatewayBalanceCard(): ReactNode {
               type="button"
               disabled={amount.trim() === '' || recipient.trim() === ''}
               onClick={() => setConfirming(true)}
-              className="rounded-lg bg-rail px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-rail px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               Review withdrawal
             </button>

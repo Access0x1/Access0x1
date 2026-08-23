@@ -49,6 +49,15 @@ export function AskView({
 }): ReactNode {
   const [capability, setCapability] = useState<AskCapability>(initialCapability)
   const [question, setQuestion] = useState('')
+
+  // Prefill from `?q=` so a suggested prompt (the landing page's judges section)
+  // lands ready to send. Read from window at mount — NOT useSearchParams — so this
+  // component keeps rendering outside a Next router tree (design-sync previews).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const q = new URLSearchParams(window.location.search).get('q')?.trim()
+    if (q) setQuestion(q)
+  }, [])
   const [answer, setAnswer] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -182,7 +191,7 @@ export function AskView({
             type="submit"
             disabled={loading || unconfigured || question.trim().length === 0}
             data-action="ask-send"
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--ax1-rail)] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--ax1-rail)] px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {loading ? 'Asking…' : 'Ask'}
           </button>

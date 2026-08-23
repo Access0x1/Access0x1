@@ -25,7 +25,8 @@ jobs:
   # against the base and emits one boolean per lane; each heavy job is gated `if:` on its lane.
   # A skipped job reports conclusion "skipped", which branch protection treats as satisfied — so
   # a docs-only PR is not blocked by a Foundry lane that never ran. On main-push/dispatch every
-  # lane runs (merge = full validation). No third-party action: plain git diff, SHA-pinned checkout.
+  # lane runs (merge = full validation) — enforced in the script, not just intended; see the note
+  # there. No third-party action: plain git diff, SHA-pinned checkout.
   changes:
     name: Detect changed lanes
     runs-on: ubuntu-latest
@@ -37,6 +38,7 @@ jobs:
       packages: ${{ steps.filter.outputs.packages }}
       snap: ${{ steps.filter.outputs.snap }}
       subgraph: ${{ steps.filter.outputs.subgraph }}
+      mcp: ${{ steps.filter.outputs.mcp }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -49,9 +51,16 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          # Manual dispatch is the "validate everything" escape hatch — always full.
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            for k in contracts web packages snap subgraph; do echo "$k=true" >> "$GITHUB_OUTPUT"; done
+          # A push to main is a MERGE, and a merge gets full validation — the comment on
+          # this job always said so, but the code only did it for workflow_dispatch, and
+          # the gap is not theoretical. `cancel-in-progress` supersedes runs: merge A
+          # starts a run that would cover lane X, merge B lands seconds later and cancels
+          # it, and B's own diff (B vs A) no longer touches lane X — so lane X is never
+          # validated on main at all. That is exactly the failure mode the note below
+          # calls "the one that actually costs something". Observed 2026-08-21: the mcp
+          # lane was skipped on main this way, minutes after the package merged.
+          if [ "$EVENT" = "workflow_dispatch" ] || [ "$EVENT" = "push" ]; then
+            for k in contracts web packages snap subgraph mcp; do echo "$k=true" >> "$GITHUB_OUTPUT"; done
             exit 0
           fi
           if [ "$EVENT" = "pull_request" ]; then
@@ -66,7 +75,7 @@ jobs:
             if [ -z "$DIFF_BASE" ] || [ "$DIFF_BASE" = "0000000000000000000000000000000000000000" ] \
                || ! git cat-file -e "$DIFF_BASE^{commit}" 2>/dev/null; then
               echo "no usable base ($DIFF_BASE) — running every lane"
-              for k in contracts web packages snap subgraph; do echo "$k=true" >> "$GITHUB_OUTPUT"; done
+              for k in contracts web packages snap subgraph mcp; do echo "$k=true" >> "$GITHUB_OUTPUT"; done
               exit 0
             fi
           fi
@@ -82,6 +91,7 @@ jobs:
             echo "packages=$(hit '^(packages/|\.github/)')"
             echo "snap=$(hit '^(snap/|\.github/)')"
             echo "subgraph=$(hit '^(subgraph/|abis/|\.github/)')"
+            echo "mcp=$(hit '^(mcp/|\.github/)')"
           } >> "$GITHUB_OUTPUT"
 
   check:
@@ -158,6 +168,25 @@ jobs:
       - name: Web test-count claims not stale
         working-directory: web
         run: node scripts/sync-web-test-badge.mjs --check
+
+      # The two tables above are derived and guarded; the COUNTS quoted in prose were not.
+      # Four hand-typed places said "source-verified on eight" while Avalanche Fuji had in fact
+      # been verified, and a fifth copy in another file disagreed with all four. This binds
+      # every prose count -- and the inline list of verified chain names -- to the tables that
+      # prove them. No network: it compares committed text against committed text.
+      - name: README chain claims not stale
+        working-directory: web
+        run: node scripts/check-chain-claims.mjs
+
+      # Same disease, one class over. The chain guard above was written on 2026-08-23; the very
+      # next number checked by hand -- the contract surface -- was also wrong ("plus 35
+      # interfaces" against 29, making its own arithmetic impossible: 41 + 35 = 76 against 70
+      # files). Counts are measured by DECLARATION rather than filename or directory, because
+      # two files declare an interface alongside their implementation and one interface lives
+      # outside src/interfaces/.
+      - name: README contract-surface claims not stale
+        working-directory: web
+        run: node scripts/check-contract-claims.mjs
 
       # The Router ABI is duplicated (curated subsets) into web/lib/contracts.ts and
       # packages/react/src/abi.ts. This asserts every fragment they declare is byte-identical
@@ -335,6 +364,35 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm test
+
+  # @access0x1/mcp is a standalone stdio MCP server with its own toolchain. Without
+  # a job here it would regress silently — the same gap snap/ and subgraph/ had.
+  mcp:
+    name: MCP server (@access0x1/mcp)
+    needs: changes
+    if: needs.changes.outputs.mcp == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mcp/package-lock.json
+      - name: Install deps
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Typecheck (tsc --noEmit, strict)
+        run: npx tsc --noEmit
+      - name: Test (vitest)
+        run: npx vitest run
 
   subgraph:
     name: Subgraph (codegen + build)
