@@ -42,6 +42,7 @@ vi.mock('@anthropic-ai/sdk', () => {
 
 const { GET, POST, __resetDocsAskMetersForTests } = await import('../route.js')
 const { __resetDocsAskCostMeterForTests, readCostRecords } = await import('@/lib/docs/cost-meter.js')
+const { buildDocsSystemPrompt } = await import('@/lib/docs/corpus.js')
 
 /** Build an async-iterable that yields the given text as one text_delta event. */
 function streamOf(text: string): AsyncIterable<unknown> {
@@ -125,6 +126,80 @@ describe('happy path (mocked SDK)', () => {
   })
 })
 
+describe('grounding mode — DOCS_ASK_MODE', () => {
+  /** The single system block the mocked SDK was called with. */
+  function sentBlock(): { type: string; text: string; cache_control?: { type: string } } {
+    const params = streamMock.mock.calls[0][0] as {
+      system: { type: string; text: string; cache_control?: { type: string } }[]
+    }
+    return params.system[0]
+  }
+
+  it('retrieves by default: a prompt orders of magnitude smaller than the corpus', async () => {
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'How is the platform fee split?' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('rag')
+    const block = sentBlock()
+    expect(block.cache_control).toBeUndefined()
+    expect(block.text.length * 20).toBeLessThan(buildDocsSystemPrompt().length)
+    expect(block.text).toContain('===== docs/PLATFORM-FEE.md =====')
+  })
+
+  it('restores the previous behavior EXACTLY with DOCS_ASK_MODE=corpus', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'corpus')
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'How is the platform fee split?' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('corpus')
+    const block = sentBlock()
+    // Byte-for-byte the old prompt, still marked for prompt caching.
+    expect(block.text).toBe(buildDocsSystemPrompt())
+    expect(block.cache_control).toEqual({ type: 'ephemeral' })
+  })
+
+  it('reads an unrecognized mode as rag — a typo degrades toward the cheap path', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'CORPSE')
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'How is the platform fee split?' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('rag')
+  })
+
+  it('falls back to the whole corpus when retrieval matches nothing', async () => {
+    // The honesty rule: never ask the model to answer from an empty context.
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'asdfghjkl qwertyuiop zxcvbnm' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('corpus')
+    const block = sentBlock()
+    expect(block.text).toBe(buildDocsSystemPrompt())
+    expect(block.cache_control).toEqual({ type: 'ephemeral' })
+  })
+
+  it('honors DOCS_ASK_TOP_K, and ignores a nonsensical one', async () => {
+    vi.stubEnv('DOCS_ASK_TOP_K', '2')
+    streamMock.mockReturnValue(streamOf('ok'))
+    await POST(req({ question: 'How is the platform fee split?' }))
+    const narrow = sentBlock().text
+
+    streamMock.mockReset()
+    vi.stubEnv('DOCS_ASK_TOP_K', 'not-a-number')
+    streamMock.mockReturnValue(streamOf('ok'))
+    await POST(req({ question: 'How is the platform fee split?' }))
+    const wide = sentBlock().text
+
+    expect(narrow.length).toBeLessThan(wide.length)
+    // Counts real passage headers only — the instruction itself quotes the
+    // header FORM, so the pattern requires an actual filename.
+    expect(narrow.match(/===== docs\/\S+\.md =====/g)).toHaveLength(2)
+  })
+})
+
 describe('0G Compute path — global switch AI_INFERENCE_PROVIDER=zerog', () => {
   it('answers the SAME grounded corpus on 0G and tags x-inference-provider: zerog', async () => {
     vi.stubEnv('AI_INFERENCE_PROVIDER', 'zerog')
@@ -144,14 +219,17 @@ describe('0G Compute path — global switch AI_INFERENCE_PROVIDER=zerog', () => 
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/plain')
     expect(res.headers.get('x-inference-provider')).toBe('zerog')
+    // Grounding happens BEFORE the provider fork, so 0G gets the retrieved
+    // prompt too — which is also what keeps it inside a 128K-context model.
+    expect(res.headers.get('x-docs-ask-mode')).toBe('rag')
     expect(await res.text()).toBe('Priced in USD (docs/FAQ.md).')
 
-    // The 0G call is OpenAI-compatible, with the docs corpus sent as the system message.
+    // The 0G call is OpenAI-compatible, with the grounded docs sent as the system message.
     const [url, init] = fetchMock.mock.calls[0]
     expect(String(url)).toBe('https://compute.0g/chat/completions')
     const body = JSON.parse((init as RequestInit).body as string)
     expect(body.messages[0].role).toBe('system')
-    expect(body.messages[0].content).toContain('===== docs/FAQ.md =====')
+    expect(body.messages[0].content).toMatch(/===== docs\/\S+\.md =====/)
     expect(body.messages[1]).toEqual({ role: 'user', content: 'How is a payment priced?' })
     expect(streamMock).not.toHaveBeenCalled() // the Anthropic streaming path is untouched
   })
