@@ -14,11 +14,15 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { DOCS_GROUNDING_INSTRUCTION, buildDocsSystemPrompt } from '../corpus.js'
 import {
   BM25_B,
   BM25_K1,
   DEFAULT_TOP_K,
   MIN_CHUNK_SCORE,
+  RETRIEVAL_SCOPE_NOTE,
+  RETRIEVED_PROMPT_BYTE_CEILING,
+  buildRetrievedSystemPrompt,
   chunkDocument,
   getDocChunks,
   tokenize,
@@ -159,5 +163,76 @@ describe('a question the docs cannot answer returns nothing, and never throws', 
 
   it('survives a very long question without throwing', () => {
     expect(() => topK('router fee '.repeat(500))).not.toThrow()
+  })
+})
+
+describe('buildRetrievedSystemPrompt', () => {
+  const questions: readonly string[] = [
+    'How do I register a merchant?',
+    'How is a payment priced in USD?',
+    'Which testnets are supported?',
+    'How is the platform fee split?',
+    'Where should I start?',
+    'What are the storage layout slots for subscriptions, bookings and gift cards?',
+  ]
+
+  it('always carries the grounding instruction and the scope note', () => {
+    // Including for a question that retrieved nothing: a prompt that lost its
+    // rules would be a prompt that invents addresses.
+    for (const question of [...questions, 'asdfghjkl qwertyuiop', '']) {
+      const built = buildRetrievedSystemPrompt(question)
+      expect(built.prompt).toContain(DOCS_GROUNDING_INSTRUCTION)
+      expect(built.prompt).toContain(RETRIEVAL_SCOPE_NOTE)
+      expect(built.prompt).toContain('=== DOCUMENTATION ===')
+      expect(built.prompt).toContain('=== END DOCUMENTATION ===')
+    }
+  })
+
+  it('stays under the byte ceiling for every question', () => {
+    for (const question of questions) {
+      const built = buildRetrievedSystemPrompt(question)
+      expect(built.bytes).toBeLessThanOrEqual(RETRIEVED_PROMPT_BYTE_CEILING)
+      expect(built.bytes).toBe(new TextEncoder().encode(built.prompt).length)
+    }
+  })
+
+  it('is two orders of magnitude smaller than the whole-corpus prompt', () => {
+    // The whole point of the increment, asserted rather than asserted-about:
+    // ~497,000 bytes of corpus becomes single-digit thousands per question.
+    const corpusBytes = new TextEncoder().encode(buildDocsSystemPrompt()).length
+    for (const question of questions) {
+      expect(buildRetrievedSystemPrompt(question).bytes * 20).toBeLessThan(corpusBytes)
+    }
+  })
+
+  it('emits the SAME citation headers whole-corpus mode uses', () => {
+    // Citation rule 2 names the "===== docs/<FILE> =====" markers, so the two
+    // modes must format them identically or the rule stops resolving.
+    const built = buildRetrievedSystemPrompt('How is the platform fee split?')
+    for (const hit of built.chunks) {
+      expect(built.prompt).toContain(`===== docs/${hit.chunk.file} =====`)
+      expect(built.prompt).toContain(hit.chunk.text)
+    }
+  })
+
+  it('reports matched=false with no passages when nothing clears the floor', () => {
+    for (const question of ['', '   ', '???', 'asdfghjkl qwertyuiop zxcvbnm']) {
+      const built = buildRetrievedSystemPrompt(question)
+      expect(built.matched).toBe(false)
+      expect(built.chunks).toHaveLength(0)
+      // The instruction quotes the header FORM ("===== docs/<FILE> ====="), so
+      // the check looks for a real filename in it — an actual passage header.
+      expect(built.prompt).not.toMatch(/===== docs\/\S+\.md =====/)
+    }
+  })
+
+  it('honors an explicit k', () => {
+    expect(buildRetrievedSystemPrompt('How is the platform fee split?', 2).chunks).toHaveLength(2)
+  })
+
+  it('never throws, whatever the question', () => {
+    for (const question of ['', ' ', 'a'.repeat(2000), 'router '.repeat(400), '<script>']) {
+      expect(() => buildRetrievedSystemPrompt(question)).not.toThrow()
+    }
   })
 })
