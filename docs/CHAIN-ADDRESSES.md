@@ -9,7 +9,8 @@ row is left blank on purpose — that chain deploys a **bare** router + stack (n
 feed exists; it is never wired to a placeholder.
 
 Deploy one chain at a time with `make deploy-<chain>` (e.g. `make deploy-base-sepolia`); fund the
-deployer first — faucets are listed per chain below. The nine mirrored chains are already live —
+deployer first — faucets are listed per chain below. The mirrored chains are already live (the count is the README MIRROR-STATUS table, which is
+generated from the broadcast records) —
 a re-run reverts (CreateCollision) rather than minting new addresses; see the Live table below.
 
 > **RPC:** the public endpoints in `.env.example` rate-limit across 20+ chains. For the broadcast,

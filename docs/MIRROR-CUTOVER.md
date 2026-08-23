@@ -68,9 +68,8 @@ addresses — **don't trust this table, re-derive it** (see *How to read the liv
 | Tempo (42431) | ✅ partial (pre-mirror set) | ⏳ pre-mirror | README MIRROR-STATUS (pre-mirror) |
 | zkSync Sepolia (300) | ✅ | ✅ on-chain | ✅ broadcast + README mirror table |
 
-Per-chain **source-verification** status lives in the README Deployments section (seven of the
-nine mirrored chains are explorer-verified as of 2026-07-01); this table tracks deploy/mirror
-state only.
+Per-chain **source-verification** status lives in the README Deployments section, which is the
+one place that count is maintained; this table tracks deploy/mirror state only.
 
 The mirror is **rolling out across the testnets** — the `MIRROR-STATUS` table in the README (regenerated
 from the broadcasts by `make sync`) is the live per-chain source of truth. Chains still showing
