@@ -316,6 +316,9 @@ deploy-web: ## Build + ship the web app to Cloud Run (Dynamic env id auto-derive
 deploy-inventory: ## What is deployed, what is dead, and is anything deployed twice?
 	@node scripts/deploy-inventory.mjs
 
+check-claims: ## Assert every chain count written in README prose matches the generated tables
+	@node web/scripts/check-chain-claims.mjs
+
 sync: ## Refresh ALL broadcast-derived data + docs (run after every deploy): web maps + README mirror status + deployed ABIs + test-count badge
 	@echo "sync 1/6  web deployment maps"
 	@node web/scripts/gen-deployments.mjs
