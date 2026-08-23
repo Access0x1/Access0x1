@@ -1028,6 +1028,30 @@ design constraint, not a courtesy line, and it decides how every integration bel
 Testnet-only, so the offer is not revenue: it is **usage, a reference implementation, and
 evidence** — which is what an open protocol actually runs on.
 
+### An open invitation to the protocols and companies in this table
+
+**If you build one of the things this repo integrates, come and change it.** The integration
+that exists is our reading of your docs; you know what it should have been. That gap is worth
+more to both of us closed than politely tolerated, so this is a standing invitation to act on it:
+
+- **Tell us the integration is wrong, and how.** An issue that says *"you are using the deprecated
+  endpoint / this is not the pattern we recommend / the event shape should be ours"* gets fixed —
+  and it is worth more to us than a compliment, because a public reference implementation that
+  teaches the wrong pattern is actively harmful to you.
+- **Send the PR yourself.** Rewrite your own seam. You have commit-level knowledge nobody outside
+  your team has, the code is MIT, and the [contributing guide](CONTRIBUTING.md#for-a-protocol-or-company-adapting-this-repo-to-you)
+  has a lane written specifically for this.
+- **Ask us to build to your interface.** A standard you are shipping, an event shape you want
+  indexers to see, a resolver or rubric you want conformance against — we would rather implement
+  yours than invent a parallel one.
+- **Shape the repo to fit your stack.** Chains you want supported, a config seam that would make
+  adoption trivial for your users, a reference deployment on your network: say so. Breadth here
+  is chosen by integrator demand, not by us guessing.
+
+There is no partnership to sign and nothing to pay. The repo is MIT, the maintainer merges on a
+green gate, and the only standing rule is the one above — every seam stays env-gated and
+removable, so what we build for you never becomes a dependency your users cannot escape.
+
 Every integration below is real, lives in this repo, and is env-gated + fail-soft (blank config ⇒ a clean
 no-op, never a blocked payment). The detail for each — file paths and exact behaviour — is in
 [Built on](#built-on) right after this table.
