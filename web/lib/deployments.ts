@@ -400,46 +400,6 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
     ]
   },
   {
-    "chainId": 42431,
-    "name": "Tempo Testnet (Moderato)",
-    "explorer": "https://explore.testnet.tempo.xyz",
-    "rpc": "https://rpc.moderato.tempo.xyz",
-    "deployments": [
-      {
-        "contractName": "Access0x1Bookings",
-        "address": "0x1db513ec23bc7de46afd6dae5133de14d8a62bf8"
-      },
-      {
-        "contractName": "Access0x1GiftCards",
-        "address": "0x1001dc04da8706d53b24389c3348ca512a5ba6b7"
-      },
-      {
-        "contractName": "Access0x1Invoices",
-        "address": "0x4e099b81a9a46a99378ac70cad195bf8e25f0c82"
-      },
-      {
-        "contractName": "Access0x1Router",
-        "address": "0x60eb647d166b70662e0567551af7e575f13e8008"
-      },
-      {
-        "contractName": "Access0x1Subscriptions",
-        "address": "0x3a43171f6d503ab314366d19b7ddc7aa861125f2"
-      },
-      {
-        "contractName": "HouseTokenFactory",
-        "address": "0x3d5247b4d5d1947c7b9c82b27f20246da9923238"
-      },
-      {
-        "contractName": "PaymentLanes",
-        "address": "0xfd75f29369a29800fad5a5172cd8a8c4b9cc0f1b"
-      },
-      {
-        "contractName": "SessionGrant",
-        "address": "0xa5982ea8842eea97c6e313a5f75fd8cf72c69aad"
-      }
-    ]
-  },
-  {
     "chainId": 43113,
     "name": "Avalanche Fuji",
     "explorer": "https://testnet.snowtrace.io",
@@ -1149,20 +1109,8 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
         "address": "0x49bb2c3d3aae0ad260f3ce76fa78e0323aae2510"
       },
       {
-        "contractName": "PriceOracleAdapter.impl",
-        "address": "0xc084a2175a1af492ea79806917891e1d1c494d94"
-      },
-      {
-        "contractName": "PriceOracleAdapter.proxy",
-        "address": "0x8c1a8356ffa9e4dd44c4affac87323cabf1a62b6"
-      },
-      {
         "contractName": "Receivables.impl",
         "address": "0xa4df54244965fafb2a897c4fe67cda891be78ec0"
-      },
-      {
-        "contractName": "Receivables.proxy",
-        "address": "0x421a5eaf9cdd39d2bce96160c256d9368503a911"
       },
       {
         "contractName": "Refunds.impl",

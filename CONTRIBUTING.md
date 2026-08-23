@@ -22,6 +22,11 @@ review every contribution on its technical merits.
 
 ## For a protocol or company adapting this repo to you
 
+**Start with your own page: [`docs/FOR-PROTOCOLS.md`](docs/FOR-PROTOCOLS.md).** It answers three
+questions per protocol — what we call, what we learned by calling it that your docs do not say, and
+what we would change — with the file path behind every claim. Reading it is the fastest way to see
+whether we got your stack right.
+
 **This lane exists because the integration we wrote for you is our reading of your docs, and you
 know what it should have been.** If your protocol appears in the README's Partners table — or
 should — you are invited to change the code, not just report it. Nothing to sign, nothing to pay,
@@ -46,10 +51,15 @@ MIT throughout.
    record, a count comes from a fresh run, and `deployed` / `verified` / `usable` are three
    different words. That discipline is also what makes the reference trustworthy to cite.
 
-**Where to start reading:** [`README.md`](README.md#partners--integrations) for the integration
-table, [`docs/OPTIONAL-SEAMS.md`](docs/OPTIONAL-SEAMS.md) for how a seam is wired and disabled,
-and [`FEEDBACK.md`](FEEDBACK.md) for the shape of the feedback we file upstream — the same
-specificity we are asking of you.
+**Where to start reading:** [`docs/FOR-PROTOCOLS.md`](docs/FOR-PROTOCOLS.md) for your page,
+[`README.md`](README.md#field-notes--what-each-integration-taught-us-and-the-file-that-proves-it) for
+the same findings as a one-line index, [`docs/OPTIONAL-SEAMS.md`](docs/OPTIONAL-SEAMS.md) for how a
+seam is wired and disabled, and [`FEEDBACK.md`](FEEDBACK.md) for the shape of the feedback we file
+upstream — the same specificity we are asking of you.
+
+**A correction is worth more than a new integration.** A finding on your page that is wrong is a
+public reference teaching a wrong pattern, which costs you more than it costs us. Open an issue
+titled `integration(<you>): …` naming the row and what it should say, and it is treated as a defect.
 
 ---
 
