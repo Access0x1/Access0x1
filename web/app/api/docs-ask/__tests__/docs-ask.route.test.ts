@@ -98,6 +98,7 @@ describe('happy path (mocked SDK)', () => {
   })
 
   it('calls Claude Haiku with a grounded, retrieval-sized system prompt and NO cache block', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
     streamMock.mockReturnValue(streamOf('ok'))
 
     await POST(req({ question: 'How is a payment priced?' }))
@@ -135,7 +136,22 @@ describe('grounding mode — DOCS_ASK_MODE', () => {
     return params.system[0]
   }
 
-  it('retrieves by default: a prompt orders of magnitude smaller than the corpus', async () => {
+  it('grounds on the WHOLE CORPUS by default — switching is an owner decision', async () => {
+    // The default is deliberately the known-good recall, not the cheap path: the
+    // cost meter exists to measure a cache hit rate that rag mode never produces,
+    // and no answer-quality A/B has run. See docsAskMode() for the full reasoning.
+    streamMock.mockReturnValue(streamOf('ok'))
+
+    const res = await POST(req({ question: 'How is the platform fee split?' }))
+
+    expect(res.headers.get('x-docs-ask-mode')).toBe('corpus')
+    const block = sentBlock()
+    expect(block.text).toBe(buildDocsSystemPrompt())
+    expect(block.cache_control).toEqual({ type: 'ephemeral' })
+  })
+
+  it('retrieves when opted in: a prompt orders of magnitude smaller than the corpus', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
     streamMock.mockReturnValue(streamOf('ok'))
 
     const res = await POST(req({ question: 'How is the platform fee split?' }))
@@ -160,13 +176,14 @@ describe('grounding mode — DOCS_ASK_MODE', () => {
     expect(block.cache_control).toEqual({ type: 'ephemeral' })
   })
 
-  it('reads an unrecognized mode as rag — a typo degrades toward the cheap path', async () => {
-    vi.stubEnv('DOCS_ASK_MODE', 'CORPSE')
+  it('reads an unrecognized mode as corpus — a typo keeps recall, never degrades answers', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'RGA')
     streamMock.mockReturnValue(streamOf('ok'))
 
     const res = await POST(req({ question: 'How is the platform fee split?' }))
 
-    expect(res.headers.get('x-docs-ask-mode')).toBe('rag')
+    expect(res.headers.get('x-docs-ask-mode')).toBe('corpus')
+    expect(sentBlock().text).toBe(buildDocsSystemPrompt())
   })
 
   it('falls back to the whole corpus when retrieval matches nothing', async () => {
@@ -182,12 +199,14 @@ describe('grounding mode — DOCS_ASK_MODE', () => {
   })
 
   it('honors DOCS_ASK_TOP_K, and ignores a nonsensical one', async () => {
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
     vi.stubEnv('DOCS_ASK_TOP_K', '2')
     streamMock.mockReturnValue(streamOf('ok'))
     await POST(req({ question: 'How is the platform fee split?' }))
     const narrow = sentBlock().text
 
     streamMock.mockReset()
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
     vi.stubEnv('DOCS_ASK_TOP_K', 'not-a-number')
     streamMock.mockReturnValue(streamOf('ok'))
     await POST(req({ question: 'How is the platform fee split?' }))
@@ -203,6 +222,7 @@ describe('grounding mode — DOCS_ASK_MODE', () => {
 describe('0G Compute path — global switch AI_INFERENCE_PROVIDER=zerog', () => {
   it('answers the SAME grounded corpus on 0G and tags x-inference-provider: zerog', async () => {
     vi.stubEnv('AI_INFERENCE_PROVIDER', 'zerog')
+    vi.stubEnv('DOCS_ASK_MODE', 'rag')
     vi.stubEnv('ZEROG_COMPUTE_ENDPOINT', 'https://compute.0g')
     vi.stubEnv('ZEROG_COMPUTE_API_KEY', 'k')
     const fetchMock = vi.fn(

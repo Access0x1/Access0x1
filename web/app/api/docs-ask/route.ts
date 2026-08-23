@@ -44,7 +44,7 @@ export const dynamic = 'force-dynamic'
  *  - `rag` (the DEFAULT) sends only the documentation passages this question
  *    ranks for, retrieved by the BM25 index in lib/docs/retrieve.ts. Measured on
  *    the five one-click questions the prompt runs 6,479–9,660 bytes against
- *    497,739 for the whole corpus — a bill that is the same warm or cold,
+ *    492,981 for the whole corpus — a bill that is the same warm or cold,
  *    because it no longer depends on a cache being hot.
  *  - `corpus` restores the previous behavior verbatim: the whole ~496KB corpus,
  *    built ONCE and sent as a single `cache_control: ephemeral` block so
@@ -98,11 +98,23 @@ type DocsAskMode = 'rag' | 'corpus'
  * cost is independent of traffic shape. `corpus` is the explicit opt-out, kept
  * permanently: a retrieval regression must never mean a broken assistant, and
  * whole-corpus recall is the control an answer-quality A/B measures against.
- * Anything other than the literal `corpus` reads as `rag`, so a typo degrades
- * toward the cheap path rather than silently restoring the expensive one.
+ *
+ * THE DEFAULT IS `corpus`, deliberately, and flipping it is an OWNER decision.
+ * Two reasons, both measured. (1) The cost meter shipped one commit earlier
+ * exists to discover the cache hit rate nobody has ever measured; `rag` produces
+ * no cache activity at all, so defaulting to it makes the meter unable to answer
+ * the question it was built for. Measure first, then switch. (2) An answer-quality
+ * A/B has not run: retrieval demonstrably surfaces the answering passage for the
+ * five one-click questions and nine committed topics, and it demonstrably does
+ * NOT surface `docs/CHAIN-ADDRESSES.md` inside the top-8 for address-shaped
+ * questions. That gap is a product decision, not an implementation detail.
+ *
+ * Set `DOCS_ASK_MODE=rag` to switch. Anything other than the literal `rag` reads
+ * as `corpus`, so a typo keeps the known-good recall rather than silently
+ * degrading answers.
  */
 function docsAskMode(): DocsAskMode {
-  return (process.env.DOCS_ASK_MODE ?? '').trim().toLowerCase() === 'corpus' ? 'corpus' : 'rag'
+  return (process.env.DOCS_ASK_MODE ?? '').trim().toLowerCase() === 'rag' ? 'rag' : 'corpus'
 }
 
 /**
