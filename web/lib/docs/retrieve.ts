@@ -66,7 +66,8 @@ export const MIN_CHUNK_SCORE = 0.5
  * total stays under this figure, and the first one that would breach it ends
  * the set. At ~3.6–4.0 bytes per token this caps a retrieval prompt near
  * 3,500–3,900 tokens worst case, against ~130,000 for the whole corpus. A
- * typical top-8 (mean chunk 956 bytes, measured) lands around 9,100 bytes.
+ * typical top-8 (mean chunk 957 bytes, measured) lands near 8,000 bytes, and
+ * reached 9,660 on the widest of the five one-click questions.
  */
 export const RETRIEVED_PROMPT_BYTE_CEILING = 14_000
 
@@ -325,8 +326,12 @@ export function buildRetrievedSystemPrompt(question: string, k: number = DEFAULT
   for (const hit of topK(question, k)) {
     const passage = passageHeader(hit.chunk.file) + hit.chunk.text
     const cost = byteLength(passage)
-    // Budget exhausted: stop admitting rather than trim this passage in half.
-    if (used + cost > budget) break
+    // This passage does not fit whole: skip it and keep testing the rest, which
+    // are strictly smaller-or-equal in rank order but not in SIZE. `break` here
+    // truncated the result set on 52 of 522 probe questions and dropped 90
+    // passages the budget still had room for. A passage is never trimmed in
+    // half — it is admitted whole or skipped whole.
+    if (used + cost > budget) continue
     passages += passage
     used += cost
     chunks.push(hit)
