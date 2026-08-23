@@ -571,8 +571,21 @@ verify-arbitrum-sepolia: ## Verify deployed Arbitrum Sepolia contracts (Ethersca
 verify-polygon-amoy: ## Verify deployed Polygon Amoy contracts (Etherscan V2)
 	@ETHERSCAN_API_KEY="$(ETHERSCAN_API_KEY)" ./script/verify-etherscan.sh 80002 $(POLYGON_AMOY_RPC_URL)
 
-verify-galileo: ## Verify deployed 0G Galileo contracts (Blockscout; set GALILEO_VERIFIER_URL)
-	./script/verify-blockscout.sh 16602 $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) $(GALILEO_VERIFIER_URL)
+# 0G Galileo's explorer is a CONFLUX-SCAN FORK, not Blockscout — its action list carries `cfxsupply`,
+# and forge's `--verifier blockscout` call shape gets rejected with "unknown action type" (proven
+# 2026-07-26). It DOES speak the Etherscan module/action protocol (`verifysourcecode` +
+# `checkverifystatus`) at /open/api — note /api and /api/v2 return the explorer's SPA HTML, so the
+# path matters. Hence the etherscan script with an explicit verifier URL, and a placeholder key (the
+# endpoint takes no key; the flag is required by forge).
+verify-galileo: ## Verify deployed 0G Galileo contracts (Etherscan-protocol at /open/api — no key needed)
+	VERIFY_NO_WATCH=1 ./script/verify-etherscan.sh 16602 $(or $(GALILEO_RPC_URL),https://evmrpc-testnet.0g.ai) $(or $(GALILEO_VERIFIER_URL),https://chainscan-galileo.0g.ai/open/api) none
+	@echo ""
+	@echo "Submitted. This explorer verifies asynchronously and forge cannot poll it — confirm with:"
+	@echo "  make verify-status CHAIN=16602"
+
+verify-status: ## Read REAL verification status from the explorer: CHAIN=<id> (reads deployments/<id>.json)
+	@test -n "$(CHAIN)" || { echo "set CHAIN=<chainId>"; exit 1; }
+	@./script/verify-status.sh $(CHAIN)
 
 # Generic verifier for ANY chain that lacks a dedicated verify-<chain> target above (deployed now or in
 # the future) — so every chain "just works" without 50 near-identical targets. Etherscan V2 by default
