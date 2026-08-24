@@ -1,3 +1,30 @@
+# ⏸️  VERSION UPDATES ARE PAUSED (2026-08-24). Every `open-pull-requests-limit` below is 0,
+#     which is GitHub's documented switch for "stop version updates". SECURITY updates are
+#     UNAFFECTED and still open PRs — that safety net stays on.
+#
+#     WHY. Repo ruleset `protect-all-branches` (id 17630972) targets `~ALL` with
+#     `non_fast_forward`. A Dependabot rebase or recreate IS a force-push, so Dependabot can run
+#     its update job and can never push the result to its own branch. Every PR it opened went
+#     stale the moment main moved and could never be refreshed — four sat unmergeable from
+#     2026-07-25 to 2026-08-24. `@dependabot rebase` answers "edited by someone other than
+#     Dependabot"; `@dependabot recreate` answers "because the branch is protected it was unable
+#     to do so". The backlog was never neglect; the bot was structurally unable to maintain it.
+#
+#     TO RE-ENABLE, fix the cause first, then set the limits back to 5:
+#       exclude `refs/heads/dependabot/**` from `protect-all-branches`, or add Dependabot as a
+#       bypass actor. That is a branch-protection change and an owner decision, and it sits
+#       against the repo law "no force-push ever, on any branch" — the question is whether that
+#       law is meant to cover a bot's own scratch branches.
+#
+#     MEANWHILE, take bumps DIRECTLY: bump the version, regenerate the lockfile, gate, commit,
+#     the way PR #331 (TypeScript 7) landed. That verified better anyway — on the merged tree
+#     rather than against a stale base.
+#
+#     ⛔ NEVER run `gh pr update-branch` on a Dependabot PR. It is a git MERGE, and git splices
+#     package.json and package-lock.json as two unrelated text files. Dependabot regenerates a
+#     lockfile; a merge only splices one. Doing this on #324 desynced web/package-lock.json and
+#     took main's Web app lane red (fixed in #332).
+#
 # Dependabot keeps Access0x1's dependencies current and the updates transparent:
 # it opens a PR (never auto-merges) whenever a tracked manifest has a newer or
 # security-patched dependency, so every bump is reviewed in the open.
@@ -28,7 +55,7 @@ updates:
       interval: "weekly"
     reviewers:
       - "Access0x1"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0  # version updates PAUSED — see the header note
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
@@ -45,7 +72,7 @@ updates:
       interval: "weekly"
     reviewers:
       - "Access0x1"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0  # version updates PAUSED — see the header note
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
@@ -62,7 +89,7 @@ updates:
       interval: "weekly"
     reviewers:
       - "Access0x1"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0  # version updates PAUSED — see the header note
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
@@ -79,7 +106,7 @@ updates:
       interval: "weekly"
     reviewers:
       - "Access0x1"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0  # version updates PAUSED — see the header note
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
@@ -96,7 +123,7 @@ updates:
       interval: "weekly"
     reviewers:
       - "Access0x1"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0  # version updates PAUSED — see the header note
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
@@ -113,7 +140,7 @@ updates:
       interval: "weekly"
     reviewers:
       - "Access0x1"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0  # version updates PAUSED — see the header note
     commit-message:
       prefix: "chore(ci)"
     groups:
