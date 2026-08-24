@@ -1,7 +1,7 @@
 {
   "name": "@access0x1/mcp",
   "version": "0.1.0",
-  "description": "Model Context Protocol server for the Access0x1 payments rail — an AI agent operates the rail with zero hardcoded chain facts; addresses come from the rail's published manifest at runtime.",
+  "description": "Model Context Protocol server for the Access0x1 payments rail \u2014 an AI agent operates the rail with zero hardcoded chain facts; addresses come from the rail's published manifest at runtime.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -43,5 +43,15 @@
     "@types/node": "^22.10.5",
     "typescript": "^5.7.3",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "nanoid": "^3.3.18",
+    "fast-uri": "^3.1.5",
+    "ip-address": "^10.5.0",
+    "js-yaml": "^4.3.1",
+    "minimatch@3": {
+      "brace-expansion": "^1.1.18"
+    },
+    "brace-expansion": "^5.0.9"
   }
 }

@@ -10,5 +10,14 @@
   "dependencies": {
     "@chainlink/contracts": "1.5.0",
     "@uniswap/v4-core": "^1.0.2"
+  },
+  "overrides": {
+    "js-yaml": "^4.3.1",
+    "minimatch@3": {
+      "brace-expansion": "^1.1.18"
+    },
+    "brace-expansion": "^5.0.9",
+    "tmp": "^0.2.5",
+    "ws": "^8.21.3"
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@access0x1/x402-client",
   "version": "0.1.0",
-  "description": "IAgentPayer — the minimal client an agent runtime uses to pay through the Access0x1 rail via x402.",
+  "description": "IAgentPayer \u2014 the minimal client an agent runtime uses to pay through the Access0x1 rail via x402.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -35,5 +35,15 @@
     "@types/node": "^26.0.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
+  },
+  "overrides": {
+    "nanoid": "^3.3.18",
+    "fast-uri": "^3.1.5",
+    "ip-address": "^10.5.0",
+    "js-yaml": "^4.3.1",
+    "minimatch@3": {
+      "brace-expansion": "^1.1.18"
+    },
+    "brace-expansion": "^5.0.9"
   }
 }
