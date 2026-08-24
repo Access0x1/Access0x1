@@ -184,8 +184,18 @@ const nextConfig: NextConfig = {
       // pg: same commonjs-external pattern as the unlink SDK below — webpack must
       // emit a real runtime require('pg') (a bundled computed import threw
       // "Cannot find module 'pg'" in prod with pg present on disk).
+      // The published `@unlink-xyz/sdk` exposes its bindings on SUBPATHS
+      // (`/crypto`, `/admin`, `/client`, …) and the current canary publishes no
+      // root `.` export at all — so a bare `import('@unlink-xyz/sdk')` fails to
+      // resolve even with the package installed. `lib/unlink/loadSdk.ts` tries
+      // the root first (the shim + the older `latest` tag both have one) and
+      // then composes the four bindings from the subpaths, so every specifier it
+      // can reach for must be a runtime require, not a bundled resolve.
       const unlinkExternal = {
         '@unlink-xyz/sdk': 'commonjs @unlink-xyz/sdk',
+        '@unlink-xyz/sdk/crypto': 'commonjs @unlink-xyz/sdk/crypto',
+        '@unlink-xyz/sdk/admin': 'commonjs @unlink-xyz/sdk/admin',
+        '@unlink-xyz/sdk/client': 'commonjs @unlink-xyz/sdk/client',
         pg: 'commonjs pg',
       }
       config.externals = Array.isArray(externals)

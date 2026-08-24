@@ -24,7 +24,9 @@
  */
 import type { UnlinkClient } from "@unlink-xyz/sdk";
 import { toUsdcBigInt } from "./amount.js";
-import { unlinkUsdcToken } from "./privatePayConfig.js";
+import { ARC_TESTNET_ID } from "../chains.js";
+import { UnlinkNotConfiguredError } from "./loadSdk.js";
+import { unlinkChainId, unlinkUsdcToken } from "./privatePayConfig.js";
 
 /**
  * The shielded USDC token for the active Unlink chain. Resolved PER CHAIN through
@@ -110,9 +112,20 @@ export async function shieldAndWithdraw(params: {
   }
   const usdc = shieldedUsdcToken();
   if (!usdc) {
-    throw new Error(
-      "shieldAndWithdraw: shielded USDC token is not configured " +
-        "(set NEXT_PUBLIC_UNLINK_USDC_<chainId>, or ARC_TESTNET_USDC for the Arc default)",
+    // DORMANT, NOT FAULTY (law #1). A blank token is an operator who has not
+    // finished wiring the rail, and nothing has moved — the same non-event as a
+    // missing api key. It used to throw a plain Error, which the payout route
+    // could only map to 500 `unexpected_error`: an operator read that as "your
+    // deployment is broken" when the truth was "one variable is still blank".
+    // The typed error carries the variable NAME (never a value) and the route
+    // answers 503 `not_configured, recoverable: true`.
+    // Name BOTH accepted variables for the Arc default chain, since either one
+    // wires it; off Arc only the per-chain name applies.
+    const chainId = unlinkChainId();
+    throw new UnlinkNotConfiguredError(
+      ...(chainId === ARC_TESTNET_ID
+        ? [`NEXT_PUBLIC_UNLINK_USDC_${chainId}`, "ARC_TESTNET_USDC"]
+        : [`NEXT_PUBLIC_UNLINK_USDC_${chainId}`]),
     );
   }
 

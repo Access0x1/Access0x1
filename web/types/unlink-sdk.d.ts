@@ -120,3 +120,30 @@ declare module "@unlink-xyz/sdk" {
   /** Re-export so callers can use the viem WalletClient type without a direct dep line. */
   export type { WalletClient };
 }
+
+/**
+ * The SUBPATH modules. The published package's current canary `exports` map has
+ * no root `.` entry — only subpaths — so `lib/unlink/loadSdk.ts` falls through to
+ * these when the root does not resolve. Each is declared here (re-exporting the
+ * root shim's bindings) so those imports are statically analysable: webpack can
+ * then treat every specifier as the declared server external it is, instead of
+ * emitting a context module for a computed request.
+ *
+ * Placement per the vendor docs: `account.fromEthereumSignature` and
+ * `buildDeriveSeedMessage` under `/crypto`, `createUnlinkAdmin` under `/admin`.
+ * ⚠️ UNCONFIRMED: `createUnlinkClient` under `/client` is inferred from the
+ * exports map, not from a documented page. The loader does not depend on the
+ * guess being right — it takes each binding from the first module that exports
+ * it, so a relocated binding is still found.
+ */
+declare module "@unlink-xyz/sdk/crypto" {
+  export { account, buildDeriveSeedMessage } from "@unlink-xyz/sdk";
+}
+
+declare module "@unlink-xyz/sdk/admin" {
+  export { createUnlinkAdmin } from "@unlink-xyz/sdk";
+}
+
+declare module "@unlink-xyz/sdk/client" {
+  export { createUnlinkClient } from "@unlink-xyz/sdk";
+}
