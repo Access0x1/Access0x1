@@ -123,3 +123,76 @@ export function worldAgentAction(): string {
 export function worldAgentKitAction(): string {
   return (process.env.WORLD_AGENTKIT_ACTION ?? 'agentkit-human-backed').trim()
 }
+
+/**
+ * The gates a client may ASK to be signed for. An enum, never a free action
+ * string: the client picks a NAMED gate and the server alone decides which
+ * action that gate means. This is the same C-2 discipline `/api/world/verify`
+ * applies to its own body, lifted to one shared map so the signing side and the
+ * verifying side can never drift apart.
+ */
+export type WorldGate = 'buyer' | 'operator' | 'agent' | 'agentkit'
+
+/** Every gate name the server recognises. The one list `isWorldGate` reads. */
+export const WORLD_GATES: readonly WorldGate[] = ['buyer', 'operator', 'agent', 'agentkit']
+
+/**
+ * Is `raw` one of the named gates? A type guard, so a caller can tell
+ * "unrecognised" apart from "recognised but not served here" — the distinction
+ * {@link asWorldGate} deliberately erases.
+ *
+ * @param raw - untrusted value (a query param, a body field).
+ * @returns true when `raw` is a {@link WorldGate}.
+ */
+export function isWorldGate(raw: unknown): raw is WorldGate {
+  return typeof raw === 'string' && (WORLD_GATES as readonly string[]).includes(raw)
+}
+
+/**
+ * Coerce untrusted input to a {@link WorldGate}, defaulting to the buyer gate.
+ * Anything unrecognised falls back to `buyer` — a request can never widen its
+ * own scope by inventing a gate name.
+ *
+ * WHERE THIS IS THE RIGHT CALL, and where it is not. Narrowing to `buyer` is
+ * safe for `/api/world/sign`, whose whole job is to mint an RP context for the
+ * gate it resolves and which echoes that gate back, so the widget follows the
+ * server's choice and the two agree by construction. A VERIFY route must not
+ * use it: there the proof already exists, bound to `hash(app_id, action)` for
+ * the gate the client asked to sign, so silently re-reading it under the buyer
+ * action produces a mystery 401 `proof_invalid` — the exact mismatch the
+ * sign/verify action map exists to make impossible. Verify routes use
+ * {@link isWorldGate} and REFUSE a gate they do not serve.
+ *
+ * @param raw - untrusted value (a query param, a body field).
+ * @returns the recognised gate, or `'buyer'`.
+ */
+export function asWorldGate(raw: unknown): WorldGate {
+  return isWorldGate(raw) ? raw : 'buyer'
+}
+
+/**
+ * The server-configured action string for a gate — THE single source of truth.
+ *
+ * Why this matters: a World ID proof is bound to `hash(app_id, action)`. The RP
+ * context minted by `/api/world/sign` is signed for one action, the widget
+ * generates the proof against one action, and the verify route claims the
+ * nullifier under one action. Those three MUST be the same string. Reading the
+ * action from one shared server function — and shipping it back to the client in
+ * the sign response — makes a mismatch impossible by construction, rather than a
+ * silent `proof_invalid` an operator has to debug.
+ *
+ * @param gate - the named gate.
+ * @returns the configured action string for that gate.
+ */
+export function worldGateAction(gate: WorldGate): string {
+  switch (gate) {
+    case 'operator':
+      return worldOperatorAction()
+    case 'agent':
+      return worldAgentAction()
+    case 'agentkit':
+      return worldAgentKitAction()
+    default:
+      return worldAction()
+  }
+}
