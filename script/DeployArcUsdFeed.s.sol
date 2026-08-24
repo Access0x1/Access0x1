@@ -5,7 +5,25 @@ import { Script, console2 } from "forge-std/Script.sol";
 import { MockV3Aggregator } from "../test/mocks/MockV3Aggregator.sol";
 
 /// @title  DeployArcUsdFeed
-/// @notice Deploys a $1.00 MockV3Aggregator (8 decimals, answer = 1e8) on Arc testnet to serve
+/// @notice ⛔ SUPERSEDED — use {DeployArcOperatorFeed} instead. Kept only so the historical Arc
+///         broadcast record stays readable against the script that produced it.
+///
+///         WHY IT WAS SUPERSEDED. This script deploys `test/mocks/MockV3Aggregator` — a TEST MOCK —
+///         as live pricing infrastructure. That mock's `updateAnswer(int256)` is `public` with NO
+///         access control and its `setRoundData(...)` accepts a forged `updatedAt`, so anyone can
+///         set the price the router settles against, to any value, and make it look fresh. On a
+///         chain carrying real Circle USDC that is a price-oracle takeover, not a rough edge. The
+///         mock also has no refresh path at all beyond its constructor, so it goes stale within the
+///         router's window and stays stale.
+///
+///         Run {DeployArcOperatorFeed} instead: same $1.00, 8-decimal shape, plus owner/operator
+///         access control, an immutable price band, a published heartbeat, and a keeper
+///         ({RefreshOperatorFeed}) that holds it fresh. The Chainlink-backed alternative is the
+///         {PriceRelaySender} / {PriceRelayReceiver} CCIP pair. Full runbook: `docs/ARC-PRICING.md`.
+///
+/// @dev    ORIGINAL NOTICE, unchanged below this line.
+///
+///         Deploys a $1.00 MockV3Aggregator (8 decimals, answer = 1e8) on Arc testnet to serve
 ///         as the USDC/USD price feed. On Arc, USDC IS the native gas token, pegged $1 — no
 ///         published Chainlink USDC/USD feed exists on Arc testnet. This script gives the operator
 ///         a deployable, verifiable stand-in that the router's OracleLib will accept.

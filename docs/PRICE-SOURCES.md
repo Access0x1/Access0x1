@@ -231,7 +231,7 @@ carry **no wired Chainlink feed** are:
 
 | Chain | id | Pricing path today |
 |---|---|---|
-| Arc Testnet | 5042002 | No Chainlink feed on Arc; prices via the deployed `$1.00` USDC/USD mock. |
+| Arc Testnet | 5042002 | No Chainlink Data Feed and no Data Streams verifier on Arc (registry checked 2026-08-23). Two sources are built for the slot — the guarded [`OperatorFeed`](../src/OperatorFeed.sol) stand-in, and the [`PriceRelayReceiver`](../src/PriceRelayReceiver.sol) that lands a REAL Chainlink Sepolia answer over live CCIP. Runbook: [ARC-PRICING.md](./ARC-PRICING.md). |
 | Celo Sepolia | 11142220 | USDC allowlisted but **unpriced** until a feed is set. |
 | Robinhood | 46630 | On Chainlink's faucet list, **no wired push feed** — bare deploy. |
 | Ethereum Hoodi | 560048 | On Chainlink's faucet list, **no wired push feed** — bare deploy. |
@@ -249,6 +249,8 @@ A source is never stood in from memory (an address that is not on-chain is not c
 
 ## See also
 
+- [ARC-PRICING.md](./ARC-PRICING.md) — the Arc instance of this seam: both built sources, the
+  fail-closed argument, the keeper cadence, and the owner command list.
 - [CHAIN-ADDRESSES.md](./CHAIN-ADDRESSES.md) — the source of truth for every live address,
   chain id, USDC, and feed.
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — how the contracts fit together, the money spine.
