@@ -29,7 +29,7 @@ Access0x1 is a thin, non-custodial layer over infrastructure other people built.
 
 [![CI](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml/badge.svg)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 <!-- The test count is bound to `forge test --list` and CI-ENFORCED: scripts/sync-test-badge.mjs fails CI if this number drifts from the real suite, so it can't go stale silently. The CI badge above is the live green/red "they pass" signal. Update after adding tests: `node scripts/sync-test-badge.mjs --write`. -->
-[![Tests](https://img.shields.io/badge/Tests-2071%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
+[![Tests](https://img.shields.io/badge/Tests-2134%20passing-44CC11?style=for-the-badge)](https://github.com/Access0x1/Access0x1/actions/workflows/test.yml)
 ![Router coverage](https://img.shields.io/badge/router%20coverage-98%25%20lines-44CC11?style=for-the-badge)
 ![Slither](https://img.shields.io/badge/slither-0%20exploitable-44CC11?style=for-the-badge)
 ![License: MIT](https://img.shields.io/badge/License-MIT-0B7261?style=for-the-badge)
@@ -247,6 +247,9 @@ src/
 ├── GaslessPayIn.sol              # gasless "first-dollar" pay-in from ONE off-chain signature
 ├── AutomationGateway.sol         # Chainlink Automation front-door that auto-renews subscriptions
 ├── PriceOracleAdapter.sol        # swappable ERC-7726 price-oracle surface for the spine
+├── OperatorFeed.sol              # access-controlled, band-limited price stand-in (NOT Chainlink)
+├── PriceRelaySender.sol          # reads a REAL Chainlink feed  ┐ carry a Chainlink price to a
+├── PriceRelayReceiver.sol        # lands it as an aggregator     ┘ chain Chainlink does not serve
 ├── Access0x1ProvenanceRegistry.sol  # on-chain code provenance — claim repo, anchor each release
 ├── NameMath.sol                  # ENS namehash → brand color + SVG (internal library)
 ├── libraries/
@@ -254,17 +257,18 @@ src/
 └── interfaces/                   # one per contract above (consumed surfaces)
 
 script/                      # DeployAccess0x1Router · DeployAll · DeployChainRegistry · HelperConfig
-test/                        # unit · attack · invariant (2,071 tests)
+test/                        # unit · attack · invariant (2,134 tests)
 ```
 
-The full first-party surface is **39 production contracts + 2 libraries** (41 `.sol` files in
-`src/` excluding interfaces, plus 29 interface-only files — 70 in `src/` altogether): the money spine (`Access0x1Router`), the receipt
+The full first-party surface is **42 production contracts + 2 libraries** (44 `.sol` files in
+`src/` excluding interfaces, plus 29 interface-only files — 73 in `src/` altogether): the money spine (`Access0x1Router`), the receipt
 ledger (`PaymentLanes`), the agent-auth ledger (`SessionGrant`), the per-chain reference
 (`ChainRegistry`), the CRE audit consumer (`Access0x1Receiver`), the house-token factory +
 its `HouseToken`, the five commerce primitives (subscriptions · bookings · invoices · gift cards ·
 the `Access0x1Nft` marketplace), the settlement extensions (`Access0x1Escrow` · `Refunds` ·
 `SplitSettler` · `Receivables` · `GaslessPayIn` · `AutomationGateway` · `PriceOracleAdapter` ·
-`Access0x1ProvenanceRegistry`), and two inlined libraries — the `OracleLib` staleness guard and the
+`Access0x1ProvenanceRegistry`), the Arc pricing pair (`OperatorFeed` and the
+`PriceRelaySender` / `PriceRelayReceiver` CCIP relay), and two inlined libraries — the `OracleLib` staleness guard and the
 `NameMath` ENS-brand helper. `make deploy-arc`
 (or `deploy-base-sepolia` / `deploy-zksync-sepolia`) runs [`script/DeployAll.s.sol`](script/DeployAll.s.sol),
 which deploys and wires the whole set in a single broadcast (`ChainRegistry` is the one sidecar
@@ -288,6 +292,8 @@ deployed once per chain by `DeployChainRegistry` and carried in as config).
 | [`Access0x1ProvenanceRegistry`](src/Access0x1ProvenanceRegistry.sol) | On-chain **code provenance**: a developer claims a repo, anchors a Merkle snapshot of the tree, then anchors each release — with EIP-712 delegated variants and 2-step repo-ownership transfer. The "it deploys from my GitHub, provably" registry. |
 | [`GaslessPayIn`](src/GaslessPayIn.sol) | **Gasless "first-dollar" pay-in**: a buyer pays a merchant in ONE tx from an off-chain signature — no prior approve, no opened session — via **EIP-2612** permit, **ERC-7597** (smart-account permit), or **EIP-3009** `transferWithAuthorization` (USDC-native). The pulled token is routed through `Router.payToken` (USD-priced, fee-split); the contract retains ZERO balance (asserted inline). |
 | [`PriceOracleAdapter`](src/PriceOracleAdapter.sol) | A thin **swappable price oracle** behind the **ERC-7726** `getQuote(baseAmount, base, quote)` surface, so the router (and every primitive) can stop hard-binding `AggregatorV3Interface`. Wraps a Chainlink feed through OracleLib's staleness guard today; a future TWAP / Data-Streams source is a new impl behind the same interface — zero churn at the call site. Pure infra, no custody. |
+| [`OperatorFeed`](src/OperatorFeed.sol) | An **access-controlled, band-limited price stand-in** for a chain Chainlink does not serve (Arc: no USDC/USD Data Feed, no Data Streams verifier — registry checked 2026-08-23). Writes admit only the owner and one named operator; an **immutable** deploy-time band caps what even an authorized key can post; the heartbeat is published on-chain so the keeper reads its own cadence. **Honestly labelled — this is NOT a Chainlink product**, and `version()` returns `0` so a consumer gating on a real aggregator rejects it. A stopped keeper fails **closed**: `updatedAt` ages out, `OracleLib` reverts, and `quote()` aborts the payment before value moves. That guarantee covers the UNATTENDED case only — a RUNNING keeper that posts an unmeasured number keeps `updatedAt` fresh while the answer drifts, which is the one failure this design cannot catch on-chain, so [`RefreshOperatorFeed`](script/RefreshOperatorFeed.s.sol) carries **no default answer** and refuses to run without a real price source. |
+| [`PriceRelaySender`](src/PriceRelaySender.sol) / [`PriceRelayReceiver`](src/PriceRelayReceiver.sol) | The **Chainlink-backed** answer to the same gap: the sender reads a REAL Chainlink Data Feed on a chain that has one (Ethereum Sepolia USDC/USD) through the same OracleLib guard and forwards it as a **data-only CCIP message**; the receiver lands it on Arc **as an `AggregatorV3Interface`**, so wiring it is the ordinary `setPriceFeed` call and the router needs no change at all. Four independent receiver guards — lane · scale · monotonicity · age+band — because CCIP guarantees authenticated delivery, never that the number inside is a correct price. It reports the **source** timestamp, not the arrival time, so relay latency can never masquerade as freshness — which is why wiring it takes the **3-arg** `setPriceFeed(token, feed, maxStaleness)`: a 24h-heartbeat source under `OracleLib`'s 1h default would revert `StalePrice` almost always. **Built + tested, never broadcast.** See [ARC-PRICING.md](docs/ARC-PRICING.md). |
 
 **The commerce set** — vertical-agnostic primitives that **compose** the spine above (Router + SessionGrant) rather than re-implementing it. Each owns lifecycle/eligibility ONLY; every money leg routes through `Access0x1Router.payToken`/`payNative` (so `net + fee == gross` is the router's fuzz-proven invariant, never re-derived) and every USD→token price is read in-tx through `Access0x1Router.quote` (the OracleLib staleness guard). They need NO router-side registration — the router's merchant registry is their single source of truth for owner-authorization. (`Access0x1Nft`, the newest of the five, is built and tested and wired into `DeployAll`; the formal audit pass in [`audit/`](audit/) currently scopes the original four — it is reviewed there before any mainnet claim.)
 
@@ -329,7 +335,7 @@ git clone https://github.com/Access0x1/Access0x1.git
 cd Access0x1
 make install           # forge submodules + npm (@chainlink) + web + SDK — one command
 make build             # forge build
-make test              # 2,071 tests, all green
+make test              # 2,134 tests, all green
 ```
 
 > Manual equivalent of `make install`: `git submodule update --init --recursive && npm install`.
@@ -984,7 +990,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **2,071 green** (Foundry) — unit · attack · invariant — plus 2,032 web/SDK unit tests |
+| Tests | **2,134 green** (Foundry) — unit · attack · invariant — plus 2,106 web/SDK unit tests |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |

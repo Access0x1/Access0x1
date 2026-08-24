@@ -5,7 +5,7 @@ import { useDynamicContext } from '@dynamic-labs/sdk-react-core'
 import type { CheckoutMode, MerchantVertical } from '@/lib/branding/store'
 import type { TrustTier } from '@/lib/verification/tiers'
 import { loadBranding, loadOperatorVerified, saveCheckoutMode } from '@/lib/branding/client'
-import { isWorldIdConfigured, worldOperatorAction } from '@/lib/worldid/config'
+import { isWorldIdConfigured } from '@/lib/worldid/config'
 import { WorldIdGate } from '@/components/WorldIdGate'
 import { CasinoVerifiedBadge } from '@/components/CasinoVerifiedBadge'
 
@@ -215,7 +215,13 @@ export function CheckoutModeForm({
               {tenantId ? (
                 <WorldIdGate
                   signal={tenantId}
-                  action={worldOperatorAction()}
+                  // Name the OPERATOR gate; the server resolves it to
+                  // `worldOperatorAction()` and signs the RP context for that
+                  // exact string. Reading the action here used to yield the
+                  // baked default (this file is 'use client' and
+                  // WORLD_OPERATOR_ACTION is server-only), which silently
+                  // mismatched the buyer action the sign route was signing.
+                  gate="operator"
                   verifyUrl="/api/branding/operator-verify"
                   extraBody={{ tenantId }}
                   onVerified={() => void refreshOperator()}

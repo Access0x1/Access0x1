@@ -11,6 +11,14 @@ ANVIL_SENDER ?= 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 # The cast keystore the deploy targets sign with. Defaults to `deployer`; override in .env to
 # match what you actually imported (e.g. DEPLOYER_ACCOUNT=default) — `cast wallet list` shows names.
 DEPLOYER_ACCOUNT ?= deployer
+# The cast keystore the Arc price-feed keeper signs with — deliberately SEPARATE from DEPLOYER_ACCOUNT.
+# OperatorFeed admits the owner and one named operator, so the cron holds a hot key that can post a
+# price inside the immutable band and can do nothing else (no authority rotation, no funds).
+KEEPER_ACCOUNT ?= keeper
+# The PUBLIC address of that keystore, needed by forge's --sender. No default exists on purpose: a
+# wrong --sender signs with the wrong key, so the cron target refuses to run until .env names it.
+# Read it once with: cast wallet address --account $(KEEPER_ACCOUNT)
+KEEPER_ADDRESS ?=
 
 # Silence Node's DEP0040 punycode deprecation. It comes from TRANSITIVE deps we do not
 # control — @dynamic-labs/iconic -> url@0.11 -> punycode@1.3, and eslint -> ajv -> uri-js
@@ -117,6 +125,8 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
         vyper-build vyper-test \
         cre-build cre-sim zksync-build \
+        deploy-arc-operator-feed wire-arc-operator-feed refresh-operator-feed-dry refresh-operator-feed-arc \
+        deploy-price-relay-receiver deploy-price-relay-sender relay-quote \
         upgrade-snapshot upgrade-guard upgrade-dry upgrade-base-sepolia upgrade-ethereum-sepolia upgrade-arbitrum-sepolia upgrade-optimism-sepolia upgrade-avalanche-fuji upgrade-arc upgrade-celo-sepolia upgrade-robinhood-testnet upgrade-zksync-sepolia \
         all
 
@@ -404,6 +414,87 @@ deploy-galileo: ## Deploy to 0G Galileo testnet 16602 (keystore `deployer`) — 
 deploy-usd-mock-feed: ## Deploy a $1 USDC/USD mock feed to a chain that lacks one — make deploy-usd-mock-feed RPC=<url>
 	forge script script/DeployUsdMockFeed.s.sol --rpc-url $(RPC) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
 	@$(MAKE) --no-print-directory sync
+
+# ── ARC PRICING ─────────────────────────────────────────────────────────────────────────────
+# Arc has real Circle USDC and NO Chainlink feed (registry checked 2026-08-23: zero entries for
+# 5042002 in Data Feeds or Data Streams). Two paths fill the router's price slot; the full runbook,
+# the fail-closed argument, and the cadence numbers live in docs/ARC-PRICING.md.
+#
+#   PATH A  OperatorFeed  — an access-controlled, band-limited, keeper-refreshed stand-in.
+#                           Honest label: NOT a Chainlink product.
+#   PATH B  PriceRelay    — a REAL Chainlink Sepolia feed carried to Arc over live CCIP.
+#
+# Every target here BROADCASTS. Testnet only; the owner runs them, never an agent.
+
+deploy-arc-operator-feed: ## PATH A: deploy the guarded USDC/USD OperatorFeed on Arc (keystore `deployer`)
+	forge script script/DeployArcOperatorFeed.s.sol:DeployArcOperatorFeed --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
+
+wire-arc-operator-feed: ## PATH A: point the Arc router at the feed — make wire-arc-operator-feed FEED=<addr>
+	@test -n "$(FEED)" || { echo "usage: make wire-arc-operator-feed FEED=<feedAddress>"; exit 1; }
+	@test -n "$(ROUTER)" || { echo "set ROUTER=<routerAddress> (the Arc mirror router)"; exit 1; }
+	@test -n "$(ARC_USDC_ADDRESS)" || { echo "set ARC_USDC_ADDRESS in .env (the token whose feed slot this fills)"; exit 1; }
+	cast send $(ROUTER) "setPriceFeed(address,address)" $(ARC_USDC_ADDRESS) $(FEED) --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT)
+	@echo "==> confirm the quote is live (\$$1.00 against 6-dp USDC must print 1000000):"
+	@cast call $(ROUTER) "quote(uint256,address,uint256)(uint256)" 0 $(ARC_USDC_ADDRESS) 100000000 --rpc-url $(ARC_TESTNET_RPC_URL)
+
+# Read-only preview. A feed already past its refresh threshold makes this run resolve an answer, so
+# it is also the cheapest way to prove the price source is wired BEFORE the cron holds a hot key: no
+# source configured ⇒ it reverts here, with no key and no transaction anywhere near it.
+refresh-operator-feed-dry: ## PATH A keeper, READ-ONLY (no key, no tx) — also the pre-flight that proves the price source resolves. make refresh-operator-feed-dry RPC=<url> FEED=<addr>
+	@test -n "$(FEED)" || { echo "usage: make refresh-operator-feed-dry RPC=<url> FEED=<feedAddress>"; exit 1; }
+	OPERATOR_FEED=$(FEED) forge script script/RefreshOperatorFeed.s.sol:RefreshOperatorFeed --rpc-url $(or $(RPC),$(ARC_TESTNET_RPC_URL)) -vvv
+
+# THE CRON TARGET. Broadcast with the OPERATOR key, never the owner key — OperatorFeed separates the
+# two so a cron holds a hot key that can post inside the immutable band and can do nothing else.
+# Recommended interval: every 5 minutes (finer than the 900s refresh threshold on purpose — a run that
+# finds the answer fresh sends no transaction). A keeper that STOPS fails CLOSED: updatedAt ages out,
+# OracleLib reverts StalePrice, and quote() aborts the payment before value moves.
+#
+# ⚠ THE ATTENDED-CASE DANGER, stated plainly. "An unattended feed refuses payments, it never settles
+# one at a wrong price" is scoped to the UNATTENDED case and covers only that case. A RUNNING keeper
+# is what makes the feed attended, and a keeper that re-posts a number nobody measured refreshes
+# updatedAt on every tick — forever fresh in TIME, arbitrarily wrong in SUBSTANCE. The staleness
+# guard, the one mechanism Path A leans on, is exactly what such a keeper defeats, and the band never
+# helps because a constant poster sits inside any band containing the peg. Every payment then settles
+# at the unmeasured number and the merchant absorbs the divergence, silently.
+# So this target REQUIRES a price source and the script carries NO default answer:
+#   SOURCE mode  OPERATOR_FEED_SOURCE_RPC + OPERATOR_FEED_SOURCE  → reads a REAL Chainlink feed
+#   MANUAL mode  OPERATOR_FEED_ANSWER                              → ONE attended post, never a cron
+# Unset both and the run reverts rather than posting a peg assumption. Full argument + the confirmed
+# Sepolia USDC/USD source (heartbeat 86400s) in docs/ARC-PRICING.md.
+refresh-operator-feed-arc: ## PATH A keeper: refresh the Arc feed from a REAL price source when due (keystore `keeper`). NO default answer — an unconfigured run reverts, because a cron re-posting an unmeasured peg underpays the merchant on every payment. make refresh-operator-feed-arc FEED=<addr>
+	@test -n "$(FEED)" || { echo "usage: make refresh-operator-feed-arc FEED=<feedAddress>"; exit 1; }
+	@test -n "$(KEEPER_ADDRESS)" || { echo "set KEEPER_ADDRESS in .env (the PUBLIC address of the $(KEEPER_ACCOUNT) keystore: cast wallet address --account $(KEEPER_ACCOUNT))"; exit 1; }
+	@test -n "$(OPERATOR_FEED_SOURCE_RPC)$(OPERATOR_FEED_ANSWER)" || { echo "no price source: set OPERATOR_FEED_SOURCE_RPC + OPERATOR_FEED_SOURCE in .env for SOURCE mode (the cron), or OPERATOR_FEED_ANSWER for ONE attended post. This keeper posts no default — see docs/ARC-PRICING.md."; exit 1; }
+	OPERATOR_FEED=$(FEED) forge script script/RefreshOperatorFeed.s.sol:RefreshOperatorFeed --rpc-url $(ARC_TESTNET_RPC_URL) --account $(KEEPER_ACCOUNT) --sender $(KEEPER_ADDRESS) --broadcast -vvv
+
+# Order matters: the RECEIVER lands first, because the sender must be pointed at its address.
+#
+# ⚠ SET RELAY_MAX_SOURCE_AGE=90000 ON BOTH. The script default is 86400 — Sepolia USDC/USD's bare
+# published heartbeat, with no grace — and that feed's observed rounds land 86412-86436s apart, so
+# the bare number refuses the source in a daily gap. It is IMMUTABLE on both contracts, so this is a
+# deploy-time decision with no fix afterwards. Pass the SAME value to both halves.
+#
+# ⚠ AND WIRE THE ROUTER WITH THE 3-ARG setPriceFeed(token, feed, 93600). The receiver reports the
+# SOURCE feed's timestamp on a 24h heartbeat; the 2-arg overload resets stalenessOf to 0, putting
+# quote() back on OracleLib's 3600s default, which closes this rail roughly 23 hours a day. It fails
+# CLOSED, so nothing mis-settles — the rail is simply shut. Full arithmetic in docs/ARC-PRICING.md.
+deploy-price-relay-receiver: ## PATH B: deploy PriceRelayReceiver on Arc — set RELAY_DEST_CCIP_ROUTER + RELAY_MAX_SOURCE_AGE=90000 first
+	forge script script/DeployPriceRelay.s.sol:DeployPriceRelayReceiver --rpc-url $(ARC_TESTNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_SCAN_VERIFIER_URL)) -vvvv
+	@$(MAKE) --no-print-directory sync
+
+deploy-price-relay-sender: ## PATH B: deploy PriceRelaySender on Ethereum Sepolia — set RELAY_SRC_CCIP_ROUTER + RELAY_SOURCE_FEED (CONFIRM both at docs.chain.link) + RELAY_DEST_RECEIVER + RELAY_MAX_SOURCE_AGE=90000
+	forge script script/DeployPriceRelay.s.sol:DeployPriceRelaySender --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
+	@$(MAKE) --no-print-directory sync
+
+# THE CONFIRMATION CALL for the one UNCONFIRMED fact in the relay design: Chainlink's directory shows
+# Arc's Router, selector, and a live bidirectional Sepolia lane, but no page names DATA-ONLY messaging
+# as enabled on that lane specifically. A Router that QUOTES the message is a Router that accepts it.
+# Read-only, costs nothing, run it before treating the relay as operational.
+relay-quote: ## PATH B: quote the CCIP fee for a data-only price message — make relay-quote SENDER=<addr> [DEST_SELECTOR=...]
+	@test -n "$(SENDER)" || { echo "usage: make relay-quote SENDER=<priceRelaySenderAddress>"; exit 1; }
+	cast call $(SENDER) "quoteFee(uint64,address)(uint256)" $(or $(DEST_SELECTOR),3034092155422581607) 0x0000000000000000000000000000000000000000 --rpc-url $(SEPOLIA_RPC_URL)
 
 deploy-createx: ## Put canonical CreateX (0xba5Ed…ba5Ed) on a chain that lacks it — the keyless presigned deploy (vendored from pcaversaccio/createx, signer + target re-verified from the signature): funds the one-time signer EXACTLY 0.3 native (3M gas @ 100 gwei, unrecoverable if the chain rejects pre-EIP-155 — probe first with `cast publish` unfunded), then publishes. make deploy-createx RPC=<url>
 	@test -n "$(RPC)" || { echo "usage: make deploy-createx RPC=<rpcUrl>"; exit 1; }

@@ -60,13 +60,28 @@ flag **and** its credential, so a half-set seam stays safely dormant. Set both.
 ### World ID — proof-of-human gate
 - **Does:** a one-tap personhood proof **in front of** pay
   ([`web/components/WorldIdGate.tsx`](../web/components/WorldIdGate.tsx)); off the money path.
-- **Set:** `NEXT_PUBLIC_WORLD_APP_ID` + `WORLD_SIGNING_KEY` (and optionally
-  `WORLD_ACTION` / `WORLD_ENVIRONMENT`).
-- **Get:** create an app at **developer.worldcoin.org** → App ID + a signing key.
-- **Verify:** `isWorldIdConfigured()` is true; a verified-human checkout shows the gate.
+- **Set:** `NEXT_PUBLIC_WORLD_APP_ID` + `WORLD_RP_ID` + `WORLD_SIGNING_KEY`, plus a durable
+  `NULLIFIER_STORE_URL`. The action strings (`WORLD_ACTION` and the operator/agent/agentkit
+  siblings) are optional overrides with working defaults.
+- **Get:** create an app at **developer.world.org** → App ID, RP id, and a signing key
+  (returned **once**). Register every action string you use inside that app.
+- **Verify:** `GET /api/world/status`. It reports `ready` and a `label`, and names the env
+  variables still blank — by NAME, never a value. `ready:true` needs all four of the above,
+  because a nullifier store that forgets on restart cannot deliver one-human-per-action.
 - **Off:** a verified-human merchant **degrades to standard checkout** — never a blocked pay.
-- **Honesty:** without these set, do not claim a live ZK proof — say "code-complete,
-  credential-pending".
+- **Staging vs production:** `NEXT_PUBLIC_WORLD_ENVIRONMENT` is the **single switch**, and
+  staging (the Worldcoin Simulator) is the default. It is `NEXT_PUBLIC_`, so it is inlined at
+  **build** time — flipping it needs a rebuild and redeploy, plus a separately registered
+  production app and a real World App user. Treat it as an owner decision, never a runtime
+  env change.
+- **Durability:** with no durable store, a runtime that demands one (`NODE_ENV=production`,
+  or `VERIFY_REQUIRE_DURABLE_STORE=true`) **refuses to verify** — 503, never a silent
+  fallback to the in-memory set. Dev keeps the in-memory store with a loud warning.
+- **Honesty:** the `label` from `/api/world/status` is the wording to use. Anything short of
+  fully wired is "built, env-gated", and **fully wired tops out at "configured, unverified"**.
+  Neither rung is "live": that route reads env presence, which says a verify COULD complete and
+  never that one did, so no value it can compute earns the word. A human upgrades the label
+  after watching a real proof clear. Never a claimed ZK proof either.
 
 ### OIDC — Sign in with Google (or any provider)
 - **Does:** server-side ID-token verification ([`web/lib/oidc`](../web/lib/oidc)) that
@@ -90,6 +105,17 @@ flag **and** its credential, so a half-set seam stays safely dormant. Set both.
   just that the key is set.
 - **Off:** degrades to a standard **public** USDC payout — funds still move, but the payout
   is visible on-chain, so a mis-set flag silently leaves earnings public.
+- **The package:** `@unlink-xyz/sdk` is **not installed here**, so this seam is built and
+  env-gated but **dependency-absent** — every path fails soft to the public rail. The loader
+  tries the root specifier and then the documented subpaths (`/crypto`, `/admin`, `/client`,
+  `/advanced`), because the package's current canary publishes **no root export** and a bare
+  import would fail to resolve even with the package installed.
+- **Proving it without the package:** `UNLINK_FAKE_SDK=true` (dev only, **refused** when
+  `NODE_ENV=production`) runs the whole payout seam against an in-repo fake shielded set
+  ([`web/lib/unlink/fakeSdk.ts`](../web/lib/unlink/fakeSdk.ts)). It settles **nothing** and
+  marks every tx hash `0xfa4e…`. Use it to exercise auth, the owner binding, validation,
+  registration ordering, the asymmetry keystone, and both recoverable-error surfaces. Nothing
+  it produces is evidence the rail is live.
 
 ### ENS subnames — gasless `merchant-x.you.eth`
 - **Does:** issues offchain merchant subnames via Namestone

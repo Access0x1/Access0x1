@@ -5,7 +5,14 @@ import { Script, console2 } from "forge-std/Script.sol";
 import { MockV3Aggregator } from "../test/mocks/MockV3Aggregator.sol";
 
 /// @title  DeployUsdMockFeed
-/// @notice Any-chain generalization of {DeployArcUsdFeed}: deploys a minimal MockV3Aggregator to serve
+/// @notice ⚠️ Deploys an UNGUARDED test mock as a live price source. `MockV3Aggregator.updateAnswer`
+///         is `public` with no access control, so anyone can set the price the router settles
+///         against. Acceptable ONLY on a throwaway chain with no real token at stake. For any chain
+///         carrying real value — Arc first among them — deploy the access-controlled
+///         {OperatorFeed} via {DeployArcOperatorFeed} and run the {RefreshOperatorFeed} keeper
+///         instead. See `docs/ARC-PRICING.md`.
+///
+///         Any-chain generalization of {DeployArcUsdFeed}: deploys a minimal MockV3Aggregator to serve
 ///         as a **USDC/USD** price feed on a testnet where Chainlink publishes no USDC/USD feed but a
 ///         REAL Circle USDC token exists (Linea / Unichain / World Chain / Celo / Optimism Sepolia —
 ///         see docs/CHAIN-ADDRESSES.md). The router keeps accepting REAL USDC (the "no fake token" law

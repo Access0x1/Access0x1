@@ -253,6 +253,40 @@ describe('POST /api/world/verify — C-2: action comes ONLY from server config',
     expect(forwarded.action).toBe('checkout-verified-human')
     expect(agentGate.isAgentTrialUnlocked()).toBe(false)
   })
+
+  // A gate this route does not serve must be REFUSED BY NAME, never quietly
+  // downgraded to buyer. `/api/world/sign` will happily sign an RP context for
+  // `operator` or `agentkit`, so a proof bound to one of those actions can reach
+  // here; re-reading it under the buyer action makes the portal reject it and the
+  // caller sees a bare 401 with nothing naming the cause — the exact mismatch the
+  // shared gate→action map exists to make impossible. Fails closed either way.
+  it.each(['operator', 'agentkit', 'not-a-gate', '', 42])(
+    'refuses gate %p with 400 unsupported_gate instead of downgrading to buyer',
+    async (gate) => {
+      stubPortal(() =>
+        new Response(JSON.stringify({ success: true, nullifier: '0xdead' }), { status: 200 }),
+      )
+      const res = await postProof({ ...proofNoAction('0xdead'), gate })
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('unsupported_gate')
+      // Refused BEFORE the portal call — no proof is consumed by a rejected request.
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(agentGate.isAgentTrialUnlocked()).toBe(false)
+    },
+  )
+
+  it('treats an ABSENT gate field as the buyer gate (every existing caller unchanged)', async () => {
+    stubPortal(() =>
+      new Response(
+        JSON.stringify({ success: true, nullifier: '0xc001', action: 'checkout-verified-human' }),
+        { status: 200 },
+      ),
+    )
+    const res = await postProof(proofNoAction('0xc001'))
+    expect(res.status).toBe(200)
+    const forwarded = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body ?? '{}'))
+    expect(forwarded.action).toBe('checkout-verified-human')
+  })
 })
 
 describe('POST /api/world/verify — Track A agent trial', () => {
