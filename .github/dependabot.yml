@@ -1,6 +1,12 @@
 # ⏸️  VERSION UPDATES ARE PAUSED (2026-08-24). Every `open-pull-requests-limit` below is 0,
-#     which is GitHub's documented switch for "stop version updates". SECURITY updates are
-#     UNAFFECTED and still open PRs — that safety net stays on.
+#     which is GitHub's documented switch for "stop version updates".
+#
+#     ⚠️  CORRECTION, same day: limit-0 leaves SECURITY updates alone in general, but this repo
+#     has `dependabot_security_updates: disabled` at the REPOSITORY level, so no security PR
+#     was ever going to arrive here regardless of this file. The alerts API returns `[]`
+#     because nothing is looking, NOT because nothing is wrong — `npm audit` in web/ reported
+#     50 vulnerabilities (6 high) the same day. Enabling Dependabot security updates and secret
+#     scanning is an owner action in repo Settings → Code security.
 #
 #     WHY. Repo ruleset `protect-all-branches` (id 17630972) targets `~ALL` with
 #     `non_fast_forward`. A Dependabot rebase or recreate IS a force-push, so Dependabot can run
