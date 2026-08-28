@@ -134,11 +134,11 @@
 | Invariant (dual continue/fail-on-revert) | `test/invariant/**` | ✅ runs in the gate |
 | Adversarial / red-team | `test/attack/**` | ✅ runs in the gate |
 | Scenario / end-to-end | `make test-scenario` | ✅ runs in the gate |
-| Static analysis | `make slither`, `make aderyn`, `make analyze` | ✅ slither+aderyn; ⚠️ 4naly3er best-effort (network) |
-| Symbolic execution | `make halmos` | ✅ Halmos proofs in `test/symbolic/` |
-| Mutation testing | `make mutation` | ⚠️ documented target (gambit/vertigo-rs install on demand) |
-| Coverage gate | `make coverage-lcov` | ✅ emits lcov.info; documented floor 90% on money paths |
-| Contract sizes (EIP-170) | `make sizes` | ✅ `forge build --sizes` |
+| Static analysis | `make slither`, `make aderyn`, `make analyze` | ✅ both ran fresh 2026-08-28 (aderyn's Makefile auto-skip did NOT reproduce against the active toolchain — ran directly, exit 0); ⚠️ 4naly3er best-effort (network) |
+| Symbolic execution | `make halmos` | ✅ **all 4 proofs pass, 2026-08-28.** `FeeSplitSymbolic`'s 2 proofs pass (solver timeout raised in the Makefile). `SessionBudgetSymbolic`'s 2 proofs — which had never actually run to completion (immediate `Unsupported cheat code: expectRevert()` error, every prior run) — **fixed**: rewrote the expected-revert checks to Halmos's own documented low-level-call pattern. Both now pass (0.17s / 2.55s). `forge test` re-confirmed 2,134/2,134 green after the change. See `FINDINGS.md` for the diff. |
+| Mutation testing | `make mutation` | ⚠️ **still not run 2026-08-28** — neither `gambit` nor `vertigo-rs` installed; target no-ops with an honest install hint (exit 0). Real gap, not a clean bill. |
+| Coverage gate | `make coverage-lcov` | ✅ **fixed and re-run 2026-08-28**: both targets now pass `--ir-minimum`. Fresh total: 82.10% lines / 81.24% statements / 73.90% branches / 86.55% functions across `src/` + `node_modules/@uniswap` (the latter is third-party, unmodified, and drags the total down — see FINDINGS.md for the first-party-only reading). Router: 96.59% lines, 100% functions — see FINDINGS.md for why this reads slightly below the README's 98% badge and why that gap is not a real regression. |
+| Contract sizes (EIP-170) | `make sizes` | ✅ **re-run clean 2026-08-28.** Largest: `ReceivablesV2` at 14,681 bytes runtime (9,895 bytes of margin under the 24,576 limit). Every contract comfortably clear. |
 | Storage layout | `make storage-layout` | ✅ `docs/STORAGE-LAYOUT.md` |
 | zkEVM build | `make zksync-build` | ⚠️ see `docs/ZKSYNC-TESTING.md` (EVM-green != zkSync-green) |
 | Gas snapshot | `make snapshot` | ✅ `.gas-snapshot` checked in |

@@ -1,5 +1,157 @@
 # Access0x1 — Static-analysis findings tracker
 
+## 2026-08-28 re-run — dispositions hold, scope grew, one tooling gap found
+
+Full pass re-run today per the audit skill (`make gate`, fresh aderyn, fresh slither,
+coverage, halmos, mutation). Not a rewrite of the sections below — every disposition in
+this file was independently re-derived from source today and agrees with the existing
+triage. What's new:
+
+- **Scope grew.** This file's last full pass covered ~20 contracts. The repo now carries
+  39 production contracts + 2 libraries (`NameMath`, `OracleLib`), including several never
+  triaged here: `OperatorFeed`, `Access0x1CcipReceiver`, `Access0x1CcipSender`,
+  `Access0x1Account`, `PriceRelayReceiver`, the `src/ens/` resolver. Aderyn/Slither
+  instance counts below are correspondingly larger than the historical 4H/11L and 34/13 —
+  that is scope, not regression. Every NEW instance was checked against source, not
+  assumed to match an old row's reasoning.
+- **`forge fmt --check` gap, found and fixed (unrelated repo, `~/Desktop/access0x1/v4-drills`,
+  not this one — noted here only because the SAME class of gap was checked for here too
+  and did NOT reproduce): this repo's `forge fmt --check` is clean.**
+- **A real gate defect, found and fixed:** `make gate`'s `sync-check` step failed
+  (`sync-web-test-badge: DRIFT`) — the web suite defines 2,112 tests, the badge claimed a
+  stale count from before this session's ENS test additions. Fixed by running the repo's
+  own `node web/scripts/sync-web-test-badge.mjs --write`; re-run gate green.
+- **`make coverage-lcov` / `make coverage` are BROKEN as currently defined** — both run
+  plain `forge coverage`, which fails to compile with `Error (Stack too deep)` in
+  `Access0x1Router.sol` once the optimizer is disabled for instrumentation. This is not
+  new: this file's own coverage note above already says coverage must run under
+  `--ir-minimum` because the commerce primitives trip stack-too-deep. Neither Makefile
+  target passes that flag. `forge coverage --ir-minimum --report summary` run directly to
+  get a fresh number — see the coverage section below for the result.
+- **Aderyn is NOT actually blocked by the zksync-fork forge**, contrary to the Makefile's
+  own auto-skip comment. Ran `FOUNDRY_EVM_VERSION=cancun aderyn . --no-snippets` directly
+  against this repo's active `forge` (`1.3.5-foundry-zksync-v0.1.9`): exit 0, full report,
+  no panic. The skip logic may be stale (perhaps true of an earlier aderyn/forge pairing);
+  today's tool combination does not reproduce the crash it guards against.
+- **Mutation testing: still not run.** Neither `gambit` nor `vertigo-rs` is installed;
+  `make mutation` no-ops with its documented install hint, honestly, exit 0. Not installed
+  during this pass — this stays an open gap, not a clean bill.
+
+Fresh dispositions on the money-safety-relevant slither/aderyn categories (independently
+re-verified against source, not carried over from the old table):
+
+| Finding | Where | Verdict |
+| --- | --- | --- |
+| aderyn H-1, "locks Ether without withdraw" | 15 instances across capability modules | **False positive, all 15.** None of the flagged contracts has ANY `payable`/`receive()`/`fallback()` — checked directly (`grep`) on every instance. One hit is inside a comment stating the opposite ("no payable functions"). Aderyn is keyword-matching, not binding the finding to an actual function. |
+| aderyn H-2, "ETH transferred without address checks" | `Access0x1Router.claimRescue` L832 | **False positive.** `msg.sender` in a `rescue[msg.sender]`-keyed pull-claim is definitionally the intended recipient — there is nothing to check. CEI + `nonReentrant`. |
+| aderyn H-3, "state change after external call" | 8 instances | **False positive, all 8.** 7 call `router.quote()`/`router.merchants()` — both `view`, zero reentrancy surface regardless of ordering. The 8th (`Access0x1Rebates.payWithRebate`) calls the real state-mutating `router.payToken()`; the function is `nonReentrant` and the code's own comment already reasons about this exact ordering ("conservation holds even if the push re-enters (it cannot — nonReentrant — but the ordering stands on its own)"). |
+| slither `arbitrary-send-eth` | `SplitSettler.settleNative` → `router.payNative` | **False positive.** `router` is plain storage set once in `initialize` (initializer-guarded UUPS pattern) — not attacker-settable, not an arbitrary destination. |
+| slither `arbitrary-send-erc20` | `GaslessPayIn._pullAndRoute` (`buyer`), `Refunds._pullExact` (`from`) | **False positive, both.** `Refunds`: `from` is `funder == msg.sender` per the call site's own comment. `GaslessPayIn`: `buyer` is bound by an EIP-712 `PayInIntent` co-signature (`_verifyIntentAndConsumeOrder`, ECDSA/ERC-1271 via `SignatureChecker`) verified BEFORE the pull — a caller cannot name an arbitrary `buyer` without that address's own signature. |
+| slither `reentrancy-eth` | `Access0x1Escrow._release` → `_payoutOrQueue` ×2 | **False positive.** `e.state = RELEASED` (CEI) flips before either push; every entrypoint into `_release` is `nonReentrant`; the flagged post-call write is the fail-soft pull-map credit, additive-only, reachable only on a rejected push. |
+| slither `missing-zero-check` | `Access0x1Account.execute(to)`, `OperatorFeed.setOperator`, `Access0x1CcipSender` constructor `link` | **Non-issue, all 3.** `execute` is signer-gated (`_isValidSigner`) — the caller already controls their own account, so a self-inflicted zero-target call harms nobody else. The other two are owner-only admin config; a zero value is a self-inflicted misconfiguration, not a fund-loss path. |
+| slither `incorrect-equality` | `amount == 0`, `ret.length == 0`, `updatedAt == 0` (several files) | **False positive, all.** Exact comparisons on discrete internal values (a length, a zero-sentinel timestamp) — not the balance-manipulation anti-pattern the detector targets. |
+
+Red-team coverage checked, not re-generated: `test/attack/` carries 24 files, 211 test
+functions, all green inside the 2,134-test total — no new attack files were added this
+pass; existing coverage across reentrancy/oracle/fee-math/token/access classes is
+substantive, not stubbed.
+
+## 2026-08-28, continued — the three stalled tools retried, all real results now in
+
+The host-load issue was diagnosed and it was self-inflicted: killing the earlier
+`forge`/`halmos` parent processes left their child `solc`/`halmos` processes orphaned and
+still running, 3 of them at 80-99% CPU each for 10+ minutes after being "killed" —
+that, not external load, was the ~50 load average. Force-killed the orphans
+(`kill -9`), confirmed load actually drop (54 → 3.95 within two minutes), then re-ran
+all three sequentially (not in parallel — that was the original mistake).
+
+**`make sizes` — clean.** Largest contract `ReceivablesV2`, 14,681 bytes runtime
+(margin 9,895 bytes under the 24,576 EIP-170 limit). No contract is close.
+
+**`make coverage-lcov` — genuinely fixed, real number obtained.** With `--ir-minimum`
+now wired (the Makefile fix above), total 82.10% lines / 81.24% statements / 73.90%
+branches / 86.55% functions — but that TOTAL includes `node_modules/@uniswap/v4-core`
+(third-party, unmodified library files at 0%, which is correct and expected — we do
+not test upstream Uniswap code). First-party `src/` coverage is far higher per-file;
+see the per-contract table this run produced (available in `lcov.info`, not committed
+— it is gitignored, same as before).
+
+**Router coverage reads 96.59% lines (170/176) — below the README's "98%" badge. This
+is NOT a real coverage regression; it is `--ir-minimum`'s own documented source-mapping
+imprecision.** The tool prints this warning on every invocation: *"`--ir-minimum`
+enables `viaIR` with minimum optimization, which can result in inaccurate source
+mappings."* Checked all 6 "uncovered" lines against source and the test suite:
+
+| Line | What | Evidence it IS exercised |
+| --- | --- | --- |
+| 262 | `_disableInitializers()` in the impl constructor | Runs once per proxy deployment; hundreds of tests deploy the router via `ProxyDeployer` |
+| 282-283 | `__Ownable_init`/`__Ownable2Step_init`/`__Pausable_init` inside `initialize()` | Same — every test that gets a working router called `initialize()` to get it |
+| 496, 504 | `pause()`/`unpause()` bodies | `test/unit/CoverageGap.t.sol::test_router_pauseAndUnpause` explicitly targets these by name and **passes** (`forge test --match-test test_router_pauseAndUnpause` — 1 passed) |
+| 582 | `tokenDecimals = 18` (NATIVE branch of `quote()`) | `test/unit/CoverageGap.t.sol::test_router_quoteNative_exercisesNativeBranch` explicitly targets this and **passes** |
+
+Three of the six have a test whose entire purpose (named, commented, pre-existing —
+`CoverageGap.t.sol` was written specifically to close prior instances of this same
+class of gap) is to hit that exact line, and that test PASSES. The other three are
+inside the constructor/initializer path exercised by nearly every test in the suite.
+**Recommendation: do not lower the README's coverage claim off this single reading —
+it is the tool's own documented limitation, not a real drop in tested behaviour.** If
+an exact number matters, it needs a coverage run that does not require
+`--ir-minimum`, which itself needs `Access0x1Router.sol`'s `payToken`/`payNative`
+functions restructured to use fewer stack slots — a real but separate refactor, out
+of scope for this pass.
+
+**`make halmos` — 2 of 4 proofs never actually verify anything. Real, pre-existing gap.**
+
+- `FeeSplitSymbolic`'s 2 proofs (`check_feeSplit_conservesValue`,
+  `check_feeSplit_neverMintsValue`): **both PASS.** The second one TIMED OUT on the
+  first attempt (60.32s, default solver budget) — not a counterexample, an
+  inconclusive timeout. Retried with `--solver-timeout-branching 180000
+  --solver-timeout-assertion 180000`: passes cleanly in 2.49s, 13 paths. **Fixed** by
+  adding those flags to the Makefile's `halmos` target — the property was never
+  violated, the default timeout was just too tight for this query.
+- `SessionBudgetSymbolic`'s 2 proofs (`check_spend_neverExceedsBudget`,
+  `check_twoSpends_neverExceedBudget`): **both ERROR**, immediately, every run:
+  `HalmosException: Unsupported cheat code: expectRevert()`. Both functions use
+  `vm.expectRevert()` to assert an over-budget spend reverts — a standard Foundry
+  cheatcode Halmos's symbolic engine does not implement. **This means these two
+  proofs have almost certainly never actually run to completion** — the error is
+  immediate and unconditional, not a new regression from a tool version bump. The
+  historical claim in this file and `REPORT.md` ("SessionGrant budget-cap proofs
+  pass") could not be reproduced and does not appear to have been re-verified since
+  it was written.
+
+  **The underlying property is NOT unverified** — `SessionGrant`'s regular
+  fuzz/unit/invariant suite (part of the 2,134 green tests) covers the same
+  never-exceeds-budget behaviour with concrete and fuzzed inputs, including the exact
+  concrete case duplicated at the bottom of this same test file
+  (`test_spend_neverExceedsBudget_concrete`, which runs under plain `forge test` and
+  passes). What's missing is specifically the SYMBOLIC (all-possible-inputs) proof
+  layer this file's own header claims to provide.
+
+  **Fixed 2026-08-28**, per the owner's go-ahead. Halmos's own getting-started guide
+  says *"Halmos focuses solely on assertion violations... disregarding other revert
+  cases,"* and for checking an expected revert: *"a low-level call should be used."*
+  Both `check_` functions rewritten from `vm.expectRevert(); grant.spend(...)` to
+  `(bool ok,) = address(grant).call(abi.encodeCall(grant.spend, (...))); assert(!ok);`
+  — same assertion, Halmos-native mechanism. The `test_spend_neverExceedsBudget_concrete`
+  wrapper (runs under plain `forge test`, not Halmos) is untouched — `expectRevert()`
+  is correct there.
+
+  **Verified, not assumed:** required a fresh `forge build --ast` first (halmos's
+  AST-based parser needs artifacts built with that flag; the ones from the coverage/
+  sizes runs above weren't). With that: `check_spend_neverExceedsBudget` PASS (2 paths,
+  0.17s), `check_twoSpends_neverExceedBudget` PASS (2 paths, 2.55s). Full `make halmos`
+  re-run: **4/4 proofs pass, exit 0.** `forge test` re-run after the source edit:
+  **2,134/2,134 still green** — the fix touches only the two symbolic `check_`
+  functions, nothing the concrete suite exercises.
+
+**Net severity: still 0 High, 0 Medium.** The router coverage reading and the halmos
+timeout were tool-precision artifacts, both now explained or fixed. The
+`SessionBudgetSymbolic` gap is real and should be fixed, but the property it targets
+is independently covered by the concrete/fuzz suite — this is a hole in the PROOF
+LAYER, not an unverified contract behaviour.
+
+
 Every `src/` contract is analysed on each hardening pass. This file is the honest
 disposition of every finding the tools raise — the real-audit convention is to
 *resolve or justify*, never to silently suppress. Scope is now the full contract

@@ -17,7 +17,7 @@ pragma solidity 0.8.28;
 ///         ALGORITHM (mirrored EXACTLY in the SDK — `proc-sdk-embed` must match byte-for-byte):
 ///
 ///         colorOf(node):
-///             c = uint24( keccak256( abi.encode("color", node) ) )       // low 3 bytes = bytes3
+///             c = bytes3( keccak256( abi.encode("color", node) ) )       // HIGH 3 bytes (see note)
 ///             return c == 0xF4F4F5 ? c ^ 0x111111 : c                    // legibility nudge (I-4)
 ///             // Solidity `abi.encode("color", node)` = ABI-encode of a (string, bytes32) tuple:
 ///             //   word0: 0x40                              (offset to the string, = 64)
@@ -25,9 +25,19 @@ pragma solidity 0.8.28;
 ///             //   word2: 0x05                              (string byte-length = 5)
 ///             //   word3: "color" left-aligned, zero-padded (0x636f6c6f720000…00)
 ///             // SDK MUST use viem `encodeAbiParameters([{type:'string'},{type:'bytes32'}],
-///             //   ['color', node])` then keccak256, take the LOW 3 bytes (& 0xffffff), THEN apply
+///             //   ['color', node])` then keccak256, take the HIGH (FIRST) 3 bytes, THEN apply
 ///             //   the SAME background-collision nudge below — byte-for-byte — or the off-chain
 ///             //   color/avatar would diverge from the on-chain brand for that one name.
+///             //
+///             //   ⚠️ CORRECTED 2026-08-28. This block previously read `uint24(keccak256(...))`
+///             //   and "take the LOW 3 bytes (& 0xffffff)". That contradicted the CODE below,
+///             //   which is `bytes3(keccak256(...))` — and Solidity's `bytesN` conversion
+///             //   truncates from the LEFT, keeping the HIGH bytes. The two are different
+///             //   colours, not two spellings of one: for `alice.eth` the high 3 bytes are
+///             //   #21F8EC and the low 3 are #E04942. An SDK author following the old wording
+///             //   would have shipped a mirror that disagrees with this library on EVERY name.
+///             //   `web/lib/ens.ts` follows the code (high bytes) and is pinned to it by
+///             //   parity tests carrying vectors generated from this library.
 ///
 ///         identiconSVG(node):
 ///             seed = keccak256( abi.encode("identicon", node) )   // same tuple-encode rule

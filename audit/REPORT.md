@@ -1,5 +1,87 @@
 # Access0x1 — Smart-Contract Security Audit Report
 
+## 2026-08-28 — full sweep re-run (see `FINDINGS.md` for the detailed triage)
+
+**Bottom line: no new real findings.** Every money-safety-critical static-analysis
+category re-triaged from source today (aderyn H-1/H-2/H-3, slither
+arbitrary-send-eth/erc20, reentrancy-eth, missing-zero-check) reaches the same
+false-positive/by-design verdict as the historical record, independently re-derived
+rather than copied forward. One genuine correctness bug WAS found and fixed this
+session, in the ENS off-chain mirror, not the contracts covered here — see
+`~/Desktop/access0x1/Access0x1` commit `5f3a974`.
+
+**What ran clean:**
+- `make gate` — clean on the SECOND run. The first run failed
+  (`sync-web-test-badge: DRIFT`, a stale test-count badge from this session's own
+  earlier ENS test additions) — fixed via the repo's own sync script, not glossed over.
+- `forge test` — **2,134 / 2,134 passing, 137 suites, 0 failed, 0 skipped.**
+- `forge fmt --check` — clean.
+- `web`: typecheck clean, lint clean, **2,112 / 2,112 tests passing** (200 files).
+- Red-team coverage checked (not regenerated): `test/attack/` — 24 files, 211 test
+  functions, all green inside the totals above.
+
+**What ran and found nothing new, after real triage (not a rubber stamp):**
+- Aderyn — ran successfully DIRECTLY against the active toolchain (the Makefile's
+  auto-skip for the zksync-fork forge did not reproduce; likely stale for this
+  aderyn/forge pairing). 3 High categories / 15+1+8 instances, **all false positives**,
+  each individually verified against source — not one has an actual `payable` surface,
+  an unguarded external call, or an unbound recipient. Detail: `FINDINGS.md`.
+- Slither — 203 results / 22 detector categories (scope roughly doubled since the
+  last full pass: 20→39+ contracts). Every money-relevant category individually
+  re-checked against source: `arbitrary-send-eth`/`erc20`, `reentrancy-eth`,
+  `missing-zero-check` — all false positive or non-issue, with the specific reasoning
+  (trusted once-set addresses, EIP-712 co-signed pulls, CEI + `nonReentrant`, signer-
+  gated self-calls) recorded per finding in `FINDINGS.md`, not asserted.
+
+**Real, honestly-reported gaps — not resolved this session:**
+1. **`make coverage`/`make coverage-lcov` were broken** (plain `forge coverage` fails
+   `Stack too deep` in `Access0x1Router.sol` once instrumentation disables the
+   optimizer — the file's OWN existing coverage note already said `--ir-minimum` is
+   required; the Makefile targets just never carried the flag). **Fixed**: both targets
+   now pass `--ir-minimum`. A fresh coverage NUMBER could not be captured this session
+   — see gap 3.
+2. **Mutation testing has never actually run.** `make mutation` no-ops honestly
+   (neither `gambit` nor `vertigo-rs` is installed). Real gap, not a clean bill.
+3. **Coverage, Halmos, and `make sizes` — all three retried and completed.** The
+   earlier "extreme host load" was mis-diagnosed as external; it was self-inflicted —
+   killing the first attempt's `forge`/`halmos` processes left their `solc`/`halmos`
+   children orphaned and still consuming 80-99% CPU each 10+ minutes later. Force-killed
+   the orphans, confirmed load actually dropped (54 → 3.95), re-ran all three
+   sequentially. Real results:
+   - **`make sizes`: clean.** Largest contract 14,681 bytes runtime, 9,895 bytes of
+     margin under the 24,576 EIP-170 limit.
+   - **Coverage: 82.10% lines total** (includes third-party `node_modules/@uniswap`
+     at 0%, correctly untested). Router reads 96.59% lines vs the README's 98% badge —
+     traced to `--ir-minimum`'s own documented source-mapping imprecision, not a real
+     drop: 3 of the 6 "uncovered" lines have a dedicated, passing, purpose-written test
+     hitting them by name; the other 3 are inside the constructor/initializer path
+     exercised by nearly every test in the suite. Not corrected in the README off one
+     imprecise reading — see `FINDINGS.md` for the full per-line evidence.
+   - **Halmos: 2 of 4 proofs never actually verified anything — found, then fixed,
+     both with the owner's sign-off.** `FeeSplitSymbolic`'s 2 proofs PASS (one was
+     spuriously timing out at the default solver budget; raised it in the Makefile —
+     the property was never violated). `SessionBudgetSymbolic`'s 2 proofs ERRORed
+     immediately on `Unsupported cheat code: expectRevert()` on every prior run — a
+     Halmos limitation the historical audit record's "proofs pass" claim did not
+     survive contact with. **Fixed**, per Halmos's own documented pattern: replaced
+     `expectRevert()` with a low-level `.call` + boolean check in both `check_`
+     functions (the plain-`forge test` concrete wrapper, which correctly uses
+     `expectRevert()`, is untouched). Re-verified: `make halmos` now **4/4 pass, exit
+     0**; `forge test` re-run after the source edit, **2,134/2,134 still green.** The
+     SessionGrant budget-cap invariant is now genuinely symbolically proven, not just
+     covered by fuzz/unit tests.
+
+**Severity summary for this pass: 0 High, 0 Medium confirmed. 0 new Low.** Four
+process/tooling defects were found this session and all four are now fixed and
+re-verified (the gate's stale badge, the coverage target's missing flag, Halmos's
+default timeout, and the `SessionBudgetSymbolic` cheatcode incompatibility). None
+were contract vulnerabilities. Recorded here for the same reason everything else in
+this file is recorded — so the audit trail shows what was actually run, not what was
+assumed.
+
+---
+
+
 | | |
 | --- | --- |
 | **Protocol** | Access0x1 — open, multi-chain, zero-custody payments + session-auth layer |

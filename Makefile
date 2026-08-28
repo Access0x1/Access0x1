@@ -154,13 +154,15 @@ test-scenario: ## Run ONLY the human-style end-to-end scenario suite (test/scena
 	forge test --match-path 'test/scenario/*'
 
 coverage: ## Test coverage over src/
-	forge coverage
+	forge coverage --ir-minimum
 
 # Coverage GATE: emit a machine-readable lcov.info (gitignored) + a summary table. DOCUMENTED
 # MINIMUM: 90% line coverage on the money contracts (Router / SessionGrant / the commerce quartet).
 # The suite sits well above that today; this target makes the number checkable so a regression shows.
+# --ir-minimum is required: without it, the plain coverage build fails "Stack too deep" in
+# Access0x1Router.sol once the optimizer is disabled for instrumentation (audit/FINDINGS.md, 2026-08-28).
 coverage-lcov: ## Coverage as lcov.info (gitignored) + summary — documented floor: 90% lines on money paths
-	forge coverage --report lcov --report summary
+	forge coverage --ir-minimum --report lcov --report summary
 
 snapshot: ## Regenerate the gas snapshot (.gas-snapshot)
 	forge snapshot
@@ -256,7 +258,8 @@ halmos: ## Symbolic execution (Halmos) over test/symbolic/; installs via uv/pip 
 	@if command -v halmos >/dev/null 2>&1; then \
 		echo "==> halmos over test/symbolic/ (functions prefixed check_)"; \
 		forge build --ast >/dev/null 2>&1; \
-		halmos --match-contract 'FeeSplitSymbolic|SessionBudgetSymbolic'; \
+		halmos --match-contract 'FeeSplitSymbolic|SessionBudgetSymbolic' \
+			--solver-timeout-branching 180000 --solver-timeout-assertion 180000; \
 	else \
 		echo "halmos not installed and auto-install failed (offline?). Install:"; \
 		echo "  uv tool install halmos    (or)    pip3 install --user halmos"; \
