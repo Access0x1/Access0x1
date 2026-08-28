@@ -134,11 +134,11 @@
 | Invariant (dual continue/fail-on-revert) | `test/invariant/**` | ✅ runs in the gate |
 | Adversarial / red-team | `test/attack/**` | ✅ runs in the gate |
 | Scenario / end-to-end | `make test-scenario` | ✅ runs in the gate |
-| Static analysis | `make slither`, `make aderyn`, `make analyze` | ✅ slither+aderyn; ⚠️ 4naly3er best-effort (network) |
-| Symbolic execution | `make halmos` | ✅ Halmos proofs in `test/symbolic/` |
-| Mutation testing | `make mutation` | ⚠️ documented target (gambit/vertigo-rs install on demand) |
-| Coverage gate | `make coverage-lcov` | ✅ emits lcov.info; documented floor 90% on money paths |
-| Contract sizes (EIP-170) | `make sizes` | ✅ `forge build --sizes` |
+| Static analysis | `make slither`, `make aderyn`, `make analyze` | ✅ both ran fresh 2026-08-28 (aderyn's Makefile auto-skip did NOT reproduce against the active toolchain — ran directly, exit 0); ⚠️ 4naly3er best-effort (network) |
+| Symbolic execution | `make halmos` | ✅ 2 proof files present (`FeeSplitSymbolic`, `SessionBudgetSymbolic`); ⚠️ re-run attempted 2026-08-28, did NOT complete — host under extreme load (load avg ~50) during this session, killed rather than reported falsely. Last known-good status per prior passes; re-run `make halmos` to refresh. |
+| Mutation testing | `make mutation` | ⚠️ **still not run 2026-08-28** — neither `gambit` nor `vertigo-rs` installed; target no-ops with an honest install hint (exit 0). Real gap, not a clean bill. |
+| Coverage gate | `make coverage-lcov` | ⚠️ **BROKEN as defined 2026-08-28**: runs plain `forge coverage` (optimizer off), which fails `Stack too deep` in `Access0x1Router.sol` — this file's OWN coverage note already says the fix is `--ir-minimum`, but neither `coverage`/`coverage-lcov` target passes it. One-line fix, not yet applied. Use `forge coverage --ir-minimum --report summary` directly until fixed. |
+| Contract sizes (EIP-170) | `make sizes` | ⚠️ re-run attempted 2026-08-28, did NOT complete — same host-load issue as Halmos above. Re-run `make sizes` to refresh; no reason to expect regression (no new contract approaches the 24,576-byte limit per the last known-good run). |
 | Storage layout | `make storage-layout` | ✅ `docs/STORAGE-LAYOUT.md` |
 | zkEVM build | `make zksync-build` | ⚠️ see `docs/ZKSYNC-TESTING.md` (EVM-green != zkSync-green) |
 | Gas snapshot | `make snapshot` | ✅ `.gas-snapshot` checked in |
