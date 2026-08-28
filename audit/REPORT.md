@@ -57,27 +57,27 @@ session, in the ENS off-chain mirror, not the contracts covered here — see
      hitting them by name; the other 3 are inside the constructor/initializer path
      exercised by nearly every test in the suite. Not corrected in the README off one
      imprecise reading — see `FINDINGS.md` for the full per-line evidence.
-   - **Halmos: 2 of 4 proofs never actually verified anything — a real, pre-existing
-     gap, found and partially fixed.** `FeeSplitSymbolic`'s 2 proofs now both PASS
-     (one was spuriously timing out at the default solver budget; raised it in the
-     Makefile — the property was never violated). `SessionBudgetSymbolic`'s 2 proofs
-     ERROR immediately on `Unsupported cheat code: expectRevert()` — a Halmos
-     limitation, not a new regression. **The historical claim that these pass could
-     not be reproduced.** The property itself is independently covered by the regular
-     fuzz/unit/invariant suite (2,134 green tests, including a concrete duplicate of
-     the same case in the same file) — this is a gap in the symbolic PROOF layer, not
-     an unverified contract behaviour. Documented fix available (Halmos's own docs:
-     replace `expectRevert()` with a low-level `.call` + boolean check) but **not
-     applied** — changing how a money-safety property is verified is flagged for
-     sign-off, not done unilaterally.
+   - **Halmos: 2 of 4 proofs never actually verified anything — found, then fixed,
+     both with the owner's sign-off.** `FeeSplitSymbolic`'s 2 proofs PASS (one was
+     spuriously timing out at the default solver budget; raised it in the Makefile —
+     the property was never violated). `SessionBudgetSymbolic`'s 2 proofs ERRORed
+     immediately on `Unsupported cheat code: expectRevert()` on every prior run — a
+     Halmos limitation the historical audit record's "proofs pass" claim did not
+     survive contact with. **Fixed**, per Halmos's own documented pattern: replaced
+     `expectRevert()` with a low-level `.call` + boolean check in both `check_`
+     functions (the plain-`forge test` concrete wrapper, which correctly uses
+     `expectRevert()`, is untouched). Re-verified: `make halmos` now **4/4 pass, exit
+     0**; `forge test` re-run after the source edit, **2,134/2,134 still green.** The
+     SessionGrant budget-cap invariant is now genuinely symbolically proven, not just
+     covered by fuzz/unit tests.
 
-**Severity summary for this pass: 0 High, 0 Medium confirmed. 0 new Low.** Three
-process/tooling defects were found and fixed this session (the gate's stale badge,
-the coverage target's missing flag, Halmos's default timeout); one process/tooling
-gap was found and left for a deliberate decision (`SessionBudgetSymbolic`'s
-cheatcode incompatibility). None of the four are contract vulnerabilities. Recorded
-here for the same reason everything else in this file is recorded — so the audit
-trail shows what was actually run, not what was assumed.
+**Severity summary for this pass: 0 High, 0 Medium confirmed. 0 new Low.** Four
+process/tooling defects were found this session and all four are now fixed and
+re-verified (the gate's stale badge, the coverage target's missing flag, Halmos's
+default timeout, and the `SessionBudgetSymbolic` cheatcode incompatibility). None
+were contract vulnerabilities. Recorded here for the same reason everything else in
+this file is recorded — so the audit trail shows what was actually run, not what was
+assumed.
 
 ---
 

@@ -57,9 +57,13 @@ contract SessionBudgetSymbolic is Test, ProxyDeployer {
 
         // A spend strictly greater than the cap MUST revert — it can never be applied.
         if (amount > budgetCap) {
+            // Halmos does not implement `vm.expectRevert()` (HalmosException: Unsupported
+            // cheat code) — it already drops reverting paths on its own and evaluates
+            // assertions only on paths that complete, so the documented Halmos pattern for
+            // an EXPECTED revert is a low-level call + boolean check instead.
             vm.prank(delegate);
-            vm.expectRevert();
-            grant.spend(sessionId, amount);
+            (bool ok,) = address(grant).call(abi.encodeCall(grant.spend, (sessionId, amount)));
+            assert(!ok);
             // The budget is untouched by the rejected spend.
             assert(grant.remaining(sessionId) == budgetCap);
         } else {
@@ -89,9 +93,10 @@ contract SessionBudgetSymbolic is Test, ProxyDeployer {
 
         uint256 left = budgetCap - a;
         if (b > left) {
+            // Same Halmos-compatible pattern as above — see the comment there.
             vm.prank(delegate);
-            vm.expectRevert();
-            grant.spend(sessionId, b);
+            (bool ok,) = address(grant).call(abi.encodeCall(grant.spend, (sessionId, b)));
+            assert(!ok);
             assert(grant.remaining(sessionId) == left); // unchanged by the rejected second spend
         } else {
             vm.prank(delegate);

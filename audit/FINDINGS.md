@@ -128,14 +128,22 @@ of scope for this pass.
   passes). What's missing is specifically the SYMBOLIC (all-possible-inputs) proof
   layer this file's own header claims to provide.
 
-  **The fix is documented, not a guess:** Halmos's own getting-started guide says
-  *"Halmos focuses solely on assertion violations... disregarding other revert
-  cases,"* and for checking an expected revert: *"a low-level call should be used"* —
-  i.e. replace `vm.expectRevert(); grant.spend(...)` with
-  `(bool ok,) = address(grant).call(abi.encodeCall(grant.spend, (sessionId, amount)));
-  assert(!ok);`. **Not applied this pass** — rewriting a security-property test's
-  verification mechanism is a real, deliberate change, flagged here for sign-off
-  rather than made unilaterally.
+  **Fixed 2026-08-28**, per the owner's go-ahead. Halmos's own getting-started guide
+  says *"Halmos focuses solely on assertion violations... disregarding other revert
+  cases,"* and for checking an expected revert: *"a low-level call should be used."*
+  Both `check_` functions rewritten from `vm.expectRevert(); grant.spend(...)` to
+  `(bool ok,) = address(grant).call(abi.encodeCall(grant.spend, (...))); assert(!ok);`
+  — same assertion, Halmos-native mechanism. The `test_spend_neverExceedsBudget_concrete`
+  wrapper (runs under plain `forge test`, not Halmos) is untouched — `expectRevert()`
+  is correct there.
+
+  **Verified, not assumed:** required a fresh `forge build --ast` first (halmos's
+  AST-based parser needs artifacts built with that flag; the ones from the coverage/
+  sizes runs above weren't). With that: `check_spend_neverExceedsBudget` PASS (2 paths,
+  0.17s), `check_twoSpends_neverExceedBudget` PASS (2 paths, 2.55s). Full `make halmos`
+  re-run: **4/4 proofs pass, exit 0.** `forge test` re-run after the source edit:
+  **2,134/2,134 still green** — the fix touches only the two symbolic `check_`
+  functions, nothing the concrete suite exercises.
 
 **Net severity: still 0 High, 0 Medium.** The router coverage reading and the halmos
 timeout were tool-precision artifacts, both now explained or fixed. The
