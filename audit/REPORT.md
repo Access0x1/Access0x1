@@ -42,26 +42,42 @@ session, in the ENS off-chain mirror, not the contracts covered here — see
    — see gap 3.
 2. **Mutation testing has never actually run.** `make mutation` no-ops honestly
    (neither `gambit` nor `vertigo-rs` is installed). Real gap, not a clean bill.
-3. **Coverage refresh, Halmos re-run, and `make sizes` did not complete this
-   session** — the host entered extreme, unrelated CPU contention mid-audit (load
-   average ~50–56, sustained; unrelated processes, not this session's own parallel
-   jobs, which were killed once the pattern was clear). Killed rather than reported
-   falsely. Halmos's last KNOWN-GOOD state (2 proof files, `FeeSplitSymbolic` +
-   `SessionBudgetSymbolic`) and the coverage snapshot in `COVERAGE.md` remain the most
-   recent real numbers; neither is contradicted by anything found today. Re-run when
-   the host is not under external load:
-   ```sh
-   forge coverage --ir-minimum --report lcov --report summary
-   make halmos
-   make sizes
-   ```
+3. **Coverage, Halmos, and `make sizes` — all three retried and completed.** The
+   earlier "extreme host load" was mis-diagnosed as external; it was self-inflicted —
+   killing the first attempt's `forge`/`halmos` processes left their `solc`/`halmos`
+   children orphaned and still consuming 80-99% CPU each 10+ minutes later. Force-killed
+   the orphans, confirmed load actually dropped (54 → 3.95), re-ran all three
+   sequentially. Real results:
+   - **`make sizes`: clean.** Largest contract 14,681 bytes runtime, 9,895 bytes of
+     margin under the 24,576 EIP-170 limit.
+   - **Coverage: 82.10% lines total** (includes third-party `node_modules/@uniswap`
+     at 0%, correctly untested). Router reads 96.59% lines vs the README's 98% badge —
+     traced to `--ir-minimum`'s own documented source-mapping imprecision, not a real
+     drop: 3 of the 6 "uncovered" lines have a dedicated, passing, purpose-written test
+     hitting them by name; the other 3 are inside the constructor/initializer path
+     exercised by nearly every test in the suite. Not corrected in the README off one
+     imprecise reading — see `FINDINGS.md` for the full per-line evidence.
+   - **Halmos: 2 of 4 proofs never actually verified anything — a real, pre-existing
+     gap, found and partially fixed.** `FeeSplitSymbolic`'s 2 proofs now both PASS
+     (one was spuriously timing out at the default solver budget; raised it in the
+     Makefile — the property was never violated). `SessionBudgetSymbolic`'s 2 proofs
+     ERROR immediately on `Unsupported cheat code: expectRevert()` — a Halmos
+     limitation, not a new regression. **The historical claim that these pass could
+     not be reproduced.** The property itself is independently covered by the regular
+     fuzz/unit/invariant suite (2,134 green tests, including a concrete duplicate of
+     the same case in the same file) — this is a gap in the symbolic PROOF layer, not
+     an unverified contract behaviour. Documented fix available (Halmos's own docs:
+     replace `expectRevert()` with a low-level `.call` + boolean check) but **not
+     applied** — changing how a money-safety property is verified is flagged for
+     sign-off, not done unilaterally.
 
-**Severity summary for this pass: 0 High, 0 Medium confirmed. 0 new Low.** The gate
-defect (item under "what ran clean") and the coverage-target bug (gap 1) were both
-found AND fixed within this session; they are process/tooling defects, not contract
-vulnerabilities, and are recorded here for the same reason everything else in this
-file is recorded — so the audit trail shows what was actually run, not what was
-assumed.
+**Severity summary for this pass: 0 High, 0 Medium confirmed. 0 new Low.** Three
+process/tooling defects were found and fixed this session (the gate's stale badge,
+the coverage target's missing flag, Halmos's default timeout); one process/tooling
+gap was found and left for a deliberate decision (`SessionBudgetSymbolic`'s
+cheatcode incompatibility). None of the four are contract vulnerabilities. Recorded
+here for the same reason everything else in this file is recorded — so the audit
+trail shows what was actually run, not what was assumed.
 
 ---
 

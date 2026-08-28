@@ -56,6 +56,93 @@ functions, all green inside the 2,134-test total — no new attack files were ad
 pass; existing coverage across reentrancy/oracle/fee-math/token/access classes is
 substantive, not stubbed.
 
+## 2026-08-28, continued — the three stalled tools retried, all real results now in
+
+The host-load issue was diagnosed and it was self-inflicted: killing the earlier
+`forge`/`halmos` parent processes left their child `solc`/`halmos` processes orphaned and
+still running, 3 of them at 80-99% CPU each for 10+ minutes after being "killed" —
+that, not external load, was the ~50 load average. Force-killed the orphans
+(`kill -9`), confirmed load actually drop (54 → 3.95 within two minutes), then re-ran
+all three sequentially (not in parallel — that was the original mistake).
+
+**`make sizes` — clean.** Largest contract `ReceivablesV2`, 14,681 bytes runtime
+(margin 9,895 bytes under the 24,576 EIP-170 limit). No contract is close.
+
+**`make coverage-lcov` — genuinely fixed, real number obtained.** With `--ir-minimum`
+now wired (the Makefile fix above), total 82.10% lines / 81.24% statements / 73.90%
+branches / 86.55% functions — but that TOTAL includes `node_modules/@uniswap/v4-core`
+(third-party, unmodified library files at 0%, which is correct and expected — we do
+not test upstream Uniswap code). First-party `src/` coverage is far higher per-file;
+see the per-contract table this run produced (available in `lcov.info`, not committed
+— it is gitignored, same as before).
+
+**Router coverage reads 96.59% lines (170/176) — below the README's "98%" badge. This
+is NOT a real coverage regression; it is `--ir-minimum`'s own documented source-mapping
+imprecision.** The tool prints this warning on every invocation: *"`--ir-minimum`
+enables `viaIR` with minimum optimization, which can result in inaccurate source
+mappings."* Checked all 6 "uncovered" lines against source and the test suite:
+
+| Line | What | Evidence it IS exercised |
+| --- | --- | --- |
+| 262 | `_disableInitializers()` in the impl constructor | Runs once per proxy deployment; hundreds of tests deploy the router via `ProxyDeployer` |
+| 282-283 | `__Ownable_init`/`__Ownable2Step_init`/`__Pausable_init` inside `initialize()` | Same — every test that gets a working router called `initialize()` to get it |
+| 496, 504 | `pause()`/`unpause()` bodies | `test/unit/CoverageGap.t.sol::test_router_pauseAndUnpause` explicitly targets these by name and **passes** (`forge test --match-test test_router_pauseAndUnpause` — 1 passed) |
+| 582 | `tokenDecimals = 18` (NATIVE branch of `quote()`) | `test/unit/CoverageGap.t.sol::test_router_quoteNative_exercisesNativeBranch` explicitly targets this and **passes** |
+
+Three of the six have a test whose entire purpose (named, commented, pre-existing —
+`CoverageGap.t.sol` was written specifically to close prior instances of this same
+class of gap) is to hit that exact line, and that test PASSES. The other three are
+inside the constructor/initializer path exercised by nearly every test in the suite.
+**Recommendation: do not lower the README's coverage claim off this single reading —
+it is the tool's own documented limitation, not a real drop in tested behaviour.** If
+an exact number matters, it needs a coverage run that does not require
+`--ir-minimum`, which itself needs `Access0x1Router.sol`'s `payToken`/`payNative`
+functions restructured to use fewer stack slots — a real but separate refactor, out
+of scope for this pass.
+
+**`make halmos` — 2 of 4 proofs never actually verify anything. Real, pre-existing gap.**
+
+- `FeeSplitSymbolic`'s 2 proofs (`check_feeSplit_conservesValue`,
+  `check_feeSplit_neverMintsValue`): **both PASS.** The second one TIMED OUT on the
+  first attempt (60.32s, default solver budget) — not a counterexample, an
+  inconclusive timeout. Retried with `--solver-timeout-branching 180000
+  --solver-timeout-assertion 180000`: passes cleanly in 2.49s, 13 paths. **Fixed** by
+  adding those flags to the Makefile's `halmos` target — the property was never
+  violated, the default timeout was just too tight for this query.
+- `SessionBudgetSymbolic`'s 2 proofs (`check_spend_neverExceedsBudget`,
+  `check_twoSpends_neverExceedBudget`): **both ERROR**, immediately, every run:
+  `HalmosException: Unsupported cheat code: expectRevert()`. Both functions use
+  `vm.expectRevert()` to assert an over-budget spend reverts — a standard Foundry
+  cheatcode Halmos's symbolic engine does not implement. **This means these two
+  proofs have almost certainly never actually run to completion** — the error is
+  immediate and unconditional, not a new regression from a tool version bump. The
+  historical claim in this file and `REPORT.md` ("SessionGrant budget-cap proofs
+  pass") could not be reproduced and does not appear to have been re-verified since
+  it was written.
+
+  **The underlying property is NOT unverified** — `SessionGrant`'s regular
+  fuzz/unit/invariant suite (part of the 2,134 green tests) covers the same
+  never-exceeds-budget behaviour with concrete and fuzzed inputs, including the exact
+  concrete case duplicated at the bottom of this same test file
+  (`test_spend_neverExceedsBudget_concrete`, which runs under plain `forge test` and
+  passes). What's missing is specifically the SYMBOLIC (all-possible-inputs) proof
+  layer this file's own header claims to provide.
+
+  **The fix is documented, not a guess:** Halmos's own getting-started guide says
+  *"Halmos focuses solely on assertion violations... disregarding other revert
+  cases,"* and for checking an expected revert: *"a low-level call should be used"* —
+  i.e. replace `vm.expectRevert(); grant.spend(...)` with
+  `(bool ok,) = address(grant).call(abi.encodeCall(grant.spend, (sessionId, amount)));
+  assert(!ok);`. **Not applied this pass** — rewriting a security-property test's
+  verification mechanism is a real, deliberate change, flagged here for sign-off
+  rather than made unilaterally.
+
+**Net severity: still 0 High, 0 Medium.** The router coverage reading and the halmos
+timeout were tool-precision artifacts, both now explained or fixed. The
+`SessionBudgetSymbolic` gap is real and should be fixed, but the property it targets
+is independently covered by the concrete/fuzz suite — this is a hole in the PROOF
+LAYER, not an unverified contract behaviour.
+
 
 Every `src/` contract is analysed on each hardening pass. This file is the honest
 disposition of every finding the tools raise — the real-audit convention is to

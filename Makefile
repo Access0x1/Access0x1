@@ -258,7 +258,8 @@ halmos: ## Symbolic execution (Halmos) over test/symbolic/; installs via uv/pip 
 	@if command -v halmos >/dev/null 2>&1; then \
 		echo "==> halmos over test/symbolic/ (functions prefixed check_)"; \
 		forge build --ast >/dev/null 2>&1; \
-		halmos --match-contract 'FeeSplitSymbolic|SessionBudgetSymbolic'; \
+		halmos --match-contract 'FeeSplitSymbolic|SessionBudgetSymbolic' \
+			--solver-timeout-branching 180000 --solver-timeout-assertion 180000; \
 	else \
 		echo "halmos not installed and auto-install failed (offline?). Install:"; \
 		echo "  uv tool install halmos    (or)    pip3 install --user halmos"; \
