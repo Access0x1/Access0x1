@@ -89,10 +89,58 @@ describe('ensNode', () => {
   });
 });
 
+/**
+ * PARITY VECTORS — generated FROM `src/NameMath.sol`, not from this file.
+ *
+ * Produced by running the library under `forge test -vv` and copying its
+ * console output verbatim (2026-08-28). They exist because the previous suite
+ * only ever checked this module against ITSELF — deterministic, differs by
+ * name, starts with `<svg>` — all of which stayed green while the TS mirror
+ * disagreed with the contract on the seed, the bit layout, the canvas size,
+ * the backdrop AND the legibility nudge. A self-consistency test cannot catch
+ * a mirror that is consistently wrong. These vectors are the second source.
+ *
+ * Regenerate (only when NameMath.sol intentionally changes):
+ *   console.log(NameMath.colorHex(node)); console.log(NameMath.identiconRawSVG(node));
+ */
+const SOL_ALICE_COLOR = '#21F8EC';
+const SOL_ALICE_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">' +
+  '<rect width="500" height="500" fill="#F4F4F5"/>' +
+  '<rect x="0" y="0" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="400" y="0" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="0" y="100" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="400" y="100" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="100" y="100" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="300" y="100" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="200" y="100" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="0" y="200" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="400" y="200" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="100" y="200" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="300" y="200" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="200" y="200" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="0" y="300" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="400" y="300" width="100" height="100" fill="#21F8EC"/>' +
+  '<rect x="200" y="400" width="100" height="100" fill="#21F8EC"/>' +
+  '</svg>';
+
+/**
+ * A node whose `"color"` hash lands EXACTLY on the backdrop `BG` (#F4F4F5),
+ * so `NameMath.colorOf`'s legibility nudge must fire. Found by brute-force
+ * search over bytes32 (~1 in 2^24), then confirmed against the library itself:
+ * `NameMath.colorHex(0x…195cef)` returns `#E5E5E4` = `0xF4F4F5 ^ 0x111111`.
+ *
+ * This is the branch that had no test and no mirror. Before 2026-08-28 the TS
+ * returned `#f4f4f5` here — the foreground painted in the backdrop colour, an
+ * invisible avatar, and a brand disagreeing with its own contract.
+ */
+const SOL_NUDGE_NODE =
+  '0x0000000000000000000000000000000000000000000000000000000000195cef' as const;
+const SOL_NUDGE_COLOR = '#E5E5E4';
+
 describe('nameHashColor', () => {
-  it('returns # + 6 hex chars', () => {
-    const color = nameHashColor(ALICE);
-    expect(color).toMatch(/^#[0-9a-f]{6}$/);
+  it('returns # + 6 UPPERCASE hex chars (the contract emits uppercase)', () => {
+    expect(nameHashColor(ALICE)).toMatch(/^#[0-9A-F]{6}$/);
   });
 
   it('is deterministic on the same node', () => {
@@ -101,6 +149,23 @@ describe('nameHashColor', () => {
 
   it('differs for different nodes (collision-resistance smoke test)', () => {
     expect(nameHashColor(ALICE)).not.toBe(nameHashColor(BOB));
+  });
+
+  it('MATCHES NameMath.colorHex byte-for-byte (contract-generated vector)', () => {
+    expect(nameHashColor(ALICE)).toBe(SOL_ALICE_COLOR);
+  });
+
+  it('takes the HIGH 3 bytes, not the low ones', () => {
+    // The low 3 bytes of alice.eth's colour hash are E04942. If this module
+    // ever switches to `uint24(hash)` semantics, this is the assertion that
+    // catches it — the library's own doc block used to prescribe exactly that.
+    expect(nameHashColor(ALICE)).not.toBe('#E04942');
+  });
+
+  it('applies the legibility NUDGE when the colour collides with the backdrop', () => {
+    // Without the nudge this returns #F4F4F5 — the backdrop itself.
+    expect(nameHashColor(SOL_NUDGE_NODE)).toBe(SOL_NUDGE_COLOR);
+    expect(nameHashColor(SOL_NUDGE_NODE)).not.toBe('#F4F4F5');
   });
 });
 
@@ -116,8 +181,27 @@ describe('nameHashIdenticon', () => {
   });
 
   it('is left/right symmetric (a left-edge cell implies a right-edge cell)', () => {
+    // Mirror column of x=0 is x=(N-1)*CELL = 400 on the contract's 500x500 canvas.
     const svg = nameHashIdenticon(BOB);
-    expect(svg.includes('x="0"')).toBe(svg.includes('x="160"'));
+    expect(svg.includes('x="0"')).toBe(svg.includes('x="400"'));
+  });
+
+  it('MATCHES NameMath.identiconRawSVG byte-for-byte (contract-generated vector)', () => {
+    expect(nameHashIdenticon(ALICE)).toBe(SOL_ALICE_SVG);
+  });
+
+  it('seeds from keccak("identicon", node), never from the raw node bytes', () => {
+    // The domain tag keeps the avatar seed independent of the colour seed.
+    // The pre-2026-08-28 implementation read the namehash directly, which both
+    // dropped the tag and correlated the two derivations.
+    const seededFromRawNode = ALICE.slice(2, 8);
+    expect(nameHashIdenticon(ALICE)).not.toContain(`fill="#${seededFromRawNode}"`);
+  });
+
+  it('paints the contract backdrop rect, not a bare svg fill', () => {
+    expect(nameHashIdenticon(ALICE)).toContain(
+      '<rect width="500" height="500" fill="#F4F4F5"/>',
+    );
   });
 });
 

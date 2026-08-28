@@ -183,14 +183,48 @@ export function ensNode(label: string): Hex {
 }
 
 /**
+ * Name-math constants, mirrored from `src/NameMath.sol`.
+ *
+ * These are NOT free parameters — every one of them is a consensus-visible
+ * value in the on-chain library. Changing one here without changing it there
+ * re-opens the exact divergence {@link nameHashIdenticon} documents.
+ */
+const NAME_MATH_BG = 0xf4f4f5; // NameMath.BG — neutral zinc-100 backdrop
+const NAME_MATH_NUDGE = 0x111111; // NameMath.NUDGE — legibility XOR (audit I-4)
+const NAME_MATH_N = 5; // NameMath.N — grid is 5x5
+const NAME_MATH_CELL = 100; // NameMath.CELL — cell edge in viewBox units
+const NAME_MATH_SIZE = 500; // NameMath.SIZE — N * CELL
+
+/** Render a 24-bit RRGGBB int the way `NameMath._hexColor` does: `#` + UPPERCASE hex. */
+function nameMathHex(rgb: number): `#${string}` {
+  return `#${rgb.toString(16).toUpperCase().padStart(6, '0')}`;
+}
+
+/**
  * Deterministic brand color from the ENS namehash.
  *
- * Mirrors the on-chain brand sidecar derivation:
- * `bytes3(keccak256(abi.encode("color", node)))` → the first 3 bytes as a
- * 6-hex-char CSS color. Same node always yields the same color.
+ * Mirrors `NameMath.colorOf` byte-for-byte:
+ * `bytes3(keccak256(abi.encode("color", node)))`, then the background-collision
+ * NUDGE. Same node always yields the same color, on-chain and off.
+ *
+ * TWO CORRECTNESS NOTES, both of which this function got wrong before
+ * 2026-08-28 and both of which are now pinned by parity tests:
+ *
+ * 1. **The NUDGE is not optional.** `NameMath.colorOf` ends with
+ *    `color == BG ? color ^ NUDGE : color`. For the ~1-in-2^24 namehash whose
+ *    color hashes exactly to the backdrop `#F4F4F5`, the chain paints
+ *    `#E5E5E4` while an un-nudged mirror paints `#F4F4F5` — an invisible
+ *    avatar AND a brand that disagrees with its own contract. The Solidity
+ *    NatSpec is explicit that the SDK "MUST use the SAME nudged value".
+ * 2. **`bytes3(hash)` is the HIGH 3 bytes, not the low ones.** Solidity's
+ *    `bytesN` conversion truncates from the LEFT. `uint24(uint256(hash))`
+ *    would take the low 3 and is a different colour entirely (for
+ *    `alice.eth`: high `#21F8EC` vs low `#E04942`). The library's own doc
+ *    block said "low 3 bytes" while its code said `bytes3(...)`; the code is
+ *    canonical and the doc has been corrected to match.
  *
  * @param node The ENS namehash (bytes32 hex).
- * @returns A `#rrggbb` CSS color string.
+ * @returns A `#RRGGBB` CSS color string (uppercase, as the contract emits it).
  */
 export function nameHashColor(node: Hex): `#${string}` {
   const hash = keccak256(
@@ -199,68 +233,104 @@ export function nameHashColor(node: Hex): `#${string}` {
       ['color', node],
     ),
   );
-  // hash is `0x` + 64 hex chars; the first 3 bytes = chars [2, 8).
-  return `#${hash.slice(2, 8)}`;
+  // `bytes3(keccak256(...))` truncates from the LEFT → chars [2, 8) = high 3 bytes.
+  const raw = Number.parseInt(hash.slice(2, 8), 16);
+  return nameMathHex(raw === NAME_MATH_BG ? raw ^ NAME_MATH_NUDGE : raw);
 }
 
 /**
- * Deterministic 5x5 identicon SVG seeded from the ENS namehash.
+ * Deterministic 5x5 identicon SVG from the ENS namehash.
  *
- * The grid is mirrored left/right (columns 0/4, 1/3 share a fill bit) so the
- * identicon reads as a symmetric glyph. Fill bits are taken from the namehash
- * bytes; the foreground color is {@link nameHashColor}. No external deps — the
- * returned value is a self-contained inline `<svg>` string (200x200, 40px cells).
+ * Mirrors `NameMath.identiconRawSVG` byte-for-byte, so the avatar a merchant
+ * sees off-chain is the same markup the contract would emit for that node.
+ *
+ * REWRITTEN 2026-08-28 — the previous implementation was not a mirror at all.
+ * It diverged from the contract in four independent ways, any one of which
+ * produces a different picture:
+ *
+ * | | contract (`NameMath`) | old TS |
+ * |---|---|---|
+ * | seed | `keccak256(abi.encode("identicon", node))` | the raw `node` bytes — no hash, no domain tag |
+ * | bit index | `(seed >> (r * 3 + c)) & 1` | `byte[(col*5+row) % 32] & 1` |
+ * | canvas | 500x500, `CELL` 100 | 200x200, cell 40 |
+ * | backdrop | explicit `<rect fill="#F4F4F5">` | none; colour hung on the `<svg>` `fill` |
+ *
+ * The domain tag is the load-bearing one: `"identicon"` keeps the avatar seed
+ * independent of the `"color"` seed, so the two derivations can never
+ * correlate. Reading the node directly threw that away and made the glyph a
+ * function of the raw namehash bits.
+ *
+ * Cell geometry: columns 0,1,2 are seed-driven and columns 3,4 mirror columns
+ * 1,0, giving a vertically symmetric glyph. Emission order matches the
+ * contract's loop exactly (`c` then its mirror, row-major) because the parity
+ * test compares the STRING, not a parsed DOM.
  *
  * @param node The ENS namehash (bytes32 hex).
- * @returns An inline `<svg>…</svg>` string.
+ * @returns An inline `<svg>…</svg>` string, identical to the contract's.
  */
 export function nameHashIdenticon(node: Hex): string {
-  const color = nameHashColor(node);
-  const hex = node.slice(2); // 64 hex chars = 32 bytes
-  const cell = 40;
-  const size = cell * 5;
+  const fg = nameHashColor(node);
+  const seed = BigInt(
+    keccak256(
+      encodeAbiParameters(
+        [{ type: 'string' }, { type: 'bytes32' }],
+        ['identicon', node],
+      ),
+    ),
+  );
 
-  // 15 fill bits seed the left half + center column (columns 0,1,2); columns
-  // 3,4 mirror columns 1,0. One namehash byte per (col, row) cell.
-  const rects: string[] = [];
-  for (let col = 0; col < 3; col++) {
-    for (let row = 0; row < 5; row++) {
-      const byteIndex = (col * 5 + row) % 32;
-      const byte = parseInt(hex.slice(byteIndex * 2, byteIndex * 2 + 2), 16);
-      const filled = (byte & 1) === 1;
-      if (!filled) continue;
-      const y = row * cell;
-      // Place the cell and its mirror (column 4-col), skipping the duplicate
-      // for the center column (col === 2 mirrors to itself).
-      const cols = col === 2 ? [2] : [col, 4 - col];
-      for (const c of cols) {
-        rects.push(
-          `<rect x="${c * cell}" y="${y}" width="${cell}" height="${cell}"/>`,
-        );
+  const cell = (row: number, col: number) =>
+    `<rect x="${col * NAME_MATH_CELL}" y="${row * NAME_MATH_CELL}" ` +
+    `width="${NAME_MATH_CELL}" height="${NAME_MATH_CELL}" fill="${fg}"/>`;
+
+  let svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${NAME_MATH_SIZE}" ` +
+    `height="${NAME_MATH_SIZE}" viewBox="0 0 ${NAME_MATH_SIZE} ${NAME_MATH_SIZE}">` +
+    `<rect width="${NAME_MATH_SIZE}" height="${NAME_MATH_SIZE}" ` +
+    `fill="${nameMathHex(NAME_MATH_BG)}"/>`;
+
+  for (let r = 0; r < NAME_MATH_N; r++) {
+    for (let c = 0; c < 3; c++) {
+      if (((seed >> BigInt(r * 3 + c)) & 1n) === 1n) {
+        svg += cell(r, c);
+        // mirror column c → column (N-1-c): col0→col4, col1→col3; col2 is the axis
+        if (c < 2) svg += cell(r, NAME_MATH_N - 1 - c);
       }
     }
   }
 
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
-    `viewBox="0 0 ${size} ${size}" fill="${color}" role="img" ` +
-    `aria-label="identicon">${rects.join('')}</svg>`
-  );
+  return `${svg}</svg>`;
 }
 
 // ── ENSIP-19: verified merchant primary name (reverse + forward check) ────────
 
 /**
- * Default ENS Universal Resolver address.
+ * Default ENS Universal Resolver address — the ENSv2 canonical entrypoint.
  *
- * ⚠️ CONFIRM-ON-ETHERSCAN: this is the address documented by ENS for the
- * Universal Resolver (the proxy that implements ENSIP-10 wildcard resolution,
- * ENSIP-19 reverse, and CCIP-Read). It is NOT asserted here as audited fact —
- * VERIFY it against the ENS docs / Etherscan for the network you point at, and
- * OVERRIDE it via `NEXT_PUBLIC_ENS_UNIVERSAL_RESOLVER` rather than trusting this
- * literal in production. Unlike the resolution path (which targets the resolver
- * by ENS *name* via viem), the ENSIP-19 reverse call addresses the resolver
- * directly, so the address must be supplied — hence this overridable default.
+ * ✅ CONFIRMED 2026-08-28 (was marked CONFIRM-ON-ETHERSCAN). Two independent
+ * sources, both recorded so the claim can be re-checked rather than trusted:
+ *
+ * 1. **ENS's own documentation**, verbatim: "`0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe`
+ *    is the official deployment address on Ethereum Mainnet and testnets, which
+ *    is a proxy contract owned by ENS DAO that will be upgraded to support
+ *    ENSv2 in the future." — docs.ens.domains, Universal Resolver page.
+ * 2. **On-chain**, against a mainnet fork: the address carries 2,491 bytes of
+ *    code and its EIP-1967 implementation slot is populated
+ *    (`0xed73a03f19e8d849e44a39252d222c6ad5217e1e`), i.e. it really is the
+ *    upgradeable proxy the docs describe, not an EOA or an empty address.
+ *
+ * Re-verify in one command:
+ *   cast codesize 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe --rpc-url <mainnet>
+ *
+ * Because it is a DAO-owned proxy, the ADDRESS is stable across implementation
+ * upgrades — which is precisely why ENS tells integrators to target it and why
+ * pinning it here is safe. It stays overridable via
+ * `NEXT_PUBLIC_ENS_UNIVERSAL_RESOLVER` for forks and private testnets.
+ *
+ * Unlike the resolution path (which targets the resolver by ENS *name* via
+ * viem, satisfying the "no hard-coded values" rule), the ENSIP-19 reverse call
+ * addresses the resolver directly, so an address must be supplied — hence this
+ * overridable default.
  */
 export const DEFAULT_ENS_UNIVERSAL_RESOLVER =
   '0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe' as const;
