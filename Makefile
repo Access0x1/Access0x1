@@ -133,7 +133,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
 help: ## Show every command
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
-# ── Setup ─────────────────────────────────────────────────────────────────────
+# ── Setup ──────────────────────────────────────────────────────────────────────────────
 install: ## Install all deps: forge submodules + npm (@chainlink) + web + sdk
 	git submodule update --init --recursive
 	npm install
@@ -198,14 +198,14 @@ fmt-check: ## Check formatting without writing (CI). Falls back to a diff-scoped
 clean: ## Remove build artifacts (forge clean)
 	forge clean
 
-# ── The gate (run before any commit) ────────────────────────────────────────────
+# ── The gate (run before any commit) ─────────────────────────────────────────
 gate: build test fmt-check web-gate sync-check ## FULL GREEN GATE: contracts build+test+fmt AND web typecheck+test+generated-artifact drift
 	@echo "==> GATE GREEN"
 
-# ── Security / audit ─────────────────────────────────────────────────────────────
+# ── Security / audit ─────────────────────────────────────────────────
 aderyn: ## Static analysis (aderyn — auto-skips on the foundry-zksync fork, which aderyn 0.1.9 can't parse)
 	@if forge --version 2>/dev/null | grep -qi zksync; then \
-		echo "==> aderyn SKIPPED: the active forge is the foundry-zksync fork ('$$(forge --version | head -1)')."; \
+		echo "==> aderyn SKIPPED: the active forge is the foundry-zksync fork ('$$(forge --version | head -1)')”; \
 		echo "    aderyn 0.1.9 panics on it — both the non-semver version string and the fork's 'osaka'"; \
 		echo "    evm default (its bundled cyfrin-foundry-config predates osaka). For a FRESH aderyn report,"; \
 		echo "    switch to vanilla foundry (foundryup) and re-run. src/ is unchanged since the committed"; \
@@ -270,7 +270,7 @@ audit: aderyn slither coverage sizes ## Full audit pass — then see audit/REPOR
 	@echo "==> core audit pass done. Optional deeper passes: make halmos | make mutation | make analyze"
 	@echo "==> read audit/REPORT.md + audit/FINDINGS.md + audit/CHECKLIST.md"
 
-# ── Local chain ───────────────────────────────────────────────────────────────────
+# ── Local chain ──────────────────────────────────────────────────────────
 anvil: ## Run a local anvil node
 	anvil
 
@@ -418,7 +418,7 @@ deploy-usd-mock-feed: ## Deploy a $1 USDC/USD mock feed to a chain that lacks on
 	forge script script/DeployUsdMockFeed.s.sol --rpc-url $(RPC) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-# ── ARC PRICING ─────────────────────────────────────────────────────────────────────────────
+# ── ARC PRICING ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 # Arc has real Circle USDC and NO Chainlink feed (registry checked 2026-08-23: zero entries for
 # 5042002 in Data Feeds or Data Streams). Two paths fill the router's price slot; the full runbook,
 # the fail-closed argument, and the cadence numbers live in docs/ARC-PRICING.md.
@@ -520,7 +520,7 @@ zksync-build: ## forge build --zksync (zksolc) — zkEVM build check; see docs/Z
 		echo "then re-run 'make zksync-build'. See docs/ZKSYNC-TESTING.md."; \
 	fi
 
-# ── Web app (Next.js) ─────────────────────────────────────────────────────────────
+# ── Web app (Next.js) ─────────────────────────────────────────────────────
 web-install: ## Install the web app deps
 	cd web && npm install
 
@@ -542,7 +542,7 @@ web-gate: ## Web gate: embed check + typecheck + unit tests
 sdk-build: ## Typecheck the @access0x1/react SDK
 	cd packages/react && npx tsc --noEmit
 
-# ── Vyper conformance demonstrator (ISOLATED under vyper/; NOT in the Foundry gate) ──────────────
+# ── Vyper conformance demonstrator (ISOLATED under vyper/; NOT in the Foundry gate) ──────────────────
 # `src` in foundry.toml is "src", so forge never sees vyper/*.vy. These targets no-op with a clear
 # message when the snake toolchain (vyper + mox) is absent, so the repo still builds without it.
 # Toolchain: `uv tool install moccasin` + `uv tool install vyper` (Python 3.13). See vyper/README.md.
@@ -560,14 +560,14 @@ vyper-test: ## Run the Vyper==Solidity byte-for-byte conformance test; no-op if 
 		echo "mox (moccasin) not installed — skipping (see vyper/README.md: uv tool install moccasin)"; \
 	fi
 
-# ── Chainlink CRE (Notified-Settlement workflow; deploy is Early-Access) ──────────
+# ── Chainlink CRE (Notified-Settlement workflow; deploy is Early-Access) ───────────────
 cre-build: ## Build the CRE workflow (needs the CRE CLI)
 	cd cre && cre workflow build || echo "CRE CLI not installed — see docs/chainlink-cre.md"
 
 cre-sim: ## Simulate the CRE workflow (the demoable artifact; deploy is Early-Access)
 	cd cre && cre workflow simulate || echo "CRE CLI not installed — see docs/chainlink-cre.md"
 
-# ── Everything ──────────────────────────────────────────────────────────────────
+# ── Everything ─────────────────────────────────────────────────
 all: install gate ## Install everything, then run the full green gate
 
 # ── Upgrade EVERY live mirror module on a chain to a fresh impl — ONE broadcast, one ──
@@ -802,9 +802,9 @@ deploy-tempo: ## Deploy to Tempo Moderato (chainId 42431; TIP-20 stablecoin fees
 	@forge script script/DeployAll.s.sol --rpc-url $(TEMPO_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(TEMPO_VERIFIER_URL)) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-# ══════════════════════════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 #  ⛔ MAINNET — AUDIT-GATED, REAL FUNDS. DO NOT RUN UNTIL A THIRD-PARTY AUDIT IS COMPLETE.            ⛔
-# ══════════════════════════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 #  This repo is TESTNET-ONLY today and UNAUDITED. There is NO mainnet deployment and NO mainnet
 #  claim. The targets below exist ONLY so each chain has a mainnet PROFILE alongside its testnet one
 #  (config/readiness). They move REAL money on a LIVE chain, with no undo. The operator owns the
@@ -817,7 +817,7 @@ deploy-tempo: ## Deploy to Tempo Moderato (chainId 42431; TIP-20 stablecoin fees
 #
 #  To actually deploy: set MAINNET_CONFIRM=yes on the command line, e.g.
 #    make deploy-base-mainnet MAINNET_CONFIRM=yes
-# ══════════════════════════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 # The real-funds confirm gate. Every mainnet recipe runs this FIRST; it aborts unless
 # MAINNET_CONFIRM=yes is passed — fat-finger protection for a live-chain broadcast, not an audit claim.
@@ -960,14 +960,14 @@ deploy-arc-mainnet: ## ⛔ AUDIT-GATED + NOT LAUNCHED: deploy to Arc mainnet (se
 	@forge script script/DeployAll.s.sol --rpc-url $(ARC_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ARC_MAINNET_VERIFIER_URL)) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 # UUPS UPGRADES — storage-safe, keystore-signed, ONE module per chain. Full runbook: docs/UPGRADING.md.
 # Parameterized by MODULE (e.g. MODULE=Access0x1Escrow). PROXY is resolved from the mirror manifest via
 # script/proxy-of.mjs; override with PROXY=0x... (REQUIRED for ChainRegistry — it is per-chain-distinct
 # and NOT in the mirror manifest). Signing is keystore-only, identical to the deploy targets.
 # The impl is a plain `new` deploy (a top-level CREATE), so the inline verify clause auto-verifies it.
 # Every broadcast target runs the MODULE-scoped storage-layout guard first (fail-closed on a brick risk).
-# ═══════════════════════════════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 # Resolve the proxy: honor an explicit PROXY, else look it up from the mirror manifest by MODULE.
 _resolve_proxy = P="$${PROXY:-$$(node script/proxy-of.mjs $(MODULE))}"; \
@@ -1047,10 +1047,10 @@ upgrade-zksync-sepolia: upgrade-guard ## Upgrade MODULE on zkSync Era Sepolia (3
 show-contracts: ## Where is the actual code? Every contract's PROXY vs IMPLEMENTATION + explorer links (add --verify to read the live EIP-1967 slot)
 	@node scripts/show-contracts.mjs $(ARGS)
 
-# ── RPC endpoints + the hook live-fire (Makefile is the interface; scripts/ implements) ──────────
+# ── RPC endpoints + the hook live-fire (Makefile is the interface; scripts/ implements) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-rpc-setup: ## Interactively set per-chain RPC URLs in .env (hidden input, chain-id validated, skip = keep)
-	@bash scripts/set-rpc-endpoints.sh
+rpc-setup: ## Interactively set per-chain RPC URLs in .env (hidden input, chain-id validated, skip = keep). NETWORK=<name substring> to prompt for just one, e.g. make rpc-setup NETWORK="Arc Mainnet"
+	@bash scripts/set-rpc-endpoints.sh "$(NETWORK)"
 
 livefire-sepolia: ## LIVE-FIRE the SwapReceiptHook on Ethereum Sepolia: fresh pool + 1 attributed swap (~0.002 ETH)
 	@forge script script/LiveFireSwapReceipt.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast --slow -vv
