@@ -61,6 +61,7 @@ int_types = "long"
 # Resolved from env at runtime — NEVER hardcode an RPC/address (security.md).
 [rpc_endpoints]
 arc_testnet = "${ARC_TESTNET_RPC_URL}"
+arc_mainnet = "${ARC_MAINNET_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"
 base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
 zksync_sepolia = "${ZKSYNC_SEPOLIA_RPC_URL}"
