@@ -205,7 +205,7 @@ gate: build test fmt-check web-gate sync-check ## FULL GREEN GATE: contracts bui
 # ── Security / audit ─────────────────────────────────────────────────
 aderyn: ## Static analysis (aderyn — auto-skips on the foundry-zksync fork, which aderyn 0.1.9 can't parse)
 	@if forge --version 2>/dev/null | grep -qi zksync; then \
-		echo "==> aderyn SKIPPED: the active forge is the foundry-zksync fork ('$$(forge --version | head -1)')”; \
+		echo "==> aderyn SKIPPED: the active forge is the foundry-zksync fork ('$$(forge --version | head -1)')"; \
 		echo "    aderyn 0.1.9 panics on it — both the non-semver version string and the fork's 'osaka'"; \
 		echo "    evm default (its bundled cyfrin-foundry-config predates osaka). For a FRESH aderyn report,"; \
 		echo "    switch to vanilla foundry (foundryup) and re-run. src/ is unchanged since the committed"; \
