@@ -1050,7 +1050,7 @@ show-contracts: ## Where is the actual code? Every contract's PROXY vs IMPLEMENT
 # ── RPC endpoints + the hook live-fire (Makefile is the interface; scripts/ implements) ──────────
 
 rpc-setup: ## Interactively set per-chain RPC URLs in .env (hidden input, chain-id validated, skip = keep)
-	@bash scripts/set-rpc-endpoints.sh
+	@bash scripts/set-rpc-endpoints.sh "$(NETWORK)"
 
 livefire-sepolia: ## LIVE-FIRE the SwapReceiptHook on Ethereum Sepolia: fresh pool + 1 attributed swap (~0.002 ETH)
 	@forge script script/LiveFireSwapReceipt.s.sol --rpc-url $(SEPOLIA_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast --slow -vv

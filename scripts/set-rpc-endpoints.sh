@@ -34,6 +34,7 @@ ZKsync Sepolia|ZKSYNC_SEPOLIA_RPC_URL|300
 Unichain Sepolia|UNICHAIN_SEPOLIA_RPC_URL|1301
 Celo Sepolia|CELO_SEPOLIA_RPC_URL|11142220
 Arc Testnet|ARC_TESTNET_RPC_URL|5042002
+Arc Mainnet|ARC_MAINNET_RPC_URL|5042
 Avalanche Fuji|AVALANCHE_FUJI_RPC_URL|43113
 Hoodi|HOODI_RPC_URL|560048
 Tempo Testnet|TEMPO_RPC_URL|42431
@@ -85,9 +86,21 @@ open(path, "w").write("\n".join(out) + "\n")
 PY
 }
 
-STORED=0; SKIPPED=0; FAILED=0
+# Optional filter: `set-rpc-endpoints.sh "Arc Mainnet"` (or `make rpc-setup NETWORK="Arc Mainnet"`)
+# prompts only for rows whose NAME contains this text, case-insensitive — everything else is left
+# alone, not even shown. No filter (the default) walks the full list, as before.
+FILTER="${1:-}"
+
+STORED=0; SKIPPED=0; FAILED=0; MATCHED=0
 while IFS='|' read -r NAME VAR EXPECT; do
   [ -z "${NAME:-}" ] && continue
+  if [ -n "$FILTER" ]; then
+    case "$(printf '%s' "$NAME" | tr '[:upper:]' '[:lower:]')" in
+      *"$(printf '%s' "$FILTER" | tr '[:upper:]' '[:lower:]')"*) ;;
+      *) continue ;;
+    esac
+  fi
+  MATCHED=$((MATCHED+1))
   printf '%-22s (chain %-9s → %s)\n' "$NAME" "$EXPECT" "$VAR"
   read -rs -p "  endpoint (hidden): " URL </dev/tty; echo
   if [ -z "$URL" ]; then echo "  ── skipped (current value kept)"; SKIPPED=$((SKIPPED+1)); continue; fi
@@ -103,6 +116,12 @@ while IFS='|' read -r NAME VAR EXPECT; do
 done <<EOF
 $NETWORKS
 EOF
+
+if [ -n "$FILTER" ] && [ "$MATCHED" -eq 0 ]; then
+  echo "no network name contains \"$FILTER\" — nothing prompted, .env untouched. Known names:"
+  printf '%s\n' "$NETWORKS" | awk -F'|' 'NF{print "  " $1}'
+  exit 1
+fi
 
 chmod 600 "$ENVF"
 echo
