@@ -112,8 +112,8 @@ contract LiveFireSwapReceipt is Script {
             .modifyLiquidity(
                 key,
                 ModifyLiquidityParams({
-                tickLower: -600, tickUpper: 600, liquidityDelta: 1e18, salt: 0
-            }),
+                    tickLower: -600, tickUpper: 600, liquidityDelta: 1e18, salt: 0
+                }),
                 ""
             );
 
@@ -124,10 +124,10 @@ contract LiveFireSwapReceipt is Script {
             .swap(
                 key,
                 SwapParams({
-                zeroForOne: true,
-                amountSpecified: -1_000_000, // exact-in 1.0 (6-dec mock)
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-            }),
+                    zeroForOne: true,
+                    amountSpecified: -1_000_000, // exact-in 1.0 (6-dec mock)
+                    sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+                }),
                 TestSettings({ takeClaims: false, settleUsingBurn: false }),
                 abi.encode(merchantId, orderRef)
             );

@@ -82,12 +82,12 @@ contract MockCcipMesh {
         ICcipReceiver(receiver)
             .ccipReceive(
                 ICcipReceiver.Any2EVMMessage({
-                messageId: messageId,
-                sourceChainSelector: srcSelector,
-                sender: abi.encode(sender),
-                data: data,
-                destTokenAmounts: new ICcipReceiver.EVMTokenAmount[](0)
-            })
+                    messageId: messageId,
+                    sourceChainSelector: srcSelector,
+                    sender: abi.encode(sender),
+                    data: data,
+                    destTokenAmounts: new ICcipReceiver.EVMTokenAmount[](0)
+                })
             );
     }
 }
