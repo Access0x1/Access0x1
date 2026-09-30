@@ -122,7 +122,7 @@ RESUME_FLAG := $(if $(strip $(RESUME)),--resume,)
         deploy-ethereum-mainnet deploy-base-mainnet deploy-arbitrum-mainnet deploy-optimism-mainnet deploy-polygon-mainnet deploy-avalanche-mainnet deploy-bnb-mainnet \
         deploy-scroll-mainnet deploy-linea-mainnet deploy-mantle-mainnet deploy-blast-mainnet deploy-unichain-mainnet deploy-zksync-mainnet \
         deploy-zora-mainnet deploy-filecoin-mainnet deploy-gnosis-mainnet deploy-apechain-mainnet deploy-worldchain-mainnet deploy-zircuit-mainnet deploy-citrea-mainnet deploy-flow-evm-mainnet deploy-celo-mainnet deploy-arc-mainnet \
-        web-install web-dev web-build web-typecheck web-test web-gate sdk-build \
+        web-install web-dev web-build web-typecheck web-test web-gate sdk-build deploy-web-box \
         vyper-build vyper-test \
         cre-build cre-sim zksync-build \
         deploy-arc-operator-feed wire-arc-operator-feed refresh-operator-feed-dry refresh-operator-feed-arc \
@@ -325,6 +325,9 @@ prune-branches-confirm: _prune-fresh ## DELETE the git-proven-merged remote bran
 
 deploy-web: ## Build + ship the web app to Cloud Run (Dynamic env id auto-derived from web/.env.local)
 	@bash scripts/deploy-web.sh
+
+deploy-web-box: ## Build + ship the web app to the EC2 box behind access0x1.click (canary, native sharp guard, rollback)
+	@bash scripts/deploy-web-box.sh
 
 deploy-inventory: ## What is deployed, what is dead, and is anything deployed twice?
 	@node scripts/deploy-inventory.mjs
