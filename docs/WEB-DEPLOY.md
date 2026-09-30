@@ -106,6 +106,34 @@ npm run build    # the real production build must exit 0
 `gate` is the same fast check the merge gate runs; `vitest` here includes
 `__tests__/security-headers.test.ts` (§4). A red gate is a no-ship.
 
+### 1.5 The scripted deploy to the EC2 box: `make deploy-web-box`
+
+access0x1.click is served from an EC2 box (Caddy -> `127.0.0.1:3014`, systemd unit
+`access0x1`, releases in `/opt/access0x1/releases/<sha>`, `current` symlink, server
+env in `/opt/access0x1/shared/env`). `scripts/deploy-web-box.sh` is the one path:
+
+```sh
+BOX_INSTANCE_ID=i-... BOX_ARTIFACT_BUCKET=<bucket> make deploy-web-box
+DRY_RUN=1 make deploy-web-box      # build + stage + pack only; works from a branch
+```
+
+It builds a commit that is on `origin/main` (clean tree, `npm ci`), strips every
+`.env*` from the release, swaps sharp's image engine for the box's
+(`scripts/box/retarget-sharp.mjs`), and over SSM: unpacks the release, runs
+`scripts/box/check-sharp.cjs` as the unit's user (native engine + a WebP encode,
+or stop), boots a canary on `:3105` with the live env file (health must name the
+commit, `ok`, `store: postgres`), flips the symlink and `BUILD_ID`, and requires
+health plus a WebP from `/_next/image` on the running process, or restores the
+prior release. Then it prunes to the newest 3 (+ live + rollback target) and
+checks the public `/api/health`. The steps it sends are pure functions in
+`scripts/box/ssm-commands.mjs`, pinned by `web/__tests__/deploy-web-box.test.ts`.
+
+**Why the engine swap.** `output: standalone` copies sharp's native binary from
+the BUILD machine. A release built on an arm64 Mac carries
+`@img/sharp-darwin-arm64`, which a Linux x86_64 server cannot load: the image
+optimizer then serves full-size originals, or 500s, and logs nothing. The manual
+copy in §1.3 has this problem whenever the build and run machines differ.
+
 ---
 
 ## 2. The booth-install gate (before `next build`)
@@ -311,6 +339,10 @@ restore. Keep the last known-good artifact.
    ```sh
    PORT=3000 HOSTNAME=0.0.0.0 node <prev-release>/.next/standalone/server.js
    ```
+   On the box: `ln -sfn /opt/access0x1/releases/<prev-sha> /opt/access0x1/current`,
+   set `BUILD_ID=<prev-sha>` in `/etc/systemd/system/access0x1.service.d/40-build-id.conf`,
+   `systemctl daemon-reload && systemctl restart access0x1` (the deploy script
+   does exactly this by itself when its post-flip checks fail).
 3. **Re-verify** — run the §5 liveness + §4.2 header smoke against the rolled-back
    host before declaring recovery.
 4. **If the cause is config, not code** — a missing/rotated secret (§3) — fix the
