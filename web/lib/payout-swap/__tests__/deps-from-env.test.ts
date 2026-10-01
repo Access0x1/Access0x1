@@ -6,9 +6,9 @@
  * chain resolves to a "not configured" no-op and a non-capable chain to "chain-not-capable" —
  * both `swapped: false`, never a throw, never a 500 (law #5).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { buildPayoutSwapDeps } from '../deps-from-env.js'
+import { buildPayoutSwapDeps, UNISWAP_UNIVERSAL_ROUTER_VERSION } from '../deps-from-env.js'
 import { POST } from '../../../app/api/payout-swap/route.js'
 
 const ENV_KEYS = [
@@ -82,6 +82,51 @@ describe('buildPayoutSwapDeps — env-gated, fail-soft per rail', () => {
     process.env.BLINK_RPC_URL = 'https://base.blinklabs.xyz/v1/key'
     deps = buildPayoutSwapDeps()
     expect(deps.uniswapClassic?.submitBlink).toBeDefined() // recovery on
+  })
+})
+
+describe('buildPayoutSwapDeps — the Universal Router version each rail sends', () => {
+  /** Capture the headers the keyed fetch actually puts on the wire (no network). */
+  function captureHeaders(): { sent: () => Record<string, string> } {
+    const spy = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}'))
+    vi.stubGlobal('fetch', spy)
+    return { sent: () => (spy.mock.calls[0]?.[1]?.headers ?? {}) as Record<string, string> }
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('pins Universal Router 2.1.2 on the Trading API rail (2.0 and 2.1.1 error from 2026-10-21)', async () => {
+    process.env.UNISWAP_TRADING_API_URL = 'https://trade.example/v1'
+    process.env.UNISWAP_TRADING_API_KEY = 'test-key'
+    const { sent } = captureHeaders()
+
+    const { uniswapTradingApi } = buildPayoutSwapDeps()
+    await uniswapTradingApi!.fetchImpl('https://trade.example/v1/quote', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    })
+
+    expect(UNISWAP_UNIVERSAL_ROUTER_VERSION).toBe('2.1.2')
+    expect(sent()['x-universal-router-version']).toBe('2.1.2')
+    // The pin rides ALONGSIDE the caller's headers and the key — it replaces neither.
+    expect(sent()['content-type']).toBe('application/json')
+    expect(sent()['x-api-key']).toBe('test-key')
+  })
+
+  it('sends NO router-version header on the zkSync classic rail (zkSync has no 2.1.2)', async () => {
+    process.env.UNISWAP_TRADING_API_URL = 'https://trade.example/v1'
+    process.env.UNISWAP_TRADING_API_KEY = 'test-key'
+    process.env.ZKSYNC_SEPOLIA_RPC_URL = 'https://zk.example/rpc'
+    const { sent } = captureHeaders()
+
+    const { uniswapClassic } = buildPayoutSwapDeps()
+    await uniswapClassic!.fetchImpl('https://trade.example/v1/quote', { method: 'POST' })
+
+    // Absent, not blank: the API then picks the one version zkSync has.
+    expect('x-universal-router-version' in sent()).toBe(false)
+    expect(sent()['x-api-key']).toBe('test-key')
   })
 })
 

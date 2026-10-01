@@ -143,9 +143,16 @@ at [`web/lib/payout-swap/rails/uniswapTradingApi.ts`](../web/lib/payout-swap/rai
 - **A UniswapX slippage floor must read `outputs[0].endAmount`, never `startAmount`** — the decay start
   is not the guarantee.
 - **The Cloudflare front returns error 1010 to some non-browser client signatures.** A Python `urllib`
-  caller is blocked; `curl` and an explicit product User-Agent pass. `x-universal-router-version: 2.0`
-  rides every call including `/quote`. Both are encoded in the keyed fetch at
+  caller is blocked; `curl` and an explicit product User-Agent pass. `x-universal-router-version` is
+  optional, and we pin it to `2.1.2` on every Trading API rail call including `/quote` (2.0 and 2.1.1
+  are sunset on 2026-10-21; the zkSync classic rail sends no version header, because zkSync has no
+  2.1.2). Both are encoded in the keyed fetch at
   [`web/lib/payout-swap/deps-from-env.ts`](../web/lib/payout-swap/deps-from-env.ts).
+- **The router version also decides the Permit2 spender.** Under `2.0` the returned
+  `permitTransaction` approved the 2.0 router; under `2.1.2` it approved the 2.1.2 router. A wallet
+  that granted the old router needs one fresh grant after the move, which the sunset notice does not
+  mention. We never decode the returned calldata, so the new per-hop `minHopPriceX36` array needed no
+  parser change here.
 - **On the v4 side: the flag mine is ~16,384 expected keccaks for one AFTER_SWAP address**, and a
   mirror of the internal `Hooks.ALL_HOOK_MASK` can drift silently against v4-core. Our deploy asserts
   `uint160(hook) & ALL_HOOK_MASK == hook.REQUIRED_HOOK_FLAGS()` **after** broadcast so a drift fails the
