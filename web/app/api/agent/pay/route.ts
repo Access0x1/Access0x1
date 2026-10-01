@@ -57,6 +57,7 @@ import {
   type PrivateRailRequest,
 } from "./privateRail.js";
 import {
+  buildAnyTokenQuoteDeps,
   quoteAnyToken,
   toAnyTokenQuoteJson,
   type AnyTokenQuoteJson,
@@ -221,7 +222,7 @@ function validate(body: unknown): PayRequest | string {
  * `null` so a quote can never block or alter the USDC settlement (law #5).
  *
  * The settlement chain + its USDC (the quote's `tokenOut`) come from `AGENT_QUOTE_CHAIN_ID`
- * and `AGENT_QUOTE_USDC`; the Trading-API transport is env-gated inside {@link quoteAnyToken}.
+ * and `AGENT_QUOTE_USDC`; the Trading-API transport is env-gated by {@link buildAnyTokenQuoteDeps}.
  *
  * @param v        The validated pay request (only `quoteToken` is read here).
  * @param priceUsd The per-call USD value the payment settles — the quote's target amount.
@@ -238,12 +239,21 @@ async function maybeAnyTokenQuote(
     const tokenOut = (process.env.AGENT_QUOTE_USDC ?? "").trim();
     // Missing settlement-chain config → skip the quote (no crash, no blocked settlement).
     if (!Number.isInteger(chainId) || chainId <= 0 || tokenOut.length === 0) return null;
-    const quote = await quoteAnyToken({
-      chainId,
-      tokenIn: v.quoteToken,
-      tokenOut,
-      usdAmount: priceUsd,
-    });
+    // Dormant transport → stop here, before the wallet is touched for a quote nobody can serve.
+    const deps = buildAnyTokenQuoteDeps();
+    if (!deps) return null;
+    const quote = await quoteAnyToken(
+      {
+        chainId,
+        tokenIn: v.quoteToken,
+        tokenOut,
+        usdAmount: priceUsd,
+        // The Trading API requires a swapper. The agent is the payer, so it is the agent's own
+        // address — the same one the settlement below reports as `agent`.
+        swapper: await agentAddress(),
+      },
+      deps,
+    );
     return quote ? toAnyTokenQuoteJson(quote) : null;
   } catch {
     // Fail-soft: ANY quote error — malformed token, HTTP failure, dormant — is swallowed so

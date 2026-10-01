@@ -25,8 +25,10 @@ import {
   type AgentAccount,
 } from '../../../../lib/agent/dynamicAgentWallet.js'
 
+// A VALID 0x address: the quote sends the agent's own address as `swapper`, and the Trading API
+// requires that field, so a placeholder that is not an address would be refused before the call.
 const ACCT: AgentAccount = {
-  accountAddress: '0xAGENT0000000000000000000000000000000abc',
+  accountAddress: '0xa0e0000000000000000000000000000000000abc',
   publicKeyHex: '0xpub',
   walletId: 'wallet-1',
 }
@@ -44,6 +46,14 @@ function installWalletMock(): void {
     signMessage: vi.fn().mockResolvedValue('0xsig'),
   }
   setDynamicClientFactory((() => client) as never)
+}
+
+/**
+ * A Trading API `/quote` response in the live-verified CLASSIC shape (2026-10-01): the cost sits
+ * at `quote.input.amount`, the id at `quote.quoteId`. There is no top-level `amountIn`.
+ */
+function quoteBody(amountIn: string, quoteId = 'q'): unknown {
+  return { routing: 'CLASSIC', quote: { input: { amount: amountIn }, quoteId } }
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -100,7 +110,7 @@ describe('POST /api/agent/pay — optional any-token quote', () => {
   })
 
   it('dormant (env unset) + quoteToken present → 200 with NO quote field (unchanged)', async () => {
-    const spy = vi.fn(async () => jsonResponse({ amountIn: '1', quoteId: 'q' }))
+    const spy = vi.fn(async () => jsonResponse(quoteBody('1')))
     vi.stubGlobal('fetch', spy)
     const res = await POST(req({ url: ALLOWED, quoteToken: TOKEN_IN }))
     expect(res.status).toBe(200)
@@ -114,7 +124,7 @@ describe('POST /api/agent/pay — optional any-token quote', () => {
 
   it('seam live but NO quoteToken → 200 with no quote field (quote is opt-in per request)', async () => {
     enableQuoteEnv()
-    const spy = vi.fn(async () => jsonResponse({ amountIn: '1', quoteId: 'q' }))
+    const spy = vi.fn(async () => jsonResponse(quoteBody('1')))
     vi.stubGlobal('fetch', spy)
     const res = await POST(req({ url: ALLOWED }))
     expect(res.status).toBe(200)
@@ -125,9 +135,9 @@ describe('POST /api/agent/pay — optional any-token quote', () => {
 
   it('seam live + quoteToken → 200 result + a correctly-shaped quote', async () => {
     enableQuoteEnv()
-    const spy = vi.fn(async (url: string) => {
+    const spy = vi.fn(async (url: string, _init?: RequestInit) => {
       expect(url).toBe('https://trade.example/v1/quote')
-      return jsonResponse({ amountIn: '250000000000000000', quoteId: 'q-abc', routing: 'UniswapX', deadline: 42 })
+      return jsonResponse(quoteBody('250000000000000000', 'q-abc'))
     })
     vi.stubGlobal('fetch', spy)
     const res = await POST(req({ url: ALLOWED, quoteToken: TOKEN_IN, pricePerCallUsd: 0.001 }))
@@ -141,11 +151,17 @@ describe('POST /api/agent/pay — optional any-token quote', () => {
     expect(body.quote.amountOut).toBe('1000') // $0.001 → 1000 USDC base units
     expect(body.quote.quoteId).toBe('q-abc')
     expect(spy).toHaveBeenCalledOnce()
+    // The request is the canonical shape, with the AGENT as the swapper (the API requires one).
+    const sent = JSON.parse(spy.mock.calls[0]![1]!.body as string)
+    expect(sent.swapper).toBe(ACCT.accountAddress)
+    expect(sent.tokenInChainId).toBe('84532')
+    expect(sent.tokenOutChainId).toBe('84532')
+    expect('chainId' in sent).toBe(false)
   })
 
   it('seam live + quoteToken on a nano-loop → 200 results + quote', async () => {
     enableQuoteEnv()
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ amountIn: '9', quoteId: 'q' })))
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(quoteBody('9'))))
     const res = await POST(req({ url: ALLOWED, count: 3, pricePerCallUsd: 0.001, quoteToken: TOKEN_IN }))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -180,7 +196,7 @@ describe('POST /api/agent/pay — optional any-token quote', () => {
 
   it('malformed quoteToken (not an address) → settlement still 200, no quote (fail-soft)', async () => {
     enableQuoteEnv()
-    const spy = vi.fn(async () => jsonResponse({ amountIn: '1', quoteId: 'q' }))
+    const spy = vi.fn(async () => jsonResponse(quoteBody('1')))
     vi.stubGlobal('fetch', spy)
     const res = await POST(req({ url: ALLOWED, quoteToken: 'not-an-address' }))
     expect(res.status).toBe(200)
@@ -193,7 +209,7 @@ describe('POST /api/agent/pay — optional any-token quote', () => {
   it('seam live but AGENT_QUOTE_* config missing → no quote (settlement unaffected)', async () => {
     process.env.UNISWAP_TRADING_API_URL = 'https://trade.example/v1' // transport live…
     // …but no AGENT_QUOTE_CHAIN_ID / AGENT_QUOTE_USDC → the route skips the quote.
-    const spy = vi.fn(async () => jsonResponse({ amountIn: '1', quoteId: 'q' }))
+    const spy = vi.fn(async () => jsonResponse(quoteBody('1')))
     vi.stubGlobal('fetch', spy)
     const res = await POST(req({ url: ALLOWED, quoteToken: TOKEN_IN }))
     expect(res.status).toBe(200)
