@@ -113,11 +113,25 @@ the in-code `@warn` is now an `@verified`). Scoring my own request list:
    order payload, then poll `GET /orders` for status. The exact shape of the "filled" signal
    is still the part we'd like pinned in the reference.
 4. **Auth — ANSWERED, plus one gotcha worth documenting.** `x-api-key` confirmed, required on
-   `/quote` too, alongside `x-universal-router-version: 2.0` on every call. The gotcha: the
+   `/quote` too, alongside an `x-universal-router-version` header on every call. The gotcha: the
    API's Cloudflare front **rejects some non-browser client signatures with error 1010** —
    a Python `urllib` caller is blocked outright while `curl` and an explicit product
    User-Agent pass. Server-side integrators will hit this; one sentence in the docs would
    save each of them an hour.
+   **Updated 2026-10-01 — the router-version pin moved 2.0 → 2.1.2.** We sent `2.0` from
+   2026-07-25; Uniswap's changelog sunsets 2.0 and 2.1.1 on 2026-10-21, after which a request
+   pinning either gets an error. Probed live the same day on Ethereum Sepolia, same USDC→WETH
+   request, only the header changing: `2.1.2` → HTTP 200 with the transaction addressed to
+   `0x7E4f6c5e954Da5c61B3423D81E2277431Ac043f3` (the address the supported-chains page and the
+   SDK constants both list); no header → the same 2.1.2 router, so the header is **optional**,
+   not required as we first wrote; `2.0` → still HTTP 200 on the old
+   `0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b`; an unknown version → HTTP 400
+   `RequestValidationError: "x-universal-router-version" must be one of [2.0, 2.1.1, 2.1.2]`.
+   Two things the notice could say outright: the **Permit2 spender changes with the version**
+   (the `permitTransaction` approved the 2.0 router under `2.0` and the 2.1.2 router under
+   `2.1.2`), so a wallet that already granted the old router needs one fresh grant; and what
+   a zkSync caller should send after the sunset, given zkSync "runs 2.0 only" while pinning
+   2.0 becomes an error — we send no version header on that rail and take the default.
 5. **Fee semantics — RETIRED.** The canonical body has no integrator-fee field to zero out;
    my `customFeeBps: 0` assumption is gone from the rail. Zero-added-fee is simply the
    default — which is the right default.
