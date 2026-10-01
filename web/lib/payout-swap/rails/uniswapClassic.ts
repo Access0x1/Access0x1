@@ -11,12 +11,17 @@
  * Non-custodial: the merchant wallet signs; the injected {@link FetchLike} (Trading API) and
  * {@link SubmitRawTx} (RPC, optionally Blink) seams keep the rail unit-testable offline.
  *
+ * @warn NO CHAIN RESOLVES TO THIS RAIL TODAY. The Trading API accepts zkSync Era (324) but not
+ *   zkSync Sepolia (300): a `/quote` for chain 300 answered HTTP 400 `"tokenInChainId" must be
+ *   one of [...]` on 2026-10-01. The capability table therefore carries no zkSync row, and
+ *   this client is reachable only by constructing it directly. zkSync Era is a mainnet, so
+ *   wiring it up is owner-run.
  * @warn The `/swap` leg below still carries the ASSUMED payload/response (`{rawTx}`) — the
  *   live API (verified 2026-07-25 on the Trading API rail) answers `/swap` with an UNSIGNED
  *   `{swap: {...}}` transaction, so this leg needs the merchant-signing seam before any live
- *   use. The rail is dormant today (no zkSync RPC env), and the Trading API serves no testnet
- *   routing at all — see uniswapTradingApi.ts `@verified` + FEEDBACK.md. The `/quote` leg IS
- *   canonical (fixed with the same live-verified shape as the Trading API rail).
+ *   use. The `/quote` leg IS canonical (the same live-verified shape as the Trading API rail);
+ *   whether zkSync Era returns a route for it is unproven — two pairs probed on 2026-10-01
+ *   both answered `ResourceNotFound: "No quotes available"`.
  */
 
 import type {
@@ -25,7 +30,7 @@ import type {
   RailQuote,
   SwapRequest,
 } from '../types.js'
-import type { FetchLike } from './uniswapTradingApi.js'
+import { AMM_PROTOCOLS, type FetchLike } from './uniswapTradingApi.js'
 
 /** Shape of the classic `/swap` response we depend on (subset). */
 interface ClassicSwapResponse {
@@ -80,8 +85,9 @@ export function createUniswapClassicClient(
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         // The canonical, live-verified shape (2026-07-25): STRING chain ids in
-        // `tokenInChainId`/`tokenOutChainId`, the input as `amount`, CLASSIC forced so the
-        // execute leg stays on `/swap` (the only route this rail's submit model serves).
+        // `tokenInChainId`/`tokenOutChainId`, the input as `amount`. Routing is restricted to
+        // AMM protocols so the execute leg stays on `/swap` (the only route this rail's submit
+        // model serves) — see AMM_PROTOCOLS for why this is no longer `'CLASSIC'`.
         body: JSON.stringify({
           swapper: req.merchant,
           tokenIn: req.usdc,
@@ -90,7 +96,8 @@ export function createUniswapClassicClient(
           tokenOutChainId: String(req.chainId),
           amount: req.amountUsdc.toString(),
           type: 'EXACT_INPUT',
-          routingPreference: 'CLASSIC',
+          routingPreference: 'BEST_PRICE',
+          protocols: AMM_PROTOCOLS,
         }),
       })
       if (!res.ok) throw new Error(`Uniswap classic /quote failed (${res.status})`)

@@ -6,7 +6,8 @@ that shipped rather than a survey. The rail lives at
 [`web/lib/payout-swap/rails/uniswapTradingApi.ts`](web/lib/payout-swap/rails/uniswapTradingApi.ts)
 (Base) and
 [`web/lib/payout-swap/rails/uniswapClassic.ts`](web/lib/payout-swap/rails/uniswapClassic.ts)
-(zkSync Era classic `/swap`).
+(zkSync Era classic `/swap` — a client only: since 2026-10-01 no chain is mapped to it, because
+the API rejects zkSync Sepolia's chain id 300 and zkSync Era itself is a mainnet).
 
 ## Context: where the Trading API sits for us
 
@@ -140,6 +141,33 @@ the in-code `@warn` is now an `@verified`). Scoring my own request list:
    UniswapX orders sign the `permitData` locally and submit the signed order. The rail now
    surfaces that unsigned transaction truthfully instead of pretending a landed hash.
 
+## Update 2026-10-01: three request shapes the API stopped accepting
+
+Found by probing while moving the router-version pin. Each was a request this repo was
+still sending; none of them was announced anywhere we could find, and two failed silently
+because the callers fail soft.
+
+1. **`routingPreference: "CLASSIC"` is gone.** It now answers HTTP 400
+   `"routingPreference" must be one of [BEST_PRICE, FASTEST]`. The routing guide says only
+   that "legacy values are deprecated" — it does not name them, and does not say that
+   deprecated means rejected. The replacement it describes works: `BEST_PRICE` with
+   `protocols: ["V2","V3","V4"]` returned a priced CLASSIC quote on Ethereum Sepolia. A
+   line mapping each retired value to its replacement would have made this a five-minute fix.
+2. **zkSync Sepolia (300) is not an accepted chain.** `"tokenInChainId" must be one of
+   [...]` lists 324 and not 300. The supported-chains page is consistent with that — it
+   lists three testnets — so this one was our error: we had mapped a rail to a chain the
+   API never served. The mapping is removed.
+3. **`swapper` is required on `/quote`, and chain ids go in `tokenInChainId` /
+   `tokenOutChainId`.** Our agent-side price quote sent a bare `chainId` and no swapper,
+   and got `"tokenInChainId" is required`, then `"swapper" is required`. Requiring a
+   swapper for a pure price indication is worth a sentence in the reference: a caller that
+   only wants "what does 1 USDC cost in WETH" has no obvious address to send.
+
+A fourth observation, not a defect: `protocols: ["UNISWAPX_V2","UNISWAPX_V3"]` alone
+answers `"value" contains an invalid value`, which says nothing about the cause. The
+routing guide does explain it (include an AMM protocol as fallback), but the error does not
+point there.
+
 ## Status: honest scope
 
 **The full loop is live-proven on Ethereum Sepolia (2026-07-25).** Through the exact
@@ -158,5 +186,9 @@ Universal Router unless the **Permit2→Router** grant exists — normally the s
 docs describe the field; connecting it to that exact revert would save the next integrator
 the debugging session.
 
-Both rails stay env-gated and fail-soft; absent env, the payout worker degrades to a clean
+**Not re-proven since:** that landed swap ran against Universal Router 2.0. Under the 2.1.2
+pin (2026-10-01) the `/quote` and `/swap` legs return HTTP 200 and an unsigned transaction
+for the 2.1.2 router, but no swap has been signed and landed against it yet.
+
+The rail stays env-gated and fail-soft; absent env, the payout worker degrades to a clean
 no-op and the merchant keeps their settled USDC.

@@ -213,7 +213,7 @@ Two classes:
 | --- | --- | --- |
 | `NEXT_PUBLIC_ARC_RPC_URL` · `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` · `NEXT_PUBLIC_ZKSYNC_SEPOLIA_RPC_URL` | **public** | Read RPC for the embed/dashboard `eth_call` quote. A *public* (keyless) endpoint per chain — do not put a key-bearing URL here, it ships to the browser. |
 | `ARC_TESTNET_RPC_URL` | server | x402 seller / agent submit leg. |
-| `ZKSYNC_SEPOLIA_RPC_URL` | server | zkSync classic-swap submit leg (`/api/payout-swap`). Blank ⇒ zkSync rail OFF. |
+| `ZKSYNC_SEPOLIA_RPC_URL` | server | Builds the zkSync classic-swap client's submit leg. **Has no effect today**: no chain is mapped to that client, because the Uniswap Trading API rejects zkSync Sepolia (chain id 300). Leave blank. |
 
 > **Alchemy/Tenderly key-bearing URLs are SECRETS** (the URL embeds the key) →
 > use them for the **server-side** RPC vars only, never a `NEXT_PUBLIC_*` one.

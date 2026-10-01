@@ -5,7 +5,15 @@
  * module lets it ALSO ask, on the same request, "what does this payment cost in token X?" —
  * i.e. how much of an arbitrary input token is worth the USDC the payment settles. The
  * answer comes from the Uniswap Trading API `/quote` (EXACT_OUTPUT: tokenOut = settlement
- * USDC, so the returned `amountIn` is the cost in token X).
+ * USDC, so the returned input amount is the cost in token X).
+ *
+ * @verified 2026-10-01 against the LIVE Trading API on Ethereum Sepolia (read-only; no funds
+ *   moved): the request body below returned HTTP 200 CLASSIC with the cost at
+ *   `quote.input.amount`. The shape this module sent before — a bare numeric `chainId`, no
+ *   `swapper`, reading a top-level `amountIn` — answered HTTP 400 `"tokenInChainId" is required`,
+ *   and because the route fails soft that was silent: every agent payment went out unquoted.
+ *   Routing is restricted to AMM protocols so the response is always that verified CLASSIC
+ *   shape; a UniswapX quote nests its amounts differently and was not observable from a testnet.
  *
  * DORMANT-BY-DEFAULT: the transport (base URL + the `x-api-key`-injecting fetch) is sourced
  * from the ONE payout-swap env seam ({@link buildPayoutSwapDeps}) — this module never reads
@@ -27,7 +35,7 @@ import { isAddress, type Address } from 'viem'
 
 import { assertServerOnly } from './serverOnly.js'
 import { buildPayoutSwapDeps } from '../payout-swap/deps-from-env.js'
-import type { FetchLike } from '../payout-swap/rails/uniswapTradingApi.js'
+import { AMM_PROTOCOLS, type FetchLike } from '../payout-swap/rails/uniswapTradingApi.js'
 
 assertServerOnly('anyTokenQuote')
 
@@ -38,7 +46,7 @@ const QUOTE_TIMEOUT_MS = 5_000
 export type AnyTokenQuoteFailure =
   | 'invalid-args' // a required arg was missing/malformed — a caller bug, surfaced fail-fast.
   | 'quote-http-error' // the Trading API returned a non-2xx status.
-  | 'quote-malformed-response' // the Trading API body lacked the `amountIn` we depend on.
+  | 'quote-malformed-response' // the Trading API body lacked the `quote.input.amount` we depend on.
 
 /**
  * Typed error thrown by {@link quoteAnyToken}. Carries a machine-readable {@link reason} and a
@@ -82,8 +90,11 @@ export interface AnyTokenQuoteRequest {
   readonly usdAmount?: number
   /** Target settlement amount in `tokenOut` base units. Mutually exclusive with `usdAmount`. */
   readonly tokenOutAmount?: bigint
-  /** Optional payer/swapper address for a routed quote. When given, must be a 0x address. */
-  readonly swapper?: string
+  /**
+   * The payer the quote is routed for — the agent's own wallet. REQUIRED: the Trading API
+   * answers HTTP 400 `"swapper" is required` without it. Must be a 0x address.
+   */
+  readonly swapper: string
 }
 
 /**
@@ -101,7 +112,11 @@ export interface AnyTokenQuote {
   readonly amountOut: bigint
   /** A short, human-readable route summary for logs/telemetry (never a secret). */
   readonly routeSummary: string
-  /** Unix-seconds expiry after which the quote must be refreshed (`0` when the API omits it). */
+  /**
+   * Unix-seconds expiry after which the quote must be refreshed, or `0` for "none given".
+   * Always `0` today: the CLASSIC quote this module requests carries no expiry field
+   * (live-verified 2026-10-01). Kept so the response contract does not change shape.
+   */
   readonly expiresAtSec: number
   /** Opaque routing id echoed by the Trading API (for a follow-on order, if ever wired). */
   readonly quoteId?: string
@@ -121,18 +136,19 @@ export interface AnyTokenQuoteJson {
   readonly quoteId?: string
 }
 
-/** The subset of the Trading API `/quote` response this module depends on (booth-confirm). */
+/**
+ * The subset of the Trading API `/quote` response this module depends on — the CLASSIC shape,
+ * live-verified 2026-10-01. Nothing here is top-level except `routing`.
+ */
 interface TradingApiQuoteResponse {
-  /** Input amount required to hit the requested output, atomic in `tokenIn` decimals, as a string. */
-  amountIn?: string
-  /** Echoed output amount, atomic in `tokenOut` decimals, as a string (optional; we already know it). */
-  amountOut?: string
-  /** Opaque routing id. */
-  quoteId?: string
-  /** Optional human route label (e.g. "UniswapX", "V3"). */
+  /** The routing family the API chose (`CLASSIC` for the AMM-only request this module sends). */
   routing?: string
-  /** Optional quote expiry, unix seconds. */
-  deadline?: number
+  quote?: {
+    /** The input leg: `amount` is what the requested output costs, atomic in `tokenIn` decimals. */
+    input?: { amount?: string }
+    /** Opaque routing id. */
+    quoteId?: string
+  }
 }
 
 /**
@@ -172,8 +188,8 @@ function assertValidRequest(req: AnyTokenQuoteRequest): void {
   if (!Number.isInteger(req.chainId) || req.chainId <= 0) {
     throw new AnyTokenQuoteError('invalid-args', 'chainId must be a positive integer')
   }
-  if (req.swapper !== undefined && !isAddress(req.swapper)) {
-    throw new AnyTokenQuoteError('invalid-args', 'swapper must be a valid 0x address when provided')
+  if (typeof req.swapper !== 'string' || !isAddress(req.swapper)) {
+    throw new AnyTokenQuoteError('invalid-args', 'swapper must be a valid 0x address')
   }
   const hasUsd = req.usdAmount !== undefined
   const hasOut = req.tokenOutAmount !== undefined
@@ -189,9 +205,14 @@ function assertValidRequest(req: AnyTokenQuoteRequest): void {
 }
 
 /** Compose a short, non-secret route summary for logs/telemetry. */
-function summarizeRoute(body: TradingApiQuoteResponse, req: AnyTokenQuoteRequest, amountOut: bigint): string {
+function summarizeRoute(
+  body: TradingApiQuoteResponse,
+  req: AnyTokenQuoteRequest,
+  amountIn: bigint,
+  amountOut: bigint,
+): string {
   const via = typeof body.routing === 'string' && body.routing.length > 0 ? body.routing : 'trading-api'
-  return `${body.amountIn} ${req.tokenIn} -> ${amountOut.toString()} ${req.tokenOut} via ${via}`
+  return `${amountIn.toString()} ${req.tokenIn} -> ${amountOut.toString()} ${req.tokenOut} via ${via}`
 }
 
 /**
@@ -199,15 +220,15 @@ function summarizeRoute(body: TradingApiQuoteResponse, req: AnyTokenQuoteRequest
  *
  * DORMANT when the transport env is absent: returns `null` (the agent path is unchanged).
  * STRICT otherwise: validates args fail-fast and throws {@link AnyTokenQuoteError} on
- * malformed input, a non-2xx status, or a response missing `amountIn`. The caller (the
+ * malformed input, a non-2xx status, or a response missing `quote.input.amount`. The caller (the
  * route) is responsible for fail-soft handling so a quote never blocks settlement.
  *
- * @param req  The quote request (tokenIn + tokenOut + chainId + a single amount target).
+ * @param req  The quote request (tokenIn + tokenOut + chainId + swapper + a single amount target).
  * @param deps Injected transport; defaults to {@link buildAnyTokenQuoteDeps} (env-sourced).
  *   Pass a mock in tests. `undefined` (env absent) → the dormant `null`.
  * @returns The mapped {@link AnyTokenQuote}, or `null` when the seam is dormant.
  * @throws {AnyTokenQuoteError} on malformed args (`invalid-args`), a bad status
- *   (`quote-http-error`), or a response missing `amountIn` (`quote-malformed-response`).
+ *   (`quote-http-error`), or a response missing `quote.input.amount` (`quote-malformed-response`).
  */
 export async function quoteAnyToken(
   req: AnyTokenQuoteRequest,
@@ -232,11 +253,18 @@ export async function quoteAnyToken(
     body: JSON.stringify({
       // EXACT_OUTPUT: fix the settlement (tokenOut) amount, let the API return the tokenIn cost.
       type: 'EXACT_OUTPUT',
-      chainId: req.chainId,
+      // Chain ids travel as STRINGS under these two names — the same canonical body the
+      // payout-swap rail sends. A same-chain quote, so both carry the settlement chain.
+      tokenInChainId: String(req.chainId),
+      tokenOutChainId: String(req.chainId),
       tokenIn: req.tokenIn,
       tokenOut: req.tokenOut,
       amount: amountOut.toString(),
       swapper: req.swapper,
+      // AMM-only: this is a price indication that is never executed, and restricting the
+      // protocols keeps the response in the one shape parsed below.
+      routingPreference: 'BEST_PRICE',
+      protocols: AMM_PROTOCOLS,
     }),
   })
   if (!res.ok) {
@@ -244,18 +272,24 @@ export async function quoteAnyToken(
   }
 
   const body = (await res.json()) as TradingApiQuoteResponse
-  if (!body.amountIn) {
-    throw new AnyTokenQuoteError('quote-malformed-response', 'Trading API /quote returned no amountIn')
+  const rawAmountIn = body.quote?.input?.amount
+  // Digits only: BigInt() would throw a bare SyntaxError on "1.5" and accept "" as 0n.
+  if (typeof rawAmountIn !== 'string' || !/^\d+$/.test(rawAmountIn)) {
+    throw new AnyTokenQuoteError(
+      'quote-malformed-response',
+      'Trading API /quote returned no integer quote.input.amount',
+    )
   }
+  const amountIn = BigInt(rawAmountIn)
 
   return {
     tokenIn: req.tokenIn as Address,
     tokenOut: req.tokenOut as Address,
-    amountIn: BigInt(body.amountIn),
+    amountIn,
     amountOut,
-    routeSummary: summarizeRoute(body, req, amountOut),
-    expiresAtSec: typeof body.deadline === 'number' && Number.isFinite(body.deadline) ? body.deadline : 0,
-    quoteId: body.quoteId,
+    routeSummary: summarizeRoute(body, req, amountIn, amountOut),
+    expiresAtSec: 0,
+    quoteId: body.quote?.quoteId,
   }
 }
 

@@ -22,6 +22,19 @@ import type { FetchLike } from '../../payout-swap/rails/uniswapTradingApi.js'
 
 const TOKEN_IN = '0x2222222222222222222222222222222222222222' as const // token X (e.g. WETH)
 const USDC = '0x1111111111111111111111111111111111111111' as const // settlement token (tokenOut)
+const SWAPPER = '0x3333333333333333333333333333333333333333' as const // the paying agent
+
+/**
+ * A Trading API `/quote` response in the live-verified CLASSIC shape (2026-10-01, EXACT_OUTPUT on
+ * Ethereum Sepolia): the cost is nested at `quote.input.amount` and the id at `quote.quoteId`.
+ * There is no top-level `amountIn`, and a CLASSIC quote carries no expiry.
+ */
+function quoteBody(amountIn: string, quoteId = 'q'): unknown {
+  return {
+    routing: 'CLASSIC',
+    quote: { input: { amount: amountIn }, output: { amount: '1000000' }, quoteId },
+  }
+}
 
 /** Build a JSON Response like the app runtime does. */
 function json(body: unknown, status = 200): Response {
@@ -30,7 +43,7 @@ function json(body: unknown, status = 200): Response {
 
 /** A valid request quoting a $1.00 payment (→ 1_000_000 USDC base units) priced in token X. */
 function validReq(over: Partial<AnyTokenQuoteRequest> = {}): AnyTokenQuoteRequest {
-  return { chainId: 84532, tokenIn: TOKEN_IN, tokenOut: USDC, usdAmount: 1.0, ...over }
+  return { chainId: 84532, tokenIn: TOKEN_IN, tokenOut: USDC, usdAmount: 1.0, swapper: SWAPPER, ...over }
 }
 
 /** Deps whose fetch returns a fixed Trading-API `/quote` body. */
@@ -82,22 +95,17 @@ describe('quoteAnyToken — dormant path', () => {
 
 describe('quoteAnyToken — quote-shape mapping', () => {
   it('maps the Trading-API /quote body to a typed AnyTokenQuote (amountIn is the cost in token X)', async () => {
-    const { deps, fetchImpl } = depsReturning({
-      amountIn: '250000000000000000', // 0.25 WETH
-      amountOut: '1000000',
-      quoteId: 'q-abc',
-      routing: 'UniswapX',
-      deadline: 1_900_000_000,
-    })
+    const { deps, fetchImpl } = depsReturning(quoteBody('250000000000000000', 'q-abc')) // 0.25 WETH
     const res = await quoteAnyToken(validReq(), deps)
     expect(res).not.toBeNull()
     expect(res!.amountIn).toBe(250000000000000000n)
     expect(res!.amountOut).toBe(1_000_000n) // $1.00 → 6-dec USDC base units
     expect(res!.tokenIn).toBe(TOKEN_IN)
     expect(res!.tokenOut).toBe(USDC)
-    expect(res!.expiresAtSec).toBe(1_900_000_000)
+    expect(res!.expiresAtSec).toBe(0) // a CLASSIC quote carries no expiry
     expect(res!.quoteId).toBe('q-abc')
-    expect(res!.routeSummary).toContain('UniswapX')
+    expect(res!.routeSummary).toContain('CLASSIC')
+    expect(res!.routeSummary).toContain('250000000000000000')
 
     // EXACT_OUTPUT request shaping: the settlement (tokenOut) amount is fixed, token X is the input.
     const call = fetchImpl.mock.calls[0]!
@@ -107,10 +115,20 @@ describe('quoteAnyToken — quote-shape mapping', () => {
     expect(sent.tokenIn).toBe(TOKEN_IN)
     expect(sent.tokenOut).toBe(USDC)
     expect(sent.amount).toBe('1000000')
+    // The canonical body the live API accepts: chain ids as STRINGS under tokenInChainId /
+    // tokenOutChainId, and a swapper. A bare `chainId` answers HTTP 400 `"tokenInChainId" is
+    // required`; a missing swapper answers `"swapper" is required` (both probed 2026-10-01).
+    expect(sent.tokenInChainId).toBe('84532')
+    expect(sent.tokenOutChainId).toBe('84532')
+    expect('chainId' in sent).toBe(false)
+    expect(sent.swapper).toBe(SWAPPER)
+    // AMM-only, so the response is always the CLASSIC shape this module parses.
+    expect(sent.routingPreference).toBe('BEST_PRICE')
+    expect(sent.protocols).toEqual(['V2', 'V3', 'V4'])
   })
 
   it('accepts an explicit tokenOutAmount instead of usdAmount', async () => {
-    const { deps, fetchImpl } = depsReturning({ amountIn: '5', quoteId: 'q2' })
+    const { deps, fetchImpl } = depsReturning(quoteBody('5', 'q2'))
     const res = await quoteAnyToken(
       validReq({ usdAmount: undefined, tokenOutAmount: 2_500_000n }),
       deps,
@@ -120,8 +138,8 @@ describe('quoteAnyToken — quote-shape mapping', () => {
     expect(sent.amount).toBe('2500000')
   })
 
-  it('defaults expiresAtSec to 0 when the API omits a deadline', async () => {
-    const { deps } = depsReturning({ amountIn: '5', quoteId: 'q3' })
+  it('reports expiresAtSec 0 — the CLASSIC quote this module requests carries no expiry', async () => {
+    const { deps } = depsReturning(quoteBody('5', 'q3'))
     const res = await quoteAnyToken(validReq(), deps)
     expect(res!.expiresAtSec).toBe(0)
   })
@@ -134,6 +152,7 @@ describe('quoteAnyToken — fail-fast malformed-arg guards', () => {
     ['zero chainId', { chainId: 0 }],
     ['non-integer chainId', { chainId: 1.5 }],
     ['non-address swapper', { swapper: 'nope' }],
+    ['missing swapper', { swapper: undefined }],
     ['neither amount', { usdAmount: undefined, tokenOutAmount: undefined }],
     ['both amounts', { usdAmount: 1, tokenOutAmount: 1n }],
     ['zero usdAmount', { usdAmount: 0 }],
@@ -143,7 +162,7 @@ describe('quoteAnyToken — fail-fast malformed-arg guards', () => {
   ]
   for (const [name, over] of bad) {
     it(`throws AnyTokenQuoteError(invalid-args) on ${name}`, async () => {
-      const { deps } = depsReturning({ amountIn: '5' })
+      const { deps } = depsReturning(quoteBody('5'))
       await expect(quoteAnyToken(validReq(over), deps)).rejects.toMatchObject({
         name: 'AnyTokenQuoteError',
         reason: 'invalid-args',
@@ -158,8 +177,24 @@ describe('quoteAnyToken — Trading-API error surfacing (route turns these fail-
     await expect(quoteAnyToken(validReq(), deps)).rejects.toMatchObject({ reason: 'quote-http-error' })
   })
 
-  it('throws quote-malformed-response when amountIn is missing', async () => {
-    const { deps } = depsReturning({ quoteId: 'q', amountOut: '1000000' })
+  it('throws quote-malformed-response when quote.input.amount is missing', async () => {
+    const { deps } = depsReturning({ routing: 'CLASSIC', quote: { output: { amount: '1000000' }, quoteId: 'q' } })
+    await expect(quoteAnyToken(validReq(), deps)).rejects.toMatchObject({
+      reason: 'quote-malformed-response',
+    })
+  })
+
+  it('does NOT read the old flat shape: a top-level amountIn is not a quote', async () => {
+    // The shape this module used to parse. The live API never returns it, so accepting it
+    // would only let a mock pass where production fails.
+    const { deps } = depsReturning({ amountIn: '5', quoteId: 'q' })
+    await expect(quoteAnyToken(validReq(), deps)).rejects.toMatchObject({
+      reason: 'quote-malformed-response',
+    })
+  })
+
+  it('throws quote-malformed-response on a non-integer amount rather than a raw SyntaxError', async () => {
+    const { deps } = depsReturning(quoteBody('1.5'))
     await expect(quoteAnyToken(validReq(), deps)).rejects.toMatchObject({
       reason: 'quote-malformed-response',
     })
@@ -177,12 +212,12 @@ describe('quoteAnyToken — Trading-API error surfacing (route turns these fail-
 
 describe('toAnyTokenQuoteJson — bigints render as strings for the HTTP body', () => {
   it('projects every bigint to a decimal string and preserves the rest', async () => {
-    const { deps } = depsReturning({ amountIn: '250000000000000000', quoteId: 'q', deadline: 42 })
+    const { deps } = depsReturning(quoteBody('250000000000000000', 'q'))
     const quote = await quoteAnyToken(validReq(), deps)
     const dto = toAnyTokenQuoteJson(quote!)
     expect(dto.amountIn).toBe('250000000000000000')
     expect(dto.amountOut).toBe('1000000')
-    expect(dto.expiresAtSec).toBe(42)
+    expect(dto.expiresAtSec).toBe(0)
     expect(dto.quoteId).toBe('q')
     // Must be JSON-serializable (no bigint) — proves it can sit in a Response body.
     expect(() => JSON.stringify(dto)).not.toThrow()

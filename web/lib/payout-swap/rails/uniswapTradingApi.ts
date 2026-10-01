@@ -82,6 +82,20 @@ interface TradingApiSwapResponse {
  */
 export type UniswapExecutionMode = 'gasless' | 'classic' | 'smart-account'
 
+/**
+ * The `protocols` value that keeps a quote on Uniswap AMM liquidity, so its execute leg is
+ * `/swap` and never a UniswapX `/order`.
+ *
+ * This replaces `routingPreference: 'CLASSIC'`, which the API has retired: on 2026-10-01 it
+ * answered that value with HTTP 400 `"routingPreference" must be one of [BEST_PRICE, FASTEST]`.
+ * Uniswap's routing guide gives the replacement — `protocols` holding only `V2`, `V3` or `V4`
+ * restricts routing to AMM routes, and it applies under `BEST_PRICE`. Live-verified the same day:
+ * `BEST_PRICE` with this list returned HTTP 200 CLASSIC on Ethereum Sepolia and Base mainnet.
+ * NOT observed: the list excluding a UniswapX route that would otherwise have won — every
+ * unrestricted probe also came back CLASSIC — so the exclusion itself rests on the docs.
+ */
+export const AMM_PROTOCOLS = ['V2', 'V3', 'V4'] as const
+
 /** REST route per execution mode (`/order` | `/swap` | `/swap_7702`). */
 const ROUTE_FOR_MODE: Record<UniswapExecutionMode, string> = {
   gasless: 'order',
@@ -173,9 +187,11 @@ export function createUniswapTradingApiClient(
           tokenOutChainId: String(req.chainId),
           amount: req.amountUsdc.toString(),
           type: 'EXACT_INPUT',
-          // classic mode FORCES a /swap-able route; the others let BEST_PRICE reach the
-          // UniswapX auction (whose quote then routes to /order per the official rule).
-          routingPreference: mode === 'classic' ? 'CLASSIC' : 'BEST_PRICE',
+          // classic mode FORCES a /swap-able route by naming only AMM protocols; the others
+          // send no `protocols`, so BEST_PRICE can reach the UniswapX auction (whose quote
+          // then routes to /order per the official rule).
+          routingPreference: 'BEST_PRICE',
+          ...(mode === 'classic' ? { protocols: AMM_PROTOCOLS } : {}),
           // The Permit2 grant as a READY-TO-SIGN TRANSACTION instead of an EIP-712
           // payload. Live lesson (2026-07-25, Sepolia): /check_approval covers only the
           // ERC20→Permit2 leg — the Permit2→Router grant normally rides the signed

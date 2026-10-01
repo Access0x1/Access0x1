@@ -114,6 +114,10 @@ export function buildPayoutSwapDeps(): PayoutSwapDeps {
       fetchImpl: makeKeyedFetch(apiKey, UNISWAP_UNIVERSAL_ROUTER_VERSION),
     }
 
+    // Built, but UNREACHABLE today: the capability table maps no chain to the classic rail,
+    // because the Trading API does not accept zkSync Sepolia (see capabilities.ts). Setting
+    // this var therefore turns nothing on. It stays so the deps shape does not change under
+    // a future zkSync Era wiring — which would need that chain's RPC here, not this one.
     const zkRpc = env('ZKSYNC_SEPOLIA_RPC_URL')
     if (zkRpc) {
       const blinkRpc = env('BLINK_RPC_URL') // base.blinklabs.xyz/v1/{key} — recovery, tried first

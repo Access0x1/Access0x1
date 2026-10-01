@@ -990,7 +990,7 @@ via `configure` and it persists in encrypted Snap state.
 
 | | |
 | --- | --- |
-| Tests | **2,134 green** (Foundry) — unit · attack · invariant — plus 2,127 web/SDK unit tests |
+| Tests | **2,134 green** (Foundry) — unit · attack · invariant — plus 2,134 web/SDK unit tests |
 | Router coverage | **100% functions, ~98% lines, ~97% branches** (per [`audit/FINDINGS.md`](audit/FINDINGS.md)); Bookings now 100% lines |
 | Invariants | **84 invariant functions across 15 suites** (+ 4 halmos symbolic proofs) hold at up to 32,768 calls each in CI, 0 reverts — full catalog in [`docs/INVARIANTS.md`](docs/INVARIANTS.md) |
 | Static analysis | **slither: 34 results / 13 detectors, all triaged (0 exploitable)** · aderyn triaged → [`audit/FINDINGS.md`](audit/FINDINGS.md) |
@@ -1166,10 +1166,11 @@ at each protocol, is [`docs/FOR-PROTOCOLS.md`](docs/FOR-PROTOCOLS.md).
 - **Uniswap Trading API — the "Receive In Any Coin" payout swap (integration seam).** A merchant is
   always settled in USDC on-chain; an async, off-settlement worker then optionally swaps that settled
   USDC into the merchant's chosen payout token on the *same* chain, non-custodially (the merchant
-  wallet signs). On Base the rail is the Uniswap Trading API — `/quote`, then the gasless UniswapX
-  `/order` (filler-paid, MEV-protected) by default, or the classic `/swap`; on zkSync Era, where the
-  other rails have no coverage, it is the classic `/swap` (Universal Router) with an optional
-  value-recovery leg. The swap adds **no fee of its own** (`customFeeBps: 0` — the on-chain router
+  wallet signs). On Ethereum Sepolia and Base Sepolia the rail is the Uniswap Trading API — `/quote`,
+  then the gasless UniswapX `/order` (filler-paid, MEV-protected) by default, or the classic `/swap`.
+  A classic `/swap` client for zkSync Era, with an optional value-recovery leg, is in the tree but
+  **mapped to no chain**: the Trading API accepts zkSync Era (a mainnet) and rejects zkSync Sepolia
+  (chain id 300), so no zkSync swap is offered. The swap adds **no fee of its own** (`customFeeBps: 0` — the on-chain router
   fee-split is the sole monetization) and never touches the settlement money path: the worker enforces
   a slippage floor before executing and isolates every failure, so a merchant who does not get a swap
   simply keeps their settled USDC. The rail is **env-gated and dormant** — blank
@@ -1179,8 +1180,8 @@ at each protocol, is [`docs/FOR-PROTOCOLS.md`](docs/FOR-PROTOCOLS.md).
 
   | Path | What lives there | Anchor |
   | --- | --- | --- |
-  | [`web/lib/payout-swap/rails/uniswapTradingApi.ts`](web/lib/payout-swap/rails/uniswapTradingApi.ts) | Base rail — `/quote` → gasless `/order` \| classic `/swap` | `createUniswapTradingApiClient` |
-  | [`web/lib/payout-swap/rails/uniswapClassic.ts`](web/lib/payout-swap/rails/uniswapClassic.ts) | zkSync Era classic `/swap` rail (+ optional recovery leg) | `createUniswapClassicClient` |
+  | [`web/lib/payout-swap/rails/uniswapTradingApi.ts`](web/lib/payout-swap/rails/uniswapTradingApi.ts) | Ethereum Sepolia + Base Sepolia rail — `/quote` → gasless `/order` \| classic `/swap` | `createUniswapTradingApiClient` |
+  | [`web/lib/payout-swap/rails/uniswapClassic.ts`](web/lib/payout-swap/rails/uniswapClassic.ts) | zkSync Era classic `/swap` client (+ optional recovery leg) — mapped to no chain today | `createUniswapClassicClient` |
   | [`web/lib/payout-swap/deps-from-env.ts`](web/lib/payout-swap/deps-from-env.ts) | Server-only env seam — builds the rails, key-injecting fetch | `buildPayoutSwapDeps` |
   | [`web/lib/payout-swap/worker.ts`](web/lib/payout-swap/worker.ts) | Off-settlement worker — quote, slippage floor, execute, isolate | `runPayoutSwap` |
   | [`web/lib/payout-swap/index.ts`](web/lib/payout-swap/index.ts) | Chain → rail selection | `selectPayoutSwapClient` |

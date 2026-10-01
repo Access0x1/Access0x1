@@ -4,7 +4,7 @@
  * Offline only: the rail is a mock {@link PayoutSwapClient}, so the worker's branching,
  * slippage enforcement, and result shaping are pinned with zero network. Covers:
  *  - USDC-default no-op (the universal floor),
- *  - the correct rail per chain (Base / Arc / zkSync),
+ *  - the correct rail per chain (Base / Arc), and no rail for zkSync Sepolia,
  *  - quote → slippage floor → execute ordering on success.
  */
 import { describe, expect, it, vi } from 'vitest'
@@ -80,11 +80,15 @@ describe('runPayoutSwap — happy paths', () => {
     expect(res.txHash).toBe('0xarc')
   })
 
-  it('zkSync → uniswap-classic executes', async () => {
+  it('zkSync Sepolia → chain-not-capable, and the rail is never called', async () => {
+    // This used to assert a successful classic-rail swap on zkSync Sepolia. The Trading API
+    // does not accept chain id 300, so that success could only ever happen against a mock.
     const client = mockClient('uniswap-classic', 995_000n, '0xzk')
     const res = await runPayoutSwap(req({ chainId: zksyncSepoliaTestnet.id }), client)
-    expect(res.swapped).toBe(true)
-    expect(res.rail).toBe('uniswap-classic')
+    expect(res.swapped).toBe(false)
+    expect(res.reason).toBe('chain-not-capable')
+    expect(client.quote).not.toHaveBeenCalled()
+    expect(client.execute).not.toHaveBeenCalled()
   })
 
   it('quote runs BEFORE execute (floor enforced pre-state-change)', async () => {

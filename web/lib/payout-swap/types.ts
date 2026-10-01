@@ -18,9 +18,12 @@ import type { Address } from 'viem'
 
 /**
  * Which same-chain swap rail a chain uses (per CHAINS.md, verified Jun 13).
- *  - `uniswap-trading-api`: Base → Uniswap Trading API (/quote then /order gasless | /swap).
+ *  - `uniswap-trading-api`: Ethereum Sepolia + Base Sepolia → Uniswap Trading API (/quote then
+ *    /order gasless | /swap).
  *  - `circle-app-kit`: Arc → Circle App Kit Swap (Uniswap has nothing on Arc, our default chain).
  *  - `uniswap-classic`: zkSync Era → Uniswap classic /swap (App Kit + CCTP do NOT support zkSync).
+ *    Mapped to NO chain today: the Trading API accepts zkSync Era (324, a mainnet) but not zkSync
+ *    Sepolia (300) — see the note in capabilities.ts.
  *  - `one-inch`: 1inch Aggregation/Swap API — the aggregator rail (Fusion gasless | classic /swap),
  *    an alternative on chains 1inch covers; env-gated + dormant until `ONEINCH_API_URL` is set.
  */
