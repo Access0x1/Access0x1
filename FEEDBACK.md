@@ -6,7 +6,8 @@ that shipped rather than a survey. The rail lives at
 [`web/lib/payout-swap/rails/uniswapTradingApi.ts`](web/lib/payout-swap/rails/uniswapTradingApi.ts)
 (Base) and
 [`web/lib/payout-swap/rails/uniswapClassic.ts`](web/lib/payout-swap/rails/uniswapClassic.ts)
-(zkSync Era classic `/swap`).
+(zkSync Era classic `/swap` — a client only: since 2026-10-01 no chain is mapped to it, because
+the API rejects zkSync Sepolia's chain id 300 and zkSync Era itself is a mainnet).
 
 ## Context: where the Trading API sits for us
 

@@ -129,8 +129,10 @@ flag **and** its credential, so a half-set seam stays safely dormant. Set both.
 ### Uniswap — receive-in-any-coin payout swap
 - **Does:** the post-settlement "receive in any coin" swap rail
   ([`web/lib/payout-swap`](../web/lib/payout-swap)); off-CEI, never in the router.
-- **Set:** `UNISWAP_TRADING_API_URL` (+ `UNISWAP_TRADING_API_KEY`). The zkSync classic
-  leg additionally needs `ZKSYNC_SEPOLIA_RPC_URL` (and optionally `BLINK_RPC_URL`).
+- **Set:** `UNISWAP_TRADING_API_URL` (+ `UNISWAP_TRADING_API_KEY`). That serves Ethereum
+  Sepolia and Base Sepolia. There is **no zkSync swap**: the Trading API rejects zkSync
+  Sepolia (chain id 300), so `ZKSYNC_SEPOLIA_RPC_URL` and `BLINK_RPC_URL` build a classic
+  client that no chain is mapped to, and setting them turns nothing on.
 - **Get:** **developer.uniswap.org** → Trading API base URL + `x-api-key`.
 - **Off:** `selectPayoutSwapClient` reports the chain has no rail → the route returns
   `swapped:false` and the merchant keeps the settled USDC.
