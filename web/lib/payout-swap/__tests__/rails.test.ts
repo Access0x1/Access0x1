@@ -7,7 +7,7 @@
  * with zero network. Driven end-to-end through {@link runPayoutSwap} where it matters.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { baseSepolia, zksyncSepoliaTestnet } from 'viem/chains'
+import { baseSepolia, zksync } from 'viem/chains'
 
 import { runPayoutSwap } from '../worker.js'
 import {
@@ -209,9 +209,19 @@ describe('Uniswap Trading API rail (Base)', () => {
   })
 })
 
+// DRIVEN AT THE CLIENT, NOT THROUGH runPayoutSwap, for the same reason as oneInch.test.ts. These
+// tests used to run the worker against zkSync Sepolia, which required the capability table to map
+// chain 300 to this rail. The Trading API does not accept chain id 300 (live 400, 2026-10-01), so
+// that mapping is gone and no chain resolves to this rail today. The request below uses zkSync
+// Era's own id (324), the chain the API does accept and the only one this client could serve.
+// The worker's isolation of a throwing execute stays covered by the Trading API suite above.
 describe('Uniswap classic rail (zkSync) + Blink Recovery', () => {
   function zkReq() {
-    return baseReq({ chainId: zksyncSepoliaTestnet.id })
+    return baseReq({ chainId: zksync.id })
+  }
+  /** quote → execute, exactly the order the worker runs them in. */
+  async function swap(client: ReturnType<typeof createUniswapClassicClient>) {
+    return client.execute(zkReq(), await client.quote(zkReq()))
   }
   const swapFetch = () =>
     vi.fn(async (url: string) => {
@@ -243,7 +253,7 @@ describe('Uniswap classic rail (zkSync) + Blink Recovery', () => {
       fetchImpl: swapFetch(),
       submitDirect,
     })
-    const res = await runPayoutSwap(zkReq(), client)
+    const res = await swap(client)
     expect(res.txHash).toBe('0xdirect')
     expect(submitDirect).toHaveBeenCalledWith('0xraw')
   })
@@ -257,7 +267,7 @@ describe('Uniswap classic rail (zkSync) + Blink Recovery', () => {
       submitDirect,
       submitBlink,
     })
-    const res = await runPayoutSwap(zkReq(), client)
+    const res = await swap(client)
     expect(res.txHash).toBe('0xblink')
     expect(submitDirect).not.toHaveBeenCalled()
   })
@@ -273,14 +283,14 @@ describe('Uniswap classic rail (zkSync) + Blink Recovery', () => {
       submitDirect,
       submitBlink,
     })
-    const res = await runPayoutSwap(zkReq(), client)
-    expect(res.swapped).toBe(true)
+    const res = await swap(client)
+    expect(res.rail).toBe('uniswap-classic')
     expect(res.txHash).toBe('0xdirect')
     expect(submitBlink).toHaveBeenCalledOnce()
     expect(submitDirect).toHaveBeenCalledOnce()
   })
 
-  it('if BOTH Blink and direct fail, the worker isolates it as execute-failed (USDC stays)', async () => {
+  it('if BOTH Blink and direct fail, execute rejects with the direct error (the worker isolates it)', async () => {
     const client = createUniswapClassicClient({
       baseUrl: 'https://api',
       fetchImpl: swapFetch(),
@@ -291,9 +301,9 @@ describe('Uniswap classic rail (zkSync) + Blink Recovery', () => {
         throw new Error('blink down')
       },
     })
-    const res = await runPayoutSwap(zkReq(), client)
-    expect(res.swapped).toBe(false)
-    expect(res.reason).toBe('execute-failed')
+    // The Blink error is swallowed in favour of the direct submit; the direct error is the one
+    // that surfaces. Nothing is reported as landed.
+    await expect(swap(client)).rejects.toThrow('rpc down')
   })
 })
 

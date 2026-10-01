@@ -103,10 +103,17 @@ describe('runPayoutSwap — adversarial / law #5', () => {
     expect(wrong.quote).not.toHaveBeenCalled()
   })
 
-  it('zkSync mismatch: a circle-app-kit client on zkSync is rejected (App Kit absent on zkSync)', async () => {
-    const wrong = client('circle-app-kit')
-    const res = await runPayoutSwap(req({ chainId: zksyncSepoliaTestnet.id }), wrong)
-    expect(res.reason).toBe('rail-mismatch')
+  it('zkSync Sepolia has no rail at all: ANY client offered for it is refused before a call', async () => {
+    // Was a `rail-mismatch` case while the table mapped zkSync Sepolia to the classic rail.
+    // The Trading API rejects chain id 300, so the row is gone and the refusal now comes one
+    // step earlier, whichever client is offered — including the classic one itself.
+    for (const rail of ['circle-app-kit', 'uniswap-trading-api', 'uniswap-classic'] as const) {
+      const offered = client(rail)
+      const res = await runPayoutSwap(req({ chainId: zksyncSepoliaTestnet.id }), offered)
+      expect(res.swapped).toBe(false)
+      expect(res.reason).toBe('chain-not-capable')
+      expect(offered.quote).not.toHaveBeenCalled()
+    }
   })
 
   it('Arc mismatch: a uniswap client on Arc is rejected (Uniswap has nothing on Arc)', async () => {

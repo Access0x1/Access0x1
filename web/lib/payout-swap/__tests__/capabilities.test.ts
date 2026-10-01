@@ -1,9 +1,12 @@
 /**
  * @file capabilities.test.ts — the per-chain swap capability flag + client selection.
  *
- * Pins the rail-per-chain mapping (Arc → App Kit, Base → Trading API, zkSync → classic),
- * the fail-safe for unknown chains, and that selectPayoutSwapClient throws loudly on a
- * missing dependency for a capable chain (a wiring bug) but returns null for an uncapable one.
+ * Pins the rail-per-chain mapping (Arc → App Kit, Sepolia + Base Sepolia → Trading API), the
+ * fail-safe for unknown chains, and that selectPayoutSwapClient throws loudly on a missing
+ * dependency for a capable chain (a wiring bug) but returns null for an uncapable one.
+ *
+ * zkSync Sepolia is pinned as NOT capable: the Trading API does not accept chain id 300 at all
+ * (live 400 on 2026-10-01), so mapping it to a rail promised a swap that could never be quoted.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { baseSepolia, sepolia, zksyncSepoliaTestnet } from 'viem/chains'
@@ -30,8 +33,12 @@ describe('getSwapCapability — rail per chain', () => {
   it('Base → uniswap-trading-api', () => {
     expect(getSwapCapability(baseSepolia.id).rail).toBe('uniswap-trading-api')
   })
-  it('zkSync → uniswap-classic', () => {
-    expect(getSwapCapability(zksyncSepoliaTestnet.id).rail).toBe('uniswap-classic')
+  it('zkSync Sepolia → not capable (the Trading API rejects chain id 300)', () => {
+    expect(getSwapCapability(zksyncSepoliaTestnet.id)).toEqual({
+      chainId: zksyncSepoliaTestnet.id,
+      canSwap: false,
+    })
+    expect(isSwapCapable(zksyncSepoliaTestnet.id)).toBe(false)
   })
   it('unknown chain → not capable (fail safe, no rail)', () => {
     const cap = getSwapCapability(999999)
@@ -58,8 +65,10 @@ describe('selectPayoutSwapClient', () => {
   it('picks the trading-api client for Base', () => {
     expect(selectPayoutSwapClient(baseSepolia.id, deps)?.rail).toBe('uniswap-trading-api')
   })
-  it('picks the classic client for zkSync', () => {
-    expect(selectPayoutSwapClient(zksyncSepoliaTestnet.id, deps)?.rail).toBe('uniswap-classic')
+  it('returns null for zkSync Sepolia even when the classic rail deps are supplied', () => {
+    // `deps.uniswapClassic` is present above; the chain still resolves to no client, because
+    // capability comes from the table and not from which env vars happen to be set.
+    expect(selectPayoutSwapClient(zksyncSepoliaTestnet.id, deps)).toBeNull()
   })
   it('picks the app-kit client for Arc', () => {
     expect(selectPayoutSwapClient(arcTestnet.id, deps)?.rail).toBe('circle-app-kit')
@@ -70,6 +79,5 @@ describe('selectPayoutSwapClient', () => {
   it('throws loudly when a capable chain is missing its dependency (wiring bug)', () => {
     expect(() => selectPayoutSwapClient(baseSepolia.id, {})).toThrow(/uniswap-trading-api/)
     expect(() => selectPayoutSwapClient(arcTestnet.id, {})).toThrow(/circle-app-kit/)
-    expect(() => selectPayoutSwapClient(zksyncSepoliaTestnet.id, {})).toThrow(/uniswap-classic/)
   })
 })

@@ -3,19 +3,18 @@
  *
  * Capability is PER-CHAIN, not universal (spec law): a chain either has a same-chain payout
  * swap rail or it does not. The mapping is keyed by chain id (the live `arcTestnet.id`,
- * `baseSepolia.id`, `zksyncSepoliaTestnet.id` — never hardcoded numbers, guardrail #5) so it
+ * `sepolia.id`, `baseSepolia.id` — never hardcoded numbers, guardrail #5) so it
  * stays in lock-step with `lib/chains.ts`. A chain not in the table is treated as NOT capable,
  * which fails safe: the worker no-ops and the merchant keeps settled USDC.
  *
  * Rail assignment (one job per rail, no logo-soup):
  *  - Arc → Circle App Kit Swap (Uniswap has nothing on Arc, our DEFAULT chain).
- *  - Base → Uniswap Trading API (/quote then /order gasless | /swap).
- *  - zkSync Era → Uniswap classic /swap (App Kit + CCTP do NOT support zkSync).
+ *  - Ethereum Sepolia + Base Sepolia → Uniswap Trading API (/quote then /order gasless | /swap).
  *
- * There is deliberately NO 1inch row — see the note in the table below.
+ * There is deliberately NO zkSync row and NO 1inch row — see the notes in the table below.
  */
 
-import { baseSepolia, polygonAmoy, sepolia, zksyncSepoliaTestnet } from 'viem/chains'
+import { baseSepolia, polygonAmoy, sepolia } from 'viem/chains'
 
 import { arcTestnet } from '../chains.js'
 import type { ChainSwapCapability, SwapRail } from './types.js'
@@ -35,7 +34,17 @@ const CAPABILITIES: ReadonlyMap<number, SwapRail> = new Map<number, SwapRail>([
   // `UNISWAP_TRADING_API_URL`, so it promises nothing an operator has not themselves
   // supplied — but a Base-Sepolia swap must never be described as proven.
   [baseSepolia.id, 'uniswap-trading-api'],
-  [zksyncSepoliaTestnet.id, 'uniswap-classic'],
+  // NO zkSync ENTRY, DELIBERATELY. `zksyncSepoliaTestnet → 'uniswap-classic'` used to live
+  // here. The Trading API does not accept zkSync Sepolia at all: on 2026-10-01 a `/quote`
+  // with `tokenInChainId: "300"` answered HTTP 400 `"tokenInChainId" must be one of [...]`,
+  // and that list holds 324 (zkSync Era) but not 300. Uniswap's supported-chains page lists
+  // three testnets — Ethereum Sepolia, Base Sepolia, Unichain Sepolia — and zkSync Sepolia
+  // is not among them. So the row promised a swap that could never even be quoted.
+  //
+  // The classic client in rails/uniswapClassic.ts is kept, like the 1inch one below: it is
+  // code for zkSync Era (324), which is a mainnet and so owner-run. Re-add a mapping only
+  // for a chain the API accepts, and only once that client's `/swap` leg handles the
+  // unsigned `{swap: {...}}` transaction the API really returns (its `@warn` has the detail).
   // NO 1inch ENTRY, DELIBERATELY. `polygonAmoy → 'one-inch'` used to live here and it
   // was a capability this rail cannot deliver: 1inch's API serves NO testnets, which
   // this repo states itself in lib/config/integrations.ts ("mainnets only"). The table
