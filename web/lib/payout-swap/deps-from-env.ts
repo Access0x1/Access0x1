@@ -23,16 +23,39 @@ function env(name: string): string {
   return (process.env[name] ?? '').trim()
 }
 
-/** Wrap fetch to inject the Uniswap Trading API key header when one is configured (else plain fetch). */
-function makeKeyedFetch(apiKey: string): FetchLike {
-  // Live-verified 2026-07-25: the Trading API requires `x-universal-router-version` on every
-  // call, and its Cloudflare front rejects some non-browser client signatures (error 1010) —
-  // an explicit product User-Agent keeps server-side calls deterministic. Accept per the
-  // official quickstart. These ride every request whether or not a key is set.
+/**
+ * The Universal Router version the Trading API is asked to build calldata for.
+ *
+ * Pinned, not defaulted: the header is OPTIONAL (live-verified 2026-10-01 — omitting it returned
+ * the same 2.1.2 router on Ethereum Sepolia), but Uniswap's supported-chains page says the default
+ * "can change over time, so set the header explicitly when you need a stable target". The pin also
+ * decides the Permit2 spender, so a silent default change would silently invalidate grants.
+ *
+ * 2.0 and 2.1.1 stop being served on 2026-10-21: after that a request pinning either gets an error
+ * response (Uniswap changelog, "Sunset of Universal Router 2.0 and 2.1.1"). This repo sent 2.0
+ * until 2026-10-01. Moving 2.0 → 2.1.2 changes the returned calldata (a per-hop `minHopPriceX36`
+ * array) and the router address; nothing here decodes that calldata or allowlists that address —
+ * the `to`/`data` the API returns go to the wallet owner untouched — so the header is the whole
+ * migration. Anything added later that parses the calldata must pass the matching
+ * `UniversalRouterVersion` to the SDK parser (`@uniswap/universal-router-sdk` >= 5.12.0).
+ */
+export const UNISWAP_UNIVERSAL_ROUTER_VERSION = '2.1.2'
+
+/**
+ * Wrap fetch to inject the Uniswap Trading API key header when one is configured (else plain fetch).
+ *
+ * @param apiKey        The `x-api-key` value ('' ⇒ no key header).
+ * @param routerVersion The `x-universal-router-version` to pin, or `undefined` to send no version
+ *   header and take the API's default for the chain.
+ */
+function makeKeyedFetch(apiKey: string, routerVersion?: string): FetchLike {
+  // The API's Cloudflare front rejects some non-browser client signatures (error 1010) — an
+  // explicit product User-Agent keeps server-side calls deterministic. Accept per the official
+  // quickstart. These ride every request whether or not a key is set.
   const base = {
     accept: 'application/json',
     'user-agent': 'access0x1-payout-rail/1.0',
-    'x-universal-router-version': '2.0',
+    ...(routerVersion ? { 'x-universal-router-version': routerVersion } : {}),
   }
   return (url, init) =>
     fetch(url, {
@@ -81,19 +104,28 @@ export function buildPayoutSwapDeps(): PayoutSwapDeps {
   } = {}
 
   // Uniswap Trading API (Base, gasless UniswapX) + Uniswap classic (zkSync). Both share the
-  // Trading API base URL + a key-injecting fetch. The classic rail additionally needs a chain RPC
-  // to submit the signed tx, with optional Blink Recovery tried first.
+  // Trading API base URL and key, but NOT the router-version pin. The classic rail additionally
+  // needs a chain RPC to submit the signed tx, with optional Blink Recovery tried first.
   const tradingApiUrl = env('UNISWAP_TRADING_API_URL')
   if (tradingApiUrl) {
-    const fetchImpl = makeKeyedFetch(env('UNISWAP_TRADING_API_KEY'))
-    deps.uniswapTradingApi = { baseUrl: tradingApiUrl, fetchImpl }
+    const apiKey = env('UNISWAP_TRADING_API_KEY')
+    deps.uniswapTradingApi = {
+      baseUrl: tradingApiUrl,
+      fetchImpl: makeKeyedFetch(apiKey, UNISWAP_UNIVERSAL_ROUTER_VERSION),
+    }
 
     const zkRpc = env('ZKSYNC_SEPOLIA_RPC_URL')
     if (zkRpc) {
       const blinkRpc = env('BLINK_RPC_URL') // base.blinklabs.xyz/v1/{key} — recovery, tried first
       deps.uniswapClassic = {
         baseUrl: tradingApiUrl,
-        fetchImpl,
+        // No version header on zkSync. Per Uniswap's supported-chains page zkSync "has no 2.1.2
+        // and runs 2.0 only", and requesting a version a chain lacks returns an error — so
+        // pinning 2.1.2 is wrong there, and pinning 2.0 is the value being sunset. Omitting the
+        // header takes the API default, which is the one version zkSync has. Documented, NOT
+        // live-observed: on 2026-10-01 zkSync (324) answered "No quotes available" under every
+        // header, and zkSync Sepolia (300) is not a chain id the API accepts at all.
+        fetchImpl: makeKeyedFetch(apiKey),
         submitDirect: makeRpcSubmit(zkRpc),
         submitBlink: blinkRpc ? makeRpcSubmit(blinkRpc) : undefined,
       }
