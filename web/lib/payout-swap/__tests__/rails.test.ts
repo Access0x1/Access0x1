@@ -89,7 +89,17 @@ describe('Uniswap Trading API rail (Base)', () => {
     expect(res.reason).toBe('slippage-exceeded')
   })
 
-  it('classic mode forces a CLASSIC quote and surfaces the ready-to-sign /swap tx', async () => {
+  it('the default (gasless) mode leaves routing unrestricted so UniswapX can win', async () => {
+    const fetchImpl = vi.fn<FetchLike>(async () => json(classicQuote()))
+    const client = createUniswapTradingApiClient({ baseUrl: 'https://api', fetchImpl })
+    await client.quote(baseReq())
+    const body = JSON.parse((fetchImpl.mock.calls[0]![1] as RequestInit).body as string)
+    expect(body.routingPreference).toBe('BEST_PRICE')
+    // No `protocols` key at all: naming any would narrow the search away from UniswapX.
+    expect('protocols' in body).toBe(false)
+  })
+
+  it('classic mode restricts the quote to AMM protocols and surfaces the ready-to-sign /swap tx', async () => {
     const fetchImpl = vi.fn<FetchLike>(async (url) => {
       if (url.endsWith('/quote')) return json(classicQuote())
       if (url.endsWith('/swap')) return json(swapTx())
@@ -105,10 +115,13 @@ describe('Uniswap Trading API rail (Base)', () => {
     // /swap answers with an UNSIGNED transaction — the merchant wallet signs + submits.
     expect(res.txHash).toBeUndefined()
     expect(res.unsignedTx).toMatchObject({ to: '0xrouter', data: '0xcafe' })
-    // classic mode pins the routingPreference so the quote stays /swap-able.
+    // classic mode keeps the quote /swap-able by naming only AMM protocols. The old
+    // `routingPreference: 'CLASSIC'` is retired: the live API answers it with HTTP 400
+    // `"routingPreference" must be one of [BEST_PRICE, FASTEST]` (probed 2026-10-01).
     const quoteCall = fetchImpl.mock.calls.find((c) => String(c[0]).endsWith('/quote'))!
     const body = JSON.parse((quoteCall[1] as RequestInit).body as string)
-    expect(body.routingPreference).toBe('CLASSIC')
+    expect(body.routingPreference).toBe('BEST_PRICE')
+    expect(body.protocols).toEqual(['V2', 'V3', 'V4'])
     expect(body.tokenInChainId).toBe(String(baseSepolia.id))
     expect(body.amount).toBe('1000000')
     expect(body.type).toBe('EXACT_INPUT')
@@ -207,6 +220,21 @@ describe('Uniswap classic rail (zkSync) + Blink Recovery', () => {
       if (url.endsWith('/swap')) return json({ amountOut: '995000', rawTx: '0xraw' })
       return json({ error: 'unexpected' }, 500)
     })
+
+  it('quotes AMM-only with the accepted routing fields (never the retired CLASSIC preference)', async () => {
+    const fetchImpl = vi.fn<FetchLike>(async () =>
+      json({ routing: 'CLASSIC', quote: { output: { amount: '995000' } } }),
+    )
+    const client = createUniswapClassicClient({
+      baseUrl: 'https://api',
+      fetchImpl,
+      submitDirect: vi.fn(async () => '0xdirect'),
+    })
+    await client.quote(zkReq())
+    const body = JSON.parse((fetchImpl.mock.calls[0]![1] as RequestInit).body as string)
+    expect(body.routingPreference).toBe('BEST_PRICE')
+    expect(body.protocols).toEqual(['V2', 'V3', 'V4'])
+  })
 
   it('submits via direct RPC when Blink is not configured', async () => {
     const submitDirect = vi.fn(async () => '0xdirect')

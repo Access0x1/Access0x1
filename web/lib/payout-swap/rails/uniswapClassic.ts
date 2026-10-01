@@ -25,7 +25,7 @@ import type {
   RailQuote,
   SwapRequest,
 } from '../types.js'
-import type { FetchLike } from './uniswapTradingApi.js'
+import { AMM_PROTOCOLS, type FetchLike } from './uniswapTradingApi.js'
 
 /** Shape of the classic `/swap` response we depend on (subset). */
 interface ClassicSwapResponse {
@@ -80,8 +80,9 @@ export function createUniswapClassicClient(
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         // The canonical, live-verified shape (2026-07-25): STRING chain ids in
-        // `tokenInChainId`/`tokenOutChainId`, the input as `amount`, CLASSIC forced so the
-        // execute leg stays on `/swap` (the only route this rail's submit model serves).
+        // `tokenInChainId`/`tokenOutChainId`, the input as `amount`. Routing is restricted to
+        // AMM protocols so the execute leg stays on `/swap` (the only route this rail's submit
+        // model serves) — see AMM_PROTOCOLS for why this is no longer `'CLASSIC'`.
         body: JSON.stringify({
           swapper: req.merchant,
           tokenIn: req.usdc,
@@ -90,7 +91,8 @@ export function createUniswapClassicClient(
           tokenOutChainId: String(req.chainId),
           amount: req.amountUsdc.toString(),
           type: 'EXACT_INPUT',
-          routingPreference: 'CLASSIC',
+          routingPreference: 'BEST_PRICE',
+          protocols: AMM_PROTOCOLS,
         }),
       })
       if (!res.ok) throw new Error(`Uniswap classic /quote failed (${res.status})`)
