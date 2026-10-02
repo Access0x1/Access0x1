@@ -623,40 +623,40 @@ verified chain is a clean no-op).
 | `make verify-robinhood-testnet` | Verify deployed RH Chain contracts on Blockscout (standalone; no keystore). |
 | `make verify-all-testnets` | Verify all deployed testnet contracts (best-effort across explorers). |
 
-### Deploy — mainnet (⛔ audit-gated · not deployed)
+### Deploy — mainnet (⛔ owner-run · not deployed)
 
 > **There is NO mainnet deployment, and none is claimed.** Every target below is **config/readiness
 > only** — gated behind a deliberate `MAINNET_CONFIRM=yes` real-funds confirmation (no undo;
-> fat-finger protection, not an audit claim — an external audit is available but not required). Each reads its addresses from `<CHAIN>_MAINNET_*`
+> fat-finger protection). Each reads its addresses from `<CHAIN>_MAINNET_*`
 > env (default `address(0)` ⇒ skipped); no mainnet USDC/feed address is hardcoded. `deploy-arc-mainnet`
 > is additionally gated as **NOT LAUNCHED** — Arc mainnet does not exist yet, so its chain id is never
 > invented.
 
 | Command | What it does |
 | --- | --- |
-| `make deploy-ethereum-mainnet` | ⛔ AUDIT-GATED: deploy to Ethereum mainnet (etherscan verify) — real funds. |
-| `make deploy-base-mainnet` | ⛔ AUDIT-GATED: deploy to Base mainnet (basescan verify) — real funds. |
-| `make deploy-arbitrum-mainnet` | ⛔ AUDIT-GATED: deploy to Arbitrum One (arbiscan verify) — real funds. |
-| `make deploy-optimism-mainnet` | ⛔ AUDIT-GATED: deploy to OP Mainnet (etherscan verify) — real funds. |
-| `make deploy-polygon-mainnet` | ⛔ AUDIT-GATED: deploy to Polygon mainnet (polygonscan verify) — real funds. |
-| `make deploy-avalanche-mainnet` | ⛔ AUDIT-GATED: deploy to Avalanche C-Chain (snowtrace verify) — real funds. |
-| `make deploy-bnb-mainnet` | ⛔ AUDIT-GATED: deploy to BNB Smart Chain (bscscan verify) — real funds. |
-| `make deploy-scroll-mainnet` | ⛔ AUDIT-GATED: deploy to Scroll mainnet (scrollscan verify) — real funds. |
-| `make deploy-linea-mainnet` | ⛔ AUDIT-GATED: deploy to Linea mainnet (lineascan verify) — real funds. |
-| `make deploy-mantle-mainnet` | ⛔ AUDIT-GATED: deploy to Mantle mainnet (blockscout verify) — real funds. |
-| `make deploy-blast-mainnet` | ⛔ AUDIT-GATED: deploy to Blast mainnet (blastscan verify) — real funds. |
-| `make deploy-unichain-mainnet` | ⛔ AUDIT-GATED: deploy to Unichain mainnet (uniscan verify) — real funds. |
-| `make deploy-zksync-mainnet` | ⛔ AUDIT-GATED: deploy to zkSync Era mainnet (zksync verify, `--zksync`) — real funds. |
-| `make deploy-zora-mainnet` | ⛔ AUDIT-GATED: deploy to Zora mainnet (chainId 7777777, ETH; blockscout verify) — real funds. |
-| `make deploy-filecoin-mainnet` | ⛔ AUDIT-GATED: deploy to Filecoin mainnet (chainId 314, FIL; blockscout verify) — real funds. |
-| `make deploy-gnosis-mainnet` | ⛔ AUDIT-GATED: deploy to Gnosis Chain (chainId 100, XDAI; gnosisscan verify) — real funds. |
-| `make deploy-apechain-mainnet` | ⛔ AUDIT-GATED: deploy to ApeChain (chainId 33139, APE; apescan verify) — real funds. |
-| `make deploy-worldchain-mainnet` | ⛔ AUDIT-GATED: deploy to World Chain (chainId 480, ETH; worldscan verify) — real funds. |
-| `make deploy-zircuit-mainnet` | ⛔ AUDIT-GATED: deploy to Zircuit mainnet (chainId 48900, ETH; sourcify verify) — real funds. |
-| `make deploy-citrea-mainnet` | ⛔ AUDIT-GATED: deploy to Citrea mainnet (chainId 4114, cBTC; blockscout verify) — real funds. |
-| `make deploy-flow-evm-mainnet` | ⛔ AUDIT-GATED: deploy to Flow EVM mainnet (chainId 747, FLOW; blockscout verify) — real funds. |
-| `make deploy-celo-mainnet` | ⛔ AUDIT-GATED: deploy to Celo mainnet (chainId 42220, CELO; celoscan verify) — real funds. |
-| `make deploy-arc-mainnet` | ⛔ AUDIT-GATED + NOT LAUNCHED: deploy to Arc mainnet (set `ARC_MAINNET_CHAIN_ID` first). |
+| `make deploy-ethereum-mainnet` | OWNER-RUN: deploy to Ethereum mainnet (etherscan verify) — real funds. |
+| `make deploy-base-mainnet` | OWNER-RUN: deploy to Base mainnet (basescan verify) — real funds. |
+| `make deploy-arbitrum-mainnet` | OWNER-RUN: deploy to Arbitrum One (arbiscan verify) — real funds. |
+| `make deploy-optimism-mainnet` | OWNER-RUN: deploy to OP Mainnet (etherscan verify) — real funds. |
+| `make deploy-polygon-mainnet` | OWNER-RUN: deploy to Polygon mainnet (polygonscan verify) — real funds. |
+| `make deploy-avalanche-mainnet` | OWNER-RUN: deploy to Avalanche C-Chain (snowtrace verify) — real funds. |
+| `make deploy-bnb-mainnet` | OWNER-RUN: deploy to BNB Smart Chain (bscscan verify) — real funds. |
+| `make deploy-scroll-mainnet` | OWNER-RUN: deploy to Scroll mainnet (scrollscan verify) — real funds. |
+| `make deploy-linea-mainnet` | OWNER-RUN: deploy to Linea mainnet (lineascan verify) — real funds. |
+| `make deploy-mantle-mainnet` | OWNER-RUN: deploy to Mantle mainnet (blockscout verify) — real funds. |
+| `make deploy-blast-mainnet` | OWNER-RUN: deploy to Blast mainnet (blastscan verify) — real funds. |
+| `make deploy-unichain-mainnet` | OWNER-RUN: deploy to Unichain mainnet (uniscan verify) — real funds. |
+| `make deploy-zksync-mainnet` | OWNER-RUN: deploy to zkSync Era mainnet (zksync verify, `--zksync`) — real funds. |
+| `make deploy-zora-mainnet` | OWNER-RUN: deploy to Zora mainnet (chainId 7777777, ETH; blockscout verify) — real funds. |
+| `make deploy-filecoin-mainnet` | OWNER-RUN: deploy to Filecoin mainnet (chainId 314, FIL; blockscout verify) — real funds. |
+| `make deploy-gnosis-mainnet` | OWNER-RUN: deploy to Gnosis Chain (chainId 100, XDAI; gnosisscan verify) — real funds. |
+| `make deploy-apechain-mainnet` | OWNER-RUN: deploy to ApeChain (chainId 33139, APE; apescan verify) — real funds. |
+| `make deploy-worldchain-mainnet` | OWNER-RUN: deploy to World Chain (chainId 480, ETH; worldscan verify) — real funds. |
+| `make deploy-zircuit-mainnet` | OWNER-RUN: deploy to Zircuit mainnet (chainId 48900, ETH; sourcify verify) — real funds. |
+| `make deploy-citrea-mainnet` | OWNER-RUN: deploy to Citrea mainnet (chainId 4114, cBTC; blockscout verify) — real funds. |
+| `make deploy-flow-evm-mainnet` | OWNER-RUN: deploy to Flow EVM mainnet (chainId 747, FLOW; blockscout verify) — real funds. |
+| `make deploy-celo-mainnet` | OWNER-RUN: deploy to Celo mainnet (chainId 42220, CELO; celoscan verify) — real funds. |
+| `make deploy-arc-mainnet` | ⛔ OWNER-RUN + NOT LAUNCHED: deploy to Arc mainnet (set `ARC_MAINNET_CHAIN_ID` first). |
 
 ---
 
@@ -726,8 +726,8 @@ make deploy-unichain-sepolia # Unichain Sepolia
 > (`--account`, never `--private-key`). Any feed/USDC address that is not yet confirmed resolves to
 > `address(0)` and is *skipped*, never wired. See [`.env.example`](.env.example) for the full key set.
 
-> **⛔ Mainnet is STAGED and AUDIT-GATED — there is NO mainnet deployment, and none is claimed.**
-> This repo is **testnet-only** today and **unaudited**; testnet is the only live target. Every chain
+> **⛔ Mainnet is STAGED and OWNER-RUN — there is NO mainnet deployment, and none is claimed.**
+> This repo is **testnet-only** today and **not yet on a mainnet**; testnet is the only live target. Every chain
 > above now carries a *mainnet config profile* alongside its testnet one (Ethereum, Base, Arbitrum One,
 > Optimism, Polygon, Avalanche, BNB, Scroll, Linea, Mantle, Blast, Unichain, zkSync Era — plus a dormant
 > Arc-mainnet branch keyed on `ARC_MAINNET_CHAIN_ID`, since Arc mainnet is **not launched** and its id is
@@ -735,8 +735,7 @@ make deploy-unichain-sepolia # Unichain Sepolia
 > `<CHAIN>_MAINNET_*` env (default `address(0)` ⇒ skipped) — **no mainnet USDC/feed address is hardcoded**
 > anywhere (law #4: a guessed address would imply a deployment we have not made). The
 > `make deploy-<chain>-mainnet` targets that reach these branches are **gated behind a deliberate
-> `MAINNET_CONFIRM=yes`** real-funds confirmation (no undo) — fat-finger protection for a live broadcast,
-> not an audit claim; an external audit is available but not required. See the loud `⛔ MAINNET`
+> `MAINNET_CONFIRM=yes`** real-funds confirmation (no undo) — fat-finger protection for a live broadcast. See the `MAINNET`
 > banners in the [`Makefile`](Makefile) and [`.env.example`](.env.example).
 
 ### Deployments

@@ -18,11 +18,7 @@ and we state it as one. Experience reviewing your own code is still not the same
 as independence, and we don't pretend it is.
 
 **Our posture:** rigorous, tooled, experience-backed **first-party** review (this
-agent + the operator) is the security review we run. An **independent
-third-party audit is available and welcome** — it strengthens confidence and we
-keep the `audit/` package ready so an external auditor starts from a clean,
-well-mapped codebase, not a cold read — but it is **not a hard blocker** we
-impose on ourselves. Going to mainnet on first-party review is a real,
+agent + the operator) is the security review we run. Going to mainnet on first-party review is a real,
 operator-accepted risk; we name it as one rather than hide it behind a gate we'd
 only wave through anyway.
 

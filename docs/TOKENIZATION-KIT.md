@@ -28,7 +28,7 @@ Access0x1 ships two layers that compose cleanly:
 
 **Clone it, set your params, deploy.** Every preset takes its authority set and economics as
 parameters, so the base stays usable exactly as we use it *and* configurable so anyone clones it
-and runs it their way. Testnets only (mainnet is owner-gated, post-audit).
+and runs it their way. Testnets only (mainnet is owner-gated, at the owner's deploy).
 
 ## Who this is for — and what actually works today
 

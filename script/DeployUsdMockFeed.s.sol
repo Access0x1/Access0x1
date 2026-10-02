@@ -24,7 +24,7 @@ import { MockV3Aggregator } from "../test/mocks/MockV3Aggregator.sol";
 ///           MOCK_FEED_DECIMALS (uint8, default 8) · MOCK_FEED_ANSWER (int, default 1e8 = $1.00)
 ///
 ///         Minimal by design (no oracle-committee security) — TESTNET ONLY, appropriate where the peg is
-///         an assumption of the local run, never for mainnet (law #5: mainnet is audit-gated, real funds).
+///         an assumption of the local run, never for mainnet (law #5: mainnet is owner-run, real funds).
 ///
 /// @dev    Usage — ONE-TIME, on the chain that lacks a USDC/USD feed, BEFORE its `make deploy-<chain>`:
 ///

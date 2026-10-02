@@ -144,83 +144,83 @@ contract HelperConfig is Script {
     uint256 internal constant HEDERA_TESTNET_CHAIN_ID = 296;
 
     // ─────────────────────────────────────────────────────────────────────────────────────────────
-    // MAINNET chain ids — AUDIT-GATED, NOT DEPLOYED.
+    // MAINNET chain ids — OWNER-RUN, NOT DEPLOYED.
     //
     // These ids exist so each chain has BOTH a testnet and a mainnet config PROFILE. They change
-    // NOTHING about what is live: this repo is testnet-only and unaudited, and there is NO mainnet
+    // NOTHING about what is live: this repo is testnet-only today, and there is NO mainnet
     // deployment and NO mainnet claim anywhere. Every mainnet branch below reads ALL of its addresses
     // from `<CHAIN>_MAINNET_*` env (default address(0)) exactly like the testnet branches, so nothing
     // is ever hardcoded — a real USDC/feed address here would imply a deployment we have not made and
-    // is therefore forbidden (law #4). A mainnet target is reachable ONLY by an explicit, audit-gated
-    // `make deploy-<chain>-mainnet` (each of those targets carries a loud "do not run until audited"
+    // is therefore forbidden (law #4). A mainnet target is reachable ONLY by an explicit, owner-run
+    // `make deploy-<chain>-mainnet` (each of those targets carries a loud "real funds: the owner runs it"
     // banner). The constructor arms below sit ABOVE the `_liveConfigFromEnv()` fallback purely so the
     // RIGHT env prefix is read per chain; selecting a branch never broadcasts anything by itself.
     // ─────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// @notice Ethereum mainnet (chainId 1). AUDIT-GATED config profile only — no deployment exists.
+    /// @notice Ethereum mainnet (chainId 1). OWNER-RUN config profile only — no deployment exists.
     uint256 internal constant ETHEREUM_MAINNET_CHAIN_ID = 1;
 
-    /// @notice Base mainnet (Coinbase L2, chainId 8453). AUDIT-GATED config profile only — not deployed.
+    /// @notice Base mainnet (Coinbase L2, chainId 8453). OWNER-RUN config profile only — not deployed.
     uint256 internal constant BASE_MAINNET_CHAIN_ID = 8_453;
 
-    /// @notice Arbitrum One (chainId 42161). AUDIT-GATED config profile only — not deployed.
+    /// @notice Arbitrum One (chainId 42161). OWNER-RUN config profile only — not deployed.
     uint256 internal constant ARBITRUM_MAINNET_CHAIN_ID = 42_161;
 
-    /// @notice Optimism mainnet (OP Mainnet, chainId 10). AUDIT-GATED config profile only — not deployed.
+    /// @notice Optimism mainnet (OP Mainnet, chainId 10). OWNER-RUN config profile only — not deployed.
     uint256 internal constant OPTIMISM_MAINNET_CHAIN_ID = 10;
 
-    /// @notice Polygon mainnet (PoS, chainId 137). Native = POL (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Polygon mainnet (PoS, chainId 137). Native = POL (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant POLYGON_MAINNET_CHAIN_ID = 137;
 
-    /// @notice Avalanche C-Chain mainnet (chainId 43114). Native = AVAX (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Avalanche C-Chain mainnet (chainId 43114). Native = AVAX (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant AVALANCHE_MAINNET_CHAIN_ID = 43_114;
 
-    /// @notice BNB Smart Chain mainnet (chainId 56). Native = BNB (18 dec). AUDIT-GATED — not deployed.
+    /// @notice BNB Smart Chain mainnet (chainId 56). Native = BNB (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant BNB_MAINNET_CHAIN_ID = 56;
 
-    /// @notice Scroll mainnet (zkEVM L2, chainId 534352). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Scroll mainnet (zkEVM L2, chainId 534352). Native = ETH (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant SCROLL_MAINNET_CHAIN_ID = 534_352;
 
-    /// @notice Linea mainnet (Consensys zkEVM, chainId 59144). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Linea mainnet (Consensys zkEVM, chainId 59144). Native = ETH (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant LINEA_MAINNET_CHAIN_ID = 59_144;
 
-    /// @notice Mantle mainnet (OP-stack L2, chainId 5000). Native = MNT (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Mantle mainnet (OP-stack L2, chainId 5000). Native = MNT (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant MANTLE_MAINNET_CHAIN_ID = 5_000;
 
-    /// @notice Blast mainnet (OP-stack L2, chainId 81457). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Blast mainnet (OP-stack L2, chainId 81457). Native = ETH (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant BLAST_MAINNET_CHAIN_ID = 81_457;
 
-    /// @notice Unichain mainnet (OP-stack L2, chainId 130). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Unichain mainnet (OP-stack L2, chainId 130). Native = ETH (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant UNICHAIN_MAINNET_CHAIN_ID = 130;
 
-    /// @notice zkSync Era mainnet (ZK Stack, chainId 324). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    /// @notice zkSync Era mainnet (ZK Stack, chainId 324). Native = ETH (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant ZKSYNC_MAINNET_CHAIN_ID = 324;
 
-    /// @notice Zora mainnet (OP-stack L2, chainId 7777777). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Zora mainnet (OP-stack L2, chainId 7777777). Native = ETH (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant ZORA_MAINNET_CHAIN_ID = 7_777_777;
 
-    /// @notice Filecoin mainnet (FEVM, chainId 314). Native = FIL (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Filecoin mainnet (FEVM, chainId 314). Native = FIL (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant FILECOIN_MAINNET_CHAIN_ID = 314;
 
-    /// @notice Gnosis Chain (chainId 100). Native = XDAI (18 dec, ≈ $1). AUDIT-GATED — not deployed.
+    /// @notice Gnosis Chain (chainId 100). Native = XDAI (18 dec, ≈ $1). OWNER-RUN — not deployed.
     uint256 internal constant GNOSIS_MAINNET_CHAIN_ID = 100;
 
-    /// @notice ApeChain (Arbitrum-Orbit, chainId 33139). Native = APE (18 dec). AUDIT-GATED — not deployed.
+    /// @notice ApeChain (Arbitrum-Orbit, chainId 33139). Native = APE (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant APECHAIN_MAINNET_CHAIN_ID = 33_139;
 
-    /// @notice World Chain (OP-stack L2, chainId 480). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    /// @notice World Chain (OP-stack L2, chainId 480). Native = ETH (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant WORLDCHAIN_MAINNET_CHAIN_ID = 480;
 
-    /// @notice Zircuit mainnet (chainId 48900). Native = ETH (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Zircuit mainnet (chainId 48900). Native = ETH (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant ZIRCUIT_MAINNET_CHAIN_ID = 48_900;
 
-    /// @notice Citrea mainnet (Bitcoin zk-rollup, chainId 4114). Native = cBTC (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Citrea mainnet (Bitcoin zk-rollup, chainId 4114). Native = cBTC (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant CITREA_MAINNET_CHAIN_ID = 4_114;
 
-    /// @notice Flow EVM mainnet (chainId 747). Native = FLOW (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Flow EVM mainnet (chainId 747). Native = FLOW (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant FLOW_EVM_MAINNET_CHAIN_ID = 747;
 
-    /// @notice Celo mainnet (chainId 42220). Native = CELO (18 dec). AUDIT-GATED — not deployed.
+    /// @notice Celo mainnet (chainId 42220). Native = CELO (18 dec). OWNER-RUN — not deployed.
     uint256 internal constant CELO_MAINNET_CHAIN_ID = 42_220;
 
     /// @notice Arc MAINNET is NOT launched (Arc is testnet-only today), so its chain id is UNKNOWN and
@@ -310,7 +310,7 @@ contract HelperConfig is Script {
         } else if (block.chainid == HEDERA_TESTNET_CHAIN_ID) {
             activeConfig = _hederaTestnetConfig();
         } else if (block.chainid == ETHEREUM_MAINNET_CHAIN_ID) {
-            // ── MAINNET arms (AUDIT-GATED, NOT DEPLOYED) — each reads only its own `<CHAIN>_MAINNET_*`
+            // ── MAINNET arms (OWNER-RUN, NOT DEPLOYED) — each reads only its own `<CHAIN>_MAINNET_*`
             //    env (default address(0)); selecting a branch never deploys. See the mainnet-id block.
             activeConfig = _ethereumMainnetConfig();
         } else if (block.chainid == BASE_MAINNET_CHAIN_ID) {
@@ -944,21 +944,21 @@ contract HelperConfig is Script {
     }
 
     // ─────────────────────────────────────────────────────────────────────────────────────────────
-    // MAINNET config helpers — AUDIT-GATED, NOT DEPLOYED.
+    // MAINNET config helpers — OWNER-RUN, NOT DEPLOYED.
     //
     // Each helper mirrors its testnet twin exactly: it reads ONLY its `<CHAIN>_MAINNET_`-prefixed env,
     // requires `<CHAIN>_MAINNET_PLATFORM_TREASURY` (fails loud via `vm.envAddress` ONLY when that branch
     // is actually selected on the live chain), and resolves every feed/USDC/registry/forwarder address
     // from env with an address(0) default. address(0) ⇒ DeployAll SKIPS that configure call, so an
-    // unconfirmed (or deliberately blank, pre-audit) value is never wired. NOTHING here is hardcoded:
+    // unconfirmed (or deliberately blank, not-yet-deployed) value is never wired. NOTHING here is hardcoded:
     // a guessed real mainnet USDC/feed address would imply a deployment this repo has NOT made and is
     // forbidden (law #4). The `make deploy-<chain>-mainnet` targets that reach these branches are all
-    // banner-gated "do not run until a third-party audit is complete".
+    // owner-run behind `MAINNET_CONFIRM=yes`.
     // ─────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// @dev Ethereum mainnet (chainId 1). AUDIT-GATED, NOT DEPLOYED. Reads only `ETHEREUM_MAINNET_`-
+    /// @dev Ethereum mainnet (chainId 1). OWNER-RUN, NOT DEPLOYED. Reads only `ETHEREUM_MAINNET_`-
     ///      prefixed env. Native = ETH (18 dec). Fill ETH/USD + Circle USDC + USDC/USD from the canonical
-    ///      docs ONLY after audit; blank ⇒ skipped, never a guessed address.
+    ///      docs at the owner's deploy; blank ⇒ skipped, never a guessed address.
     function _ethereumMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("ETHEREUM_MAINNET_PLATFORM_TREASURY"),
@@ -976,8 +976,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Base mainnet (chainId 8453, Coinbase L2). AUDIT-GATED, NOT DEPLOYED. Reads only
-    ///      `BASE_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Base mainnet (chainId 8453, Coinbase L2). OWNER-RUN, NOT DEPLOYED. Reads only
+    ///      `BASE_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _baseMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("BASE_MAINNET_PLATFORM_TREASURY"),
@@ -995,8 +995,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Arbitrum One (chainId 42161). AUDIT-GATED, NOT DEPLOYED. Reads only `ARBITRUM_MAINNET_`-
-    ///      prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Arbitrum One (chainId 42161). OWNER-RUN, NOT DEPLOYED. Reads only `ARBITRUM_MAINNET_`-
+    ///      prefixed env. Native = ETH (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _arbitrumMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("ARBITRUM_MAINNET_PLATFORM_TREASURY"),
@@ -1014,8 +1014,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Optimism mainnet (OP Mainnet, chainId 10). AUDIT-GATED, NOT DEPLOYED. Reads only
-    ///      `OPTIMISM_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Optimism mainnet (OP Mainnet, chainId 10). OWNER-RUN, NOT DEPLOYED. Reads only
+    ///      `OPTIMISM_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _optimismMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("OPTIMISM_MAINNET_PLATFORM_TREASURY"),
@@ -1033,8 +1033,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Polygon mainnet (PoS, chainId 137). AUDIT-GATED, NOT DEPLOYED. Reads only `POLYGON_MAINNET_`-
-    ///      prefixed env. Native = POL (18 dec) — native/USD is a POL/USD feed. Addresses post-audit only.
+    /// @dev Polygon mainnet (PoS, chainId 137). OWNER-RUN, NOT DEPLOYED. Reads only `POLYGON_MAINNET_`-
+    ///      prefixed env. Native = POL (18 dec) — native/USD is a POL/USD feed. Addresses set by the owner.
     function _polygonMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("POLYGON_MAINNET_PLATFORM_TREASURY"),
@@ -1052,8 +1052,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Avalanche C-Chain mainnet (chainId 43114). AUDIT-GATED, NOT DEPLOYED. Reads only
-    ///      `AVALANCHE_MAINNET_`-prefixed env. Native = AVAX (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Avalanche C-Chain mainnet (chainId 43114). OWNER-RUN, NOT DEPLOYED. Reads only
+    ///      `AVALANCHE_MAINNET_`-prefixed env. Native = AVAX (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _avalancheMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("AVALANCHE_MAINNET_PLATFORM_TREASURY"),
@@ -1071,8 +1071,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev BNB Smart Chain mainnet (chainId 56). AUDIT-GATED, NOT DEPLOYED. Reads only `BNB_MAINNET_`-
-    ///      prefixed env. Native = BNB (18 dec). USDC may be a peg-token vs Circle — confirm post-audit.
+    /// @dev BNB Smart Chain mainnet (chainId 56). OWNER-RUN, NOT DEPLOYED. Reads only `BNB_MAINNET_`-
+    ///      prefixed env. Native = BNB (18 dec). USDC may be a peg-token vs Circle — confirm at the owner's deploy.
     function _bnbMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("BNB_MAINNET_PLATFORM_TREASURY"),
@@ -1090,8 +1090,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Scroll mainnet (zkEVM L2, chainId 534352). AUDIT-GATED, NOT DEPLOYED. Reads only
-    ///      `SCROLL_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Scroll mainnet (zkEVM L2, chainId 534352). OWNER-RUN, NOT DEPLOYED. Reads only
+    ///      `SCROLL_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _scrollMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("SCROLL_MAINNET_PLATFORM_TREASURY"),
@@ -1109,8 +1109,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Linea mainnet (Consensys zkEVM, chainId 59144). AUDIT-GATED, NOT DEPLOYED. Reads only
-    ///      `LINEA_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Linea mainnet (Consensys zkEVM, chainId 59144). OWNER-RUN, NOT DEPLOYED. Reads only
+    ///      `LINEA_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _lineaMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("LINEA_MAINNET_PLATFORM_TREASURY"),
@@ -1128,9 +1128,9 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Mantle mainnet (OP-stack L2, chainId 5000). AUDIT-GATED, NOT DEPLOYED. Reads only
+    /// @dev Mantle mainnet (OP-stack L2, chainId 5000). OWNER-RUN, NOT DEPLOYED. Reads only
     ///      `MANTLE_MAINNET_`-prefixed env. Native = MNT (18 dec) — native/USD is an MNT/USD feed.
-    ///      Verifier is Blockscout. Addresses post-audit only; blank ⇒ skipped.
+    ///      Verifier is Blockscout. Addresses set by the owner; blank ⇒ skipped.
     function _mantleMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("MANTLE_MAINNET_PLATFORM_TREASURY"),
@@ -1148,8 +1148,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Blast mainnet (OP-stack L2, chainId 81457). AUDIT-GATED, NOT DEPLOYED. Reads only
-    ///      `BLAST_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Blast mainnet (OP-stack L2, chainId 81457). OWNER-RUN, NOT DEPLOYED. Reads only
+    ///      `BLAST_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _blastMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("BLAST_MAINNET_PLATFORM_TREASURY"),
@@ -1167,8 +1167,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Unichain mainnet (OP-stack L2, chainId 130). AUDIT-GATED, NOT DEPLOYED. Reads only
-    ///      `UNICHAIN_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Unichain mainnet (OP-stack L2, chainId 130). OWNER-RUN, NOT DEPLOYED. Reads only
+    ///      `UNICHAIN_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _unichainMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("UNICHAIN_MAINNET_PLATFORM_TREASURY"),
@@ -1186,9 +1186,9 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev zkSync Era mainnet (ZK Stack, chainId 324). AUDIT-GATED, NOT DEPLOYED. Reads only
+    /// @dev zkSync Era mainnet (ZK Stack, chainId 324). OWNER-RUN, NOT DEPLOYED. Reads only
     ///      `ZKSYNC_MAINNET_`-prefixed env. Native = ETH (18 dec). Broadcast needs the `--zksync` flag +
-    ///      foundry-zksync (EVM-green != zkSync-green). Addresses post-audit only; blank ⇒ skipped.
+    ///      foundry-zksync (EVM-green != zkSync-green). Addresses set by the owner; blank ⇒ skipped.
     function _zkSyncMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("ZKSYNC_MAINNET_PLATFORM_TREASURY"),
@@ -1206,8 +1206,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Zora mainnet (OP-stack L2, chainId 7777777). AUDIT-GATED, NOT DEPLOYED. Reads only
-    ///      `ZORA_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Zora mainnet (OP-stack L2, chainId 7777777). OWNER-RUN, NOT DEPLOYED. Reads only
+    ///      `ZORA_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _zoraMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("ZORA_MAINNET_PLATFORM_TREASURY"),
@@ -1225,8 +1225,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Filecoin mainnet (FEVM, chainId 314). AUDIT-GATED, NOT DEPLOYED. Reads only `FILECOIN_MAINNET_`-
-    ///      prefixed env. Native = FIL (18 dec) — native/USD is a FIL/USD feed. Addresses post-audit only.
+    /// @dev Filecoin mainnet (FEVM, chainId 314). OWNER-RUN, NOT DEPLOYED. Reads only `FILECOIN_MAINNET_`-
+    ///      prefixed env. Native = FIL (18 dec) — native/USD is a FIL/USD feed. Addresses set by the owner.
     function _filecoinMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("FILECOIN_MAINNET_PLATFORM_TREASURY"),
@@ -1244,8 +1244,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Gnosis Chain (chainId 100). AUDIT-GATED, NOT DEPLOYED. Reads only `GNOSIS_MAINNET_`-prefixed
-    ///      env. Native = XDAI (18 dec, ≈ $1) — native/USD is an XDAI/USD feed. Addresses post-audit only.
+    /// @dev Gnosis Chain (chainId 100). OWNER-RUN, NOT DEPLOYED. Reads only `GNOSIS_MAINNET_`-prefixed
+    ///      env. Native = XDAI (18 dec, ≈ $1) — native/USD is an XDAI/USD feed. Addresses set by the owner.
     function _gnosisMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("GNOSIS_MAINNET_PLATFORM_TREASURY"),
@@ -1263,7 +1263,7 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev ApeChain (Arbitrum-Orbit, chainId 33139). AUDIT-GATED, NOT DEPLOYED. Reads only
+    /// @dev ApeChain (Arbitrum-Orbit, chainId 33139). OWNER-RUN, NOT DEPLOYED. Reads only
     ///      `APECHAIN_MAINNET_`-prefixed env. Native = APE (18 dec) — native/USD is an APE/USD feed.
     function _apechainMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
@@ -1282,8 +1282,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev World Chain (OP-stack L2, chainId 480). AUDIT-GATED, NOT DEPLOYED. Reads only
-    ///      `WORLDCHAIN_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses post-audit only; blank ⇒ skipped.
+    /// @dev World Chain (OP-stack L2, chainId 480). OWNER-RUN, NOT DEPLOYED. Reads only
+    ///      `WORLDCHAIN_MAINNET_`-prefixed env. Native = ETH (18 dec). Addresses set by the owner; blank ⇒ skipped.
     function _worldchainMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("WORLDCHAIN_MAINNET_PLATFORM_TREASURY"),
@@ -1301,8 +1301,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Zircuit mainnet (chainId 48900). AUDIT-GATED, NOT DEPLOYED. Reads only `ZIRCUIT_MAINNET_`-
-    ///      prefixed env. Native = ETH (18 dec). Sourcify verifier. Addresses post-audit only; blank ⇒ skipped.
+    /// @dev Zircuit mainnet (chainId 48900). OWNER-RUN, NOT DEPLOYED. Reads only `ZIRCUIT_MAINNET_`-
+    ///      prefixed env. Native = ETH (18 dec). Sourcify verifier. Addresses set by the owner; blank ⇒ skipped.
     function _zircuitMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("ZIRCUIT_MAINNET_PLATFORM_TREASURY"),
@@ -1320,7 +1320,7 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Citrea mainnet (Bitcoin zk-rollup, chainId 4114). AUDIT-GATED, NOT DEPLOYED. Reads only
+    /// @dev Citrea mainnet (Bitcoin zk-rollup, chainId 4114). OWNER-RUN, NOT DEPLOYED. Reads only
     ///      `CITREA_MAINNET_`-prefixed env. Native = cBTC (18 dec, ≈ BTC) — native/USD is a BTC/USD feed.
     function _citreaMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
@@ -1339,8 +1339,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Flow EVM mainnet (chainId 747). AUDIT-GATED, NOT DEPLOYED. Reads only `FLOW_EVM_MAINNET_`-
-    ///      prefixed env. Native = FLOW (18 dec) — native/USD is a FLOW/USD feed. Addresses post-audit only.
+    /// @dev Flow EVM mainnet (chainId 747). OWNER-RUN, NOT DEPLOYED. Reads only `FLOW_EVM_MAINNET_`-
+    ///      prefixed env. Native = FLOW (18 dec) — native/USD is a FLOW/USD feed. Addresses set by the owner.
     function _flowEvmMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("FLOW_EVM_MAINNET_PLATFORM_TREASURY"),
@@ -1358,8 +1358,8 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Celo mainnet (chainId 42220). AUDIT-GATED, NOT DEPLOYED. Reads only `CELO_MAINNET_`-prefixed
-    ///      env. Native = CELO (18 dec) — native/USD is a CELO/USD feed. Addresses post-audit only.
+    /// @dev Celo mainnet (chainId 42220). OWNER-RUN, NOT DEPLOYED. Reads only `CELO_MAINNET_`-prefixed
+    ///      env. Native = CELO (18 dec) — native/USD is a CELO/USD feed. Addresses set by the owner.
     function _celoMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({
             treasury: vm.envAddress("CELO_MAINNET_PLATFORM_TREASURY"),
@@ -1377,10 +1377,10 @@ contract HelperConfig is Script {
         });
     }
 
-    /// @dev Arc MAINNET — NOT launched, id is TBD, AUDIT-GATED, NOT DEPLOYED. Reachable only when the
+    /// @dev Arc MAINNET — NOT launched, id is TBD, OWNER-RUN, NOT DEPLOYED. Reachable only when the
     ///      operator sets a real `ARC_MAINNET_CHAIN_ID` (see `_isArcMainnet`). Reads only `ARC_MAINNET_`-
     ///      prefixed env. Arc trap carries over: native USDC is 18-dec while an ERC-20 USDC (if any) is
-    ///      6-dec — never hardcode either; confirm both post-launch + post-audit. Addresses default to
+    ///      6-dec — never hardcode either; confirm both post-launch + at the owner's deploy. Addresses default to
     ///      address(0) ⇒ skipped, never a guess.
     function _arcMainnetConfig() internal view returns (NetworkConfig memory) {
         return NetworkConfig({

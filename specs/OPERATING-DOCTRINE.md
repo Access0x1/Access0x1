@@ -51,7 +51,7 @@ ONE open-source, on-chain layer for **payments + auth + agents**:
 - **No secret ever** in code / commit / logs — env + `cast wallet` keystore only;
   `.env.example` holds names, not values.
 - **Testnet only during the event** (Arc / Base / zkSync); mainnet is owner-run,
-  post-audit, never mid-build.
+  at the owner's deploy, never mid-build.
 - **Money paths roll back, never swallow** — refunds never blocked, no custody,
   CEI + `nonReentrant` + oracle-staleness on every pay path; the fuzz invariants are
   the floor, not the ceiling.

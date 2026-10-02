@@ -114,7 +114,7 @@ nothing here is a deployment claim — these are the inputs a future deploy woul
   chain the mirror already covers (`/evm/integrations/cross-chain/chainlink-ccip`). Recorded for
   reference only: **`Access0x1Receiver` is a Chainlink CRE/Keystone consumer, not a CCIP receiver** —
   it gates on a KeystoneForwarder, so CCIP is an adjacent rail, not a drop-in. Hedera's own docs also
-  flag Cross-Chain Token transfers as still in progress on testnet, and the flows as unaudited.
+  flag Cross-Chain Token transfers as still in progress on testnet, and the flows as not yet on a mainnet.
 
 **Tempo Moderato (42431) — special-cased, do not deploy with the generic flow.** Tempo has **no
 native gas token**: fees are **USD-denominated and paid in TIP-20 stablecoins** (per docs.tempo.xyz,

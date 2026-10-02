@@ -1,7 +1,7 @@
 /**
  * @file mainnet-config.test.ts — MAINNET config profiles in lib/chains.ts.
  *
- * AUDIT-GATED, NOT DEPLOYED. Every chain has a testnet AND a mainnet profile;
+ * OWNER-RUN, NOT DEPLOYED. Every chain has a testnet AND a mainnet profile;
  * these tests pin the TRUTH properties of the mainnet twin (law #4 + the repo is
  * testnet-only today):
  *   - the 13 mainnets are present and distinct from the testnet set;

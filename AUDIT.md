@@ -10,8 +10,7 @@
 > analysis (Slither + Aderyn, every result triaged), the full test + fuzz-invariant + symbolic
 > suite, and manual review. It is **not** an independent third-party audit, and **no external
 > audit has been performed**. We say "self-audit," never "audited," because the difference is
-> real and a reader deserves to know which one this is. An external audit is welcome but not a
-> gate we impose (see [`audit/first-party-auditor/`](audit/first-party-auditor/)).
+> real and a reader deserves to know which one this is. See [`audit/first-party-auditor/`](audit/first-party-auditor/).
 
 _Last updated: 2026-07-26 (test-count refresh: 2,068 Foundry contract tests + 2,134 web/SDK unit tests; ten-chain mirror incl. zkSync Sepolia 300 and 0G Galileo 16602; the v4 SwapReceiptHook + ENS PaymentResolver deployed + source-verified on Ethereum Sepolia)._
 
@@ -119,8 +118,7 @@ EVM chains (Polygon Amoy, Scroll Sepolia, …) are per-chain ready (`make deploy
   also raced against a **120s timeout** so a missing or undecodable event fails loud instead of hanging the
   pay flow forever (the watcher is torn down either way). Covered by `usePayment-timeout.test.ts`.
 - **Honest status:** **no third-party audit yet.** The security posture is first-party review (the
-  first-party auditor + the operator's experience); an external audit is available/welcome but not a
-  self-imposed blocker. Mainnet requires a deliberate `MAINNET_CONFIRM=yes` (real-funds fat-finger
+  first-party auditor + the operator's experience). Mainnet requires a deliberate `MAINNET_CONFIRM=yes` (real-funds fat-finger
   protection, no undo) — the operator owns the go decision and its risk.
 - Secrets are env-only; signing is keystore-only (`--account`, never `--private-key`). No hardcoded
   contract addresses in the deploy path.

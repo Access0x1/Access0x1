@@ -806,143 +806,137 @@ deploy-tempo: ## Deploy to Tempo Moderato (chainId 42431; TIP-20 stablecoin fees
 	@$(MAKE) --no-print-directory sync
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
-#  ⛔ MAINNET — AUDIT-GATED, REAL FUNDS. DO NOT RUN UNTIL A THIRD-PARTY AUDIT IS COMPLETE.            ⛔
-# ══════════════════════════════════════════════════════════════════════════════════════════════════
-#  This repo is TESTNET-ONLY today and UNAUDITED. There is NO mainnet deployment and NO mainnet
-#  claim. The targets below exist ONLY so each chain has a mainnet PROFILE alongside its testnet one
-#  (config/readiness). They move REAL money on a LIVE chain, with no undo. The operator owns the
-#  security posture (an external audit is available/welcome but NOT a required gate — see
-#  audit/first-party-auditor/ + docs/MAINNET-CUSTODY.md). Each recipe deliberately STOPS with a
-#  real-funds confirm gate (`MAINNET_CONFIRM=yes`) so an accidental `make deploy-<chain>-mainnet`
-#  is a no-op, never a fat-fingered broadcast. HelperConfig reads every address from
-#  `<CHAIN>_MAINNET_*` env (default address(0) ⇒ skipped); NOTHING is hardcoded. Verifier per chain
-#  mirrors the testnet target.
+#  MAINNET — OWNER-RUN, REAL FUNDS.
+# ════════════════════════════════════════════════════════════════════════════════════════════════════
+#  The targets below deploy to a live chain with real money and no undo. The owner runs them, with
+#  his own keystore, when he decides to (custody first: docs/MAINNET-CUSTODY.md). Each recipe asks
+#  for `MAINNET_CONFIRM=yes` so a mistyped `make deploy-<chain>-mainnet` sends nothing. HelperConfig
+#  reads every address from `<CHAIN>_MAINNET_*` env (default address(0) => skipped); nothing is
+#  hardcoded. Verifier per chain mirrors the testnet target.
 #
 #  To actually deploy: set MAINNET_CONFIRM=yes on the command line, e.g.
 #    make deploy-base-mainnet MAINNET_CONFIRM=yes
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 
 # The real-funds confirm gate. Every mainnet recipe runs this FIRST; it aborts unless
-# MAINNET_CONFIRM=yes is passed — fat-finger protection for a live-chain broadcast, not an audit claim.
+# MAINNET_CONFIRM=yes is passed — fat-finger protection for a live-chain broadcast.
 MAINNET_CONFIRM ?= no
 define MAINNET_GATE
 	@if [ "$(MAINNET_CONFIRM)" != "yes" ]; then \
-		echo "⛔ MAINNET deploy BLOCKED — real funds on a live chain."; \
-		echo "   This deploys to mainnet with REAL money. There is no undo."; \
-		echo "   The operator is responsible for the security posture (an external audit is"; \
-		echo "   available but NOT required — see audit/first-party-auditor/ + docs/MAINNET-CUSTODY.md)."; \
-		echo "   To proceed deliberately, re-run with: MAINNET_CONFIRM=yes"; \
+		echo "MAINNET deploy: real funds on a live chain, no undo."; \
+		echo "   Custody first: docs/MAINNET-CUSTODY.md."; \
+		echo "   To send it, re-run with: MAINNET_CONFIRM=yes"; \
 		exit 1; \
 	fi
 	@echo "⚠️  MAINNET deploy proceeding with MAINNET_CONFIRM=yes — real funds on a live chain, no undo."
 endef
 
-deploy-ethereum-mainnet: ## ⛔ AUDIT-GATED: deploy to Ethereum mainnet (etherscan verify) — real funds
+deploy-ethereum-mainnet: ## OWNER-RUN: deploy to Ethereum mainnet (etherscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ETHEREUM_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-base-mainnet: ## ⛔ AUDIT-GATED: deploy to Base mainnet (basescan verify) — real funds
+deploy-base-mainnet: ## OWNER-RUN: deploy to Base mainnet (basescan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(BASE_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-arbitrum-mainnet: ## ⛔ AUDIT-GATED: deploy to Arbitrum One (arbiscan verify) — real funds
+deploy-arbitrum-mainnet: ## OWNER-RUN: deploy to Arbitrum One (arbiscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ARBITRUM_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-optimism-mainnet: ## ⛔ AUDIT-GATED: deploy to OP Mainnet (etherscan verify) — real funds
+deploy-optimism-mainnet: ## OWNER-RUN: deploy to OP Mainnet (etherscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(OPTIMISM_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-polygon-mainnet: ## ⛔ AUDIT-GATED: deploy to Polygon mainnet (polygonscan verify) — real funds
+deploy-polygon-mainnet: ## OWNER-RUN: deploy to Polygon mainnet (polygonscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(POLYGON_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-avalanche-mainnet: ## ⛔ AUDIT-GATED: deploy to Avalanche C-Chain (snowtrace verify) — real funds
+deploy-avalanche-mainnet: ## OWNER-RUN: deploy to Avalanche C-Chain (snowtrace verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(AVALANCHE_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-bnb-mainnet: ## ⛔ AUDIT-GATED: deploy to BNB Smart Chain (bscscan verify) — real funds
+deploy-bnb-mainnet: ## OWNER-RUN: deploy to BNB Smart Chain (bscscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(BNB_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-scroll-mainnet: ## ⛔ AUDIT-GATED: deploy to Scroll mainnet (scrollscan verify) — real funds
+deploy-scroll-mainnet: ## OWNER-RUN: deploy to Scroll mainnet (scrollscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(SCROLL_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-linea-mainnet: ## ⛔ AUDIT-GATED: deploy to Linea mainnet (lineascan verify) — real funds
+deploy-linea-mainnet: ## OWNER-RUN: deploy to Linea mainnet (lineascan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(LINEA_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-mantle-mainnet: ## ⛔ AUDIT-GATED: deploy to Mantle mainnet (blockscout verify) — real funds
+deploy-mantle-mainnet: ## OWNER-RUN: deploy to Mantle mainnet (blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(MANTLE_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(MANTLE_MAINNET_VERIFIER_URL)) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-blast-mainnet: ## ⛔ AUDIT-GATED: deploy to Blast mainnet (blastscan verify) — real funds
+deploy-blast-mainnet: ## OWNER-RUN: deploy to Blast mainnet (blastscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(BLAST_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-unichain-mainnet: ## ⛔ AUDIT-GATED: deploy to Unichain mainnet (uniscan verify) — real funds
+deploy-unichain-mainnet: ## OWNER-RUN: deploy to Unichain mainnet (uniscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(UNICHAIN_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-zksync-mainnet: ## ⛔ AUDIT-GATED: deploy to zkSync Era mainnet (zksync verify, --zksync) — real funds
+deploy-zksync-mainnet: ## OWNER-RUN: deploy to zkSync Era mainnet (zksync verify, --zksync) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ZKSYNC_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --zksync --verify --verifier zksync --verifier-url $(ZKSYNC_MAINNET_VERIFIER_URL) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-zora-mainnet: ## ⛔ AUDIT-GATED: deploy to Zora mainnet (chainId 7777777, ETH; blockscout verify) — real funds
+deploy-zora-mainnet: ## OWNER-RUN: deploy to Zora mainnet (chainId 7777777, ETH; blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ZORA_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(ZORA_MAINNET_VERIFIER_URL)) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-filecoin-mainnet: ## ⛔ AUDIT-GATED: deploy to Filecoin mainnet (chainId 314, FIL; blockscout verify) — real funds
+deploy-filecoin-mainnet: ## OWNER-RUN: deploy to Filecoin mainnet (chainId 314, FIL; blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(FILECOIN_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(FILECOIN_MAINNET_VERIFIER_URL)) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-gnosis-mainnet: ## ⛔ AUDIT-GATED: deploy to Gnosis Chain (chainId 100, XDAI; gnosisscan verify) — real funds
+deploy-gnosis-mainnet: ## OWNER-RUN: deploy to Gnosis Chain (chainId 100, XDAI; gnosisscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(GNOSIS_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-apechain-mainnet: ## ⛔ AUDIT-GATED: deploy to ApeChain (chainId 33139, APE; apescan verify) — real funds
+deploy-apechain-mainnet: ## OWNER-RUN: deploy to ApeChain (chainId 33139, APE; apescan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(APECHAIN_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-worldchain-mainnet: ## ⛔ AUDIT-GATED: deploy to World Chain (chainId 480, ETH; worldscan verify) — real funds
+deploy-worldchain-mainnet: ## OWNER-RUN: deploy to World Chain (chainId 480, ETH; worldscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(WORLDCHAIN_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-zircuit-mainnet: ## ⛔ AUDIT-GATED: deploy to Zircuit mainnet (chainId 48900, ETH; sourcify verify) — real funds
+deploy-zircuit-mainnet: ## OWNER-RUN: deploy to Zircuit mainnet (chainId 48900, ETH; sourcify verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(ZIRCUIT_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) --verify --verifier sourcify -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-citrea-mainnet: ## ⛔ AUDIT-GATED: deploy to Citrea mainnet (chainId 4114, cBTC; blockscout verify) — real funds
+deploy-citrea-mainnet: ## OWNER-RUN: deploy to Citrea mainnet (chainId 4114, cBTC; blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(CITREA_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(CITREA_MAINNET_VERIFIER_URL)) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-flow-evm-mainnet: ## ⛔ AUDIT-GATED: deploy to Flow EVM mainnet (chainId 747, FLOW; blockscout verify) — real funds
+deploy-flow-evm-mainnet: ## OWNER-RUN: deploy to Flow EVM mainnet (chainId 747, FLOW; blockscout verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(FLOW_EVM_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(call bs_verify,$(FLOW_EVM_MAINNET_VERIFIER_URL)) -vvvv
 	@$(MAKE) --no-print-directory sync
 
-deploy-celo-mainnet: ## ⛔ AUDIT-GATED: deploy to Celo mainnet (chainId 42220, CELO; celoscan verify) — real funds
+deploy-celo-mainnet: ## OWNER-RUN: deploy to Celo mainnet (chainId 42220, CELO; celoscan verify) — real funds
 	$(MAINNET_GATE)
 	@forge script script/DeployAll.s.sol --rpc-url $(CELO_MAINNET_RPC_URL) --account $(DEPLOYER_ACCOUNT) --sender $(DEPLOYER) --broadcast $(RESUME_FLAG) $(VERIFY_ES) -vvvv
 	@$(MAKE) --no-print-directory sync
@@ -952,8 +946,8 @@ deploy-celo-mainnet: ## ⛔ AUDIT-GATED: deploy to Celo mainnet (chainId 42220, 
 # CANDIDATE (verified Jun 16, 2026, NOT live): ethereum-lists/chains pre-registers chain 5042
 # ("arc-mainnet", native USDC) — the likely id — but with empty rpc/explorer; Arc is still public
 # testnet ("mainnet beta, summer 2026"). Set ARC_MAINNET_CHAIN_ID=5042 only once Circle ships a live RPC.
-# This target is doubly gated: AUDIT-GATED above, AND it errors if ARC_MAINNET_CHAIN_ID is unset.
-deploy-arc-mainnet: ## ⛔ AUDIT-GATED + NOT LAUNCHED: deploy to Arc mainnet (set ARC_MAINNET_CHAIN_ID first)
+# This target is doubly gated: OWNER-RUN above, AND it errors if ARC_MAINNET_CHAIN_ID is unset.
+deploy-arc-mainnet: ## ⛔ OWNER-RUN + NOT LAUNCHED: deploy to Arc mainnet (set ARC_MAINNET_CHAIN_ID first)
 	$(MAINNET_GATE)
 	@if [ -z "$(ARC_MAINNET_CHAIN_ID)" ]; then \
 		echo "⛔ Arc mainnet is NOT launched — ARC_MAINNET_CHAIN_ID is unset (the id is TBD, never invented)."; \

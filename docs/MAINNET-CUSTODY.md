@@ -6,16 +6,14 @@ holding three keys on three different media is a real 2-of-3 multisig.
 
 This document is the checklist behind the Makefile's `MAINNET_CONFIRM=yes`
 deploy confirmation. The deploy command itself is boring by design — custody is
-the part that has to be true first. (An external audit is available and welcome
-but not a required gate; the operator owns that decision — see
-`audit/first-party-auditor/`.)
+the part that has to be true first.
 
 ---
 
 ## 1. The 2-of-3 Safe, one-person edition
 
 Create a [Safe](https://safe.global) (deployed on Ethereum, Base, Arbitrum, OP
-Mainnet, Polygon — every audit-gated target in the Makefile) with three signers
+Mainnet, Polygon — every owner-run target in the Makefile) with three signers
 you control:
 
 | Signer | What it is | Where it lives |
@@ -78,20 +76,27 @@ Rules that matter:
 4. Execute one owner-gated router action through the Safe.
 5. Simulate loss: pretend signer #2 is gone, execute with #1 + #3.
 
-When all five steps are muscle memory, mainnet day is:
+When all five steps are muscle memory, mainnet day is three steps (rehearsed on a
+Base mainnet fork, 2026-10-02: passing `ROUTER_OWNER=<safe>` to the deploy itself
+FAILS with `OwnableUnauthorizedAccount`, because the script's own feed and token
+setup is owner-only):
 
 ```bash
-ROUTER_OWNER=<your-mainnet-safe> MAINNET_CONFIRM=yes make deploy-ethereum-mainnet
+# 1. deploy as the deployer: it owns and configures everything
+MAINNET_CONFIRM=yes make deploy-base-mainnet
+# 2. from the deployer, on each owned contract: transferOwnership(<your-mainnet-safe>)
+# 3. from the Safe (2 of 3): acceptOwnership() on each
 ```
+
+On an L2 also set the sequencer check before handing over:
+`setSequencerUptimeFeed(<the chain's L2 Sequencer Uptime feed>)` (Base:
+`0xBCF85224fc0756B9Fa45aA7892530B47e10b6433`). For money pushed straight to the
+payout address (no claim step) deploy with `DEPLOY_PAYMENT_LANES=false`.
 
 ## 5. The full checklist, in order
 
-1. Security review done: first-party review (the first-party auditor + the
-   operator's experience) complete, findings resolved. An external audit is
-   **optional and welcome** — not a required gate — and `audit/` is the
-   ready-to-hand package if one is sought (slither/aderyn dispositions, coverage
-   ≥90% on money paths, invariants at the CI profile).
-2. Safe created + rehearsed (§4), `ROUTER_OWNER` pointed at it.
+1. `make gate` green on the commit being deployed.
+2. Safe created + rehearsed (§4); ownership goes to it right after the deploy.
 3. Paper backups written, split, and restore-verified (§3).
 4. Deployer funded with gas ETH only.
 5. Mainnet env confirmed from official docs (USDC, feeds, treasury — law 3).

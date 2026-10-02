@@ -249,7 +249,7 @@ contract DeployAllTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-        HELPERCONFIG — MAINNET branches (AUDIT-GATED, NOT DEPLOYED)
+        HELPERCONFIG — MAINNET branches (OWNER-RUN, NOT DEPLOYED)
         Each mainnet branch reads its OWN `<CHAIN>_MAINNET_*` env and is
         env-driven (default address(0)) exactly like the testnet twins.
         These prove BRANCH SELECTION + the address(0)-default truth rule;
@@ -259,13 +259,13 @@ contract DeployAllTest is Test {
     // Mainnet ids mirrored from HelperConfig (the constants there are `internal`).
     uint256 internal constant BASE_MAINNET = 8_453;
     uint256 internal constant POLYGON_MAINNET = 137;
-    // Added faucet-list mainnet ids (AUDIT-GATED profiles, mirrored from HelperConfig).
+    // Added faucet-list mainnet ids (OWNER-RUN profiles, mirrored from HelperConfig).
     uint256 internal constant ZORA_MAINNET = 7_777_777;
     uint256 internal constant GNOSIS_MAINNET = 100;
 
     /// @dev Owns every `BASE_MAINNET_*` key. Selection reads BASE_MAINNET_* (not the testnet prefix),
     ///      and every unconfirmed/blank address resolves to address(0) — the DeployAll skip semantics —
-    ///      so a pre-audit mainnet profile never carries a guessed address.
+    ///      so a not-yet-deployed mainnet profile never carries a guessed address.
     function test_helperConfig_baseMainnet_branch_isEnvDrivenAddressZeroDefault() public {
         vm.chainId(BASE_MAINNET);
         vm.setEnv("BASE_MAINNET_PLATFORM_TREASURY", vm.toString(treasury));
@@ -300,7 +300,7 @@ contract DeployAllTest is Test {
     }
 
     /// @dev Owns every `ZORA_MAINNET_*` and `GNOSIS_MAINNET_*` key. Proves the added mainnet PROFILES
-    ///      select their own branch and stay env-driven with address(0) defaults — a pre-audit profile
+    ///      select their own branch and stay env-driven with address(0) defaults — a not-yet-deployed profile
     ///      never carries a guessed USDC/feed address (law #4), exactly like the original mainnet twins.
     function test_helperConfig_addedMainnets_branchesAreEnvDrivenAddressZeroDefault() public {
         // Zora mainnet (chainId 7777777).

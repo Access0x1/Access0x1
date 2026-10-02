@@ -9,7 +9,7 @@ against on that chain, and something has to fill the slot.
 
 This page documents the two things that can fill it, what each one honestly earns, and the
 exact commands the owner runs. Both are **testnet-only**. Mainnet stays owner-run and
-audit-gated ([FAQ → mainnet](./FAQ.md#can-i-run-this-on-mainnet)).
+owner-run ([FAQ → mainnet](./FAQ.md#can-i-run-this-on-mainnet)).
 
 > **The seam itself** — `priceFeedOf[token]`, `setPriceFeed`, and the conformance contract a
 > price source honors — is documented in [PRICE-SOURCES.md](./PRICE-SOURCES.md). This page is
