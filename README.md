@@ -1254,8 +1254,9 @@ at each protocol, is [`docs/FOR-PROTOCOLS.md`](docs/FOR-PROTOCOLS.md).
   any business or pool can use the hook. The swapper-reporting router ships beside it
   ([`hooks/src/Access0x1SwapRouter.sol`](hooks/src/Access0x1SwapRouter.sol)). `hooks/` is its own
   pinned Foundry workspace (solc 0.8.30, via_ir off, the official PoolManager bytecode in tests, an
-  AI-readable manifest checked against the code). It is **tested, not yet deployed**: the first hook
-  above stays the live one until the owner runs `hooks/script/handoff/run.sh`.
+  AI-readable manifest checked against the code). It is **live and source-verified on Sepolia, Base
+  Sepolia and Unichain Sepolia**, with the router and the two hooks below; addresses and deploy
+  transactions are in [`hooks/README.md`](hooks/README.md#deployed-2026-10-02).
   Beside it, two more: [`Access0x1MemberFeeHook`](hooks/src/Access0x1MemberFeeHook.sol), a merchant's
   dynamic-fee pool where members of the tier it names (any membership contract with `isActive`) pay
   less, and [`Access0x1SessionBudgetHook`](hooks/src/Access0x1SessionBudgetHook.sol), swaps capped by a

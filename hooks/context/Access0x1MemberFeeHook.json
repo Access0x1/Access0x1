@@ -2,7 +2,7 @@
   "schemaVersion": "0",
   "name": "Access0x1MemberFeeHook",
   "description": "A merchant's dynamic-fee pool where its members pay a lower swap fee. The merchant, registered on the Access0x1 Router, names any membership contract and tier, a member fee and a public fee, capped at 10%. A swapper with an active membership pays the member fee; anyone else, or any failed read, pays the public fee. No funds, no admin.",
-  "status": "tested",
+  "status": "verified",
   "source": {
     "path": "src/Access0x1MemberFeeHook.sol",
     "contract": "Access0x1MemberFeeHook",
@@ -52,7 +52,8 @@
     "autoRoutable": false,
     "needsHookData": false,
     "reasons": [
-      "Dynamic fee: Uniswap's router needs a manual allowlist for dynamic-fee hooks, which only applies on mainnet."
+      "Dynamic fee: Uniswap's router needs a manual allowlist for dynamic-fee hooks, which only applies on mainnet.",
+      "Deployed addresses start 0x8D/0x40/0xd8, 0x35/0x82/0x37 and 0x47/0x49/0x70: none starts 0x91."
     ]
   },
   "pool": {
@@ -181,7 +182,32 @@
       "test": "test_RevertWhen_PoolIsUnconfigured_OrStaticFee"
     }
   ],
-  "deployments": [],
+  "deployments": [
+    {
+      "chainId": 11155111,
+      "chain": "Sepolia",
+      "address": "0x35c946ff38e6623d696f96a515d603977cb46080",
+      "tx": "0x0d622976b36b112d8ed32dec6ac72fded7898128b6fb30934d6add410a6d4a71",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    },
+    {
+      "chainId": 84532,
+      "chain": "Base Sepolia",
+      "address": "0x82c296e7577a24a735740361bf42af8189b3a080",
+      "tx": "0x12e06dab18ac456121612ce7e5524dadd8b18d7af7b6a6ab428dd8c6ddefde3a",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    },
+    {
+      "chainId": 1301,
+      "chain": "Unichain Sepolia",
+      "address": "0x37404270bd87641b82c6e7ab4828a172fbc06080",
+      "tx": "0x13fef33b6d273dce1a1191fc76df6e2f79b01aaa01512d0d44e7a4c3d0d859e3",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    }
+  ],
   "directory": {
     "tags": [
       "dynamic-fee",

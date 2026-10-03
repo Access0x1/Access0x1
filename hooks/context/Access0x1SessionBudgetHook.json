@@ -2,7 +2,7 @@
   "schemaVersion": "0",
   "name": "Access0x1SessionBudgetHook",
   "description": "Caps a person's own swaps with an Access0x1 SessionGrant budget. The owner opens a session whose delegate is this hook; an exact-input swap that carries the session id is charged against it, and a swap past the budget, after expiry or after revocation reverts. Only the session's owner can charge it. Swaps without a session pass untouched. No fee, no funds, no admin.",
-  "status": "tested",
+  "status": "verified",
   "source": {
     "path": "src/Access0x1SessionBudgetHook.sol",
     "contract": "Access0x1SessionBudgetHook",
@@ -52,7 +52,8 @@
     "needsHookData": false,
     "reasons": [
       "No dynamic fee and no returns-delta bit.",
-      "Swaps without hook data pass untouched; charging a session needs hook data and a router the owner trusts."
+      "Swaps without hook data pass untouched; charging a session needs hook data and a router the owner trusts.",
+      "Deployed addresses start 0x8D/0x40/0xd8, 0x35/0x82/0x37 and 0x47/0x49/0x70: none starts 0x91."
     ]
   },
   "pool": {
@@ -158,7 +159,32 @@
       "test": "test_SwapWithoutSession_IsUntouched"
     }
   ],
-  "deployments": [],
+  "deployments": [
+    {
+      "chainId": 11155111,
+      "chain": "Sepolia",
+      "address": "0x47fed9386ceeba91a282eb1e199aaed0c83e4080",
+      "tx": "0x0a89e532b652c8fb38c451f8b24ed0d92dea0209aad8f5c5e7d409218ae775df",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    },
+    {
+      "chainId": 84532,
+      "chain": "Base Sepolia",
+      "address": "0x49a2f3c90ed3ef4f696b0df900dfe3e8e2c88080",
+      "tx": "0xcdfc048c018cc367d6b498a4b668f336693284a2451e46811d7306db81442988",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    },
+    {
+      "chainId": 1301,
+      "chain": "Unichain Sepolia",
+      "address": "0x70d3c6ec4ac174a6b1942a188bb64a85396e4080",
+      "tx": "0xf3aae63a95bb8e1195f537daee2b1484f12026637e0218d43b6d4a8e54d77362",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    }
+  ],
   "directory": {
     "tags": [
       "budget",

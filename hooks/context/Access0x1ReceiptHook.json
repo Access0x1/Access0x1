@@ -2,7 +2,7 @@
   "schemaVersion": "0",
   "name": "Access0x1ReceiptHook",
   "description": "Emits a receipt for every swap through any pool that names it. A swap may claim a merchant and order in hook data; the receipt's flag is true only when that merchant is active on the Access0x1 Router and the swap was made by its own payout or owner wallet. Takes no fee, holds no funds, has no admin, and cannot make a swap revert.",
-  "status": "tested",
+  "status": "verified",
   "source": {
     "path": "src/Access0x1ReceiptHook.sol",
     "contract": "Access0x1ReceiptHook",
@@ -53,7 +53,7 @@
     "reasons": [
       "No dynamic fee and no returns-delta bit.",
       "Swaps work with empty hookData; a claim is optional.",
-      "The deploy script's miner skips 0x91 addresses."
+      "Deployed addresses start 0x8D/0x40/0xd8, 0x35/0x82/0x37 and 0x47/0x49/0x70: none starts 0x91."
     ]
   },
   "pool": {
@@ -175,7 +175,32 @@
       "test": "testFuzz_AnyHookData_NeverFailsTheSwap"
     }
   ],
-  "deployments": [],
+  "deployments": [
+    {
+      "chainId": 11155111,
+      "chain": "Sepolia",
+      "address": "0x8dd207ebfc15a2fbc87469100377d965faa38040",
+      "tx": "0xff6434da995ce9969e1740a1edc3909be7d68993129167d2bb055ec2618cc515",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    },
+    {
+      "chainId": 84532,
+      "chain": "Base Sepolia",
+      "address": "0x4087dc2f575d9274e08e23526b5604f6c912c040",
+      "tx": "0x7b34b9aa0fdf7ef6dfd2b359916255fcd5bfa5da2f4aef0965ae1a82f4561f1b",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    },
+    {
+      "chainId": 1301,
+      "chain": "Unichain Sepolia",
+      "address": "0xd858b6d6bd11d12986cc397711caa75e817f8040",
+      "tx": "0x7fa23d436c1772c2fc8f32ea0ae856695aa62257543eb5cbcea03cbc2e09fd9a",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    }
+  ],
   "directory": {
     "tags": [
       "receipt",
