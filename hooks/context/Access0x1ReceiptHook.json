@@ -1,0 +1,190 @@
+{
+  "schemaVersion": "0",
+  "name": "Access0x1ReceiptHook",
+  "description": "Emits a receipt for every swap through any pool that names it. A swap may claim a merchant and order in hook data; the receipt's flag is true only when that merchant is active on the Access0x1 Router and the swap was made by its own payout or owner wallet. Takes no fee, holds no funds, has no admin, and cannot make a swap revert.",
+  "status": "tested",
+  "source": {
+    "path": "src/Access0x1ReceiptHook.sol",
+    "contract": "Access0x1ReceiptHook",
+    "gitBlob": "46a284323f4cc5dfa9dedc3c1f1aea545eb63d51",
+    "inherits": "OpenZeppelin uniswap-hooks BaseHook at bd5287c4a9f5c22c2393f7587a9b357662916115"
+  },
+  "compiler": {
+    "solc": "0.8.30",
+    "evmVersion": "cancun",
+    "viaIR": false,
+    "optimizer": false
+  },
+  "permissions": {
+    "mask": "0x40",
+    "callbacks": [
+      "afterSwap"
+    ],
+    "returnsDelta": false
+  },
+  "hooklist": {
+    "flags": {
+      "beforeInitialize": false,
+      "afterInitialize": false,
+      "beforeAddLiquidity": false,
+      "afterAddLiquidity": false,
+      "beforeRemoveLiquidity": false,
+      "afterRemoveLiquidity": false,
+      "beforeSwap": false,
+      "afterSwap": true,
+      "beforeDonate": false,
+      "afterDonate": false,
+      "beforeSwapReturnsDelta": false,
+      "afterSwapReturnsDelta": false,
+      "afterAddLiquidityReturnsDelta": false,
+      "afterRemoveLiquidityReturnsDelta": false
+    },
+    "properties": {
+      "dynamicFee": false,
+      "upgradeable": false,
+      "requiresCustomSwapData": false,
+      "vanillaSwap": true,
+      "swapAccess": "none"
+    }
+  },
+  "routing": {
+    "autoRoutable": true,
+    "needsHookData": false,
+    "reasons": [
+      "No dynamic fee and no returns-delta bit.",
+      "Swaps work with empty hookData; a claim is optional.",
+      "The deploy script's miner skips 0x91 addresses."
+    ]
+  },
+  "pool": {
+    "binding": "None. Any pool, any business.",
+    "fee": "Any. The hook does not read or set it.",
+    "currencies": "Any, including native."
+  },
+  "state": [
+    {
+      "name": "trustedRouter",
+      "type": "mapping(uint256 => mapping(address => bool))",
+      "kind": "storage",
+      "writtenBy": [
+        "setRouterTrust, by the merchant's owner on the Router"
+      ],
+      "readBy": [
+        "afterSwap",
+        "anyone, through the public getter"
+      ]
+    },
+    {
+      "name": "merchantRegistry",
+      "type": "IAccess0x1Merchants",
+      "kind": "immutable",
+      "writtenBy": [
+        "constructor"
+      ],
+      "readBy": [
+        "afterSwap",
+        "setRouterTrust"
+      ]
+    },
+    {
+      "name": "poolManager",
+      "type": "IPoolManager",
+      "kind": "immutable",
+      "writtenBy": [
+        "constructor"
+      ],
+      "readBy": [
+        "onlyPoolManager"
+      ]
+    }
+  ],
+  "transientStorage": [],
+  "math": [],
+  "deltas": [
+    {
+      "callback": "afterSwap",
+      "returns": "int128 0",
+      "currency": "none",
+      "settledBy": "Nobody. Without the afterSwapReturnDelta bit the PoolManager does not read it."
+    }
+  ],
+  "externalCalls": [
+    {
+      "target": "merchantRegistry (Access0x1 Router)",
+      "function": "merchants(uint256)",
+      "trust": "Trusted for merchant records. Gas-capped at 50,000 and wrapped in try/catch: a failure gives an unverified receipt, never a failed swap."
+    },
+    {
+      "target": "a router the merchant's owner trusts",
+      "function": "msgSender()",
+      "trust": "Trusted only for that merchant, by that merchant's choice. Gas-capped and wrapped in try/catch."
+    }
+  ],
+  "accessControl": [
+    {
+      "function": "afterSwap",
+      "caller": "PoolManager only",
+      "enforcedBy": "onlyPoolManager in BaseHook"
+    },
+    {
+      "function": "setRouterTrust",
+      "caller": "the merchant's current owner on the Router",
+      "enforcedBy": "live read of merchants(id).owner; reverts NotMerchantOwner"
+    }
+  ],
+  "securityAssumptions": [
+    "The Access0x1 Router reports merchant records truthfully.",
+    "A router a merchant trusts reports its user truthfully; a lying router can only affect that merchant's own receipts."
+  ],
+  "doesNotGuarantee": [
+    "Does not stop anyone from CLAIMING a merchant: an unverified receipt still names the claimed id. Consumers must read the verified flag.",
+    "Does not check that the swap paid the merchant or matches an order; orderRef is the swapper's word.",
+    "Does not verify swaps by a merchant wallet through a router the merchant has not trusted, other than a direct PoolManager caller."
+  ],
+  "invariants": [
+    {
+      "statement": "The hook's address carries exactly afterSwap, mask 0x40.",
+      "test": "test_Address_MatchesDeclaredPermissions"
+    },
+    {
+      "statement": "The merchant's own wallet swapping through a router the merchant trusts gives a verified receipt.",
+      "test": "test_MerchantWallet_ThroughATrustedRouter_IsVerified"
+    },
+    {
+      "statement": "An untrusted router's report is ignored.",
+      "test": "test_MerchantWallet_ThroughAnUntrustedRouter_IsNotVerified"
+    },
+    {
+      "statement": "A stranger's claim is recorded but not verified.",
+      "test": "test_Stranger_ClaimingTheMerchant_IsNotVerified"
+    },
+    {
+      "statement": "An inactive merchant is never verified.",
+      "test": "test_InactiveMerchant_IsNotVerified"
+    },
+    {
+      "statement": "A failing registry leaves the swap settled and the receipt unverified.",
+      "test": "test_RegistryDown_SwapStillSettles_Unverified"
+    },
+    {
+      "statement": "Only the merchant's owner can trust a router.",
+      "test": "test_RevertWhen_TrustIsSetByAnyoneButTheOwner"
+    },
+    {
+      "statement": "No hook data of any length can fail a swap; only 64 bytes is read as a claim.",
+      "test": "testFuzz_AnyHookData_NeverFailsTheSwap"
+    }
+  ],
+  "deployments": [],
+  "directory": {
+    "tags": [
+      "receipt",
+      "attribution",
+      "payments",
+      "afterSwap"
+    ],
+    "integrations": [
+      "Access0x1"
+    ]
+  }
+}
