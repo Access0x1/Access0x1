@@ -30,6 +30,9 @@ import { ModifyLiquidityParams, SwapParams } from "@uniswap/v4-core/src/types/Po
 ///         accepted the mined flags, and a live swap emitted {SwapReceipt} (merchantId 1,
 ///         orderRef "A0X1-LIVEFIRE-1") — records under `broadcast/DeploySwapReceiptHook.s.sol/`
 ///         and `broadcast/LiveFireSwapReceipt.s.sol/11155111/`.
+///
+///         SUPERSEDED by `hooks/src/Access0x1ReceiptHook.sol`, which checks the merchant claim this
+///         contract only records. Kept unchanged here because it is the deployed, source-verified one.
 contract Access0x1SwapReceiptHook is IHooks {
     using PoolIdLibrary for PoolKey;
 
