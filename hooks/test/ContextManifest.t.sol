@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 import {HookTestBase} from "./utils/HookTestBase.sol";
-import {Counter} from "../src/Counter.sol";
+import {Access0x1ReceiptHook} from "../src/Access0x1ReceiptHook.sol";
 
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 
@@ -11,17 +11,17 @@ import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 /// @dev The expected mask is never taken from the manifest: the hook is placed at a literal, and
 ///      the manifest is compared against what the hook itself declares.
 contract ContextManifestTest is HookTestBase {
-    uint160 internal constant COUNTER_MASK = 0x8C0;
+    uint160 internal constant RECEIPT_MASK = 0x40;
 
     function setUp() public {
         _deployV4();
     }
 
-    function test_Counter_ManifestMatchesHook() public {
-        address where = _flagAddress(COUNTER_MASK);
-        _place(abi.encodePacked(type(Counter).creationCode, abi.encode(manager)), where);
+    function test_Access0x1ReceiptHook_ManifestMatchesHook() public {
+        address where = _flagAddress(RECEIPT_MASK);
+        _place(abi.encodePacked(type(Access0x1ReceiptHook).creationCode, abi.encode(manager, address(1))), where);
 
-        _assertManifestMatches("context/Counter.json", Counter(where).getHookPermissions());
+        _assertManifestMatches("context/Access0x1ReceiptHook.json", Access0x1ReceiptHook(where).getHookPermissions());
     }
 
     function _assertManifestMatches(string memory path, Hooks.Permissions memory p) internal view {

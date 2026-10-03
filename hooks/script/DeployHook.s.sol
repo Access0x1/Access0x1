@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {Script, console2} from "forge-std/Script.sol";
 
-import {Counter} from "../src/Counter.sol";
+import {Access0x1ReceiptHook, IAccess0x1Merchants} from "../src/Access0x1ReceiptHook.sol";
 
 import {HookMiner} from "@uniswap/v4-periphery/src/utils/HookMiner.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
@@ -23,14 +23,20 @@ import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 abstract contract Testnets is Script {
     error NotATestnetThisRepoDeploysTo(uint256 chainId);
     error NoPoolManagerCodeAt(address manager);
+    error NoMerchantRegistryCodeAt(address registry);
     error NoCreate2DeployerOnThisChain();
     error NoSaltFound();
 
     /// @dev The deterministic CREATE2 deployer present on every chain this repo deploys to.
     address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    /// @dev The low 14 bits the hook's address must carry: beforeAddLiquidity | beforeSwap | afterSwap.
-    uint160 internal constant FLAGS = 0x8C0;
+    /// @dev The low 14 bits the hook's address must carry: afterSwap.
+    uint160 internal constant FLAGS = 0x40;
+
+    /// @dev The Access0x1 Router, CREATE3-mirrored at one address. Read 2026-10-02 with `cast`:
+    ///      code on Sepolia, Base Sepolia and Unichain Sepolia (nextMerchantId 2, 4 and 1).
+    IAccess0x1Merchants internal constant MERCHANT_REGISTRY =
+        IAccess0x1Merchants(0xe92244e3368561faf21648146511DeDE3a475EB5);
 
     /// @dev Checked on 2026-10-02 with `cast code`: 24,009 bytes at each address, the official build.
     function poolManagerFor(uint256 chainId) public pure returns (IPoolManager) {
@@ -41,7 +47,7 @@ abstract contract Testnets is Script {
     }
 
     function initcode(IPoolManager manager) public pure returns (bytes memory) {
-        return abi.encodePacked(type(Counter).creationCode, abi.encode(manager));
+        return abi.encodePacked(type(Access0x1ReceiptHook).creationCode, abi.encode(manager, MERCHANT_REGISTRY));
     }
 
     /// @notice The first salt whose CREATE2 address, deployed by `deployer`, ends in FLAGS.
@@ -62,6 +68,7 @@ abstract contract Testnets is Script {
     function _checkChain() internal view returns (IPoolManager manager) {
         manager = poolManagerFor(block.chainid);
         if (address(manager).code.length == 0) revert NoPoolManagerCodeAt(address(manager));
+        if (address(MERCHANT_REGISTRY).code.length == 0) revert NoMerchantRegistryCodeAt(address(MERCHANT_REGISTRY));
         if (CREATE2_DEPLOYER.code.length == 0) revert NoCreate2DeployerOnThisChain();
     }
 }
@@ -75,7 +82,7 @@ contract DeployHook is Testnets {
     error Create2DeploymentFailed(bytes reason);
     error NothingDeployedAt(address expected);
 
-    function run() external returns (Counter hook) {
+    function run() external returns (Access0x1ReceiptHook hook) {
         IPoolManager manager = _checkChain();
         (address expected, bytes32 salt) = mine(CREATE2_DEPLOYER, manager);
 
@@ -85,7 +92,7 @@ contract DeployHook is Testnets {
         console2.log("salt             ", uint256(salt));
 
         // The deployer is called by hand: its calldata is salt ++ creation code. Writing
-        // `new Counter{salt: salt}(manager)` leaves it to forge to send the creation through
+        // `new Access0x1ReceiptHook{salt: salt}(...)` leaves it to forge to send the creation through
         // the deployer, and on Base Sepolia forge 1.8.3 sent a plain CREATE instead: the hook
         // landed on an address the miner had not predicted and its constructor refused it.
         vm.startBroadcast();
@@ -94,25 +101,26 @@ contract DeployHook is Testnets {
 
         if (!ok) revert Create2DeploymentFailed(ret);
         if (expected.code.length == 0) revert NothingDeployedAt(expected);
-        hook = Counter(expected);
+        hook = Access0x1ReceiptHook(expected);
         console2.log("deployed hook    ", address(hook));
     }
 }
 
-/// @notice Step 2: a pool that names the deployed hook, liquidity in it, and one swap through it.
-/// @dev Everything it needs it brings itself: two mock tokens and v4-core's two test routers.
-///      Nothing here is worth anything; the point is one real swap that fires the hook.
+/// @notice Step 2: a pool that names the deployed hook, liquidity in it, and one swap through it
+///         carrying a merchant claim. The swap is by the demo's own wallet, which is not that
+///         merchant's, so the receipt must come out UNVERIFIED; a verified receipt needs the
+///         merchant's own wallet.
+/// @dev Brings its own mock tokens and v4-core's test routers. Nothing here is worth anything.
 ///
 ///   Dry run:
 ///     HOOK=<address from step 1> forge script script/DeployHook.s.sol:DemoHook --rpc-url <testnet rpc>
 contract DemoHook is Testnets {
     error HookHasNoCode(address hook);
     error HookIsForAnotherPoolManager(address hook);
-    error CountersDidNotMove(uint256 beforeSwap, uint256 afterSwap, uint256 beforeAddLiquidity);
 
     function run() external {
         IPoolManager manager = _checkChain();
-        Counter hook = Counter(vm.envAddress("HOOK"));
+        Access0x1ReceiptHook hook = Access0x1ReceiptHook(vm.envAddress("HOOK"));
         if (address(hook).code.length == 0) revert HookHasNoCode(address(hook));
         if (address(hook.poolManager()) != address(manager)) revert HookIsForAnotherPoolManager(address(hook));
 
@@ -140,7 +148,6 @@ contract DemoHook is Testnets {
             hooks: IHooks(address(hook))
         });
         manager.initialize(key, TickMath.getSqrtPriceAtTick(0));
-
         liquidityRouter.modifyLiquidity(
             key, ModifyLiquidityParams({tickLower: -120, tickUpper: 120, liquidityDelta: 100e18, salt: bytes32(0)}), ""
         );
@@ -148,20 +155,13 @@ contract DemoHook is Testnets {
             key,
             SwapParams({zeroForOne: true, amountSpecified: -1e15, sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1}),
             PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-            ""
+            abi.encode(uint256(1), bytes32("A0X1-DEMO-1"))
         );
         vm.stopBroadcast();
 
-        PoolId id = key.toId();
-        uint256 nBefore = hook.beforeSwapCount(id);
-        uint256 nAfter = hook.afterSwapCount(id);
-        uint256 nAdd = hook.beforeAddLiquidityCount(id);
-        console2.log("hook                    ", address(hook));
-        console2.log("pool id                 ");
-        console2.logBytes32(PoolId.unwrap(id));
-        console2.log("beforeSwapCount         ", nBefore);
-        console2.log("afterSwapCount          ", nAfter);
-        console2.log("beforeAddLiquidityCount ", nAdd);
-        if (nBefore != 1 || nAfter != 1 || nAdd != 1) revert CountersDidNotMove(nBefore, nAfter, nAdd);
+        console2.log("hook    ", address(hook));
+        console2.log("pool id ");
+        console2.logBytes32(PoolId.unwrap(key.toId()));
+        console2.log("read the SwapReceipt event in the swap's receipt: merchantId 1, verified false");
     }
 }
