@@ -59,7 +59,15 @@ const WRITE = process.argv.includes('--write');
  * on-chain encoding. Remove a name here once it deploys (it then becomes a normal
  * deployed type, byte-enforced). Keep this list tiny and honest.
  */
-const PREVIEW_TYPES = ['Access0x1PaymentResolver', 'Access0x1SwapReceiptHook'];
+const PREVIEW_TYPES = [
+  'Access0x1PaymentResolver',
+  'Access0x1SwapReceiptHook',
+  // The v4 hooks workspace (hooks/): built and tested there, not deployed yet.
+  'Access0x1ReceiptHook',
+  'Access0x1MemberFeeHook',
+  'Access0x1SessionBudgetHook',
+  'Access0x1SwapRouter',
+];
 
 /**
  * Every deployed contract type. Primary source is the committed
@@ -103,8 +111,11 @@ function deployedTypes() {
 
 /** The compiled ABI for a contract type, or null if the artifact is missing. */
 function artifactAbi(name) {
-  const p = join(OUT, `${name}.sol`, `${name}.json`);
-  if (!existsSync(p)) return null;
+  // hooks/ is its own Foundry workspace (solc 0.8.30, via_ir off), so its artifacts land in hooks/out.
+  const p = [join(OUT, `${name}.sol`, `${name}.json`), join(REPO_ROOT, 'hooks', 'out', `${name}.sol`, `${name}.json`)].find(
+    (q) => existsSync(q),
+  );
+  if (!p) return null;
   try {
     const abi = JSON.parse(readFileSync(p, 'utf8')).abi;
     return Array.isArray(abi) ? abi : null;
