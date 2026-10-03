@@ -1256,6 +1256,11 @@ at each protocol, is [`docs/FOR-PROTOCOLS.md`](docs/FOR-PROTOCOLS.md).
   pinned Foundry workspace (solc 0.8.30, via_ir off, the official PoolManager bytecode in tests, an
   AI-readable manifest checked against the code). It is **tested, not yet deployed**: the first hook
   above stays the live one until the owner runs `hooks/script/handoff/run.sh`.
+  Beside it, two more: [`Access0x1MemberFeeHook`](hooks/src/Access0x1MemberFeeHook.sol), a merchant's
+  dynamic-fee pool where members of the tier it names (any membership contract with `isActive`) pay
+  less, and [`Access0x1SessionBudgetHook`](hooks/src/Access0x1SessionBudgetHook.sol), swaps capped by a
+  SessionGrant budget whose delegate is the hook, chargeable only by the session's owner. All three are
+  open to any business, take no funds, and have no admin.
 - **The Graph — the read a bounded `getLogs` window cannot answer.** [`subgraph/`](subgraph) is a
   standard subgraph — their manifest, their schema directives, their `_meta` — with matchstick tests,
   read by [`web/lib/graph-analytics.ts`](web/lib/graph-analytics.ts) and
