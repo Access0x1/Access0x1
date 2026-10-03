@@ -87,6 +87,30 @@ const CURATED: Partial<Record<ModuleName, Curated>> = {
     blurb:
       'A Uniswap v4 hook that turns each payout swap through a hooked pool into an attributable on-chain receipt — zero custody, zero added fee.',
   },
+  Access0x1ReceiptHook: {
+    label: 'Receipt hook (v2)',
+    category: 'Payments',
+    blurb:
+      'A Uniswap v4 receipt for every swap; a merchant claim is marked verified only when the merchant is active here and its own wallet made the swap. No fee, no funds, no admin.',
+  },
+  Access0x1MemberFeeHook: {
+    label: 'Member-fee hook',
+    category: 'Payments',
+    blurb:
+      'A merchant’s Uniswap v4 pool where members of the tier it names pay a lower swap fee. Any membership contract; fees set by the merchant, capped at 10%.',
+  },
+  Access0x1SessionBudgetHook: {
+    label: 'Session-budget hook',
+    category: 'Payments',
+    blurb:
+      'Caps your own Uniswap v4 swaps with a SessionGrant budget; past the budget, expiry or revocation the swap reverts. Only the session owner can charge it.',
+  },
+  Access0x1SwapRouter: {
+    label: 'Swap router',
+    category: 'Infrastructure',
+    blurb:
+      'A minimal v4 swap router that holds nothing and tells hooks who the user is, so a merchant can trust it to report its own wallet.',
+  },
   // ── Refunds & escrow ──────────────────────────────────────────────────────
   Access0x1Escrow: {
     label: 'Escrow',

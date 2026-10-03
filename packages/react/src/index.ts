@@ -71,3 +71,16 @@ export { ROUTER_ABI, ERC20_ABI, LANES_ABI } from './abi.js';
 // Clear signing — ERC-8213 calldata digest (the verifiable fallback to the ERC-7730 descriptor).
 export { calldataDigest, encodePaymentCalldata, paymentCalldataDigest } from './clearSigning.js';
 export type { PaymentCalldataParams } from './clearSigning.js';
+
+// Uniswap v4 hooks — hook data, receipt decoding, and the member-fee read (hooks/src/ in the repo).
+export {
+  RECEIPT_HOOK_ABI,
+  MEMBER_FEE_HOOK_ABI,
+  SESSION_BUDGET_HOOK_ABI,
+  DYNAMIC_FEE_FLAG,
+  encodeReceiptHookData,
+  encodeSessionHookData,
+  decodeSwapReceipt,
+  readMemberFee,
+} from './uniswapHooks.js';
+export type { PoolKey, SwapReceipt } from './uniswapHooks.js';

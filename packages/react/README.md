@@ -151,3 +151,20 @@ The default label is **"Pay with Crypto"** — it makes no "instant" or no-cost 
 ## License
 
 MIT
+
+## Uniswap v4 hooks
+
+Helpers for Access0x1's three v4 hooks (`hooks/src/` in the repo). No hook address is baked in;
+pass the one you trust.
+
+```ts
+import { encodeReceiptHookData, decodeSwapReceipt, readMemberFee, encodeSessionHookData } from '@access0x1/react';
+
+const hookData = encodeReceiptHookData(merchantId, orderRef);   // claim a merchant + order on a swap
+const receipt = decodeSwapReceipt(log);                          // { merchantId, swapper, verified, ... }
+const { fee, member, percent } = await readMemberFee(client, hook, poolKey, swapper);
+const charge = encodeSessionHookData(sessionId);                 // charge a swap to a SessionGrant budget
+```
+
+A receipt's `verified` is true only when the merchant is active on the Router and the swap came
+from the merchant's own wallet. Check a log's `address` is the hook you trust before reading it.

@@ -1245,6 +1245,23 @@ at each protocol, is [`docs/FOR-PROTOCOLS.md`](docs/FOR-PROTOCOLS.md).
   [`0x4d6cF3e1…c040`](https://sepolia.etherscan.io/address/0x4d6cf3e12c331393880df02b53017a478a6ec040),
   with a live-fire swap through it ([`script/LiveFireSwapReceipt.s.sol`](script/LiveFireSwapReceipt.s.sol)) —
   re-verify with `cast call 0x4d6cF3e12C331393880df02b53017A478A6ec040 "POOL_MANAGER()(address)" --rpc-url "$SEPOLIA_RPC_URL"`.
+- **Uniswap v4 — the receipt hook, second version: a claim that is checked.**
+  [`hooks/src/Access0x1ReceiptHook.sol`](hooks/src/Access0x1ReceiptHook.sol) replaces the first hook's
+  self-asserted attribution. A swap may still claim `(merchantId, orderRef)` in hook data, but the
+  `SwapReceipt` now carries a `verified` flag that is true only when the merchant is active on the
+  Router and the swap was made by that merchant's own payout or owner wallet. Behind a router, a
+  merchant's owner chooses which routers may report the user (`setRouterTrust`); no admin exists, and
+  any business or pool can use the hook. The swapper-reporting router ships beside it
+  ([`hooks/src/Access0x1SwapRouter.sol`](hooks/src/Access0x1SwapRouter.sol)). `hooks/` is its own
+  pinned Foundry workspace (solc 0.8.30, via_ir off, the official PoolManager bytecode in tests, an
+  AI-readable manifest checked against the code). It is **live and source-verified on Sepolia, Base
+  Sepolia and Unichain Sepolia**, with the router and the two hooks below; addresses and deploy
+  transactions are in [`hooks/README.md`](hooks/README.md#deployed-2026-10-02).
+  Beside it, two more: [`Access0x1MemberFeeHook`](hooks/src/Access0x1MemberFeeHook.sol), a merchant's
+  dynamic-fee pool where members of the tier it names (any membership contract with `isActive`) pay
+  less, and [`Access0x1SessionBudgetHook`](hooks/src/Access0x1SessionBudgetHook.sol), swaps capped by a
+  SessionGrant budget whose delegate is the hook, chargeable only by the session's owner. All three are
+  open to any business, take no funds, and have no admin.
 - **The Graph — the read a bounded `getLogs` window cannot answer.** [`subgraph/`](subgraph) is a
   standard subgraph — their manifest, their schema directives, their `_meta` — with matchstick tests,
   read by [`web/lib/graph-analytics.ts`](web/lib/graph-analytics.ts) and

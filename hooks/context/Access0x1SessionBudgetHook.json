@@ -1,0 +1,199 @@
+{
+  "schemaVersion": "0",
+  "name": "Access0x1SessionBudgetHook",
+  "description": "Caps a person's own swaps with an Access0x1 SessionGrant budget. The owner opens a session whose delegate is this hook; an exact-input swap that carries the session id is charged against it, and a swap past the budget, after expiry or after revocation reverts. Only the session's owner can charge it. Swaps without a session pass untouched. No fee, no funds, no admin.",
+  "status": "verified",
+  "source": {
+    "path": "src/Access0x1SessionBudgetHook.sol",
+    "contract": "Access0x1SessionBudgetHook",
+    "gitBlob": "9be70489d8abb6e5659cdc9fa0c97d80c40c92b6",
+    "inherits": "OpenZeppelin uniswap-hooks BaseHook at bd5287c4a9f5c22c2393f7587a9b357662916115"
+  },
+  "compiler": {
+    "solc": "0.8.30",
+    "evmVersion": "cancun",
+    "viaIR": false,
+    "optimizer": false
+  },
+  "permissions": {
+    "mask": "0x80",
+    "callbacks": [
+      "beforeSwap"
+    ],
+    "returnsDelta": false
+  },
+  "hooklist": {
+    "flags": {
+      "beforeInitialize": false,
+      "afterInitialize": false,
+      "beforeAddLiquidity": false,
+      "afterAddLiquidity": false,
+      "beforeRemoveLiquidity": false,
+      "afterRemoveLiquidity": false,
+      "beforeSwap": true,
+      "afterSwap": false,
+      "beforeDonate": false,
+      "afterDonate": false,
+      "beforeSwapReturnsDelta": false,
+      "afterSwapReturnsDelta": false,
+      "afterAddLiquidityReturnsDelta": false,
+      "afterRemoveLiquidityReturnsDelta": false
+    },
+    "properties": {
+      "dynamicFee": false,
+      "upgradeable": false,
+      "requiresCustomSwapData": false,
+      "vanillaSwap": true,
+      "swapAccess": "none"
+    }
+  },
+  "routing": {
+    "autoRoutable": true,
+    "needsHookData": false,
+    "reasons": [
+      "No dynamic fee and no returns-delta bit.",
+      "Swaps without hook data pass untouched; charging a session needs hook data and a router the owner trusts.",
+      "Deployed addresses start 0x8D/0x40/0xd8, 0x35/0x82/0x37 and 0x47/0x49/0x70: none starts 0x91."
+    ]
+  },
+  "pool": {
+    "binding": "None. Any pool.",
+    "fee": "Any. Not read or set.",
+    "currencies": "Any, including native."
+  },
+  "state": [
+    {
+      "name": "trustedRouter",
+      "type": "mapping(address => mapping(address => bool))",
+      "kind": "storage",
+      "writtenBy": [
+        "setRouterTrust, by the owner for themselves"
+      ],
+      "readBy": [
+        "beforeSwap"
+      ]
+    },
+    {
+      "name": "sessions",
+      "type": "ISessionBudget",
+      "kind": "immutable",
+      "writtenBy": [
+        "constructor"
+      ],
+      "readBy": [
+        "beforeSwap"
+      ]
+    }
+  ],
+  "transientStorage": [],
+  "math": [
+    {
+      "formula": "charge = -amountSpecified (exact input only)",
+      "format": "raw units of the swap's input token",
+      "rounding": "none"
+    }
+  ],
+  "deltas": [
+    {
+      "callback": "beforeSwap",
+      "returns": "BeforeSwapDelta 0, fee 0",
+      "currency": "none",
+      "settledBy": "Nobody."
+    }
+  ],
+  "externalCalls": [
+    {
+      "target": "Access0x1 SessionGrant",
+      "function": "ownerOf, spend",
+      "trust": "Access0x1's own contract; spend enforces delegate, budget, expiry and revocation."
+    },
+    {
+      "target": "a router the session owner trusts",
+      "function": "msgSender()",
+      "trust": "Chosen by the owner. Gas-capped, try/catch."
+    }
+  ],
+  "accessControl": [
+    {
+      "function": "beforeSwap",
+      "caller": "PoolManager only",
+      "enforcedBy": "onlyPoolManager in BaseHook"
+    },
+    {
+      "function": "charging a session",
+      "caller": "the session's owner, directly or through a router they trust",
+      "enforcedBy": "reverts NotSessionOwner"
+    }
+  ],
+  "securityAssumptions": [
+    "SessionGrant.spend enforces the budget and lets only the delegate spend."
+  ],
+  "doesNotGuarantee": [
+    "The budget counts raw input-token units; mixing input tokens in one session mixes units.",
+    "Does not cap swaps that do not carry the session id.",
+    "Exact-output swaps cannot be charged and revert if they carry a session."
+  ],
+  "invariants": [
+    {
+      "statement": "The hook's address carries exactly beforeSwap, mask 0x80.",
+      "test": "test_Address_MatchesDeclaredPermissions"
+    },
+    {
+      "statement": "Swaps are charged until the budget is gone, then refused.",
+      "test": "test_SwapsAreChargedUntilTheBudgetIsGone"
+    },
+    {
+      "statement": "For any split, a session never pays out past its budget.",
+      "test": "testFuzz_NeverSpendsPastTheBudget"
+    },
+    {
+      "statement": "Nobody but the owner can spend the session.",
+      "test": "test_RevertWhen_SomeoneElseUsesTheSession"
+    },
+    {
+      "statement": "Expired or revoked sessions refuse.",
+      "test": "test_RevertWhen_SessionExpired_OrRevoked"
+    },
+    {
+      "statement": "Swaps without a session are untouched.",
+      "test": "test_SwapWithoutSession_IsUntouched"
+    }
+  ],
+  "deployments": [
+    {
+      "chainId": 11155111,
+      "chain": "Sepolia",
+      "address": "0x47fed9386ceeba91a282eb1e199aaed0c83e4080",
+      "tx": "0x0a89e532b652c8fb38c451f8b24ed0d92dea0209aad8f5c5e7d409218ae775df",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    },
+    {
+      "chainId": 84532,
+      "chain": "Base Sepolia",
+      "address": "0x49a2f3c90ed3ef4f696b0df900dfe3e8e2c88080",
+      "tx": "0xcdfc048c018cc367d6b498a4b668f336693284a2451e46811d7306db81442988",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    },
+    {
+      "chainId": 1301,
+      "chain": "Unichain Sepolia",
+      "address": "0x70d3c6ec4ac174a6b1942a188bb64a85396e4080",
+      "tx": "0xf3aae63a95bb8e1195f537daee2b1484f12026637e0218d43b6d4a8e54d77362",
+      "sourceVerified": true,
+      "verifiedOn": "2026-10-02"
+    }
+  ],
+  "directory": {
+    "tags": [
+      "budget",
+      "session",
+      "agents",
+      "beforeSwap"
+    ],
+    "integrations": [
+      "Access0x1"
+    ]
+  }
+}

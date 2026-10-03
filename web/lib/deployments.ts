@@ -218,6 +218,10 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
         "address": "0x902382d472aaf6bd90e000c315a861f6b493bcea"
       },
       {
+        "contractName": "Access0x1MemberFeeHook",
+        "address": "0x37404270bd87641b82c6e7ab4828a172fbc06080"
+      },
+      {
         "contractName": "Access0x1Nft.impl",
         "address": "0x13a80b7543a0caed7e64281109b2c1ac25677d07"
       },
@@ -242,12 +246,20 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
         "address": "0xf1038d9fd72cff882fe35955a7fdcf1c299623bf"
       },
       {
+        "contractName": "Access0x1ReceiptHook",
+        "address": "0xd858b6d6bd11d12986cc397711caa75e817f8040"
+      },
+      {
         "contractName": "Access0x1Router.impl",
         "address": "0x3336ec82d865e8bd1f9054856ac22b45a71207db"
       },
       {
         "contractName": "Access0x1Router.proxy",
         "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+      },
+      {
+        "contractName": "Access0x1SessionBudgetHook",
+        "address": "0x70d3c6ec4ac174a6b1942a188bb64a85396e4080"
       },
       {
         "contractName": "Access0x1SponsorRegistry.impl",
@@ -264,6 +276,10 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
       {
         "contractName": "Access0x1Subscriptions.proxy",
         "address": "0x787d2d97f7b0b0a7afe1ecd97032912fefe8e0ba"
+      },
+      {
+        "contractName": "Access0x1SwapRouter",
+        "address": "0xe0576eb07283d5065b8dec1d6f1f9023f45b0a88"
       },
       {
         "contractName": "AutomationGateway.impl",
@@ -742,6 +758,10 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
         "address": "0x902382d472aaf6bd90e000c315a861f6b493bcea"
       },
       {
+        "contractName": "Access0x1MemberFeeHook",
+        "address": "0x82c296e7577a24a735740361bf42af8189b3a080"
+      },
+      {
         "contractName": "Access0x1Nft.impl",
         "address": "0x13a80b7543a0caed7e64281109b2c1ac25677d07"
       },
@@ -766,12 +786,20 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
         "address": "0xf1038d9fd72cff882fe35955a7fdcf1c299623bf"
       },
       {
+        "contractName": "Access0x1ReceiptHook",
+        "address": "0x4087dc2f575d9274e08e23526b5604f6c912c040"
+      },
+      {
         "contractName": "Access0x1Router.impl",
         "address": "0x3336ec82d865e8bd1f9054856ac22b45a71207db"
       },
       {
         "contractName": "Access0x1Router.proxy",
         "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+      },
+      {
+        "contractName": "Access0x1SessionBudgetHook",
+        "address": "0x49a2f3c90ed3ef4f696b0df900dfe3e8e2c88080"
       },
       {
         "contractName": "Access0x1SponsorRegistry.impl",
@@ -788,6 +816,10 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
       {
         "contractName": "Access0x1Subscriptions.proxy",
         "address": "0x787d2d97f7b0b0a7afe1ecd97032912fefe8e0ba"
+      },
+      {
+        "contractName": "Access0x1SwapRouter",
+        "address": "0x00ded390f459c739b7841e20153d98cf093d1640"
       },
       {
         "contractName": "AutomationGateway.impl",
@@ -1321,6 +1353,10 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
         "address": "0x902382d472aaf6bd90e000c315a861f6b493bcea"
       },
       {
+        "contractName": "Access0x1MemberFeeHook",
+        "address": "0x35c946ff38e6623d696f96a515d603977cb46080"
+      },
+      {
         "contractName": "Access0x1Nft.impl",
         "address": "0x13a80b7543a0caed7e64281109b2c1ac25677d07"
       },
@@ -1345,12 +1381,20 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
         "address": "0xf1038d9fd72cff882fe35955a7fdcf1c299623bf"
       },
       {
+        "contractName": "Access0x1ReceiptHook",
+        "address": "0x8dd207ebfc15a2fbc87469100377d965faa38040"
+      },
+      {
         "contractName": "Access0x1Router.impl",
         "address": "0x3336ec82d865e8bd1f9054856ac22b45a71207db"
       },
       {
         "contractName": "Access0x1Router.proxy",
         "address": "0xe92244e3368561faf21648146511dede3a475eb5"
+      },
+      {
+        "contractName": "Access0x1SessionBudgetHook",
+        "address": "0x47fed9386ceeba91a282eb1e199aaed0c83e4080"
       },
       {
         "contractName": "Access0x1SponsorRegistry.impl",
@@ -1367,6 +1411,10 @@ export const DEPLOYMENTS: ReadonlyArray<ChainDeployments> = [
       {
         "contractName": "Access0x1Subscriptions.proxy",
         "address": "0x787d2d97f7b0b0a7afe1ecd97032912fefe8e0ba"
+      },
+      {
+        "contractName": "Access0x1SwapRouter",
+        "address": "0x769e47b3c0fe99a565b991042d1e0448b889611b"
       },
       {
         "contractName": "AutomationGateway.impl",
