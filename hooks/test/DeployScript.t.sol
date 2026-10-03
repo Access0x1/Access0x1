@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {HookTestBase} from "./utils/HookTestBase.sol";
 import {Access0x1ReceiptHook} from "../src/Access0x1ReceiptHook.sol";
-import {DeployHook, Testnets} from "../script/DeployHook.s.sol";
+import {DeployHook, DeployMemberFeeHook, DeploySessionBudgetHook, Testnets} from "../script/DeployHook.s.sol";
 
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 
@@ -90,5 +90,18 @@ contract DeployScriptTest is HookTestBase {
         (address here,) = script.mine(CREATE2_DEPLOYER, manager);
         (address sepolia,) = script.mine(CREATE2_DEPLOYER, script.poolManagerFor(11155111));
         assertTrue(here != sepolia, "two PoolManagers gave one hook address");
+    }
+
+    /// @dev The other two hooks mine their own masks and land where mined.
+    function test_TheOtherTwoHooks_DeployToTheirMinedAddresses() public {
+        Testnets[2] memory scripts = [Testnets(new DeployMemberFeeHook()), Testnets(new DeploySessionBudgetHook())];
+        uint160[2] memory masks = [uint160(0x2080), uint160(0x80)];
+        for (uint256 i; i < 2; i++) {
+            (address expected, bytes32 salt) = scripts[i].mine(CREATE2_DEPLOYER, manager);
+            assertEq(uint160(expected) & Hooks.ALL_HOOK_MASK, masks[i], "wrong mask mined");
+            (bool ok,) = CREATE2_DEPLOYER.call(abi.encodePacked(salt, scripts[i].initcode(manager)));
+            assertTrue(ok, "the CREATE2 deployment reverted");
+            assertGt(expected.code.length, 0, "no code at the mined address");
+        }
     }
 }

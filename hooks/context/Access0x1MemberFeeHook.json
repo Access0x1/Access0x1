@@ -1,0 +1,196 @@
+{
+  "schemaVersion": "0",
+  "name": "Access0x1MemberFeeHook",
+  "description": "A merchant's dynamic-fee pool where its members pay a lower swap fee. The merchant, registered on the Access0x1 Router, names any membership contract and tier, a member fee and a public fee, capped at 10%. A swapper with an active membership pays the member fee; anyone else, or any failed read, pays the public fee. No funds, no admin.",
+  "status": "tested",
+  "source": {
+    "path": "src/Access0x1MemberFeeHook.sol",
+    "contract": "Access0x1MemberFeeHook",
+    "gitBlob": "2cf786dbd53708c2429f47692aa4d8f99f82ff41",
+    "inherits": "OpenZeppelin uniswap-hooks BaseHook at bd5287c4a9f5c22c2393f7587a9b357662916115"
+  },
+  "compiler": {
+    "solc": "0.8.30",
+    "evmVersion": "cancun",
+    "viaIR": false,
+    "optimizer": false
+  },
+  "permissions": {
+    "mask": "0x2080",
+    "callbacks": [
+      "beforeInitialize",
+      "beforeSwap"
+    ],
+    "returnsDelta": false
+  },
+  "hooklist": {
+    "flags": {
+      "beforeInitialize": true,
+      "afterInitialize": false,
+      "beforeAddLiquidity": false,
+      "afterAddLiquidity": false,
+      "beforeRemoveLiquidity": false,
+      "afterRemoveLiquidity": false,
+      "beforeSwap": true,
+      "afterSwap": false,
+      "beforeDonate": false,
+      "afterDonate": false,
+      "beforeSwapReturnsDelta": false,
+      "afterSwapReturnsDelta": false,
+      "afterAddLiquidityReturnsDelta": false,
+      "afterRemoveLiquidityReturnsDelta": false
+    },
+    "properties": {
+      "dynamicFee": true,
+      "upgradeable": false,
+      "requiresCustomSwapData": false,
+      "vanillaSwap": false,
+      "swapAccess": "none"
+    }
+  },
+  "routing": {
+    "autoRoutable": false,
+    "needsHookData": false,
+    "reasons": [
+      "Dynamic fee: Uniswap's router needs a manual allowlist for dynamic-fee hooks, which only applies on mainnet."
+    ]
+  },
+  "pool": {
+    "binding": "Each PoolId is bound to the first merchant that configures it; only that merchant's current owner can change it.",
+    "fee": "Dynamic only; static-fee pools are refused at initialize.",
+    "currencies": "Any, including native."
+  },
+  "state": [
+    {
+      "name": "poolConfig",
+      "type": "mapping(PoolId => PoolConfig)",
+      "kind": "storage",
+      "writtenBy": [
+        "configure"
+      ],
+      "readBy": [
+        "beforeInitialize",
+        "beforeSwap",
+        "feeFor"
+      ]
+    },
+    {
+      "name": "trustedRouter",
+      "type": "mapping(uint256 => mapping(address => bool))",
+      "kind": "storage",
+      "writtenBy": [
+        "setRouterTrust"
+      ],
+      "readBy": [
+        "beforeSwap"
+      ]
+    },
+    {
+      "name": "merchantRegistry",
+      "type": "IAccess0x1Merchants",
+      "kind": "immutable",
+      "writtenBy": [
+        "constructor"
+      ],
+      "readBy": [
+        "configure",
+        "setRouterTrust"
+      ]
+    }
+  ],
+  "transientStorage": [],
+  "math": [
+    {
+      "formula": "fee = member ? memberFee : publicFee, returned with OVERRIDE_FEE_FLAG (0x400000)",
+      "format": "pips, 1e6 = 100%",
+      "rounding": "none"
+    }
+  ],
+  "deltas": [
+    {
+      "callback": "beforeSwap",
+      "returns": "BeforeSwapDelta 0, fee override",
+      "currency": "none",
+      "settledBy": "Nobody; only the LP fee changes."
+    }
+  ],
+  "externalCalls": [
+    {
+      "target": "the pool's membership contract",
+      "function": "isActive(address,uint256)",
+      "trust": "Chosen by the merchant. Gas-capped, try/catch: failure means the public fee."
+    },
+    {
+      "target": "a router the merchant trusts",
+      "function": "msgSender()",
+      "trust": "Chosen by the merchant. Gas-capped, try/catch."
+    },
+    {
+      "target": "Access0x1 Router",
+      "function": "merchants(uint256)",
+      "trust": "Read only in configure and setRouterTrust."
+    }
+  ],
+  "accessControl": [
+    {
+      "function": "beforeInitialize, beforeSwap",
+      "caller": "PoolManager only",
+      "enforcedBy": "onlyPoolManager in BaseHook"
+    },
+    {
+      "function": "configure, setRouterTrust",
+      "caller": "the merchant's current owner on the Router",
+      "enforcedBy": "live read; reverts NotMerchantOwner"
+    }
+  ],
+  "securityAssumptions": [
+    "The merchant's chosen membership contract and routers answer truthfully; a wrong answer affects only that merchant's pool fee."
+  ],
+  "doesNotGuarantee": [
+    "Does not stop the first configurer of an unopened PoolId from binding it: a merchant whose PoolId is taken picks another tick spacing.",
+    "The merchant can change fees at any time, up to 10%.",
+    "Does not discount members who swap through a router the merchant has not trusted."
+  ],
+  "invariants": [
+    {
+      "statement": "The hook's address carries exactly beforeInitialize and beforeSwap, mask 0x2080.",
+      "test": "test_Address_MatchesDeclaredPermissions"
+    },
+    {
+      "statement": "A member pays less than an outsider for the same swap.",
+      "test": "test_Member_PaysLessThanOutsider_ForTheSameSwap"
+    },
+    {
+      "statement": "For any amount and fees, a member never receives less than an outsider.",
+      "test": "testFuzz_MemberNeverWorseOff"
+    },
+    {
+      "statement": "An untrusted router's user pays the public fee.",
+      "test": "test_UntrustedRouter_PaysThePublicFee_EvenForAMember"
+    },
+    {
+      "statement": "A failing membership contract means the public fee and a settled swap.",
+      "test": "test_BrokenMembership_FallsBackToPublicFee_SwapSettles"
+    },
+    {
+      "statement": "Only the merchant's owner configures, and a configured pool cannot move to another merchant.",
+      "test": "test_RevertWhen_AnotherMerchantTakesAConfiguredPool"
+    },
+    {
+      "statement": "Unconfigured and static-fee pools cannot be initialised.",
+      "test": "test_RevertWhen_PoolIsUnconfigured_OrStaticFee"
+    }
+  ],
+  "deployments": [],
+  "directory": {
+    "tags": [
+      "dynamic-fee",
+      "membership",
+      "loyalty",
+      "beforeSwap"
+    ],
+    "integrations": [
+      "Access0x1"
+    ]
+  }
+}

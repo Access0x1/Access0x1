@@ -3,6 +3,8 @@ pragma solidity 0.8.30;
 
 import {HookTestBase} from "./utils/HookTestBase.sol";
 import {Access0x1ReceiptHook} from "../src/Access0x1ReceiptHook.sol";
+import {Access0x1MemberFeeHook} from "../src/Access0x1MemberFeeHook.sol";
+import {Access0x1SessionBudgetHook} from "../src/Access0x1SessionBudgetHook.sol";
 
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 
@@ -22,6 +24,22 @@ contract ContextManifestTest is HookTestBase {
         _place(abi.encodePacked(type(Access0x1ReceiptHook).creationCode, abi.encode(manager, address(1))), where);
 
         _assertManifestMatches("context/Access0x1ReceiptHook.json", Access0x1ReceiptHook(where).getHookPermissions());
+    }
+
+    function test_Access0x1MemberFeeHook_ManifestMatchesHook() public {
+        address where = _flagAddress(0x2080);
+        _place(abi.encodePacked(type(Access0x1MemberFeeHook).creationCode, abi.encode(manager, address(1))), where);
+        _assertManifestMatches(
+            "context/Access0x1MemberFeeHook.json", Access0x1MemberFeeHook(where).getHookPermissions()
+        );
+    }
+
+    function test_Access0x1SessionBudgetHook_ManifestMatchesHook() public {
+        address where = _flagAddress(0x80);
+        _place(abi.encodePacked(type(Access0x1SessionBudgetHook).creationCode, abi.encode(manager, address(1))), where);
+        _assertManifestMatches(
+            "context/Access0x1SessionBudgetHook.json", Access0x1SessionBudgetHook(where).getHookPermissions()
+        );
     }
 
     function _assertManifestMatches(string memory path, Hooks.Permissions memory p) internal view {
