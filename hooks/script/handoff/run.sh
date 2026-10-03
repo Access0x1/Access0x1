@@ -3,7 +3,8 @@
 #
 #   ACCOUNT=<keystore name> SENDER=<its address> bash script/handoff/run.sh <step> <sepolia|base-sepolia|unichain-sepolia> [hook]
 #
-#   step: deploy (receipt hook) | member-fee | session-budget | router | all (the four, in order) | demo
+#   step: deploy (receipt hook) | member-fee | session-budget | router | all (the four, in order)
+#         | rest (the three after the receipt hook) | demo
 #
 # Without LIVE=1 it is a dry run: forge simulates against the live chain and sends nothing.
 # With LIVE=1 it signs with your Foundry keystore (`cast wallet import <name> --interactive`);
@@ -16,7 +17,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
-step=${1:?deploy, member-fee, session-budget, router, all or demo}; net=${2:?sepolia, base-sepolia or unichain-sepolia}; hook=${3:-}
+step=${1:?deploy, member-fee, session-budget, router, all, rest or demo}; net=${2:?sepolia, base-sepolia or unichain-sepolia}; hook=${3:-}
 : "${ACCOUNT:?set ACCOUNT to your keystore name}" "${SENDER:?set SENDER to the address of that account}"
 
 # Keyless public RPCs. Override with RPC=... if one is down; never paste a keyed URL into a file.
@@ -41,13 +42,26 @@ if [ "${LIVE:-}" = 1 ]; then
 fi
 
 echo "chain $chain | signer $SENDER | nonce $(cast nonce "$SENDER" --rpc-url "$rpc") | ${LIVE:+LIVE}${LIVE:-dry run}"
-deploy_one() { forge script "script/DeployHook.s.sol:$1" --rpc-url "$rpc" --sender "$SENDER" ${send[@]+"${send[@]}"}; }
+# Before each contract, wait until the RPC reports the nonce the last one used. A load-balanced
+# public RPC (Unichain Sepolia, 2026-10-02) can answer with the previous nonce for a few seconds;
+# forge then signs a transaction that is rejected as "nonce too low".
+deploy_one() {
+  local before; before=$(cast nonce "$SENDER" --rpc-url "$rpc")
+  forge script "script/DeployHook.s.sol:$1" --rpc-url "$rpc" --sender "$SENDER" ${send[@]+"${send[@]}"}
+  [ "${LIVE:-}" = 1 ] || return 0
+  for _ in $(seq 1 30); do
+    [ "$(cast nonce "$SENDER" --rpc-url "$rpc")" -gt "$before" ] && return 0
+    sleep 2
+  done
+  echo "STOP: the nonce did not move past $before after $1; check the explorer before going on"; exit 1
+}
 case "$step" in
   deploy)         deploy_one DeployHook;;
   member-fee)     deploy_one DeployMemberFeeHook;;
   session-budget) deploy_one DeploySessionBudgetHook;;
   router)         deploy_one DeploySwapRouter;;
   all)            for c in DeployHook DeployMemberFeeHook DeploySessionBudgetHook DeploySwapRouter; do deploy_one "$c"; done;;
+  rest)           for c in DeployMemberFeeHook DeploySessionBudgetHook DeploySwapRouter; do deploy_one "$c"; done;;
   demo)
     [ -n "$hook" ] || { echo "STOP: demo needs the hook address from the deploy step"; exit 1; }
     [ "$(cast code "$hook" --rpc-url "$rpc")" != 0x ] || { echo "STOP: no code at $hook. Deploy first."; exit 1; }
