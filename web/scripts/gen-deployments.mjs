@@ -41,6 +41,16 @@ const WEB_ROOT = resolve(HERE, '..')
 const REPO_ROOT = resolve(WEB_ROOT, '..')
 const BROADCAST_DIR = join(REPO_ROOT, 'broadcast', 'DeployAll.s.sol')
 const OUT_DIR = join(REPO_ROOT, 'out')
+// hooks/ is its own Foundry workspace (the v4 hooks): its own broadcast records and artifacts.
+const HOOKS_BROADCAST_DIR = join(REPO_ROOT, 'hooks', 'broadcast', 'DeployHook.s.sol')
+const HOOKS_OUT_DIR = join(REPO_ROOT, 'hooks', 'out')
+
+/** The artifact JSON for a contract: the main build first, then the hooks workspace. */
+function artifactPath(artifact) {
+  return [OUT_DIR, HOOKS_OUT_DIR]
+    .map((dir) => join(dir, `${artifact}.sol`, `${artifact}.json`))
+    .find((p) => existsSync(p))
+}
 const MIRROR_MANIFEST = join(REPO_ROOT, 'script', 'mirror-manifest.json')
 
 /** Arc Testnet metadata — Arc is not a viem chain, so it is described inline. */
@@ -136,8 +146,9 @@ function parseBroadcastData(data, mirrorByAddress = new Map(), { tagMirror = fal
     //    transaction level so it covers the additionalContracts branch below too, since those
     //    ride on this same transaction.
     if (typeof tx.hash !== 'string' || tx.hash.length === 0) continue
-    // 1) Legacy: a directly-named top-level CREATE.
-    if (tx.transactionType === 'CREATE' && tx.contractName && tx.contractAddress) {
+    // 1) Legacy: a directly-named top-level CREATE. CREATE2 too: the v4 hooks (hooks/) are deployed
+    //    through the deterministic CREATE2 deployer at flag-mined addresses, and forge names them.
+    if ((tx.transactionType === 'CREATE' || tx.transactionType === 'CREATE2') && tx.contractName && tx.contractAddress) {
       const entry = {
         contractName: tx.contractName,
         address: tx.contractAddress.toLowerCase(),
@@ -224,8 +235,10 @@ function parseBroadcastChainDir(dir, mirrorByAddress = new Map()) {
  */
 function parseBroadcast(chainId, mirrorByAddress = new Map()) {
   const dir = join(BROADCAST_DIR, String(chainId))
-  if (!existsSync(dir)) return []
-  return parseBroadcastChainDir(dir, mirrorByAddress)
+  const main = existsSync(dir) ? parseBroadcastChainDir(dir, mirrorByAddress) : []
+  const hooksDir = join(HOOKS_BROADCAST_DIR, String(chainId))
+  const hooks = existsSync(hooksDir) ? parseBroadcastChainDir(hooksDir) : []
+  return [...main, ...hooks].sort((a, b) => a.contractName.localeCompare(b.contractName))
 }
 
 /**
@@ -277,8 +290,8 @@ function zeroImmutables(hexNo0x, ranges) {
  * what lib/bytecodeDiff.ts computes for on-chain code, so the two are comparable.
  */
 function artifactBytecode(contractName) {
-  const file = join(OUT_DIR, `${contractName}.sol`, `${contractName}.json`)
-  if (!existsSync(file)) return null
+  const file = artifactPath(contractName)
+  if (!file) return null
   const data = JSON.parse(readFileSync(file, 'utf8'))
   const obj = data.deployedBytecode?.object
   if (typeof obj !== 'string' || obj.length === 0) return null
@@ -335,7 +348,7 @@ function main() {
   for (const chainId of chainIds) {
     const deployments = parseBroadcast(chainId, mirrorByAddress).filter((d) => {
       const artifact = resolveArtifact(d.contractName)
-      return existsSync(join(OUT_DIR, `${artifact}.sol`, `${artifact}.json`))
+      return Boolean(artifactPath(artifact))
     })
     if (deployments.length === 0) continue
     for (const d of deployments) contractNames.add(d.contractName)
