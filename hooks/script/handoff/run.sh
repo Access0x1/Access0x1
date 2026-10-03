@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # run.sh — the ONLY way this template sends a transaction. You run it; nothing else does.
 #
-#   ACCOUNT=<keystore name> SENDER=<its address> bash script/handoff/run.sh <deploy|demo> <sepolia|base-sepolia|unichain-sepolia> [hook]
+#   ACCOUNT=<keystore name> SENDER=<its address> bash script/handoff/run.sh <step> <sepolia|base-sepolia|unichain-sepolia> [hook]
+#
+#   step: deploy (receipt hook) | member-fee | session-budget | router | all (the four, in order) | demo
 #
 # Without LIVE=1 it is a dry run: forge simulates against the live chain and sends nothing.
 # With LIVE=1 it signs with your Foundry keystore (`cast wallet import <name> --interactive`);
@@ -14,7 +16,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
-step=${1:?deploy or demo}; net=${2:?sepolia, base-sepolia or unichain-sepolia}; hook=${3:-}
+step=${1:?deploy, member-fee, session-budget, router, all or demo}; net=${2:?sepolia, base-sepolia or unichain-sepolia}; hook=${3:-}
 : "${ACCOUNT:?set ACCOUNT to your keystore name}" "${SENDER:?set SENDER to the address of that account}"
 
 # Keyless public RPCs. Override with RPC=... if one is down; never paste a keyed URL into a file.
@@ -39,12 +41,16 @@ if [ "${LIVE:-}" = 1 ]; then
 fi
 
 echo "chain $chain | signer $SENDER | nonce $(cast nonce "$SENDER" --rpc-url "$rpc") | ${LIVE:+LIVE}${LIVE:-dry run}"
+deploy_one() { forge script "script/DeployHook.s.sol:$1" --rpc-url "$rpc" --sender "$SENDER" ${send[@]+"${send[@]}"}; }
 case "$step" in
-  deploy)
-    forge script script/DeployHook.s.sol:DeployHook --rpc-url "$rpc" --sender "$SENDER" "${send[@]}";;
+  deploy)         deploy_one DeployHook;;
+  member-fee)     deploy_one DeployMemberFeeHook;;
+  session-budget) deploy_one DeploySessionBudgetHook;;
+  router)         deploy_one DeploySwapRouter;;
+  all)            for c in DeployHook DeployMemberFeeHook DeploySessionBudgetHook DeploySwapRouter; do deploy_one "$c"; done;;
   demo)
     [ -n "$hook" ] || { echo "STOP: demo needs the hook address from the deploy step"; exit 1; }
     [ "$(cast code "$hook" --rpc-url "$rpc")" != 0x ] || { echo "STOP: no code at $hook. Deploy first."; exit 1; }
-    HOOK="$hook" forge script script/DeployHook.s.sol:DemoHook --rpc-url "$rpc" --sender "$SENDER" "${send[@]}";;
+    HOOK="$hook" forge script script/DeployHook.s.sol:DemoHook --rpc-url "$rpc" --sender "$SENDER" ${send[@]+"${send[@]}"};;
   *) echo "STOP: unknown step $step"; exit 1;;
 esac
